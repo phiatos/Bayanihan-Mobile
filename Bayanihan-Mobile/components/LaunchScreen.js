@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Image, Text, TouchableOpacity, View, StyleSheet } from "react-native";
-import angatbuhaylogo from '../Graphics/Images/angatbuhay_logo.png'
+import angatbuhaylogo from '../assets/images/angatbuhay_logo.png'; 
 
 const LaunchScreen = ({ navigation }) => {
   return (
