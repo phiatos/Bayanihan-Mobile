@@ -1,7 +1,6 @@
 import { StyleSheet } from 'react-native';
 
 export default StyleSheet.create({
-
   container: {
     backgroundColor: '#f5f5f5',
   },
@@ -16,9 +15,8 @@ export default StyleSheet.create({
     borderBottomRightRadius: 20,
     height: 92,
     paddingTop: 50,
-    alignContent:'center',
+    alignContent: 'center',
     fontFamily: 'Poppins_Regular',
-  
   },
   menu: {
     position: 'absolute',
@@ -26,7 +24,7 @@ export default StyleSheet.create({
     left: 10,
     zIndex: 100,
     padding: 40,
-    color: 'white'
+    color: 'white',
   },
   section: {
     marginVertical: 10,
@@ -36,6 +34,7 @@ export default StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     backgroundColor: '#FFF9F0',
+    
   },
   sectionTitle: {
     fontSize: 18,
@@ -46,70 +45,72 @@ export default StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 5,
+    flexWrap: 'wrap', 
+    alignItems: 'flex-start',
+    marginBottom: 10,
   },
   label: {
-    flexShrink: 0,
+    width: 150, 
     color: '#4059A5',
-    paddingRight: 20,
-    fontFamily: 'Poppins_Bold'
+    fontFamily: 'Poppins_Bold',
+    fontSize: 13
+  },
+  outputContainer: {
+    flex: 1,
+    alignItems: 'flex-start',
   },
   output: {
-    textAlign: 'right',
+    flex: 1,
+    textAlign: 'left',
     color: '#4059A5',
-    fontFamily: 'Poppins_Regular' 
-   },
+    fontFamily: 'Poppins_Regular',
+    fontSize: 13,
+    flexWrap: 'wrap',
+  },
   input: {
     borderWidth: 1,
     borderColor: '#605D67',
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
-    fontFamily: 'Poppins_Regular'
+    fontFamily: 'Poppins_Regular',
   },
   checkboxContainer: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginVertical: 10,
-  
-},  
-checkboxBox: {
-  width: 24,
-  height: 24,
-  borderRadius: 4,
-  borderWidth: 1,
-  borderColor: '#14AEBB',
-  marginRight: 10,
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: '#fff',
-
-  // Shadow for iOS
-  shadowColor: '#14AEBB',
-  shadowOffset: { width: 0, height: 24 },  
-  shadowOpacity: 0.8, 
-  shadowRadius: 4,  
-
-  // Shadow for Android
-  elevation: 5, 
-  shadowColor: '#14AEBB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
   },
-checkmark: {
-  fontSize: 24,
-  borderRadius: 3,
-  color: 'white',
-  backgroundColor: '#14AEBB'
-},
-
-checkboxLabel: {
-  fontSize: 14,
-  color: '#333',
-},
-submission:{
+  checkboxBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#14AEBB',
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    // Shadow for iOS
+    shadowColor: '#14AEBB',
+    shadowOffset: { width: 0, height: 24 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    // Shadow for Android
+    elevation: 5,
+  },
+  checkmark: {
+    fontSize: 24,
+    borderRadius: 3,
+    color: 'white',
+    backgroundColor: '#14AEBB',
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: '#333',
+  },
+  submission: {
     marginHorizontal: 20,
-},
+  },
   button: {
     backgroundColor: '#00BCD4',
     padding: 15,
@@ -120,12 +121,11 @@ submission:{
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    marginBottom: 30
+    marginBottom: 30,
   },
   buttonText: {
     color: 'white',
-    fontWeight: '700',
-    textAlign: 'center',            
-
+    textAlign: 'center',
+    fontFamily: 'Poppins_SemiBold',
   },
 });

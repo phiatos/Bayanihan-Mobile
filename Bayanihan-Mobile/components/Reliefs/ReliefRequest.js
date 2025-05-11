@@ -367,7 +367,7 @@ const ReliefRequest = () => {
         </View>
 
         <TouchableOpacity style={ReliefRequestStyles.button} onPress={handleSubmit}>
-          <Text style={ReliefRequestStyles.buttonText}>Submit</Text>
+          <Text style={ReliefRequestStyles.buttonText}>Next</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

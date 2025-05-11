@@ -76,18 +76,7 @@ export default StyleSheet.create({
    borderColor: '#D32F2F',  
     fontWeight: '400'
   },
-  button: {
-    backgroundColor: '#00BCD4',
-    padding: 16,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',  
-    fontSize: 15,          
-    fontFamily: 'Poppins_Bold'
-  },
+  
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -115,12 +104,18 @@ addButton: {
   paddingHorizontal: 20,
   backgroundColor: '#00BCD4',
   borderRadius: 10,
+  shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 10
 },
 
 addbuttonText: {
   color: 'white',
   textAlign: 'center',
-  fontSize: 16,
+  fontSize: 13,
   paddingHorizontal: 10,
   fontFamily: 'Poppins_SemiBold', 
 },
@@ -152,6 +147,25 @@ addedItems:{
 
   icon: {
     padding: 10, 
+  },
+
+  button: {
+    backgroundColor: '#00BCD4',
+    padding: 13,
+    borderRadius: 10,
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 30
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',  
+    fontSize: 15,          
+    fontFamily: 'Poppins_Bold'
   },
   
 });
