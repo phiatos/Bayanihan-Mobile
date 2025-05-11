@@ -11,7 +11,7 @@ const LoginScreen = () => {
   const [passwordError, setPasswordError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const navigation = useNavigation(); // Get the navigation prop using the hook
+  const navigation = useNavigation(); 
 
   // Handle login logic
   const handleLogin = () => {
@@ -44,6 +44,7 @@ const LoginScreen = () => {
         console.log("Logged in with", mobileNumber, password);
         setIsLoading(false);
         // Proceed with navigation or authentication here
+        navigation.navigate("ReportSubmission")
       }, 2000);
     } else {
       Alert.alert("Error", "Please fix the errors above.");
@@ -86,7 +87,7 @@ const LoginScreen = () => {
         {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
         {/* Recover Access Button */}
-        <TouchableOpacity style={styles.recoverButton} onPress={() => navigation.navigate("Recovery")}>
+        <TouchableOpacity style={styles.recoverButton} onPress={() => navigation.navigate("RecoveryScreen")}>
           <Text style={styles.recoverText}>Recover Access</Text>
         </TouchableOpacity>
       </View>

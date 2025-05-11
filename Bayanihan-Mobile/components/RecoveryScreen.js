@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Picker } from "react-native";
-import { Ionicons } from "react-native-vector-icons"; // Ensure this is installed
+import { Ionicons } from "react-native-vector-icons"; 
+import Sidebar from "./Sidebar/Sidebar";
+
 
 const RecoveryScreen = ({ navigation }) => {
   const [selectedOption, setSelectedOption] = useState(""); // Default to empty string instead of null
@@ -26,6 +28,13 @@ const RecoveryScreen = ({ navigation }) => {
       Alert.alert("Success", `Recovery process started for ${selectedOption} via ${recoveryMethod}`);
     }
   };
+
+  {showSidebar && (
+  <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 10 }}>
+    <Sidebar />
+  </View>
+)}
+
 
   return (
 <View style={styles.container}>
