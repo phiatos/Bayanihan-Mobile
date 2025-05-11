@@ -48,7 +48,7 @@ const AppLayout = () => {
       
       <View style={styles.content}>
         <TStack.Navigator
-          initialRouteName="ReliefRequest"
+          initialRouteName="LaunchScreen"
           screenOptions={{ headerShown: false }}
         >
           <TStack.Screen name="RecoveryScreen" component={RecoveryScreen} />
