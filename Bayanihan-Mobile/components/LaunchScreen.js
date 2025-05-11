@@ -1,20 +1,34 @@
-
-import React from "react";
+import React, { useEffect } from "react";
 import { Image, Text, TouchableOpacity, View, StyleSheet } from "react-native";
-import angatbuhaylogo from '../assets/images/angatbuhay_logo.png'; 
+import * as Animatable from 'react-native-animatable';
+import angatbuhaylogo from '../assets/images/angatbuhay_logo.png';
+import * as SplashScreen from 'expo-splash-screen'; 
 
 const LaunchScreen = ({ navigation }) => {
+  useEffect(() => {
+    SplashScreen.preventAutoHideAsync();
+
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync();
+      
+      navigation.replace("LoginScreen");
+    }, 3000); 
+
+    return () => clearTimeout(timer);
+  }, [navigation]);
+
   return (
     <View style={styles.container}>
-      <Image source={angatbuhaylogo} style={styles.logo} />
-
+      <Animatable.View animation="fadeIn" duration={2000}> 
+        <Image source={angatbuhaylogo} style={styles.logo} />
+      </Animatable.View>
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate("Signup")}>
         <Text style={styles.buttonText}>Create an Account</Text>
       </TouchableOpacity>
 
       <View style={styles.loginContainer}>
         <Text style={styles.loginText1}>Already have an account? </Text>
-        <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+        <TouchableOpacity onPress={() => navigation.navigate("LoginScreen")}>
           <Text style={styles.loginText}>Log in</Text>
         </TouchableOpacity>
       </View>
@@ -76,4 +90,3 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
 });
-

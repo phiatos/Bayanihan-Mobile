@@ -1,19 +1,34 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSidebar } from '../Sidebar/SidebarContext';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+
 
 const ReportSummary = ({ route }) => {
+    const { toggleSidebar } = useSidebar();
   const { reportData } = route.params;
   const navigation = useNavigation();
 
-  const formatLabel = (key) => key.replace(/([A-Z])/g, ' $1').toLowerCase();
+  const formatLabel = (key) => {
+    return key.replace(/([A-Z])/g, ' $1').toLowerCase();
+  };
 
   const formatDate = (date) => {
-    if (!date) return 'N/A';
+    if (!date || !(date instanceof Date) || isNaN(date)) return 'N/A';
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  };
+
+  const formatTime = (date) => {
+    if (!date || !(date instanceof Date) || isNaN(date)) return 'N/A';
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
   };
 
   const handleSubmit = () => {
@@ -24,7 +39,7 @@ const ReportSummary = ({ route }) => {
       [
         {
           text: 'OK',
-          onPress: () => navigation.navigate('Dashboard'),
+          onPress: () => navigation.navigate('Profile'),
         },
       ],
       { cancelable: false }
@@ -33,18 +48,25 @@ const ReportSummary = ({ route }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <TouchableOpacity style={styles.menu} onPress={toggleSidebar}>
+              <Icon name="menu" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
       <Text style={styles.header}>Reports Submission</Text>
       <Text style={styles.subheader}>[Organization Name]</Text>
 
       <View style={styles.formContainer}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Basic Information</Text>
-          {['reportID', 'location', 'timeOfIntervention', 'submittedBy'].map((field) => (
+          {['reportID', 'submittedBy'].map((field) => (
             <View key={field} style={styles.fieldContainer}>
               <Text style={styles.label}>{formatLabel(field)}</Text>
-              <Text style={styles.value}>{reportData[field]}</Text>
+              <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
             </View>
           ))}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.label}>Time of Intervention</Text>
+            <Text style={styles.value}>{formatTime(reportData.timeOfIntervention)}</Text>
+          </View>
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>Date of Report</Text>
             <Text style={styles.value}>{formatDate(reportData.dateOfReport)}</Text>
@@ -57,7 +79,7 @@ const ReportSummary = ({ route }) => {
             <View key={field} style={styles.fieldContainer}>
               <Text style={styles.label}>{formatLabel(field)}</Text>
               <Text style={styles.value}>
-                {field === 'operationDate' ? formatDate(reportData[field]) : reportData[field]}
+                {field === 'operationDate' ? formatDate(reportData[field]) : reportData[field] || 'N/A'}
               </Text>
             </View>
           ))}
@@ -68,7 +90,7 @@ const ReportSummary = ({ route }) => {
           {['urgentNeeds', 'remarks'].map((field) => (
             <View key={field} style={styles.fieldContainer}>
               <Text style={styles.label}>{formatLabel(field)}</Text>
-              <Text style={styles.value}>{reportData[field]}</Text>
+              <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
             </View>
           ))}
         </View>
@@ -92,9 +114,11 @@ const ReportSummary = ({ route }) => {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
+    paddingBottom: 60,
+
   },
   header: {
-    fontSize: 18,
+   fontSize: 20,
     backgroundColor: '#4059A5',
     color: 'white',
     textAlign: 'center',
@@ -102,16 +126,25 @@ const styles = StyleSheet.create({
     width: '100%',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    height: 62,
-    paddingTop: 20,
-    alignContent: 'center',
+    height: 90,
+    paddingTop: 50,
+    alignContent:'center',
+    fontFamily: 'Poppins_Regular', 
   },
+   menu: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    zIndex: 100,
+    padding: 40,
+    color: 'white',
+   },
   subheader: {
     fontSize: 16,
     color: '#3D52A0',
     textAlign: 'center',
     marginVertical: 10,
-    fontWeight: '600',
+    fontFamily: 'Poppins_Regular', 
   },
   formContainer: {
     marginVertical: 10,
@@ -132,28 +165,29 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 10,
     color: '#14AEBB',
+    marginBottom: 10,
+    fontFamily: 'Poppins_Regular', 
   },
   fieldContainer: {
     marginBottom: 5,
   },
   label: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#4059A5',
     textTransform: 'capitalize',
+    fontFamily: 'Poppins_SemiBold'
   },
   value: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
     marginTop: 2,
+    fontFamily: 'Poppins_Regular'
   },
   buttonContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'space-between',
-    marginHorizontal: 15,
+    marginHorizontal: 35,
     marginBottom: 20,
   },
   backButton: {
@@ -162,14 +196,14 @@ const styles = StyleSheet.create({
     borderColor: '#4059A5',
     borderRadius: 5,
     padding: 10,
+    marginVertical: 10,
     alignItems: 'center',
-    marginRight: 10,
     backgroundColor: '#FFFFFF',
   },
   backButtonText: {
     color: '#4059A5',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Poppins_Regular'
   },
   submitButton: {
     flex: 1,
@@ -181,7 +215,8 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Poppins_Regular'
+
   },
 });
 

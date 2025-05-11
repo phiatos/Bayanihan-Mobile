@@ -6,7 +6,7 @@ export default StyleSheet.create({
     paddingBottom: 60,
   },
   header: {
-    fontSize: 18,
+    fontSize: 20,
     backgroundColor: '#4059A5',
     color: 'white',
     textAlign: 'center',
@@ -14,23 +14,25 @@ export default StyleSheet.create({
     width: '100%',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    height: 92,
+    height: 90,
     paddingTop: 50,
     alignContent:'center',
+    fontFamily: 'Poppins_Regular',  
   },
   menu: {
-  position: 'absolute',
-  top: 10,
-  left: 10,
-  zIndex: 100,
-  padding: 40,
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    zIndex: 100,
+    padding: 40,
+    color: 'white',
 },
   subheader: {
     fontSize: 16,
     color: '#3D52A0',
     textAlign: 'center',
     marginVertical: 10,
-    fontWeight: '600',
+    fontFamily: 'Poppins_Regular', 
   },
   section: {
     marginVertical: 10,
@@ -44,16 +46,16 @@ export default StyleSheet.create({
     padding: 10,
   },
   sectionTitle: {
-    fontSize: 20,
+   fontSize: 20,
     color: '#14AEBB',
-    fontWeight: '500',
     marginBottom: 10,
+    fontFamily: 'Poppins_Regular', 
   },
-  formTitle: {
-    fontSize: 16,
+ formTitle: {
+    fontSize: 13,
     color: '#4059A5',
     marginBottom: 5,
-    fontWeight: "bold",
+    fontFamily: 'Poppins_Bold',
   },
   input: {
     borderWidth: 1,
@@ -62,18 +64,23 @@ export default StyleSheet.create({
     padding: 10,
     marginBottom: 10,
     backgroundColor: 'white',
-    fontSize: 16,
+    fontSize: 14,
+    fontFamily: 'Poppins_Regular', 
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-  requiredAsterisk: {           
-    color: '#D32F2F',            
-  },
    requiredInput: {            
    borderColor: '#D32F2F',            
   },
+
+    errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginLeft: 10,
+},
+
   button: {
     backgroundColor: '#00BCD4',
     padding: 15,
@@ -82,9 +89,9 @@ export default StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontWeight: '700',
-    textAlign: 'center',            
-
+    textAlign: 'center',  
+    fontSize: 15,          
+    fontFamily: 'Poppins_Bold' 
   },
   inputContainer: {
     flexDirection: 'row',
@@ -98,9 +105,11 @@ export default StyleSheet.create({
   dateInput: {
     flex: 1,
     borderWidth: 0,
-    paddingVertical: 5, 
     paddingHorizontal:10,
-    fontSize: 16, 
+    fontSize: 16,
+    backgroundColor: 'white',
+    fontSize: 14,
+    fontFamily: 'Poppins_Regular',
   },
   icon: {
     padding: 10, 

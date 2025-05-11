@@ -6,7 +6,7 @@ export default StyleSheet.create({
     paddingBottom: 60,
   },
    header: {
-    fontSize: 18,
+    fontSize: 20,
     backgroundColor: '#4059A5',
     color: 'white',
     textAlign: 'center',
@@ -14,24 +14,27 @@ export default StyleSheet.create({
     width: '100%',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    height: 92,
+    height: 90,
     paddingTop: 50,
     alignContent:'center',
+    fontFamily: 'Poppins_Regular',  
+
   },
-   menu: {
-  position: 'absolute',
-  top: 10,
-  left: 10,
-  zIndex: 100,
-  padding: 40,
+  menu: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    zIndex: 100,
+    padding: 40,
+    color: 'white',
 },
   subheader: {
     fontSize: 16,
     color: '#3D52A0',
     textAlign: 'center',
     marginVertical: 10,
-    fontWeight: '600',
-  },
+    fontFamily: 'Poppins_Regular', 
+    },
   section: {
     marginVertical: 10,
   },
@@ -46,14 +49,14 @@ export default StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     color: '#14AEBB',
-    fontWeight: '500',
     marginBottom: 10,
+    fontFamily: 'Poppins_Regular', 
   },
   formTitle: {
-    fontSize: 16,
+    fontSize: 13,
     color: '#4059A5',
     marginBottom: 5,
-    fontWeight: "bold",
+    fontFamily: 'Poppins_Bold',
   },
   input: {
     borderWidth: 1,
@@ -62,29 +65,28 @@ export default StyleSheet.create({
     padding: 10,
     marginBottom: 10,
     backgroundColor: 'white',
-    fontSize: 16,
-  },
+    fontSize: 14,
+    fontFamily: 'Poppins_Regular', 
+    },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-  requiredAsterisk: {           
-    color: '#D32F2F',            
-  },
    requiredInput: {            
-   borderColor: '#D32F2F',            
+   borderColor: '#D32F2F',  
+    fontWeight: '400'
   },
   button: {
     backgroundColor: '#00BCD4',
-    padding: 15,
+    padding: 16,
     borderRadius: 10,
     marginTop: 10,
   },
   buttonText: {
     color: 'white',
-    fontWeight: '700',
-    textAlign: 'center',            
-
+    textAlign: 'center',  
+    fontSize: 15,          
+    fontFamily: 'Poppins_Bold'
   },
   inputContainer: {
     flexDirection: 'row',
@@ -95,6 +97,13 @@ export default StyleSheet.create({
     backgroundColor: '#fff',
     marginBottom: 10,            
   },
+
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginLeft: 10,
+},
+
   addButtonContainer: {
   flexDirection: 'row',
   justifyContent: 'flex-end',
@@ -110,11 +119,36 @@ addButton: {
 
 addbuttonText: {
   color: 'white',
-  fontWeight: '700',
   textAlign: 'center',
   fontSize: 16,
-  paddingHorizontal: 10
+  paddingHorizontal: 10,
+  fontFamily: 'Poppins_SemiBold', 
 },
+
+addedItems:{
+  fontFamily: 'Poppins_Medium',
+  fontSize: 18,
+  color: '#14AEBB',
+
+},
+
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+    paddingVertical: 10,
+  },
+  tableHeader: {
+    textAlign: 'left',
+    paddingLeft: 10,    
+    fontFamily: 'Poppins_Bold',
+    color: '#4059A5', 
+  },
+  tableCell: {
+    textAlign: 'left',
+    paddingLeft: 10,
+    fontFamily: 'Poppins_Regular'
+  },
 
   icon: {
     padding: 10, 

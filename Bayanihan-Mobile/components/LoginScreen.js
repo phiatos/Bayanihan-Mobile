@@ -3,6 +3,7 @@ import { useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
 import { Ionicons } from "react-native-vector-icons"; // Ensure this is installed
 import { useNavigation } from '@react-navigation/native'; // Import useNavigation hook
+import { Picker } from '@react-native-picker/picker';
 
 const LoginScreen = () => {
   const [mobileNumber, setMobileNumber] = useState("");
@@ -24,7 +25,7 @@ const LoginScreen = () => {
     if (!mobileNumber) {
       setMobileError("Mobile Number is required");
       isValid = false;
-    } else if (!/^\d{10}$/.test(mobileNumber)) {
+    } else if (!/^\d{11}$/.test(mobileNumber)) {
       setMobileError("Mobile Number Invalid");
       isValid = false;
     }
@@ -44,7 +45,7 @@ const LoginScreen = () => {
         console.log("Logged in with", mobileNumber, password);
         setIsLoading(false);
         // Proceed with navigation or authentication here
-        navigation.navigate("ReportSubmission")
+        navigation.navigate("Profile")
       }, 2000);
     } else {
       Alert.alert("Error", "Please fix the errors above.");
@@ -54,7 +55,7 @@ const LoginScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate("Launch")}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate("LaunchScreen")}>
           <Ionicons name="arrow-back" size={28} color="#14AFBC" />
         </TouchableOpacity>
 

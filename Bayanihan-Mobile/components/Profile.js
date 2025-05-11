@@ -4,7 +4,7 @@ import ProfileStyles from '../styles/ProfileStyles';
 import { useSidebar } from './Sidebar/SidebarContext';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import GlobalStyle from '../styles/GlobalStyle';
+import { ScrollView } from 'react-native-gesture-handler';
 
 
 const Profile = () => {
@@ -24,14 +24,15 @@ const toggleConsentCheckbox = () => {
   setAgreedConsent(!agreedConsent);
 };
 
-// Next
+// Next 
 // const handleSubmit = () => {
 //     navigation.navigate('Profile');
 // }
 
   return (
-    <View style={ProfileStyles.container}>
-      <TouchableOpacity  onPress={toggleSidebar}>
+    <ScrollView style={ProfileStyles.container}>
+    <View >
+      <TouchableOpacity  onPress={toggleSidebar} style={ProfileStyles.menu}>
               <Icon name="menu" size={24} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={ProfileStyles.header}>Profile</Text>
@@ -73,7 +74,7 @@ const toggleConsentCheckbox = () => {
         <Text style={ProfileStyles.sectionTitle}>Change password</Text>
         <TextInput
           style={ProfileStyles.input}
-          placeholder="Current Password (temporary password)"
+          placeholder="Temporary Password"
           value={currentPassword}
           onChangeText={setCurrentPassword}
           secureTextEntry
@@ -96,14 +97,15 @@ const toggleConsentCheckbox = () => {
       <View style={ProfileStyles.submission}>
        <TouchableOpacity onPress={toggleTermsCheckbox} style={ProfileStyles.checkboxContainer}>
         <View style={ProfileStyles.checkboxBox}>
-          {agreedTerms && <Text style={ProfileStyles.checkmark}>✓</Text>}
+        {agreedTerms && <Icon name="check" style={ProfileStyles.checkmark} />}
+
         </View>
         <Text style={ProfileStyles.checkboxLabel}>I agree to the terms and privacy policy</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={toggleConsentCheckbox} style={ProfileStyles.checkboxContainer}>
         <View style={ProfileStyles.checkboxBox}>
-          {agreedConsent && <Text style={ProfileStyles.checkmark}>✓</Text>}
+         {agreedConsent && <Icon name="check" style={ProfileStyles.checkmark} />}
         </View>
         <Text style={ProfileStyles.checkboxLabel}>I consent to Bayanihan collecting and storing my data for disaster response purposes</Text>
       </TouchableOpacity>
@@ -113,6 +115,7 @@ const toggleConsentCheckbox = () => {
           </TouchableOpacity>
           </View>
     </View>
+    </ScrollView>
   );
 };
 

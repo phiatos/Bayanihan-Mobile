@@ -1,4 +1,4 @@
-import { GestureHandlerRootView } from 'react-native-gesture-handler'; // ✅ Add this
+import { GestureHandlerRootView } from 'react-native-gesture-handler'; 
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
@@ -14,8 +14,7 @@ import { TouchableWithoutFeedback } from "react-native-gesture-handler";
 import ReliefRequest from './components/Reliefs/ReliefRequest';
 import Profile from './components/Profile';
 import ReliefSummary from './components/Reliefs/ReliefSummary';
-import { useFonts, Poppins_500Regular, Poppins_700SemiBold, Poppins_800Bold } from '@expo-google-fonts/poppins';
-import useCustomFonts from './assets/fonts/useCustomFonts';
+import { useFonts } from 'expo-font';
 
 
 
@@ -25,40 +24,31 @@ const AppLayout = () => {
   const { showSidebar, closeSidebar } = useSidebar();
 
   // fonts
-  // const [fontsLoaded] = useFonts({
-  //   Poppins_500Regular,
-  //   Poppins_700SemiBold,
-  //   Poppins_800Bold,
+    const [fontsLoaded] = useFonts({
+    Poppins_Regular: require('./assets/fonts/Poppins/Poppins-Regular.ttf'),  
+    Poppins_SemiBold: require('./assets/fonts/Poppins/Poppins-SemiBold.ttf'),
+    Poppins_Bold: require('./assets/fonts/Poppins/Poppins-Bold.ttf'),
+    Poppins_Medium: require('./assets/fonts/Poppins/Poppins-Medium.ttf'),
 
-  // });
-
-  const [fontsLoaded] = useCustomFonts(
-    {
-    Poppins_500Regular,
-    Poppins_700SemiBold,
-    Poppins_800Bold,
-    }
-  );
+  });
+    if (!fontsLoaded) return null; 
 
 
   return (
     <View style={styles.container}>
       {showSidebar && (
         <>
-          {/* Fullscreen touchable overlay that closes the sidebar */}
           <TouchableWithoutFeedback onPress={closeSidebar}>
             <View style={styles.overlay} />
           </TouchableWithoutFeedback>
 
-          {/* Sidebar sits above the overlay */}
           <Sidebar />
         </>
       )}
       
-      {/* Main content below sidebar/overlay */}
       <View style={styles.content}>
         <TStack.Navigator
-          initialRouteName="Profile"
+          initialRouteName="ReliefRequest"
           screenOptions={{ headerShown: false }}
         >
           <TStack.Screen name="RecoveryScreen" component={RecoveryScreen} />

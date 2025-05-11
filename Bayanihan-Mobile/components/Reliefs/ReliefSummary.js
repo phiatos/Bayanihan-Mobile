@@ -1,10 +1,14 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, FlatList } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useSidebar } from '../Sidebar/SidebarContext';
+
 
 const ReliefSummary = ({ route }) => {
   const { reportData, addedItems } = route.params;
   const navigation = useNavigation();
+  const { toggleSidebar } = useSidebar();
 
   const formatLabel = (key) => key.replace(/([A-Z])/g, ' $1').toLowerCase();
 
@@ -23,7 +27,7 @@ const ReliefSummary = ({ route }) => {
       [
         {
           text: 'OK',
-          onPress: () => navigation.navigate('Dashboard'),
+          onPress: () => navigation.navigate('Profile'),
         },
       ],
       { cancelable: false }
@@ -39,8 +43,11 @@ const ReliefSummary = ({ route }) => {
   );
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>Reports Submission</Text>
+    <ScrollView style={styles.container}>
+      <TouchableOpacity style={styles.menu} onPress={toggleSidebar}>
+        <Icon name="menu" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      <Text style={styles.header}>Relief Summary</Text>
       <Text style={styles.subheader}>[Organization Name]</Text>
 
       <View style={styles.formContainer}>
@@ -98,9 +105,10 @@ const ReliefSummary = ({ route }) => {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
+    paddingBottom: 60,
   },
   header: {
-    fontSize: 18,
+    fontSize: 20,
     backgroundColor: '#4059A5',
     color: 'white',
     textAlign: 'center',
@@ -108,16 +116,25 @@ const styles = StyleSheet.create({
     width: '100%',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    height: 62,
-    paddingTop: 20,
-    alignContent: 'center',
+    height: 90,
+    paddingTop: 50,
+    alignContent:'center',
+    fontFamily: 'Poppins_Regular',
   },
+    menu: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    zIndex: 100,
+    padding: 40,
+    color: 'white',
+    },
   subheader: {
     fontSize: 16,
     color: '#3D52A0',
     textAlign: 'center',
     marginVertical: 10,
-    fontWeight: '600',
+    fontFamily: 'Poppins_Regular', 
   },
   formContainer: {
     marginVertical: 10,
@@ -138,23 +155,24 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '600',
     marginBottom: 10,
     color: '#14AEBB',
+    fontFamily: 'Poppins_Medium'
   },
   fieldContainer: {
     marginBottom: 5,
   },
   label: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#4059A5',
     textTransform: 'capitalize',
+    fontFamily: 'Poppins_SemiBold'
   },
   value: {
     fontSize: 16,
-    color: '#666',
+    color: '#000000',
     marginTop: 2,
+    fontFamily: 'Poppins_Regular'
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -175,19 +193,21 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: '#4059A5',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Poppins_Regular'
   },
   submitButton: {
     flex: 1,
     backgroundColor: '#14AEBB',
     borderRadius: 5,
     padding: 10,
-    alignItems: 'center',
   },
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    paddingTop: 5,
+    fontFamily: 'Poppins_Regular',    
+    textAlign: 'center',
+
   },
   table: {
     marginTop: 10,
@@ -195,8 +215,8 @@ const styles = StyleSheet.create({
     borderColor: '#4059A5',
     borderRadius: 5,
     overflow: 'hidden',
-    
   },
+
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: 'rgba(64, 89, 165, 0.5)',
@@ -207,7 +227,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     color: '#4059A5',
-    fontWeight: 'bold',
+    fontFamily: 'Poppins_Bold'
   },
   tableRow: {
     flexDirection: 'row',
@@ -220,7 +240,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     fontSize: 16,
-    color: '#666',
+    color: '#4059A5',
   },
 });
 

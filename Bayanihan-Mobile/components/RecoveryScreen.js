@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Picker } from "react-native";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "react-native-vector-icons"; 
-import Sidebar from "./Sidebar/Sidebar";
 
 
 const RecoveryScreen = ({ navigation }) => {
@@ -17,23 +17,16 @@ const RecoveryScreen = ({ navigation }) => {
 
   const handleOptionSelect = (option) => {
     setSelectedOption(option);
-    setRecoveryMethod(""); // Reset recovery method when option is changed
+    setRecoveryMethod(""); 
   };
 
   const handleSubmit = () => {
     if (!recoveryMethod) {
       Alert.alert("Error", "Please select a recovery method.");
     } else {
-      // Handle submission logic here
       Alert.alert("Success", `Recovery process started for ${selectedOption} via ${recoveryMethod}`);
     }
   };
-
-  {showSidebar && (
-  <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 10 }}>
-    <Sidebar />
-  </View>
-)}
 
 
   return (
@@ -62,25 +55,25 @@ const RecoveryScreen = ({ navigation }) => {
   </View>
 
   {!selectedOption && (
-    <>
-      <Text style={styles.titleSecondary}>How can we help?</Text>
-      <Text style={styles.descSecondary}>
-        Select from the following options below if you are having trouble accessing your account.
+  <>
+    <Text style={styles.titleSecondary}>How can we help?</Text>
+    <Text style={styles.descSecondary}>
+      Select from the following options below if you are having trouble accessing your account.
+    </Text>
+
+    <TouchableOpacity style={styles.button} onPress={() => handleOptionSelect("mobile")}>
+      <Text style={[styles.buttonText, selectedOption === "mobile" && styles.selectedOption]}>
+        I forgot my mobile number
       </Text>
+    </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button} onPress={() => handleOptionSelect("mobile")}>
-        <Text style={[style=styles.buttonText, selectedOption === "mobile" && styles.selectedOption]}>
-          I forgot my mobile number
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.button} onPress={() => handleOptionSelect("password")}>
-        <Text style={[style=styles.buttonText, selectedOption === "password" && styles.selectedOption]}>
-          I forgot my password
-        </Text>
-      </TouchableOpacity>
-    </>
-  )}
+    <TouchableOpacity style={styles.button} onPress={() => handleOptionSelect("password")}>
+      <Text style={[styles.buttonText, selectedOption === "password" && styles.selectedOption]}>
+        I forgot my password
+      </Text>
+    </TouchableOpacity>
+  </>
+)}
 
   {/* Forgot Mobile Number Flow */}
   {selectedOption === "mobile" && (
