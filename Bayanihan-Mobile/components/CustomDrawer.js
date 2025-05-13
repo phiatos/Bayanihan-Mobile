@@ -14,72 +14,56 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 
+import styles from '../src/styles/CustomDrawerStyles'; 
+
+
 const CustomDrawer = props => {
   const { navigation } = props;
    
   return (
-    <View style={{flex: 1}}>
+    <View style={styles.container}>
       <DrawerContentScrollView
         {...props}
-        contentContainerStyle={{backgroundColor: '#14AEBB'}}
+        contentContainerStyle={styles.drawerScroll}
         >
-        <ImageBackground
-          source={require('../assets/images/menu-bg.jpeg')}
-          style={{padding: 20}}>
+        <View style={styles.userHeader}>
           <Image
             source={require('../assets/images/user.jpg')}
-            style={{height: 80, width: 80, borderRadius: 40, marginBottom: 10}}
+            style={styles.profileImage}
           />
           <Text
-            style={{
-              color: '#fff',
-              fontSize: 18,
-              fontFamily: 'Roboto-Medium',
-              marginBottom: 5,
-            }}>
+            style={styles.userName}>
             John Doe
           </Text>
-          <View style={{flexDirection: 'row'}}>
+          <View style={styles.userRoleContainer}>
             <Text
-              style={{
-                color: '#fff',
-                fontFamily: 'Roboto-Regular',
-                marginRight: 5,
-              }}>
+              style={styles.userRole}>
               Admin
             </Text>
             {/* Test with another icon */}
             <FontAwesome5 name="user" size={14} color="#fff" />
           </View>
-        </ImageBackground>
-        <View style={{flex: 1, backgroundColor: '#fff', paddingTop: 10}}>
+        </View>
+        <View style={styles.drawerListContainer}>
           <DrawerItemList {...props} />
         </View>
       </DrawerContentScrollView>
       
-      <View style={{padding: 20, borderTopWidth: 1, borderTopColor: '#ccc'}}>
-        <TouchableOpacity onPress={() => {}} style={{paddingVertical: 15}}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+      <View style={styles.footer}>
+        <TouchableOpacity onPress={() => {}} style={styles.footerButton}>
+          <View style={styles.footerButtonContent}>
             <Ionicons name="share-social-outline" size={22} />
             <Text
-              style={{
-                fontSize: 15,
-                fontFamily: 'Roboto-Medium',
-                marginLeft: 5,
-              }}>
+              style={styles.footerButtonText}>
               Tell a Friend
             </Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate("Login")} style={{paddingVertical: 15}}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+        <TouchableOpacity onPress={() => navigation.navigate("Login")} style={styles.footerButton}>
+          <View style={styles.footerButtonContent}>
             <Ionicons name="exit-outline" size={22} />
             <Text
-              style={{
-                fontSize: 15,
-                fontFamily: 'Roboto-Medium',
-                marginLeft: 5,
-              }}>
+              style={styles.footerButtonText}>
               Sign Out
             </Text>
           </View>
