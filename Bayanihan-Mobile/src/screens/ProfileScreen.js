@@ -1,58 +1,52 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import ProfileStyles from '../styles/ProfileStyles';
-import { useSidebar } from './Sidebar/SidebarContext';
+import { Text, View, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { ScrollView } from 'react-native-gesture-handler';
+import ProfileStyles from '../styles/ProfileStyles';
 
-const Profile = () => {
-  const { toggleSidebar } = useSidebar();
+const ProfileScreen = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Checkbox
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedConsent, setAgreedConsent] = useState(false);
 
-  const toggleTermsCheckbox = () => {
-    setAgreedTerms(!agreedTerms);
-  };
-
-  const toggleConsentCheckbox = () => {
-    setAgreedConsent(!agreedConsent);
-  };
+  const toggleTermsCheckbox = () => setAgreedTerms(!agreedTerms);
+  const toggleConsentCheckbox = () => setAgreedConsent(!agreedConsent);
 
   return (
     <ScrollView style={ProfileStyles.container}>
-      <View>
-        <TouchableOpacity onPress={toggleSidebar} style={ProfileStyles.menu}>
-          <Icon name="menu" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
         <Text style={ProfileStyles.header}>Profile</Text>
 
         <View style={ProfileStyles.section}>
           <Text style={ProfileStyles.sectionTitle}>Volunteer Group Information</Text>
+
           <View style={ProfileStyles.infoRow}>
             <Text style={ProfileStyles.label}>Organization Name:</Text>
             <Text style={ProfileStyles.output}>ABVN Team A</Text>
           </View>
+
           <View style={ProfileStyles.infoRow}>
             <Text style={ProfileStyles.label}>HQ:</Text>
             <Text style={ProfileStyles.output}>Naga City, Camarines Sur</Text>
           </View>
+
           <View style={ProfileStyles.infoRow}>
             <Text style={ProfileStyles.label}>Contact Person:</Text>
             <Text style={ProfileStyles.output}>John Doe</Text>
           </View>
+
           <View style={ProfileStyles.infoRow}>
             <Text style={ProfileStyles.label}>Email Address:</Text>
             <Text style={ProfileStyles.output}>johnDoe@gmail.com</Text>
           </View>
+
           <View style={ProfileStyles.infoRow}>
             <Text style={ProfileStyles.label}>Mobile Number:</Text>
             <Text style={ProfileStyles.output}>0999 999 9999</Text>
           </View>
+
           <View style={ProfileStyles.infoRow}>
             <Text style={ProfileStyles.label}>Area of Operation:</Text>
             <View style={ProfileStyles.outputContainer}>
@@ -66,6 +60,7 @@ const Profile = () => {
 
         <View style={ProfileStyles.section}>
           <Text style={ProfileStyles.sectionTitle}>Change Password</Text>
+
           <TextInput
             style={ProfileStyles.input}
             placeholder="Temporary Password"
@@ -88,6 +83,7 @@ const Profile = () => {
             secureTextEntry
           />
         </View>
+
         <View style={ProfileStyles.submission}>
           <TouchableOpacity onPress={toggleTermsCheckbox} style={ProfileStyles.checkboxContainer}>
             <View style={ProfileStyles.checkboxBox}>
@@ -111,7 +107,8 @@ const Profile = () => {
         </View>
       </View>
     </ScrollView>
-  );
-};
+    
+  )
+}
 
-export default Profile;
+export default ProfileScreen

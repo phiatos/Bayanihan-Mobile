@@ -1,24 +1,19 @@
-
 import { useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
-import { Ionicons } from "react-native-vector-icons"; // Ensure this is installed
-import { useNavigation } from '@react-navigation/native'; // Import useNavigation hook
+import { Ionicons } from "react-native-vector-icons";
+import { useNavigation } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 
-const LoginScreen = () => {
+const LoginScreen = ({navigation, onLogin }) => {
   const [mobileNumber, setMobileNumber] = useState("");
   const [password, setPassword] = useState("");
   const [mobileError, setMobileError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const navigation = useNavigation(); 
-
-  // Handle login logic
-  const handleLogin = () => {
+    const handleLogin = () => {
     let isValid = true;
 
-    // Reset errors
     setMobileError("");
     setPasswordError("");
 
@@ -40,12 +35,11 @@ const LoginScreen = () => {
 
     if (isValid) {
       setIsLoading(true);
-      // Simulate login process (replace with actual logic)
       setTimeout(() => {
         console.log("Logged in with", mobileNumber, password);
         setIsLoading(false);
-        // Proceed with navigation or authentication here
-        navigation.navigate("Profile")
+        onLogin(); // Call the onLogin function passed from App.js
+        // No need to navigate here, App.js will re-render and show AppStack
       }, 2000);
     } else {
       Alert.alert("Error", "Please fix the errors above.");
@@ -53,9 +47,11 @@ const LoginScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate("LaunchScreen")}>
+        <TouchableOpacity 
+          onPress={() => navigation.navigate("Onboarding")}
+          style={styles.backButton} >
           <Ionicons name="arrow-back" size={28} color="#14AFBC" />
         </TouchableOpacity>
 
@@ -103,11 +99,12 @@ const LoginScreen = () => {
       </TouchableOpacity>
 
       <Text style={styles.termsText}>By using Bayanihan, you agree to the Terms and Privacy Policy.</Text>
-    </View>
-  );
-};
 
-export default LoginScreen;
+    </View>
+  )
+}
+
+export default LoginScreen
 
 const styles = StyleSheet.create({
   container: {
@@ -204,3 +201,4 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 });
+
