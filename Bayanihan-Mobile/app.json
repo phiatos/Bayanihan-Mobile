@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Bayanihan-Mobile",
+    "slug": "Bayanihan-Mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/ab_logo.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/ab_logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFF7EC"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/ab_logo.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/images/ab_logo.png"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
