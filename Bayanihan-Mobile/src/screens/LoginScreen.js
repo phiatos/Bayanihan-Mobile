@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, SafeAreaView } from "react-native";
 import { Ionicons } from "react-native-vector-icons";
 import { useNavigation } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
@@ -47,7 +47,13 @@ const LoginScreen = ({navigation, onLogin }) => {
   };
 
   return (
-    <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+    <SafeAreaView style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#FFF9F0',
+      }}
+    >
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => navigation.navigate("Onboarding")}
@@ -100,7 +106,7 @@ const LoginScreen = ({navigation, onLogin }) => {
 
       <Text style={styles.termsText}>By using Bayanihan, you agree to the Terms and Privacy Policy.</Text>
 
-    </View>
+    </SafeAreaView>
   )
 }
 
@@ -111,7 +117,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-start", // Align elements at the top
     alignItems: "center",
-    backgroundColor: "#FFF7EC",
+    backgroundColor: "#FFF9F0",
     padding: 26,
   },
   header: {

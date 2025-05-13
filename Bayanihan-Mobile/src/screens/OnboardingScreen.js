@@ -82,7 +82,7 @@ const OnboardingScreen = ({navigation}) => {
         >
           Let's Begin
         </Text>
-        <MaterialIcons name="arrow-forward-ios" size={22} color="#FA3B99" />
+        <MaterialIcons name="arrow-forward-ios" size={22} color="#FFF9F0" />
       </TouchableOpacity>
     </SafeAreaView>
   );

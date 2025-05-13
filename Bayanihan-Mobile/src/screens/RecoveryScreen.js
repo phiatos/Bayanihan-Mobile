@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, SafeAreaView} from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "react-native-vector-icons"; 
 
@@ -30,7 +30,14 @@ const RecoveryScreen = ({ navigation }) => {
 
 
   return (
-<View style={styles.container}>
+  <SafeAreaView
+    style={{
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: '#FFF9F0',
+    }}
+  >
   <View style={styles.header}>
   <TouchableOpacity
   style={styles.backButton}
@@ -261,7 +268,7 @@ const RecoveryScreen = ({ navigation }) => {
       )}
     </View>
   )}
-</View>
+</SafeAreaView>
 )};
 
 export default RecoveryScreen;
