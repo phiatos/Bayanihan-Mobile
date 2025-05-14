@@ -1,21 +1,21 @@
 import { StyleSheet } from 'react-native';
+import Theme from '../contants/theme';
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   drawerScroll: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.white,
   },
-    userHeader: {
-        padding: 20,
-  paddingTop: 60,
-  marginLeft: -15,
-  marginRight: -15,
-  marginTop: -50,
-  backgroundColor: '#14AEBB', // ✅ Solid background color instead of image
-},
-
+  userHeader: {
+    padding: 20,
+    paddingTop: 80,
+    marginLeft: -15,
+    marginRight: -15,
+    marginTop: -70,
+    backgroundColor: Theme.colors.primary,
+  },
   header: {
     padding: 20,
     paddingTop: 60,
@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   userName: {
-    color: '#fff',
+    color: Theme.colors.white,
     fontSize: 18,
     fontFamily: 'Roboto-Medium',
     marginBottom: 5,
@@ -39,19 +39,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   userRole: {
-    color: '#fff',
+    color: Theme.colors.white,
     fontFamily: 'Roboto-Regular',
     marginRight: 5,
   },
   drawerListContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.white,
     paddingTop: 10,
   },
   footer: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#ccc',
+    borderTopColor: '#ccc', 
   },
   footerButton: {
     paddingVertical: 15,

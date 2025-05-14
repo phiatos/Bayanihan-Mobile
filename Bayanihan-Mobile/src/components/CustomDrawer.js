@@ -14,7 +14,7 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 
-import styles from '../src/styles/CustomDrawerStyles'; 
+import styles from '../styles/CustomDrawerStyles'; 
 
 
 const CustomDrawer = props => {

@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import Theme from '../contants/theme';
 
 export default StyleSheet.create({
   container: {
@@ -6,7 +7,7 @@ export default StyleSheet.create({
   },
   header: {
     fontSize: 18,
-    backgroundColor: '#4059A5',
+    backgroundColor: Theme.colors.primary,
     color: 'white',
     textAlign: 'center',
     paddingHorizontal: 10,
