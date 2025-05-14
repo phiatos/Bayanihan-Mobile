@@ -5,7 +5,7 @@ import ProfileScreen from "../screens/ProfileScreen"
 import ReliefRequestScreen from "../screens/ReliefRequestScreen";
 import ReportSubmissionScreen from "../screens/ReportSubmissionScreen";
 
-import CustomDrawer from "../../components/CustomDrawer";
+import CustomDrawer from "../components/CustomDrawer";
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const Drawer = createDrawerNavigator();

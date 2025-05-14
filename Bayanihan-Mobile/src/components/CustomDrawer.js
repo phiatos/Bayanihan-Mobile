@@ -28,7 +28,7 @@ const CustomDrawer = props => {
         >
         <View style={styles.userHeader}>
           <Image
-            source={require('../assets/images/user.jpg')}
+            source={require('../../assets/images/user.jpg')}
             style={styles.profileImage}
           />
           <Text
