@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert, FlatList, StyleSheet } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert, FlatList, StyleSheet, SafeAreaView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import ReliefRequestStyles from '../styles/ReliefRequestStyles';
+import { Ionicons } from '@expo/vector-icons';
 
-const ReliefRequestScreen = () => {
-  const navigation = useNavigation();
+
+const ReliefRequestScreen = ({navigation}) => {
   const [errors, setErrors] = useState({});
   const [reportData, setReportData] = useState({
     contactPerson: '',
@@ -178,42 +179,18 @@ const ReliefRequestScreen = () => {
     setIsDropdownVisible(false);
   };
 
-  // Styles for dropdown
-  const localStyles = StyleSheet.create({
-    dropdownContainer: {
-      position: 'absolute',
-      top: 50, // Adjust based on TextInput height
-      left: 0,
-      right: 0,
-      backgroundColor: '#fff',
-      borderWidth: 1,
-      borderColor: '#ccc',
-      borderRadius: 5,
-      maxHeight: 150,
-      zIndex: 1000,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 5,
-    },
-    dropdownItem: {
-      padding: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: '#eee',
-    },
-    dropdownItemText: {
-      fontSize: 16,
-      color: '#333',
-    },
-  });
-
-
   return (
-    <ScrollView style={ReliefRequestStyles.container}>
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-        <Text style={ReliefRequestStyles.header}>Relief Request</Text>
-        <Text style={ReliefRequestStyles.subheader}>[Organization Name]</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
+    <ScrollView contentContainerStyle={ReliefRequestStyles.container}>
+        <View style={ReliefRequestStyles.header}>
+            <TouchableOpacity 
+              onPress={() => navigation.openDrawer()} 
+              style={ReliefRequestStyles.menuIcon}
+            >
+              <Ionicons name="menu" size={32} color="white" />
+            </TouchableOpacity> 
+            <Text style={ReliefRequestStyles.headerText}>Relief Request</Text>
+          </View>
 
         <View style={ReliefRequestStyles.form}>
           <View style={ReliefRequestStyles.section}>
@@ -367,9 +344,8 @@ const ReliefRequestScreen = () => {
             <Text style={ReliefRequestStyles.buttonText}>Next</Text>
           </TouchableOpacity>
         </View>
-      </View>
     </ScrollView>
-    
+    </SafeAreaView>
   )
 }
 

@@ -3,30 +3,36 @@ import Theme from '../contants/theme';
 
 export default StyleSheet.create({
   container: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF9F0',
   },
-  header: {
-    fontSize: 18,
-    backgroundColor: Theme.colors.primary,
-    color: 'white',
-    textAlign: 'center',
-    paddingHorizontal: 10,
-    width: '100%',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    height: 92,
-    paddingTop: 50,
-    alignContent: 'center',
-    fontFamily: 'Poppins_Regular',
-  },
-  menu: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    zIndex: 100,
-    padding: 40,
-    color: 'white',
-  },
+ header: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center', // centers the text
+  backgroundColor: Theme.colors.primary,
+  paddingHorizontal: 10,
+  width: '100%',
+  borderBottomLeftRadius: 20,
+  borderBottomRightRadius: 20,
+  height: 92,
+  paddingTop: 50,
+  position: 'relative', 
+  elevation: 10
+},
+
+menuIcon: {
+  position: 'absolute',
+  left: 10,
+  top: 50, // same as paddingTop in header to align vertically
+},
+
+headerText: {
+  color: 'white',
+  fontSize: 20,
+  fontFamily: 'Poppins-Regular',
+  textAlign: 'center',
+},
+
   section: {
     marginVertical: 10,
     marginHorizontal: 15,

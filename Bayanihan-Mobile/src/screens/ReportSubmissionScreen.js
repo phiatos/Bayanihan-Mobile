@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Platform, Alert,SafeAreaView } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles from '../styles/ReportSubmissionStyles';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 const ReportSubmissionScreen = () => {
   const navigation = useNavigation();
@@ -138,9 +139,19 @@ const ReportSubmissionScreen = () => {
   );
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-        <Text style={styles.header}>Reports Submission</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
+          <ScrollView contentContainerStyle={styles.container}>
+              <View style={styles.header}>
+                <TouchableOpacity 
+                  onPress={() => navigation.openDrawer()} 
+                  style={styles.menuIcon}
+                >
+                  <Ionicons name="menu" size={32} color="white" />
+                </TouchableOpacity> 
+    
+                <Text style={styles.headerText}>Profile</Text>
+              </View>
+    
         <Text style={styles.subheader}>[Organization Name]</Text>
 
         <View style={styles.form}>
@@ -328,10 +339,9 @@ const ReportSubmissionScreen = () => {
               onChange={onChangePicker}
             />
           )}
-        </View>      
-      </View>
+        </View>    
     </ScrollView>
-    
+    </SafeAreaView>
   )
 }
 
