@@ -4,6 +4,8 @@ import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawe
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import styles from '../styles/CustomDrawerStyles';
+import Theme from '../contants/theme';
+
 
 const CustomDrawer = (props) => {
   const { onSignOut } = props; // Destructure onSignOut
@@ -19,10 +21,11 @@ const CustomDrawer = (props) => {
             source={require('../../assets/images/user.jpg')}
             style={styles.profileImage}
           />
-          <Text style={styles.userName}>John Doe</Text>
-          <View style={styles.userRoleContainer}>
+          <View style={styles.header}>
+             <View style={styles.userRoleContainer}>
             <Text style={styles.userRole}>Admin</Text>
-            <FontAwesome5 name='user' size={14} color='#fff' />
+          </View>
+          <Text style={styles.userName}>John Doe</Text>
           </View>
         </View>
         <View style={styles.drawerListContainer}>
@@ -33,7 +36,7 @@ const CustomDrawer = (props) => {
       <View style={styles.footer}>
         <TouchableOpacity onPress={() => {}} style={styles.footerButton}>
           <View style={styles.footerButtonContent}>
-            <Ionicons name='share-social-outline' size={22} />
+            <Ionicons name='share-social-outline' size={22} style={{color: Theme.colors.white}} />
             <Text style={styles.footerButtonText}>Tell a Friend</Text>
           </View>
         </TouchableOpacity>
@@ -46,7 +49,7 @@ const CustomDrawer = (props) => {
           style={styles.footerButton}
         >
           <View style={styles.footerButtonContent}>
-            <Ionicons name='exit-outline' size={22} />
+            <Ionicons name='exit-outline' size={22} style={{color: Theme.colors.white}}/>
             <Text style={styles.footerButtonText}>Sign Out</Text>
           </View>
         </TouchableOpacity>
@@ -56,3 +59,4 @@ const CustomDrawer = (props) => {
 };
 
 export default CustomDrawer;
+

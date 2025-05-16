@@ -121,9 +121,9 @@ const styles = StyleSheet.create({
     padding: 26,
   },
   header: {
-    flexDirection: "row", // Align title and back button horizontally
+    flexDirection: "row", 
     alignItems: "center",
-    marginBottom: 60, // Reduce space between header and form
+    marginBottom: 60, 
     width: "100%", // Take full width of the screen
     position: "relative", // Allow for absolute positioning of the back button
   },

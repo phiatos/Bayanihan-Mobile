@@ -4,9 +4,10 @@ import Theme from '../contants/theme';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Theme.colors.primary,
   },
   drawerScroll: {
-    backgroundColor: Theme.colors.white,
+    backgroundColor: Theme.colors.primary,
   },
   userHeader: {
     padding: 20,
@@ -15,13 +16,12 @@ const styles = StyleSheet.create({
     marginRight: -15,
     marginTop: -70,
     backgroundColor: Theme.colors.primary,
+    flexDirection: 'column',
   },
   header: {
-    padding: 20,
-    paddingTop: 60,
-    marginLeft: -15,
+    marginLeft: 90,
     marginRight: -15,
-    marginTop: -50,
+    marginTop: -65
   },
   profileImage: {
     height: 80,
@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
   userName: {
     color: Theme.colors.white,
     fontSize: 18,
-    fontFamily: 'Roboto-Medium',
+    fontFamily: 'Poppins_Bold',
     marginBottom: 5,
   },
   userRoleContainer: {
@@ -45,13 +45,16 @@ const styles = StyleSheet.create({
   },
   drawerListContainer: {
     flex: 1,
-    backgroundColor: Theme.colors.white,
+    backgroundColor: Theme.colors.primary,
     paddingTop: 10,
+    color: Theme.colors.white
   },
   footer: {
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: '#ccc', 
+    color: Theme.colors.white
+
   },
   footerButton: {
     paddingVertical: 15,
@@ -59,11 +62,14 @@ const styles = StyleSheet.create({
   footerButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
+
   },
   footerButtonText: {
     fontSize: 15,
     fontFamily: 'Roboto-Medium',
     marginLeft: 5,
+    color: Theme.colors.white
+
   },
 });
 

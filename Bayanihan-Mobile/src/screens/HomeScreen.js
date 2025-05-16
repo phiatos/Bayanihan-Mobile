@@ -123,7 +123,8 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
+      <ScrollView contentContainerStyle={{ padding: 0 }}>
+        <View style={{paddingHorizontal: 20, paddingTop: 30}}>
         <View
           style={{
             flexDirection: 'row',
@@ -194,7 +195,7 @@ const HomeScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         )}
-
+          </View>
         {/* Map */}
         <View style={styles.mapContainer}>
           <WebView
@@ -212,9 +213,9 @@ const HomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
 
   mapContainer: {
-    marginTop: 20,
+    marginTop: 10,
     height: 300,
-    borderRadius: 8,
+    width: '100%',
     overflow: 'hidden',
     elevation: 5,
     backgroundColor: 'white',
@@ -225,24 +226,27 @@ const styles = StyleSheet.create({
   permissionDeniedContainer: {
     marginTop: 20,
     padding: 15,
-    backgroundColor: '#FFF9F0',
-    borderRadius: 8,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: Theme.colors.primary,
+    backgroundColor: Theme.colors.primary,
     alignItems: 'center',
+    elevation: 10
   },
   permissionDeniedText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: '#333',
+    color: 'white',
     textAlign: 'center',
     marginBottom: 10,
   },
   retryButton: {
     backgroundColor: Theme.colors.primary,
-    paddingVertical: 10,
+    paddingVertical: 5,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'white'
   },
   retryButtonText: {
     fontFamily: 'Poppins-Bold',
