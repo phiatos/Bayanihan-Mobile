@@ -3,7 +3,7 @@ import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert, FlatList, S
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ReliefRequestStyles from '../styles/ReliefRequestStyles';
-import CustomModal from './CustomModal'; 
+import CustomModal from '../navigation/CustomModal'; 
 
 const ReliefRequestScreen = ({ navigation }) => {
   const [errors, setErrors] = useState({});

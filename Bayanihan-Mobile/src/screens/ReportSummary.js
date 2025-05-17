@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'rea
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Theme from '../contants/theme';
-import CustomModal from './CustomModal';
+import CustomModal from '../navigation/CustomModal';
 
 
 const ReportSummary = ({ route }) => {
