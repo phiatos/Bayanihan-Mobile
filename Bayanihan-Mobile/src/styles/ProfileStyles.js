@@ -15,7 +15,7 @@ export default StyleSheet.create({
   borderBottomLeftRadius: 20,
   borderBottomRightRadius: 20,
   height: 92,
-  paddingTop: 50,
+  paddingTop: 40,
   position: 'relative', 
   elevation: 10
 },

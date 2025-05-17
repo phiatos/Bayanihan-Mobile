@@ -1,12 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert, FlatList, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert, FlatList, SafeAreaView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import ReliefRequestStyles from '../styles/ReliefRequestStyles';
 import { Ionicons } from '@expo/vector-icons';
+import ReliefRequestStyles from '../styles/ReliefRequestStyles';
+import CustomModal from './CustomModal'; 
 
-
-const ReliefRequestScreen = ({navigation}) => {
+const ReliefRequestScreen = ({ navigation }) => {
   const [errors, setErrors] = useState({});
   const [reportData, setReportData] = useState({
     contactPerson: '',
@@ -20,25 +19,36 @@ const ReliefRequestScreen = ({navigation}) => {
     notes: '',
   });
 
-  // States for dropdown
-  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+  // States for dropdowns
+  const [isCategoryDropdownVisible, setIsCategoryDropdownVisible] = useState(false);
   const [filteredCategories, setFilteredCategories] = useState([]);
-  const textInputRef = useRef(null);
+  const [isItemDropdownVisible, setIsItemDropdownVisible] = useState(false);
+  const [filteredItems, setFilteredItems] = useState([]);
+  const categoryInputRef = useRef(null);
+  const itemInputRef = useRef(null);
 
-  const requiredFields = [
+  // Contact info required fields
+  const contactRequiredFields = [
     'contactPerson',
     'contactNumber',
     'email',
     'barangay',
     'city',
     'donationCategory',
-    'itemName',
-    'quantity',
-    'notes',
   ];
 
-  // Predetermined categories
+  // Item required fields
+  const itemRequiredFields = ['itemName', 'quantity'];
+
+  // Predetermined categories and item suggestions
   const categories = ['Food', 'Clothing', 'Medicine', 'Shelter', 'Water'];
+  const itemSuggestions = {
+    Food: ['Rice', 'Canned Goods', 'Noodles', 'Biscuits', 'Dried Fruits'],
+    Clothing: ['Shirts', 'Pants', 'Jackets', 'Socks', 'Underwear'],
+    Medicine: ['Painkillers', 'Antibiotics', 'Bandages', 'Antiseptics', 'Vitamins'],
+    Shelter: ['Tents', 'Blankets', 'Sleeping Bags', 'Tarps', 'Pillows'],
+    Water: ['Bottled Water', 'Water Filters', 'Water Jugs', 'Purification Tablets'],
+  };
 
   // Helper function to capitalize the first letter
   const capitalizeFirstLetter = (string) => {
@@ -46,7 +56,24 @@ const ReliefRequestScreen = ({navigation}) => {
     return string.charAt(0).toUpperCase() + string.slice(1);
   };
 
-  // Handle TextInput changes and filter categories
+  // Check if contact info is valid
+  const isContactInfoValid = () => {
+    return contactRequiredFields.every((field) => {
+      const value = reportData[field];
+      if (value === null || (typeof value === 'string' && value.trim() === '')) {
+        return false;
+      }
+      if (field === 'contactNumber' && !/^[0-9]{11}$/.test(value)) {
+        return false;
+      }
+      if (field === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+        return false;
+      }
+      return true;
+    });
+  };
+
+  // Handle TextInput changes
   const handleChange = (field, value) => {
     setReportData({ ...reportData, [field]: value });
 
@@ -59,7 +86,7 @@ const ReliefRequestScreen = ({navigation}) => {
       });
     }
 
-    // Validate specific fields in real-time with capitalized messages
+    // Validate contactNumber and email
     if (field === 'contactNumber' && value && !/^[0-9]{11}$/.test(value)) {
       setErrors((prev) => ({ ...prev, contactNumber: 'Phone number must be 11 digits' }));
     } else if (field === 'email' && value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
@@ -70,78 +97,127 @@ const ReliefRequestScreen = ({navigation}) => {
     if (field === 'donationCategory') {
       if (value.trim() === '') {
         setFilteredCategories(categories);
-        setIsDropdownVisible(false);
+        setIsCategoryDropdownVisible(false);
       } else {
         const filtered = categories.filter((category) =>
           category.toLowerCase().includes(value.toLowerCase())
         );
         setFilteredCategories(filtered);
-        setIsDropdownVisible(true);
+        setIsCategoryDropdownVisible(true);
+      }
+      // Reset itemName and item dropdown when category changes
+      setReportData((prev) => ({ ...prev, itemName: '' }));
+      setFilteredItems(itemSuggestions[value] || []);
+    }
+
+    // Filter items for itemName
+    if (field === 'itemName' && reportData.donationCategory) {
+      const suggestions = itemSuggestions[reportData.donationCategory] || [];
+      if (value.trim() === '') {
+        setFilteredItems(suggestions);
+        setIsItemDropdownVisible(false);
+      } else {
+        const filtered = suggestions.filter((item) =>
+          item.toLowerCase().includes(value.toLowerCase())
+        );
+        setFilteredItems(filtered);
+        setIsItemDropdownVisible(true);
       }
     }
   };
 
-  // Handle selecting a category from the dropdown
+  // Handle selecting a category
   const handleCategorySelect = (category) => {
-    setReportData({ ...reportData, donationCategory: category });
-    setIsDropdownVisible(false);
+    setReportData({ ...reportData, donationCategory: category, itemName: '' });
+    setIsCategoryDropdownVisible(false);
     setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors.donationCategory;
       return newErrors;
     });
-    textInputRef.current.blur(); // Close keyboard
+    setFilteredItems(itemSuggestions[category] || []);
+    categoryInputRef.current.blur();
   };
 
-  // Handle TextInput focus
-  const handleFocus = () => {
-    setIsDropdownVisible(true);
+  // Handle selecting an item
+  const handleItemSelect = (item) => {
+    setReportData({ ...reportData, itemName: item });
+    setIsItemDropdownVisible(false);
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.itemName;
+      return newErrors;
+    });
+    itemInputRef.current.blur();
+  };
+
+  // Handle category input focus
+  const handleCategoryFocus = () => {
+    setIsCategoryDropdownVisible(true);
     setFilteredCategories(categories);
   };
 
-  // Handle TextInput blur
-  const handleBlur = () => {
-    // Delay hiding dropdown to allow category selection
-    setTimeout(() => setIsDropdownVisible(false), 200);
+  // Handle item input focus
+  const handleItemFocus = () => {
+    if (reportData.donationCategory) {
+      setIsItemDropdownVisible(true);
+      setFilteredItems(itemSuggestions[reportData.donationCategory] || []);
+    }
   };
 
-  // Update handleSubmit
+  // Handle blur for both inputs
+  const handleBlur = (setDropdownVisible) => {
+    setTimeout(() => setDropdownVisible(false), 200);
+  };
+
+  // Handle form submission
   const handleSubmit = () => {
     const newErrors = {};
-
-    // Check for missing required fields with capitalized messages
-    requiredFields.forEach((field) => {
-      if (['donationCategory', 'itemName', 'quantity', 'notes'].includes(field)) {
-        return; // Skip item-related fields for this validation
-      }
+    contactRequiredFields.forEach((field) => {
       const value = reportData[field];
       if (value === null || (typeof value === 'string' && value.trim() === '')) {
         const fieldName = field.replace(/([A-Z])/g, ' $1').trim();
         newErrors[field] = `${capitalizeFirstLetter(fieldName)} is required`;
       }
     });
-
-    // Validate contact number
     if (reportData.contactNumber && !/^[0-9]{11}$/.test(reportData.contactNumber)) {
       newErrors.contactNumber = 'Phone number must be 11 digits';
     }
-
-    // Validate email
     if (reportData.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(reportData.email)) {
       newErrors.email = 'Email is not valid';
     }
-
     setErrors(newErrors);
-
     if (Object.keys(newErrors).length > 0) {
-      Alert.alert(
-        'Form Error',
-        `Please fix the following errors:\n${Object.values(newErrors).join('\n')}`
-      );
+      Alert.alert('Incomplete Data', `Please fill in required fields:\n${Object.values(newErrors).join('\n')}`);
       return;
     }
-
+    console.log('Navigating to ReliefSummary with:', { reportData, addedItems: items });
     navigation.navigate('ReliefSummary', { reportData, addedItems: items });
+  };
+
+  // Add item function
+  const [items, setItems] = useState([]);
+  const addButton = () => {
+    const { donationCategory, itemName, quantity, notes } = reportData;
+    if (!donationCategory || !itemName || !quantity) {
+      const newErrors = {};
+      if (!donationCategory) newErrors.donationCategory = 'Donation category is required';
+      if (!itemName) newErrors.itemName = 'Item name is required';
+      if (!quantity) newErrors.quantity = 'Quantity is required';
+      setErrors(newErrors);
+      Alert.alert('Incomplete Fields', 'Please fill out all required item fields before adding.');
+      return;
+    }
+    const newItem = { itemName, quantity, notes: notes || '' };
+    setItems([...items, newItem]);
+    Alert.alert('Item Saved', `Saved:\nItem: ${itemName}\nQty: ${quantity}\nNotes: ${notes || 'None'}`);
+    setReportData((prev) => ({
+      ...prev,
+      itemName: '',
+      quantity: '',
+      notes: '',
+    }));
+    setIsItemDropdownVisible(false);
   };
 
   // Render label function
@@ -152,45 +228,21 @@ const ReliefRequestScreen = ({navigation}) => {
     </Text>
   );
 
-  // Add item function
-  const [items, setItems] = useState([]);
-  const addButton = () => {
-    const { donationCategory, itemName, quantity, notes } = reportData;
-    if (!donationCategory || !itemName || !quantity || !notes) {
-      const newErrors = {};
-      if (!donationCategory) newErrors.donationCategory = 'Donation category is required';
-      if (!itemName) newErrors.itemName = 'Item name is required';
-      if (!quantity) newErrors.quantity = 'Quantity is required';
-      if (!notes) newErrors.notes = 'Additional notes is required';
-      setErrors(newErrors);
-      Alert.alert('Missing Fields', 'Please fill out all item fields before adding.');
-      return;
-    }
-    const newItem = { donationCategory, itemName, quantity, notes };
-    setItems([...items, newItem]);
-    Alert.alert('Item Saved', `Saved:\nCategory: ${donationCategory}\nItem: ${itemName}\nQty: ${quantity}\nNotes: ${notes}`);
-    setReportData((prev) => ({
-      ...prev,
-      donationCategory: '',
-      itemName: '',
-      quantity: '',
-      notes: '',
-    }));
-    setIsDropdownVisible(false);
-  };
+  // Check contact info validity for enabling item inputs
+  const contactInfoValid = isContactInfoValid();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
-    <ScrollView contentContainerStyle={ReliefRequestStyles.container}>
+      <ScrollView contentContainerStyle={ReliefRequestStyles.container}>
         <View style={ReliefRequestStyles.header}>
-            <TouchableOpacity 
-              onPress={() => navigation.openDrawer()} 
-              style={ReliefRequestStyles.menuIcon}
-            >
-              <Ionicons name="menu" size={32} color="white" />
-            </TouchableOpacity> 
-            <Text style={ReliefRequestStyles.headerText}>Relief Request</Text>
-          </View>
+          <TouchableOpacity
+            onPress={() => navigation.openDrawer()}
+            style={ReliefRequestStyles.menuIcon}
+          >
+            <Ionicons name="menu" size={32} color="white" />
+          </TouchableOpacity>
+          <Text style={ReliefRequestStyles.headerText}>Relief Request</Text>
+        </View>
 
         <View style={ReliefRequestStyles.form}>
           <View style={ReliefRequestStyles.section}>
@@ -246,39 +298,29 @@ const ReliefRequestScreen = ({navigation}) => {
               value={reportData.city}
             />
             {errors.city && <Text style={ReliefRequestStyles.errorText}>{errors.city}</Text>}
-          </View>
-
-          <View style={ReliefRequestStyles.section}>
-            <Text style={ReliefRequestStyles.sectionTitle}>Requested Items</Text>
-
-            <View style={ReliefRequestStyles.addButtonContainer}>
-              <TouchableOpacity style={ReliefRequestStyles.addButton} onPress={addButton}>
-                <Text style={ReliefRequestStyles.addbuttonText}>Add Item</Text>
-              </TouchableOpacity>
-            </View>
 
             {renderLabel('Donation Category', true)}
             <View style={{ position: 'relative' }}>
               <TextInput
-                ref={textInputRef}
+                ref={categoryInputRef}
                 style={[ReliefRequestStyles.input, errors.donationCategory && ReliefRequestStyles.requiredInput]}
                 placeholder="Enter or Select Donation Category"
                 onChangeText={(val) => handleChange('donationCategory', val)}
                 value={reportData.donationCategory}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
+                onFocus={handleCategoryFocus}
+                onBlur={() => handleBlur(setIsCategoryDropdownVisible)}
               />
-              {isDropdownVisible && filteredCategories.length > 0 && (
-                <View style={localStyles.dropdownContainer}>
+              {isCategoryDropdownVisible && filteredCategories.length > 0 && (
+                <View style={ReliefRequestStyles.dropdownContainer}>
                   <FlatList
                     data={filteredCategories}
                     keyExtractor={(item) => item}
                     renderItem={({ item }) => (
                       <TouchableOpacity
-                        style={localStyles.dropdownItem}
+                        style={ReliefRequestStyles.dropdownItem}
                         onPress={() => handleCategorySelect(item)}
                       >
-                        <Text style={localStyles.dropdownItemText}>{item}</Text>
+                        <Text style={ReliefRequestStyles.dropdownItemText}>{item}</Text>
                       </TouchableOpacity>
                     )}
                   />
@@ -288,34 +330,75 @@ const ReliefRequestScreen = ({navigation}) => {
             {errors.donationCategory && (
               <Text style={ReliefRequestStyles.errorText}>{errors.donationCategory}</Text>
             )}
+          </View>
+
+          <View style={ReliefRequestStyles.section}>
+            <Text style={ReliefRequestStyles.sectionTitle}>Requested Items</Text>
+
+            <View style={ReliefRequestStyles.addButtonContainer}>
+              <TouchableOpacity
+                style={[
+                  ReliefRequestStyles.addButton,
+                  !contactInfoValid && { opacity: 0.5 },
+                ]}
+                onPress={addButton}
+                disabled={!contactInfoValid}
+              >
+                <Text style={ReliefRequestStyles.addbuttonText}>Add Item</Text>
+              </TouchableOpacity>
+            </View>
 
             {renderLabel('Item Name', true)}
-            <TextInput
-              style={[ReliefRequestStyles.input, errors.itemName && ReliefRequestStyles.requiredInput]}
-              placeholder="Enter Item Name"
-              onChangeText={(val) => handleChange('itemName', val)}
-              value={reportData.itemName}
-            />
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                ref={itemInputRef}
+                style={[ReliefRequestStyles.input, errors.itemName && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
+                placeholder="Enter or Select Item Name"
+                onChangeText={(val) => handleChange('itemName', val)}
+                value={reportData.itemName}
+                onFocus={handleItemFocus}
+                onBlur={() => handleBlur(setIsItemDropdownVisible)}
+                editable={contactInfoValid}
+              />
+              {isItemDropdownVisible && filteredItems.length > 0 && (
+                <View style={ReliefRequestStyles.dropdownContainer}>
+                  <FlatList
+                    data={filteredItems}
+                    keyExtractor={(item) => item}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={ReliefRequestStyles.dropdownItem}
+                        onPress={() => handleItemSelect(item)}
+                      >
+                        <Text style={ReliefRequestStyles.dropdownItemText}>{item}</Text>
+                      </TouchableOpacity>
+                    )}
+                  />
+                </View>
+              )}
+            </View>
             {errors.itemName && <Text style={ReliefRequestStyles.errorText}>{errors.itemName}</Text>}
 
             {renderLabel('Quantity', true)}
             <TextInput
-              style={[ReliefRequestStyles.input, errors.quantity && ReliefRequestStyles.requiredInput]}
+              style={[ReliefRequestStyles.input, errors.quantity && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
               placeholder="Enter Quantity"
               onChangeText={(val) => handleChange('quantity', val)}
               value={reportData.quantity}
               keyboardType="numeric"
+              editable={contactInfoValid}
             />
             {errors.quantity && <Text style={ReliefRequestStyles.errorText}>{errors.quantity}</Text>}
 
-            {renderLabel('Additional Notes', true)}
+            {renderLabel('Additional Notes', false)}
             <TextInput
-              style={[ReliefRequestStyles.input, errors.notes && ReliefRequestStyles.requiredInput]}
-              placeholder="Enter Additional Notes/ Concerns"
+              style={[ReliefRequestStyles.input, errors.notes && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
+              placeholder="Enter Notes/Concerns (Optional)"
               multiline
               numberOfLines={4}
               onChangeText={(val) => handleChange('notes', val)}
               value={reportData.notes}
+              editable={contactInfoValid}
             />
             {errors.notes && <Text style={ReliefRequestStyles.errorText}>{errors.notes}</Text>}
 
@@ -324,16 +407,17 @@ const ReliefRequestScreen = ({navigation}) => {
                 <Text style={ReliefRequestStyles.addedItems}>Added Items:</Text>
                 <View style={ReliefRequestStyles.tableRow}>
                   <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.1 }]}>No.</Text>
-                  <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.3 }]}>Category</Text>
-                  <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.3 }]}>Item</Text>
-                  <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.4 }]}>Quantity</Text>
+                  <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.25 }]}>Item</Text>
+                  <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.15 }]}>Qty</Text>
+                  <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.25 }]}>Notes</Text>
                 </View>
                 {items.map((item, index) => (
                   <View key={index} style={ReliefRequestStyles.tableRow}>
                     <Text style={[ReliefRequestStyles.tableCell, { flex: 0.1 }]}>{index + 1}</Text>
-                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.3 }]}>{item.donationCategory}</Text>
-                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.3 }]}>{item.itemName}</Text>
-                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.4 }]}>{item.quantity}</Text>
+                    
+                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.25 }]}>{item.itemName}</Text>
+                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.15 }]}>{item.quantity}</Text>
+                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.25 }]}>{item.notes || 'None'}</Text>
                   </View>
                 ))}
               </View>
@@ -344,9 +428,9 @@ const ReliefRequestScreen = ({navigation}) => {
             <Text style={ReliefRequestStyles.buttonText}>Next</Text>
           </TouchableOpacity>
         </View>
-    </ScrollView>
+      </ScrollView>
     </SafeAreaView>
-  )
-}
+  );
+};
 
-export default ReliefRequestScreen
+export default ReliefRequestScreen;

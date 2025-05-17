@@ -1,14 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSidebar } from '../Sidebar/SidebarContext';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { Ionicons } from '@expo/vector-icons';
+import Theme from '../contants/theme';
+import CustomModal from './CustomModal';
 
 
 const ReportSummary = ({ route }) => {
-    const { toggleSidebar } = useSidebar();
   const { reportData } = route.params;
+    const [modalVisible, setModalVisible] = useState(false);
+  
   const navigation = useNavigation();
+
+
+  const handleConfirm = () => {
+    setModalVisible(false);
+    navigation.navigate('Home');
+  };
+
+  const handleCancel = () => {
+    setModalVisible(false);
+  };
 
   const formatLabel = (key) => {
     return key.replace(/([A-Z])/g, ' $1').toLowerCase();
@@ -32,26 +44,17 @@ const ReportSummary = ({ route }) => {
   };
 
   const handleSubmit = () => {
-    // Show success prompt and navigate to Dashboard
-    Alert.alert(
-      'Success',
-      'Report submitted successfully!',
-      [
-        {
-          text: 'OK',
-          onPress: () => navigation.navigate('Profile'),
-        },
-      ],
-      { cancelable: false }
-    );
+        setModalVisible(true);
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <TouchableOpacity style={styles.menu} onPress={toggleSidebar}>
-              <Icon name="menu" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-      <Text style={styles.header}>Reports Submission</Text>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.menuIcon} onPress={() => navigation.openDrawer()}>
+          <Ionicons name="menu" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerText}>Reports Summary</Text>
+      </View>
       <Text style={styles.subheader}>[Organization Name]</Text>
 
       <View style={styles.formContainer}>
@@ -90,7 +93,7 @@ const ReportSummary = ({ route }) => {
           {['urgentNeeds', 'remarks'].map((field) => (
             <View key={field} style={styles.fieldContainer}>
               <Text style={styles.label}>{formatLabel(field)}</Text>
-              <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+              <Text style={styles.value}>{reportData[field] || 'None'}</Text>
             </View>
           ))}
         </View>
@@ -107,6 +110,22 @@ const ReportSummary = ({ route }) => {
           <Text style={styles.submitButtonText}>Submit</Text>
         </TouchableOpacity>
       </View>
+        <CustomModal
+        visible={modalVisible}
+        title="Success!"
+        message={
+          <View style={styles.modalContent}>
+            <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={styles.modalIcon} />
+            <Text style={styles.modalMessage}>Report submitted successfully!</Text>
+          </View>
+        }
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        confirmText="Proceed"
+        showCancel={false}
+      />
+
+      
     </ScrollView>
   );
 };
@@ -114,39 +133,44 @@ const ReportSummary = ({ route }) => {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    paddingBottom: 60,
-
+    flex: 1,
   },
   header: {
-   fontSize: 20,
-    backgroundColor: '#4059A5',
-    color: 'white',
-    textAlign: 'center',
-    paddingHorizontal: 10,
-    width: '100%',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    height: 90,
-    paddingTop: 50,
-    alignContent:'center',
-    fontFamily: 'Poppins_Regular', 
+     flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: Theme.colors.primary,
+  paddingHorizontal: 10,
+  width: '100%',
+  borderBottomLeftRadius: 20,
+  borderBottomRightRadius: 20,
+  height: 92,
+  paddingTop: 40,
+  position: 'relative', 
+  elevation: 10
   },
-   menu: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    zIndex: 100,
-    padding: 40,
+  menuIcon: {
+ position: 'absolute',
+  left: 30,
+  top: 50, 
+  },
+  headerText: {
     color: 'white',
-   },
+    fontSize: 20,
+    fontFamily: 'Poppins_Regular',
+    textAlign: 'center',
+  },
   subheader: {
     fontSize: 16,
     color: '#3D52A0',
     textAlign: 'center',
     marginVertical: 10,
-    fontFamily: 'Poppins_Regular', 
+    fontFamily: 'Poppins_Regular',
   },
   formContainer: {
+    marginBottom: 10,
+  },
+  section: {
     marginVertical: 10,
     marginHorizontal: 15,
     borderWidth: 3,
@@ -159,64 +183,79 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
-  },
-  section: {
-    marginBottom: 15,
+    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 20,
     color: '#14AEBB',
     marginBottom: 10,
-    fontFamily: 'Poppins_Regular', 
+    fontFamily: 'Poppins_SemiBold',
   },
   fieldContainer: {
     marginBottom: 5,
   },
   label: {
     fontSize: 16,
-    color: '#4059A5',
+    color: Theme.colors.primary,
     textTransform: 'capitalize',
-    fontFamily: 'Poppins_SemiBold'
+    fontFamily: 'Poppins_Medium',
   },
   value: {
     fontSize: 14,
-    color: '#666',
+    color: Theme.colors.black,
     marginTop: 2,
-    fontFamily: 'Poppins_Regular'
+    fontFamily: 'Poppins_Regular',
   },
   buttonContainer: {
-    flexDirection: 'column',
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    marginHorizontal: 35,
-    marginBottom: 20,
+    marginHorizontal: 10,
+    marginBottom: 40,
+    height:45
   },
   backButton: {
-    flex: 1,
-    borderWidth: 2,
+     borderWidth: 1.5,
     borderColor: '#4059A5',
-    borderRadius: 5,
-    padding: 10,
-    marginVertical: 10,
+    borderRadius: 12,
+    justifyContent: 'center',
+    paddingHorizontal: 25,
+    paddingVertical: 0,
     alignItems: 'center',
+    marginRight: 10,
     backgroundColor: '#FFFFFF',
   },
   backButtonText: {
-    color: '#4059A5',
+   color: '#4059A5',
     fontSize: 16,
-    fontFamily: 'Poppins_Regular'
+    fontFamily: 'Poppins_Medium',
   },
   submitButton: {
-    flex: 1,
+      flex: 1,
     backgroundColor: '#14AEBB',
-    borderRadius: 5,
-    padding: 10,
-    alignItems: 'center',
+    borderRadius: 12,
+    justifyContent: 'center'
   },
   submitButtonText: {
-    color: '#FFFFFF',
+     color: '#FFFFFF',
     fontSize: 16,
-    fontFamily: 'Poppins_Regular'
-
+    paddingTop: 5,
+    fontFamily: 'Poppins_SemiBold',
+    textAlign: 'center',
+  },
+    modalContent: {
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'center',
+  },
+  modalIcon: {
+    marginBottom: 15,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 24,
+    fontFamily: 'Poppins_Regular',
+    textAlign: 'center',
   },
 });
 

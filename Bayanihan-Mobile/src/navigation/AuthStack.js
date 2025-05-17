@@ -9,14 +9,14 @@ const Stack = createNativeStackNavigator();
 const AuthStack = ({ onLogin }) => {
   return (
     <Stack.Navigator
-      initialRouteName='Login' // Show Login screen after sign-out
+      initialRouteName="Login"
       screenOptions={{ headerShown: false }}
     >
-      <Stack.Screen name='Onboarding' component={OnboardingScreen} />
-      <Stack.Screen name='Login'>
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+      <Stack.Screen name="Login">
         {(props) => <LoginScreen {...props} onLogin={onLogin} />}
       </Stack.Screen>
-      <Stack.Screen name='RecoveryScreen' component={RecoveryScreen} />
+      <Stack.Screen name="RecoveryScreen" component={RecoveryScreen} />
     </Stack.Navigator>
   );
 };

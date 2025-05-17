@@ -17,20 +17,20 @@ export default StyleSheet.create({
   borderBottomLeftRadius: 20,
   borderBottomRightRadius: 20,
   height: 92,
-  paddingTop: 50,
+  paddingTop: 40,
   position: 'relative', 
   elevation: 10
  },
 menuIcon: {
   position: 'absolute',
-  left: 10,
+  left: 30,
   top: 50, 
 },
 
 headerText: {
   color: 'white',
   fontSize: 20,
-  fontFamily: 'Poppins-Regular',
+  fontFamily: 'Poppins_Regular',
   textAlign: 'center',
 },
 

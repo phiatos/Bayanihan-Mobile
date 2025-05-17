@@ -5,6 +5,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Theme.colors.primary,
+    width: '100%',
   },
   drawerScroll: {
     backgroundColor: Theme.colors.primary,
@@ -17,11 +18,13 @@ const styles = StyleSheet.create({
     marginTop: -70,
     backgroundColor: Theme.colors.primary,
     flexDirection: 'column',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
   },
   header: {
     marginLeft: 90,
     marginRight: -15,
-    marginTop: -65
+    marginTop: -65,
   },
   profileImage: {
     height: 80,
@@ -29,30 +32,28 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     marginBottom: 10,
   },
-  userName: {
+  userRole: {
+    color: Theme.colors.white,
+    fontFamily: 'Poppins_Regular',
+    marginRight: 5,
+    fontSize: 12,
+  },
+    userName: {
     color: Theme.colors.white,
     fontSize: 18,
     fontFamily: 'Poppins_Bold',
     marginBottom: 5,
   },
-  userRoleContainer: {
-    flexDirection: 'row',
-  },
-  userRole: {
-    color: Theme.colors.white,
-    fontFamily: 'Roboto-Regular',
-    marginRight: 5,
-  },
   drawerListContainer: {
     flex: 1,
     backgroundColor: Theme.colors.primary,
     paddingTop: 10,
-    color: Theme.colors.white
+    color: Theme.colors.white,
+    fontFamily:'Poppins_Regular',
+    
   },
   footer: {
     padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#ccc', 
     color: Theme.colors.white
 
   },
@@ -65,8 +66,8 @@ const styles = StyleSheet.create({
 
   },
   footerButtonText: {
-    fontSize: 15,
-    fontFamily: 'Roboto-Medium',
+    fontSize: 13,
+    fontFamily: 'Poppins_Regular',
     marginLeft: 5,
     color: Theme.colors.white
 

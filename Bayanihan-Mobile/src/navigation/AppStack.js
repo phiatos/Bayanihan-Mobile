@@ -1,13 +1,33 @@
+// src/navigation/AppStack.js
 import React from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ReliefRequestScreen from '../screens/ReliefRequestScreen';
+import ReliefSummary from '../screens/ReliefSummary';
 import ReportSubmissionScreen from '../screens/ReportSubmissionScreen';
+import ReportSummary from '../screens/ReportSummary'; 
 import CustomDrawer from '../components/CustomDrawer';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import Theme from '../contants/theme';
 
 const Drawer = createDrawerNavigator();
+const Stack = createNativeStackNavigator();
+
+const RequestStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="ReliefRequest" component={ReliefRequestScreen} />
+    <Stack.Screen name="ReliefSummary" component={ReliefSummary} />
+  </Stack.Navigator>
+);
+
+const ReportStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="ReportSubmission" component={ReportSubmissionScreen} />
+    <Stack.Screen name="ReportSummary" component={ReportSummary} />
+  </Stack.Navigator>
+);
 
 const AppStack = ({ onSignOut }) => {
   return (
@@ -15,49 +35,52 @@ const AppStack = ({ onSignOut }) => {
       drawerContent={(props) => <CustomDrawer {...props} onSignOut={onSignOut} />}
       screenOptions={{
         headerShown: false,
-        drawerActiveBackgroundColor: '#14AEBB',
-        drawerActiveTintColor: '#fff',
-        drawerInactiveTintColor: '#333',
+        drawerActiveBackgroundColor: 'white',
+        drawerActiveTintColor: Theme.colors.accent,
+        drawerInactiveTintColor: 'white',
         drawerLabelStyle: {
-          marginLeft: 25,
-          fontFamily: 'Poppins-Medium',
-          fontSize: 15,
+          marginLeft: 15,
+          fontFamily: 'Poppins_Medium',
+          fontSize: 13,
+        },
+        drawerStyle: {
+          width: 270,
         },
       }}
     >
       <Drawer.Screen
-        name='Home'
+        name="Home"
         component={HomeScreen}
         options={{
           drawerIcon: ({ color }) => (
-            <Ionicons name='home-outline' size={22} color={color} />
+            <Ionicons name="home-outline" size={22} color={color} />
           ),
         }}
       />
       <Drawer.Screen
-        name='Profile'
+        name="Profile"
         component={ProfileScreen}
         options={{
           drawerIcon: ({ color }) => (
-            <Ionicons name='person-outline' size={22} color={color} />
+            <Ionicons name="person-outline" size={22} color={color} />
           ),
         }}
       />
       <Drawer.Screen
-        name='Relief Request'
-        component={ReliefRequestScreen}
+        name="Relief Request"
+        component={RequestStack}
         options={{
           drawerIcon: ({ color }) => (
-            <Ionicons name='cube-outline' size={22} color={color} />
+            <Ionicons name="cube-outline" size={22} color={color} />
           ),
         }}
       />
       <Drawer.Screen
-        name='Reports Submission'
-        component={ReportSubmissionScreen}
+        name="Reports Submission"
+        component={ReportStack}
         options={{
           drawerIcon: ({ color }) => (
-            <Ionicons name='document-outline' size={22} color={color} />
+            <Ionicons name="document-outline" size={22} color={color} />
           ),
         }}
       />

@@ -1,45 +1,29 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { Animated, Easing } from 'react-native';
 import AuthStack from './src/navigation/AuthStack';
 import AppStack from './src/navigation/AppStack';
+import { useFonts } from 'expo-font';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(1)).current; // Animation value for opacity
 
-  useEffect(() => {
-    // Trigger animation when isLoggedIn changes
-    fadeAnim.setValue(0); // Start with 0 opacity
-    Animated.timing(fadeAnim, {
-      toValue: 1, // Fade in to full opacity
-      duration: 300, // Animation duration in ms
-      easing: Easing.out(Easing.ease), // Smooth easing function
-      useNativeDriver: true, // Use native driver for better performance
-    }).start();
-  }, [isLoggedIn]);
+  // fonts
+  const [fontsLoaded] = useFonts({
+    Poppins_Regular: require('./assets/fonts/Poppins/Poppins-Regular.ttf'),  
+    Poppins_SemiBold: require('./assets/fonts/Poppins/Poppins-SemiBold.ttf'),
+    Poppins_Bold: require('./assets/fonts/Poppins/Poppins-Bold.ttf'),
+    Poppins_Medium: require('./assets/fonts/Poppins/Poppins-Medium.ttf'),
+  });
 
-  const handleSignOut = () => {
-    // Animate fade-out before changing state
-    Animated.timing(fadeAnim, {
-      toValue: 0, // Fade out
-      duration: 300,
-      easing: Easing.in(Easing.ease),
-      useNativeDriver: true,
-    }).start(() => {
-      setIsLoggedIn(false); // Update state after animation completes
-    });
-  };
+  if (!fontsLoaded) return null;
 
   return (
     <NavigationContainer>
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-        {isLoggedIn ? (
-          <AppStack onSignOut={handleSignOut} />
-        ) : (
-          <AuthStack onLogin={() => setIsLoggedIn(true)} />
-        )}
-      </Animated.View>
+      {isLoggedIn ? (
+        <AppStack onSignOut={() => setIsLoggedIn(false)} />
+      ) : (
+        <AuthStack onLogin={() => setIsLoggedIn(true)} />
+      )}
     </NavigationContainer>
   );
 }

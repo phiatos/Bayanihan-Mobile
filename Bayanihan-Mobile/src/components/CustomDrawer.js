@@ -2,13 +2,13 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import {FontAwesome5, MaterialIcons} from 'react-native-vector-icons';
 import styles from '../styles/CustomDrawerStyles';
 import Theme from '../contants/theme';
 
 
 const CustomDrawer = (props) => {
-  const { onSignOut } = props; // Destructure onSignOut
+  const { onSignOut } = props;
 
   return (
     <View style={styles.container}>
@@ -36,21 +36,21 @@ const CustomDrawer = (props) => {
       <View style={styles.footer}>
         <TouchableOpacity onPress={() => {}} style={styles.footerButton}>
           <View style={styles.footerButtonContent}>
-            <Ionicons name='share-social-outline' size={22} style={{color: Theme.colors.white}} />
-            <Text style={styles.footerButtonText}>Tell a Friend</Text>
+            <MaterialIcons name='info' size={22} style={{color: Theme.colors.white}} />
+            <Text style={styles.footerButtonText}>Help</Text>
           </View>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => {
             if (onSignOut) {
-              onSignOut(); // Trigger sign-out to switch to AuthStack
+              onSignOut(); 
             }
           }}
           style={styles.footerButton}
         >
           <View style={styles.footerButtonContent}>
             <Ionicons name='exit-outline' size={22} style={{color: Theme.colors.white}}/>
-            <Text style={styles.footerButtonText}>Sign Out</Text>
+            <Text style={styles.footerButtonText}>Log Out</Text>
           </View>
         </TouchableOpacity>
       </View>
