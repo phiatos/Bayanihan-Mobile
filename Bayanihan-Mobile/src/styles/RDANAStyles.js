@@ -122,22 +122,33 @@ export default StyleSheet.create({
     fontSize: 18,
     color: '#14AEBB',
   },
+  table:{
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+    marginVertical: 20
+  },
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-    paddingVertical: 10,
+    borderBottomColor: Theme.colors.primary,
   },
   tableHeader: {
     textAlign: 'left',
     paddingLeft: 10,
-    fontFamily: 'Poppins_Bold',
-    color: '#4059A5',
+    fontFamily: 'Poppins_SemiBold',
+    paddingVertical: 15,
+    color: Theme.colors.white,
+    backgroundColor: '#00b3c3c2',
+    
   },
   tableCell: {
     textAlign: 'left',
     paddingLeft: 10,
     fontFamily: 'Poppins_Regular',
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+
   },
   icon: {
     padding: 10,

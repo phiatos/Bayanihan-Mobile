@@ -128,7 +128,7 @@ const ReportSubmissionScreen = () => {
   const renderLabel = (label, isRequired) => (
     <Text style={styles.formTitle}>
       {label}
-      {isRequired && <Text style={{ color: 'red' }}>*</Text>}
+      {isRequired}
     </Text>
   );
 

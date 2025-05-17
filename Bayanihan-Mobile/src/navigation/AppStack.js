@@ -13,6 +13,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import Theme from '../contants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import RDANAScreen from '../screens/RDANAScreen';
+import RDANASummary from '../screens/RDANASummary';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -28,6 +29,13 @@ const ReportStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="ReportSubmission" component={ReportSubmissionScreen} />
     <Stack.Screen name="ReportSummary" component={ReportSummary} />
+  </Stack.Navigator>
+);
+
+const RDANAStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="RDANAScreen" component={RDANAScreen} />
+    <Stack.Screen name="RDANASummary" component={RDANASummary} />
   </Stack.Navigator>
 );
 
@@ -88,7 +96,7 @@ const AppStack = ({ onSignOut }) => {
       />
       <Drawer.Screen
         name="RDANA"
-        component={RDANAScreen}
+        component={RDANAStack}
         options={{
           drawerIcon: ({ color }) => (
             <Ionicons name="clipboard-outline" size={22} color={color} />

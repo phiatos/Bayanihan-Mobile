@@ -1,21 +1,24 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert, FlatList, SafeAreaView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RDANAStyles from '../styles/RDANAStyles';
 
 const RDANAScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
   const [errors, setErrors] = useState({});
-  const [reportData, setReportData] = useState({
+
+  // Initialize reportData with route params if available
+  const initialReportData = route.params?.reportData || {
     barangay: '',
     cityMunicipality: '',
     province: '',
     localAuthoritiesPersonsContacted: '',
     dateInformationGathered: '',
     timeInformationGathered: '',
-    nameOrganizationsInvolved: '',
+    nameOrganizationInvolved: '',
     locationsAreasAffectedBarangay: '',
     locationsAreasAffectedCityMunicipality: '',
     locationsAreasAffectedProvince: '',
@@ -48,7 +51,8 @@ const RDANAScreen = () => {
     responseGroupsInvolved: '',
     reliefAssistanceDeployed: '',
     numberOfFamiliesServed: '',
-  });
+  };
+  const [reportData, setReportData] = useState(initialReportData);
 
   // States for dropdowns
   const [isDisasterDropdownVisible, setIsDisasterDropdownVisible] = useState(false);
@@ -80,10 +84,10 @@ const RDANAScreen = () => {
     timeOfOccurrence: false,
   });
   const [tempDate, setTempDate] = useState({
-    dateInformationGathered: new Date(),
-    dateOfOccurrence: new Date(),
-    timeInformationGathered: new Date(),
-    timeOfOccurrence: new Date(),
+    dateInformationGathered: initialReportData.dateInformationGathered ? new Date(initialReportData.dateInformationGathered) : new Date(),
+    dateOfOccurrence: initialReportData.dateOfOccurrence ? new Date(initialReportData.dateOfOccurrence) : new Date(),
+    timeInformationGathered: initialReportData.timeInformationGathered ? new Date(`1970-01-01T${initialReportData.timeInformationGathered}:00`) : new Date(),
+    timeOfOccurrence: initialReportData.timeOfOccurrence ? new Date(`1970-01-01T${initialReportData.timeOfOccurrence}:00`) : new Date(),
   });
 
   // Predetermined options
@@ -92,7 +96,7 @@ const RDANAScreen = () => {
   const needsOptions = ['Yes', 'No'];
 
   // Table data for affected municipalities
-  const [affectedMunicipalities, setAffectedMunicipalities] = useState([]);
+  const [affectedMunicipalities, setAffectedMunicipalities] = useState(route.params?.affectedMunicipalities || []);
 
   // Required fields
   const requiredFields = [
@@ -100,6 +104,7 @@ const RDANAScreen = () => {
     'cityMunicipality',
     'province',
     'localAuthoritiesPersonsContacted',
+    'nameOrganizationInvolved',
     'dateInformationGathered',
     'timeInformationGathered',
     'locationsAreasAffectedBarangay',
@@ -107,13 +112,7 @@ const RDANAScreen = () => {
     'locationsAreasAffectedProvince',
     'typeOfDisaster',
     'dateOfOccurrence',
-    'summaryOfDisasterIncident',
-    'bridgesStatus',
-    'bridgesStatus',
-    'roadsStatus',
-    'buildingsStatus',
-    'hospitalsStatus',
-    'schoolsStatus',
+    'timeOfOccurrence',
   ];
 
   // Helper function to capitalize first letter
@@ -174,13 +173,13 @@ const RDANAScreen = () => {
     if (['bridgesStatus', 'roadsStatus', 'buildingsStatus', 'hospitalsStatus', 'schoolsStatus'].includes(field)) {
       if (value.trim() === '') {
         setFilteredStatuses(statusOptions);
-        setIsStatusDropdownVisible((prev) => ({ ...prev, [field]: false }));
+        setIsStatusDropdownVisible((prev) => ({ ...prev, [field.replace('Status', '').toLowerCase()]: false }));
       } else {
         const filtered = statusOptions.filter((status) =>
           status.toLowerCase().includes(value.toLowerCase())
         );
         setFilteredStatuses(filtered);
-        setIsStatusDropdownVisible((prev) => ({ ...prev, [field]: true }));
+        setIsStatusDropdownVisible((prev) => ({ ...prev, [field.replace('Status', '').toLowerCase()]: true }));
       }
     }
   };
@@ -219,19 +218,20 @@ const RDANAScreen = () => {
       delete newErrors.typeOfDisaster;
       return newErrors;
     });
-    disasterInputRef.current.blur();
+    disasterInputRef.current?.blur();
   };
 
   // Handle status selection
   const handleStatusSelect = (status, field) => {
     setReportData({ ...reportData, [field]: status });
-    setIsStatusDropdownVisible((prev) => ({ ...prev, [field]: false }));
+    const refKey = field.replace('Status', '').toLowerCase();
+    setIsStatusDropdownVisible((prev) => ({ ...prev, [refKey]: false }));
     setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors[field];
       return newErrors;
     });
-    statusInputRefs[field].current.blur();
+    statusInputRefs[refKey]?.current?.blur();
   };
 
   // Handle dropdown focus
@@ -256,30 +256,83 @@ const RDANAScreen = () => {
     }, 200);
   };
 
-  // Add new city/municipality
+  // New city/municipality
   const handleAddMunicipality = () => {
-    const { locationsAreasAffectedBarangay, locationsAreasAffectedCityMunicipality, locationsAreasAffectedProvince } = reportData;
-    if (!locationsAreasAffectedBarangay || !locationsAreasAffectedCityMunicipality || !locationsAreasAffectedProvince) {
+    const {
+      affectedMunicipalitiesCommunities,
+      totalPopulation,
+      affectedPopulation,
+      deaths,
+      injured,
+      missing,
+      children,
+      women,
+      seniorCitizens,
+      pwd,
+    } = reportData;
+
+    const isMissingRequiredField =
+      !affectedMunicipalitiesCommunities ||
+      !totalPopulation ||
+      !affectedPopulation ||
+      !deaths ||
+      !injured ||
+      !missing ||
+      !children ||
+      !women ||
+      !seniorCitizens ||
+      !pwd;
+
+    if (isMissingRequiredField) {
       const newErrors = {};
-      if (!locationsAreasAffectedBarangay) newErrors.locationsAreasAffectedBarangay = 'Barangay is required';
-      if (!locationsAreasAffectedCityMunicipality) newErrors.locationsAreasAffectedCityMunicipality = 'City/Municipality is required';
-      if (!locationsAreasAffectedProvince) newErrors.locationsAreasAffectedProvince = 'Province is required';
+      if (!affectedMunicipalitiesCommunities) newErrors.affectedMunicipalitiesCommunities = 'Affected Municipality/Community is required';
+      if (!totalPopulation) newErrors.totalPopulation = 'Total Population is required';
+      if (!affectedPopulation) newErrors.affectedPopulation = 'Affected Population is required';
+      if (!deaths) newErrors.deaths = 'Number of deaths is required';
+      if (!injured) newErrors.injured = 'Number of injured is required';
+      if (!missing) newErrors.missing = 'Number of missing persons is required';
+      if (!children) newErrors.children = 'Number of affected children is required';
+      if (!women) newErrors.women = 'Number of affected women is required';
+      if (!seniorCitizens) newErrors.seniorCitizens = 'Number of affected senior citizens is required';
+      if (!pwd) newErrors.pwd = 'Number of affected PWDs is required';
+
       setErrors(newErrors);
-      Alert.alert('Incomplete Fields', 'Please fill out all location fields before adding.');
+      Alert.alert('Incomplete Fields', 'Please fill out all required fields before adding.');
       return;
     }
+
     const newMunicipality = {
-      locationsAreasAffectedBarangay,
-      locationsAreasAffectedCityMunicipality,
-      locationsAreasAffectedProvince,
+      affectedMunicipalitiesCommunities,
+      totalPopulation,
+      affectedPopulation,
+      deaths,
+      injured,
+      missing,
+      children,
+      women,
+      seniorCitizens,
+      pwd,
     };
-    setAffectedMunicipalities([...affectedMunicipalities, newMunicipality]);
-    Alert.alert('Municipality Saved', `Saved:\nBarangay: ${locationsAreasAffectedBarangay}\nCity: ${locationsAreasAffectedCityMunicipality}\nProvince: ${locationsAreasAffectedProvince}`);
+
+    setAffectedMunicipalities((prev) => [...prev, newMunicipality]);
+
+    Alert.alert(
+      'Municipality Saved',
+      `Saved:\nAffected Community: ${affectedMunicipalitiesCommunities}\nTotal Population: ${totalPopulation}\nAffected Population: ${affectedPopulation}\nDeaths: ${deaths}\nInjured: ${injured}\nMissing: ${missing}\nChildren: ${children}\nWomen: ${women}\nSenior Citizens: ${seniorCitizens}\ \nPWD: ${pwd}`
+    );
+
     setReportData((prev) => ({
       ...prev,
-      locationsAreasAffectedBarangay: '',
-      locationsAreasAffectedCityMunicipality: '',
-      locationsAreasAffectedProvince: '',
+      affectedMunicipalitiesCommunities: '',
+      totalPopulation: '',
+      affectedPopulation: '',
+      deaths: '',
+      injured: '',
+      missing: '',
+      children: '',
+      women: '',
+      seniorCitizens: '',
+      pwd: '',
     }));
   };
 
@@ -301,11 +354,11 @@ const RDANAScreen = () => {
     navigation.navigate('RDANASummary', { reportData, affectedMunicipalities });
   };
 
-  // Render label
+  // Render label with asterisk for required fields
   const renderLabel = (label, isRequired) => (
     <Text style={RDANAStyles.formTitle}>
       {label}
-      {isRequired && <Text style={{ color: 'red' }}>*</Text>}
+      {isRequired}
     </Text>
   );
 
@@ -403,13 +456,14 @@ const RDANAScreen = () => {
             )}
             {errors.timeInformationGathered && <Text style={RDANAStyles.errorText}>{errors.timeInformationGathered}</Text>}
 
-            {renderLabel('Name of Organizations Involved', false)}
+          {renderLabel('Name of Organization Involved', false)}
             <TextInput
-              style={RDANAStyles.input}
-              placeholder="Enter Organizations"
-              onChangeText={(val) => handleChange('nameOrganizationsInvolved', val)}
-              value={reportData.nameOrganizationsInvolved}
+              style={[RDANAStyles.input, errors.nameOrganizationInvolved && RDANAStyles.requiredInput]}
+              placeholder="Enter Name of Organization"
+              onChangeText={(val) => handleChange('nameOrganizationInvolved', val)}
+              value={reportData.nameOrganizationInvolved}
             />
+            {errors.nameOrganizationInvolved && <Text style={RDANAStyles.errorText}>{errors.nameOrganizationInvolved}</Text>}
           </View>
 
           {/* Modality */}
@@ -441,6 +495,7 @@ const RDANAScreen = () => {
               value={reportData.locationsAreasAffectedProvince}
             />
             {errors.locationsAreasAffectedProvince && <Text style={RDANAStyles.errorText}>{errors.locationsAreasAffectedProvince}</Text>}
+
             {renderLabel('Type of Disaster', true)}
             <View style={{ position: 'relative' }}>
               <TextInput
@@ -511,7 +566,7 @@ const RDANAScreen = () => {
               />
             )}
 
-            {renderLabel('Summary of Disaster/Incident', true)}
+            {renderLabel('Summary of Disaster/Incident', false)}
             <TextInput
               style={[RDANAStyles.input, errors.summaryOfDisasterIncident && RDANAStyles.requiredInput, { height: 100 }]}
               placeholder="Enter Summary"
@@ -536,112 +591,138 @@ const RDANAScreen = () => {
             </View>
 
             {affectedMunicipalities.length > 0 && (
-              <View style={{ marginTop: 20 }}>
-                <Text style={RDANAStyles.addedItems}>Affected Municipalities:</Text>
-                <View style={RDANAStyles.tableRow}>
-                  <Text style={[RDANAStyles.tableHeader, { flex: 0.1 }]}>No.</Text>
-                  <Text style={[RDANAStyles.tableHeader, { flex: 0.3 }]}>Barangay</Text>
-                  <Text style={[RDANAStyles.tableHeader, { flex: 0.3 }]}>City</Text>
-                  <Text style={[RDANAStyles.tableHeader, { flex: 0.3 }]}>Province</Text>
-                </View>
-                {affectedMunicipalities.map((item, index) => (
-                  <View key={index} style={RDANAStyles.tableRow}>
-                    <Text style={[RDANAStyles.tableCell, { flex: 0.1 }]}>{index + 1}</Text>
-                    <Text style={[RDANAStyles.tableCell, { flex: 0.3 }]}>{item.locationsAreasAffectedBarangay}</Text>
-                    <Text style={[RDANAStyles.tableCell, { flex: 0.3 }]}>{item.locationsAreasAffectedCityMunicipality}</Text>
-                    <Text style={[RDANAStyles.tableCell, { flex: 0.3 }]}>{item.locationsAreasAffectedProvince}</Text>
+              <View style={RDANAStyles.table}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                  <View>
+                    <View style={[RDANAStyles.tableRow, { minWidth: 600 }]}>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 280 }]}>Affected Municipalities/Communities</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 150 }]}>Total Population</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 160 }]}>Affected Population</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Deaths</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Injured</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Missing</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Children</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 80 }]}>Women</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 130 }]}>Senior Citizens</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>PWD</Text>
+                    </View>
+                    {affectedMunicipalities.map((item, index) => (
+                      <View key={index} style={[RDANAStyles.tableRow, { minWidth: 600 }]}>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 280 }]}>{item.affectedMunicipalitiesCommunities || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 1, minWidth: 150 }]}>{item.totalPopulation || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.1, minWidth: 160 }]}>{item.affectedPopulation || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.deaths || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.injured || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.missing || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.children || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 80 }]}>{item.women || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 130 }]}>{item.seniorCitizens || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.pwd || 'N/A'}</Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
+                </ScrollView>
               </View>
             )}
-            {renderLabel('Affected Municipalities/Communities', false)}
+
+            {renderLabel('Affected Municipalities/Communities', true)}
             <TextInput
-              style={RDANAStyles.input}
+              style={[RDANAStyles.input, errors.affectedMunicipalitiesCommunities && RDANAStyles.requiredInput]}
               placeholder="Enter Municipalities/Communities"
               onChangeText={(val) => handleChange('affectedMunicipalitiesCommunities', val)}
               value={reportData.affectedMunicipalitiesCommunities}
             />
+            {errors.affectedMunicipalitiesCommunities && <Text style={RDANAStyles.errorText}>{errors.affectedMunicipalitiesCommunities}</Text>}
 
-            {renderLabel('Total Population', false)}
+            {renderLabel('Total Population', true)}
             <TextInput
-              style={RDANAStyles.input}
+              style={[RDANAStyles.input, errors.totalPopulation && RDANAStyles.requiredInput]}
               placeholder="Enter Total Population"
               onChangeText={(val) => handleChange('totalPopulation', val)}
               value={reportData.totalPopulation}
               keyboardType="numeric"
             />
+            {errors.totalPopulation && <Text style={RDANAStyles.errorText}>{errors.totalPopulation}</Text>}
 
-            {renderLabel('Affected Population', false)}
+            {renderLabel('Affected Population', true)}
             <TextInput
-              style={RDANAStyles.input}
+              style={[RDANAStyles.input, errors.affectedPopulation && RDANAStyles.requiredInput]}
               placeholder="Enter Affected Population"
               onChangeText={(val) => handleChange('affectedPopulation', val)}
               value={reportData.affectedPopulation}
               keyboardType="numeric"
             />
+            {errors.affectedPopulation && <Text style={RDANAStyles.errorText}>{errors.affectedPopulation}</Text>}
 
-            {renderLabel('Deaths', false)}
+            {renderLabel('Deaths', true)}
             <TextInput
-              style={RDANAStyles.input}
+              style={[RDANAStyles.input, errors.deaths && RDANAStyles.requiredInput]}
               placeholder="Enter Number of Deaths"
               onChangeText={(val) => handleChange('deaths', val)}
               value={reportData.deaths}
               keyboardType="numeric"
             />
+            {errors.deaths && <Text style={RDANAStyles.errorText}>{errors.deaths}</Text>}
 
-            {renderLabel('Injured', false)}
+            {renderLabel('Injured', true)}
             <TextInput
-              style={RDANAStyles.input}
+              style={[RDANAStyles.input, errors.injured && RDANAStyles.requiredInput]}
               placeholder="Enter Number of Injured"
               onChangeText={(val) => handleChange('injured', val)}
               value={reportData.injured}
               keyboardType="numeric"
             />
+            {errors.injured && <Text style={RDANAStyles.errorText}>{errors.injured}</Text>}
 
-            {renderLabel('Missing', false)}
+            {renderLabel('Missing', true)}
             <TextInput
-              style={RDANAStyles.input}
+              style={[RDANAStyles.input, errors.missing && RDANAStyles.requiredInput]}
               placeholder="Enter Number of Missing"
               onChangeText={(val) => handleChange('missing', val)}
               value={reportData.missing}
               keyboardType="numeric"
             />
+            {errors.missing && <Text style={RDANAStyles.errorText}>{errors.missing}</Text>}
 
-            {renderLabel('Children', false)}
+            {renderLabel('Children', true)}
             <TextInput
-              style={RDANAStyles.input}
+              style={[RDANAStyles.input, errors.children && RDANAStyles.requiredInput]}
               placeholder="Enter Number of Children"
               onChangeText={(val) => handleChange('children', val)}
               value={reportData.children}
               keyboardType="numeric"
             />
+            {errors.children && <Text style={RDANAStyles.errorText}>{errors.children}</Text>}
 
-            {renderLabel('Women', false)}
+            {renderLabel('Women', true)}
             <TextInput
-              style={RDANAStyles.input}
+              style={[RDANAStyles.input, errors.women && RDANAStyles.requiredInput]}
               placeholder="Enter Number of Women"
               onChangeText={(val) => handleChange('women', val)}
               value={reportData.women}
               keyboardType="numeric"
             />
+            {errors.women && <Text style={RDANAStyles.errorText}>{errors.women}</Text>}
 
-            {renderLabel('Senior Citizens', false)}
+            {renderLabel('Senior Citizens', true)}
             <TextInput
-              style={RDANAStyles.input}
+              style={[RDANAStyles.input, errors.seniorCitizens && RDANAStyles.requiredInput]}
               placeholder="Enter Number of Senior Citizens"
               onChangeText={(val) => handleChange('seniorCitizens', val)}
               value={reportData.seniorCitizens}
               keyboardType="numeric"
             />
+            {errors.seniorCitizens && <Text style={RDANAStyles.errorText}>{errors.seniorCitizens}</Text>}
 
-            {renderLabel('PWD', false)}
+            {renderLabel('PWD', true)}
             <TextInput
-              style={RDANAStyles.input}
+              style={[RDANAStyles.input, errors.pwd && RDANAStyles.requiredInput]}
               placeholder="Enter Number of PWD"
               onChangeText={(val) => handleChange('pwd', val)}
               value={reportData.pwd}
               keyboardType="numeric"
             />
+            {errors.pwd && <Text style={RDANAStyles.errorText}>{errors.pwd}</Text>}
           </View>
 
           {/* Status of Lifelines, Social Structure, and Critical Facilities */}
@@ -649,20 +730,21 @@ const RDANAScreen = () => {
             <Text style={RDANAStyles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities</Text>
             {['Bridges', 'Roads', 'Buildings', 'Hospitals', 'Schools'].map((item) => {
               const field = `${item.toLowerCase()}Status`;
+              const refKey = item.toLowerCase();
               return (
                 <View key={item}>
                   {renderLabel(item, false)}
                   <View style={{ position: 'relative' }}>
                     <TextInput
-                      ref={statusInputRefs[item.toLowerCase()]}
+                      ref={statusInputRefs[refKey]}
                       style={[RDANAStyles.input, errors[field] && RDANAStyles.requiredInput]}
                       placeholder={`Select ${item} Status`}
                       onChangeText={(val) => handleChange(field, val)}
                       value={reportData[field]}
-                      onFocus={() => handleStatusFocus(item.toLowerCase())}
-                      onBlur={() => handleBlur(setIsStatusDropdownVisible, item.toLowerCase())}
+                      onFocus={() => handleStatusFocus(refKey)}
+                      onBlur={() => handleBlur(setIsStatusDropdownVisible, refKey)}
                     />
-                    {isStatusDropdownVisible[item.toLowerCase()] && filteredStatuses.length > 0 && (
+                    {isStatusDropdownVisible[refKey] && filteredStatuses.length > 0 && (
                       <View style={RDANAStyles.dropdownContainer}>
                         <FlatList
                           data={filteredStatuses}
@@ -706,7 +788,7 @@ const RDANAScreen = () => {
                             paddingVertical: 8,
                           },
                         ]}
-                        onPress={() => handleNeedsSelect(field, reportData[field] === option ? '' : option)}
+                        onPress={() => handleNeedsSelect(field, option)}
                       >
                         <Text style={[RDANAStyles.addbuttonText, { color: reportData[field] === option ? 'white' : '#333' }]}>
                           {option}
