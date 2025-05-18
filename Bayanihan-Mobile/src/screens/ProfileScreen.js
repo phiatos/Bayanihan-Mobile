@@ -47,7 +47,6 @@ const ProfileScreen = ({ navigation }) => {
         <Text style={GlobalStyles.headerTitle}>Profile</Text>
       </View>
 
-      {/* Content wrapped in SafeAreaView for proper padding below the header */}
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
         <ScrollView contentContainerStyle={ProfileStyles.scrollViewContent}>
 
