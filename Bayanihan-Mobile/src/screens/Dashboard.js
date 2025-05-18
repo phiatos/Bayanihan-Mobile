@@ -5,7 +5,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Font from 'expo-font';
 
 import DashboardStyles from '../styles/DashboardStyles';
-import GlobalStyles from './Bayanihan-Mobile/src/styles/GlobalStyles';
+import GlobalStyles from '../styles/GlobalStyles';
 
 const DashboardScreen = ({ navigation }) => {
   const [fontsLoaded, setFontsLoaded] = useState(false);
