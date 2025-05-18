@@ -24,35 +24,50 @@ const borderWidth = {
 
 export default StyleSheet.create({
  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.lightBg,
+    backgroundColor: '#FFFFFF',
   },
+ header: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center', 
+  backgroundColor: Theme.colors.primary,
+  paddingHorizontal: 10,
+  width: '100%',
+  borderBottomLeftRadius: 20,
+  borderBottomRightRadius: 20,
+  height: 92,
+  paddingTop: 40,
+  position: 'relative', 
+  elevation: 10
+},
 
-  scrollViewContent: {
-    paddingVertical: spacing.small, 
-  },
+menuIcon: {
+  position: 'absolute',
+  left: 30,
+  top: 50, 
+},
+headerText: {
+  color: 'white',
+  fontSize: 20,
+  fontFamily: 'Poppins-Regular',
+  textAlign: 'center',
+},
 
-  section: {
-    marginVertical: spacing.small,
-    marginHorizontal: spacing.medium,
-    borderWidth: borderWidth.thick,
-    borderColor: Theme.colors.primary,
-    borderRadius: borderRadius.medium,
-    padding: spacing.small,
-    backgroundColor: Theme.colors.lightBg,
-    shadowColor: Theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,  
-  },
-
-  sectionTitle: {
-    fontSize: 18,
-    marginBottom: spacing.small,
-    color: Theme.colors.primary,
+  subheader: {
+    fontSize: 16,
+    color: '#14AEBB',
     textAlign: 'center',
-    fontFamily: 'Poppins_SemiBold',
+    marginVertical: 10,
+    fontFamily: 'Poppins_Regular', 
+  },
+  section: {
+    marginVertical: 10,
+    marginHorizontal: 15,
+    borderWidth: 3,
+    borderColor: '#14AEBB',
+    borderRadius: 8,
+    padding: 10,
+    backgroundColor: '#FFF9F0',
   },
 
   form: {
@@ -61,7 +76,7 @@ export default StyleSheet.create({
 
   formTitle: {
     fontSize: 13,
-    color: Theme.colors.primary,
+    color: '#14AEBB',
     marginBottom: 5,
     fontFamily: 'Poppins_Bold',
   },

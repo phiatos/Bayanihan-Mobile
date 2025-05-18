@@ -1,5 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Platform, Alert, SafeAreaView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react'; // Import useRef
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  TouchableOpacity,
+  Platform,
+  Alert,
+  SafeAreaView,
+  KeyboardAvoidingView,
+} from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles from '../styles/ReportSubmissionStyles';
@@ -13,9 +23,10 @@ const ReportSubmissionScreen = () => {
   const [reportData, setReportData] = useState({
     reportID: '',
     timeOfIntervention: null,
-    submittedBy: '',
+    AreaOfOperation: '',
     dateOfReport: new Date(),
-    operationDate: null,
+    startDate: null,
+    endDate: null,
     families: '',
     foodPacks: '',
     hotMeals: '',
@@ -23,18 +34,20 @@ const ReportSubmissionScreen = () => {
     volunteers: '',
     amountRaised: '',
     inKindValue: '',
-    urgentNeeds: '',
     remarks: '',
+    orgActivated: '', // Added field for No. of Organizations Activated
   });
 
   const [showPicker, setShowPicker] = useState({ field: '', visible: false, mode: 'date' });
   const [errors, setErrors] = useState({});
+  const scrollViewRef = useRef(null); // Create a ref for the ScrollView
 
   const requiredFields = [
     'timeOfIntervention',
-    'submittedBy',
+    'AreaOfOperation',
+    'startDate',
+    'endDate',
     'dateOfReport',
-    'operationDate',
     'families',
     'foodPacks',
     'hotMeals',
@@ -42,6 +55,7 @@ const ReportSubmissionScreen = () => {
     'volunteers',
     'amountRaised',
     'inKindValue',
+    'orgActivated', // Included the new field in required fields
   ];
 
   useEffect(() => {
@@ -88,7 +102,7 @@ const ReportSubmissionScreen = () => {
       });
     }
 
-    const numericFields = ['families', 'foodPacks', 'hotMeals', 'water', 'volunteers', 'amountRaised', 'inKindValue'];
+    const numericFields = ['families', 'foodPacks', 'hotMeals', 'water', 'volunteers', 'amountRaised', 'inKindValue', 'orgActivated'];
     if (numericFields.includes(field) && value && !/^\d+$/.test(value)) {
       setErrors((prev) => ({
         ...prev,
@@ -106,7 +120,7 @@ const ReportSubmissionScreen = () => {
         const fieldName = field.replace(/([A-Z])/g, ' $1').trim();
         newErrors[field] = `${capitalizeFirstLetter(fieldName)} is required`;
       }
-      const numericFields = ['families', 'foodPacks', 'hotMeals', 'water', 'volunteers', 'amountRaised', 'inKindValue'];
+      const numericFields = ['families', 'foodPacks', 'hotMeals', 'water', 'volunteers', 'amountRaised', 'inKindValue', 'orgActivated'];
       if (numericFields.includes(field) && value && !/^\d+$/.test(value)) {
         const fieldName = field.replace(/([A-Z])/g, ' $1').trim();
         newErrors[field] = `${capitalizeFirstLetter(fieldName)} must be a positive number`;
@@ -135,21 +149,27 @@ const ReportSubmissionScreen = () => {
   );
 
   return (
-    <View style={ReportSubmissionStyles.container}>
-
-      {/* Header - Use GlobalStyles for header properties */}
-      <View style={GlobalStyles.headerContainer}>
-        <TouchableOpacity
-          onPress={() => navigation.openDrawer()}
-          style={GlobalStyles.headerMenuIcon}
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0} // Adjust offset if needed
+      >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          ref={scrollViewRef} // Attach the ref to the ScrollView
         >
-          <Ionicons name="menu" size={32} color="white" />
-        </TouchableOpacity>
-        <Text style={GlobalStyles.headerTitle}>Reports Submission</Text>
-      </View>
+          <View style={GlobalStyles.headerContainer}>
+            <TouchableOpacity
+              onPress={() => navigation.openDrawer()}
+              style={styles.menuIcon}
+            >
+              <Ionicons name="menu" size={32} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.headerText}>Reports Submission</Text>
+          </View>
 
-      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
-        <ScrollView contentContainerStyle={ReportSubmissionStyles.scrollViewContent}>
+          <Text style={styles.subheader}>[Organization Name]</Text>
 
           <View style={styles.form}>
             <View style={styles.section}>
@@ -162,6 +182,32 @@ const ReportSubmissionScreen = () => {
                 editable={false}
                 selectTextOnFocus={false}
               />
+
+              {renderLabel('Area of Operation', true)}
+              <TextInput
+                style={[styles.input, errors.AreaOfOperation && styles.requiredInput]}
+                placeholder="Enter Address"
+                onChangeText={(val) => handleChange('AreaOfOperation', val)}
+                value={reportData.AreaOfOperation}
+              />
+              {errors.AreaOfOperation && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.AreaOfOperation}</Text>}
+
+             {renderLabel('Date of Report', true)}
+              <View style={[styles.inputContainer, errors.dateOfReport && styles.requiredInput]}>
+                <TextInput
+                  style={[styles.input, styles.dateInput, { backgroundColor: '#f0f0f0' }]} // Added background color for visual cue
+                  placeholder="mm/dd/yyyy"
+                  placeholderTextColor="#999"
+                  value={reportData.dateOfReport ? reportData.dateOfReport.toLocaleDateString('en-GB') : ''}
+                  editable={false}
+                />
+                <Icon name="calendar-today" size={16} color="#666" style={styles.icon} />
+              </View>
+              {errors.dateOfReport && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.dateOfReport}</Text>}
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Relief Operations</Text>
 
               {renderLabel('Time of Intervention', true)}
               <TouchableOpacity onPress={() => setShowPicker({ field: 'timeOfIntervention', visible: true, mode: 'time' })}>
@@ -186,50 +232,37 @@ const ReportSubmissionScreen = () => {
               </TouchableOpacity>
               {errors.timeOfIntervention && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.timeOfIntervention}</Text>}
 
-              {renderLabel('Submitted by', true)}
-              <TextInput
-                style={[styles.input, errors.submittedBy && styles.requiredInput]}
-                placeholder="Enter Name"
-                onChangeText={(val) => handleChange('submittedBy', val)}
-                value={reportData.submittedBy}
-              />
-              {errors.submittedBy && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.submittedBy}</Text>}
-
-              {renderLabel('Date of Report', true)}
-              <TouchableOpacity onPress={() => setShowPicker({ field: 'dateOfReport', visible: true, mode: 'date' })}>
-                <View style={[styles.inputContainer, errors.dateOfReport && styles.requiredInput]}>
+              {renderLabel('Starting Date of Operation', true)}
+              <TouchableOpacity onPress={() => setShowPicker({ field: 'startDate', visible: true, mode: 'date' })}>
+                <View style={[styles.inputContainer, errors.startDate && styles.requiredInput]}>
                   <TextInput
                     style={[styles.input, styles.dateInput]}
                     placeholder="mm/dd/yyyy"
                     placeholderTextColor="#999"
-                    value={reportData.dateOfReport ? reportData.dateOfReport.toLocaleDateString('en-GB') : ''}
+                    value={reportData.startDate ? reportData.startDate.toLocaleDateString('en-GB') : ''}
                     editable={false}
                   />
                   <Icon name="calendar-today" size={16} color="#666" style={styles.icon} />
                 </View>
               </TouchableOpacity>
-              {errors.dateOfReport && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.dateOfReport}</Text>}
-            </View>
+              {errors.startDate && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.startDate}</Text>}
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Relief Operations</Text>
-
-              {renderLabel('Operation Date', true)}
-              <TouchableOpacity onPress={() => setShowPicker({ field: 'operationDate', visible: true, mode: 'date' })}>
-                <View style={[styles.inputContainer, errors.operationDate && styles.requiredInput]}>
+              {renderLabel('Ending Date of Operation', true)}
+              <TouchableOpacity onPress={() => setShowPicker({ field: 'endDate', visible: true, mode: 'date' })}>
+                <View style={[styles.inputContainer, errors.endDate && styles.requiredInput]}>
                   <TextInput
                     style={[styles.input, styles.dateInput]}
                     placeholder="mm/dd/yyyy"
                     placeholderTextColor="#999"
-                    value={reportData.operationDate ? reportData.operationDate.toLocaleDateString('en-GB') : ''}
+                    value={reportData.endDate ? reportData.endDate.toLocaleDateString('en-GB') : ''}
                     editable={false}
                   />
                   <Icon name="calendar-today" size={16} color="#666" style={styles.icon} />
                 </View>
               </TouchableOpacity>
-              {errors.operationDate && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.operationDate}</Text>}
+              {errors.endDate && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.endDate}</Text>}
 
-              {renderLabel('Number of Families', true)}
+              {renderLabel('No. of Individuals or Families', true)}
               <TextInput
                 style={[styles.input, errors.families && styles.requiredInput]}
                 placeholder="Enter No. of Families"
@@ -239,7 +272,7 @@ const ReportSubmissionScreen = () => {
               />
               {errors.families && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.families}</Text>}
 
-              {renderLabel('No. of Food Packs', true)}
+              {renderLabel('No. of Relief Packs', true)}
               <TextInput
                 style={[styles.input, errors.foodPacks && styles.requiredInput]}
                 placeholder="Enter No. of Food Packs"
@@ -249,7 +282,7 @@ const ReportSubmissionScreen = () => {
               />
               {errors.foodPacks && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.foodPacks}</Text>}
 
-              {renderLabel('No. of Hot Meals', true)}
+              {renderLabel('No. of Hot Meals/Ready-to-eat Foods', true)}
               <TextInput
                 style={[styles.input, errors.hotMeals && styles.requiredInput]}
                 placeholder="Enter No. of Hot Meals"
@@ -279,15 +312,15 @@ const ReportSubmissionScreen = () => {
               />
               {errors.volunteers && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.volunteers}</Text>}
 
-              {renderLabel('Total Amount Raised', true)}
+              {renderLabel('No. of Organizations Activated', true)}
               <TextInput
-                style={[styles.input, errors.amountRaised && styles.requiredInput]}
-                placeholder="Enter Amount Raised"
-                onChangeText={(val) => handleChange('amountRaised', val)}
-                value={reportData.amountRaised}
+                style={[styles.input, errors.orgActivated && styles.requiredInput]}
+                placeholder="Enter No. of Organizations Activated"
+                onChangeText={(val) => handleChange('orgActivated', val)}
+                value={reportData.orgActivated}
                 keyboardType="numeric"
               />
-              {errors.amountRaised && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.amountRaised}</Text>}
+              {errors.orgActivated && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.orgActivated}</Text>}
 
               {renderLabel('Total Value of In-Kind Donations', true)}
               <TextInput
@@ -298,19 +331,20 @@ const ReportSubmissionScreen = () => {
                 keyboardType="numeric"
               />
               {errors.inKindValue && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.inKindValue}</Text>}
+
+              {renderLabel('Total Monetary Donations', true)}
+              <TextInput
+                style={[styles.input, errors.amountRaised && styles.requiredInput]}
+                placeholder="Enter Amount Raised"
+                onChangeText={(val) => handleChange('amountRaised', val)}
+                value={reportData.amountRaised}
+                keyboardType="numeric"
+              />
+              {errors.amountRaised && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.amountRaised}</Text>}
             </View>
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Additional Updates</Text>
-
-              {renderLabel('Urgent Needs', false)}
-              <TextInput
-                style={[styles.input]}
-                placeholder="Enter Urgent Needs"
-                onChangeText={(val) => handleChange('urgentNeeds', val)}
-                value={reportData.urgentNeeds}
-              />
-              {errors.urgentNeeds && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.urgentNeeds}</Text>}
 
               {renderLabel('Remarks', false)}
               <TextInput
@@ -320,6 +354,13 @@ const ReportSubmissionScreen = () => {
                 numberOfLines={4}
                 onChangeText={(val) => handleChange('remarks', val)}
                 value={reportData.remarks}
+                onFocus={() => {
+                  if (Platform.OS === 'android') {
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }, 150); // Adjust timeout as needed
+                  }
+                }}
               />
               {errors.remarks && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.remarks}</Text>}
             </View>
@@ -338,9 +379,8 @@ const ReportSubmissionScreen = () => {
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
-    </View>
-    
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
