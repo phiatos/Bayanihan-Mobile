@@ -119,26 +119,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#FFF9F0",
     padding: 26,
+    fontFamily: 'Poppins_Bold'
   },
   header: {
     flexDirection: "row", // Align title and back button horizontally
     alignItems: "center",
     marginBottom: 60, // Reduce space between header and form
     width: "100%", // Take full width of the screen
-    position: "relative", // Allow for absolute positioning of the back button
+    position: "relative",
+    fontFamily: 'Poppins_Bold'
+
   },
   backButton: {
     position: "absolute",
     left: 5,
     zIndex: 1, // Ensure the button is on top
-    padding: 10, // Add padding to increase touchable area
+    padding: 10, 
+    paddingTop: 25
   },
   title: {
     fontSize: 26,
-    fontWeight: "bold",
     color: "#14AFBC",
     textAlign: "center", // Keep the title centered
-    width: "100%", // Make sure title takes full width
+    width: "100%", 
+    paddingTop: 20,
+    fontFamily: 'Poppins_Medium'
+
   },
   inputContainer: {
     width: 300,
@@ -146,7 +152,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: "bold",
+    fontFamily: 'Poppins_Bold',
     color: "#333",
     marginBottom: 5,
     alignSelf: "flex-start", // Align label to the left (start)
@@ -160,6 +166,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#444',
     backgroundColor: "#fff",
+    fontFamily: 'Poppins_Regular'
   },
   button: {
     backgroundColor: "#14AFBC",
@@ -180,7 +187,7 @@ const styles = StyleSheet.create({
   buttonText: {
     textAlign: 'center', // Corrected textAlign for centering button text
     color: "#fff",
-    fontWeight: 'semibold',
+    fontFamily: 'Poppins_Regular',
     fontSize: 16,
   },
   recoverButton: {
@@ -192,14 +199,17 @@ const styles = StyleSheet.create({
     color: "#FB3B9A",
     fontSize: 14,
     textDecorationLine: "underline",
+    fontFamily: 'Poppins_Regular',
   },
   termsText: {
     textAlign: 'center',
     width: 230,
     lineHeight: 22.4,
-    marginTop: 320, // Add top margin to prevent overlap
+    marginTop: 290, // Add top margin to prevent overlap
     fontSize: 14,
     color: '#444',
+    fontFamily: 'Poppins_Regular',
+
   },
   errorText: {
     color: "red",

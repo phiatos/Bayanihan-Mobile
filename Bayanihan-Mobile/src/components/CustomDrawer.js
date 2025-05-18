@@ -1,71 +1,56 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  ImageBackground,
-  Image,
-  TouchableOpacity,
-} from 'react-native';
-import {
-  DrawerContentScrollView,
-  DrawerItemList,
-} from '@react-navigation/drawer';
-
+import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import {FontAwesome5, MaterialIcons} from 'react-native-vector-icons';
+import styles from '../styles/CustomDrawerStyles';
+import Theme from '../contants/theme';
 
-import styles from '../styles/CustomDrawerStyles'; 
 
+const CustomDrawer = (props) => {
+  const { onSignOut } = props;
 
-const CustomDrawer = props => {
-  const { navigation } = props;
-   
   return (
     <View style={styles.container}>
       <DrawerContentScrollView
         {...props}
         contentContainerStyle={styles.drawerScroll}
-        >
+      >
         <View style={styles.userHeader}>
           <Image
             source={require('../../assets/images/user.jpg')}
             style={styles.profileImage}
           />
-          <Text
-            style={styles.userName}>
-            John Doe
-          </Text>
-          <View style={styles.userRoleContainer}>
-            <Text
-              style={styles.userRole}>
-              Admin
-            </Text>
-            {/* Test with another icon */}
-            <FontAwesome5 name="user" size={14} color="#fff" />
+          <View style={styles.header}>
+             <View style={styles.userRoleContainer}>
+            <Text style={styles.userRole}>Admin</Text>
+          </View>
+          <Text style={styles.userName}>John Doe</Text>
           </View>
         </View>
         <View style={styles.drawerListContainer}>
           <DrawerItemList {...props} />
         </View>
       </DrawerContentScrollView>
-      
+
       <View style={styles.footer}>
         <TouchableOpacity onPress={() => {}} style={styles.footerButton}>
           <View style={styles.footerButtonContent}>
-            <Ionicons name="share-social-outline" size={22} />
-            <Text
-              style={styles.footerButtonText}>
-              Tell a Friend
-            </Text>
+            <MaterialIcons name='info' size={22} style={{color: Theme.colors.white}} />
+            <Text style={styles.footerButtonText}>Help</Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate("Login")} style={styles.footerButton}>
+        <TouchableOpacity
+          onPress={() => {
+            if (onSignOut) {
+              onSignOut(); 
+            }
+          }}
+          style={styles.footerButton}
+        >
           <View style={styles.footerButtonContent}>
-            <Ionicons name="exit-outline" size={22} />
-            <Text
-              style={styles.footerButtonText}>
-              Sign Out
-            </Text>
+            <Ionicons name='exit-outline' size={22} style={{color: Theme.colors.white}}/>
+            <Text style={styles.footerButtonText}>Log Out</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -74,3 +59,4 @@ const CustomDrawer = props => {
 };
 
 export default CustomDrawer;
+

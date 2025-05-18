@@ -10,15 +10,29 @@
     "splash": {
       "image": "./assets/images/ab_logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFF7EC"
+      "backgroundColor": "#FFF7EC",
+      "permissions": [
+      "location"]
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to display your position on the map and provide personalized recommendations."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/ab_logo.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#ffffff",
+        "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY" 
+        }
+      }
       },
       "edgeToEdgeEnabled": true
     },
@@ -26,7 +40,13 @@
       "favicon": "./assets/images/ab_logo.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow this app to use your location to show your position on the map."
+        }
+      ]
     ]
   }
 }
