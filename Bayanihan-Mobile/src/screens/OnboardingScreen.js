@@ -66,7 +66,7 @@ const OnboardingScreen = ({navigation}) => {
           backgroundColor: '#14AEBB',
           padding: 20,
           width: '90%',
-          borderRadius: 5,
+          borderRadius: 20,
           flexDirection: 'row',
           justifyContent: 'space-between',
           marginBottom: 50
@@ -77,7 +77,7 @@ const OnboardingScreen = ({navigation}) => {
             fontWeight: 'bold',
             fontSize: 18,
             color: '#FFF9F0',
-            fontFamily: 'Poppins-MediumItalic', // this now works
+            fontFamily: 'Poppins-MediumItalic',
           }}
         >
           Let's Begin

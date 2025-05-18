@@ -1,69 +1,127 @@
-import React from "react";
+// src/navigation/AppStack.js
+import React from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import HomeScreen from "../screens/HomeScreen";
-import ProfileScreen from "../screens/ProfileScreen"
-import ReliefRequestScreen from "../screens/ReliefRequestScreen";
-import ReportSubmissionScreen from "../screens/ReportSubmissionScreen";
-
-import CustomDrawer from "../components/CustomDrawer";
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import HomeScreen from '../screens/HomeScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import ReliefRequestScreen from '../screens/ReliefRequestScreen';
+import ReliefSummary from '../screens/ReliefSummary';
+import ReportSubmissionScreen from '../screens/ReportSubmissionScreen';
+import ReportSummary from '../screens/ReportSummary'; 
+import CustomDrawer from '../components/CustomDrawer';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import Theme from '../constants/theme';
+import RDANAScreen from '../screens/RDANAScreen';
+import RDANASummary from '../screens/RDANASummary';
+import CallforDonations from '../screens/CallforDonations';
 
 const Drawer = createDrawerNavigator();
+const Stack = createNativeStackNavigator();
 
-const AuthStack = () => {
-    return (
-        <Drawer.Navigator 
-            drawerContent={props => <CustomDrawer {...props}/>} 
-            screenOptions={{
-                headerShown: false,
-                drawerActiveBackgroundColor: '#14AEBB',
-                drawerActiveTintColor: '#fff',
-                drawerInactiveTintColor: '#333',
-                drawerLabelStyle: {
-                marginLeft: 25,
-                fontFamily: 'Poppins-Medium',
-                fontSize: 15,
-                },
-            }}>
-            <Drawer.Screen 
-                name="Home" 
-                component={HomeScreen}
-                options={{
-                    drawerIcon: ({color}) => (
-                        <Ionicons name="home-outline" size={22} color={color} />
-                    ),
-                }}
-            />
-            <Drawer.Screen 
-                name="Profile" 
-                component={ProfileScreen}
-                options={{
-                    drawerIcon: ({color}) => (
-                        <Ionicons name="person-outline" size={22} color={color} />
-                    ),
-                }}
-            />
-            <Drawer.Screen 
-                name="Relief Request" 
-                component={ReliefRequestScreen}
-                options={{
-                    drawerIcon: ({color}) => (
-                        <Ionicons name="cube-outline" size={22} color={color} />
-                    ),
-                }}
-            />
-            <Drawer.Screen 
-                name="Reports Submission" 
-                component={ReportSubmissionScreen}
-                options={{
-                    drawerIcon: ({color}) => (
-                        <Ionicons name="document-outline" size={22} color={color} />
-                    ),
-                }}
-            />
+const RDANAStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="RDANAScreen" component={RDANAScreen} />
+    <Stack.Screen name="RDANASummary" component={RDANASummary} />
+  </Stack.Navigator>
+);
 
-        </Drawer.Navigator>
-    )
-}
+const CallforDonationsStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="CallforDonations" component={CallforDonations} />
+  </Stack.Navigator>
+);
 
-export default AuthStack;
+const RequestStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="ReliefRequest" component={ReliefRequestScreen} />
+    <Stack.Screen name="ReliefSummary" component={ReliefSummary} />
+  </Stack.Navigator>
+);
+
+const ReportStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="ReportSubmission" component={ReportSubmissionScreen} />
+    <Stack.Screen name="ReportSummary" component={ReportSummary} />
+  </Stack.Navigator>
+);
+
+const AppStack = ({ onSignOut }) => {
+  return (
+    <Drawer.Navigator
+      drawerContent={(props) => <CustomDrawer {...props} onSignOut={onSignOut} />}
+      screenOptions={{
+        headerShown: false,
+        drawerActiveBackgroundColor: 'white',
+        drawerActiveTintColor: Theme.colors.accent,
+        drawerInactiveTintColor: 'white',
+        drawerLabelStyle: {
+          marginLeft: 15,
+          fontFamily: 'Poppins_Medium',
+          fontSize: 13,
+        },
+        drawerStyle: {
+          width: 270,
+        },
+      }}
+    >
+      <Drawer.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="home" size={22} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="person" size={22} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="RDANA"
+        component={RDANAStack}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="clipboard" size={22} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Relief Request"
+        component={RequestStack}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="cube" size={22} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Call for Donations"
+        component={CallforDonationsStack}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="call" size={22} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Reports Submission"
+        component={ReportStack}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="document" size={22} color={color} />
+          ),
+        }}
+      />
+      
+    </Drawer.Navigator>
+  );
+};
+
+export default AppStack;

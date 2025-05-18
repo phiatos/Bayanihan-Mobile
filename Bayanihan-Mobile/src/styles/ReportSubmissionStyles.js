@@ -1,32 +1,38 @@
 import { StyleSheet } from 'react-native';
+import Theme from '../constants/theme';
+
 
 export default StyleSheet.create({
-  container: {
+ container: {
     backgroundColor: '#FFF9F0',
-    paddingBottom: 60,
   },
-  header: {
-    fontSize: 20,
-    backgroundColor: '#4059A5',
-    color: 'white',
-    textAlign: 'center',
-    paddingHorizontal: 10,
-    width: '100%',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    height: 90,
-    paddingTop: 50,
-    alignContent:'center',
-    fontFamily: 'Poppins_Regular',  
-  },
-  menu: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    zIndex: 100,
-    padding: 40,
-    color: 'white',
+ header: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center', 
+  backgroundColor: Theme.colors.primary,
+  paddingHorizontal: 10,
+  width: '100%',
+  borderBottomLeftRadius: 20,
+  borderBottomRightRadius: 20,
+  height: 92,
+  paddingTop: 40,
+  position: 'relative', 
+  elevation: 10
 },
+
+menuIcon: {
+  position: 'absolute',
+  left: 30,
+  top: 50, 
+},
+headerText: {
+  color: 'white',
+  fontSize: 20,
+  fontFamily: 'Poppins-Regular',
+  textAlign: 'center',
+},
+
   subheader: {
     fontSize: 16,
     color: '#3D52A0',
@@ -36,14 +42,15 @@ export default StyleSheet.create({
   },
   section: {
     marginVertical: 10,
-  },
-  form: {
-    marginVertical: 10,
     marginHorizontal: 15,
     borderWidth: 3,
     borderColor: '#4059A5',
     borderRadius: 8,
     padding: 10,
+    backgroundColor: '#FFF9F0',
+  },
+  form: {
+    marginBottom: 30
   },
   sectionTitle: {
    fontSize: 20,
@@ -86,6 +93,8 @@ export default StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     marginTop: 10,
+    marginHorizontal: 10,
+
   },
   buttonText: {
     color: 'white',
