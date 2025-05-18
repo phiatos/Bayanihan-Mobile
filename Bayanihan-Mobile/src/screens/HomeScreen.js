@@ -17,7 +17,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import WebView from 'react-native-webview';
-import Theme from '../contants/theme';
+import Theme from '../constants/theme';
 
 const { height, width } = Dimensions.get('window');
 

@@ -4,7 +4,7 @@ import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawe
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {FontAwesome5, MaterialIcons} from 'react-native-vector-icons';
 import styles from '../styles/CustomDrawerStyles';
-import Theme from '../contants/theme';
+import Theme from '../constants/theme';
 
 
 const CustomDrawer = (props) => {
