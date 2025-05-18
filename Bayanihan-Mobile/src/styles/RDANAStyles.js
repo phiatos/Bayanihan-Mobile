@@ -1,84 +1,92 @@
 import { StyleSheet } from 'react-native';
 import Theme from '../constants/theme';
 
+const spacing = {
+  xsmall: 5,
+  small: 10,
+  medium: 15,
+  large: 20,
+  xlarge: 30,
+};
+
+const borderRadius = {
+  small: 4,
+  medium: 8,
+  large: 10,
+  xlarge: 20,
+};
+
+const borderWidth = {
+  thin: 1,
+  medium: 2,
+  thick: 3,
+};
+
 export default StyleSheet.create({
   container: {
-    backgroundColor: '#FFF9F0',
+    flex: 1,
+    backgroundColor: Theme.colors.lightBg,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.primary,
-    paddingHorizontal: 10,
-    width: '100%',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    height: 92,
-    paddingTop: 40,
-    position: 'relative',
-    elevation: 10,
+
+  scrollViewContent: {
+    paddingVertical: spacing.small, 
   },
-  menuIcon: {
-    position: 'absolute',
-    left: 30,
-    top: 50,
-  },
-  headerText: {
-    color: Theme.colors.white,
-    fontSize: 20,
-    fontFamily: 'Poppins_Regular',
-    textAlign: 'center',
-  },
-  subheader: {
-    fontSize: 16,
-    color: '#3D52A0',
-    textAlign: 'center',
-    marginVertical: 10,
-    fontFamily: 'Poppins_Regular',
-  },
+
   section: {
-    marginVertical: 10,
-    marginHorizontal: 15,
-    borderWidth: 3,
-    borderColor: '#4059A5',
-    borderRadius: 8,
-    padding: 10,
-    backgroundColor: '#FFF9F0',
+    marginVertical: spacing.small,
+    marginHorizontal: spacing.medium,
+    borderWidth: borderWidth.thick,
+    borderColor: Theme.colors.primary,
+    borderRadius: borderRadius.medium,
+    padding: spacing.small,
+    backgroundColor: Theme.colors.lightBg,
+    shadowColor: Theme.colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
+
+  sectionTitle: {
+    fontSize: 18,
+    marginBottom: spacing.small,
+    color: Theme.colors.primary,
+    textAlign: 'center',
+    fontFamily: 'Poppins_SemiBold',
+  },
+
   form: {
     marginHorizontal: 10,
   },
-  sectionTitle: {
-    fontSize: 20,
-    color: '#14AEBB',
-    marginBottom: 10,
-    fontFamily: 'Poppins_Regular',
-  },
+
   formTitle: {
     fontSize: 13,
-    color: '#4059A5',
+    color: Theme.colors.primary,
     marginBottom: 5,
     fontFamily: 'Poppins_Bold',
   },
+
   input: {
-    borderWidth: 1,
-    borderColor: '#AAA',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-    backgroundColor: 'white',
-    fontSize: 14,
+    borderWidth: borderWidth.thin,
+    borderColor: '#605D67',
+    borderRadius: borderRadius.large,
+    padding: spacing.small,
+    marginBottom: spacing.small,
     fontFamily: 'Poppins_Regular',
+    fontSize: 14,
+    color: Theme.colors.black,
   },
+
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
+  
   requiredInput: {
     borderColor: '#D32F2F',
     fontWeight: '400',
   },
+
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',

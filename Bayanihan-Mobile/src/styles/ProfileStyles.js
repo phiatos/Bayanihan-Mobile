@@ -1,4 +1,4 @@
-import { StyleSheet, Platform, StatusBar } from 'react-native';
+import { StyleSheet} from 'react-native';
 import Theme from '../constants/theme';
 
 const spacing = {
@@ -28,16 +28,13 @@ export default StyleSheet.create({
     backgroundColor: Theme.colors.lightBg,
   },
 
-  // New style for the ScrollView contentContainerStyle
   scrollViewContent: {
-    paddingVertical: spacing.small, // Add some vertical padding to the scrollable content
-    // We remove the overall container padding as sections have their own horizontal margins
-    // and this ScrollView is now the main content wrapper.
+    paddingVertical: spacing.small, 
   },
 
   section: {
     marginVertical: spacing.small,
-    marginHorizontal: spacing.medium, // Retain horizontal margin for sections
+    marginHorizontal: spacing.medium,
     borderWidth: borderWidth.thick,
     borderColor: Theme.colors.primary,
     borderRadius: borderRadius.medium,
@@ -49,6 +46,7 @@ export default StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
+  
   sectionTitle: {
     fontSize: 18,
     marginBottom: spacing.small,
@@ -70,17 +68,19 @@ export default StyleSheet.create({
     fontSize: 13,
     marginRight: spacing.xsmall,
   },
+
   outputContainer: {
     flex: 1,
     alignItems: 'flex-start',
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
+  
   output: {
     marginRight: spacing.xsmall,
     marginBottom: spacing.xsmall,
     textAlign: 'left',
-    color: Theme.colors.primary,
+    color: Theme.colors.black,
     fontFamily: 'Poppins_Regular',
     fontSize: 13,
   },
