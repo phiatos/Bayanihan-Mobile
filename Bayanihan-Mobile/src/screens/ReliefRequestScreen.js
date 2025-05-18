@@ -1,9 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert, FlatList, SafeAreaView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ReliefRequestStyles from '../styles/ReliefRequestStyles';
-import CustomModal from '../navigation/CustomModal'; 
+import GlobalStyles from '../styles/GlobalStyles';
 
 const ReliefRequestScreen = ({ navigation }) => {
   const [errors, setErrors] = useState({});
@@ -232,204 +231,209 @@ const ReliefRequestScreen = ({ navigation }) => {
   const contactInfoValid = isContactInfoValid();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
-      <ScrollView contentContainerStyle={ReliefRequestStyles.container}>
-        <View style={ReliefRequestStyles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.openDrawer()}
-            style={ReliefRequestStyles.menuIcon}
-          >
-            <Ionicons name="menu" size={32} color="white" />
-          </TouchableOpacity>
-          <Text style={ReliefRequestStyles.headerText}>Relief Request</Text>
-        </View>
+    <View style={ReliefRequestStyles.container}>
 
-        <View style={ReliefRequestStyles.form}>
-          <View style={ReliefRequestStyles.section}>
-            <Text style={ReliefRequestStyles.sectionTitle}>Contact Information</Text>
+      <View style={GlobalStyles.headerContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.openDrawer()}
+          style={GlobalStyles.headerMenuIcon}
+        >
+          <Ionicons name="menu" size={32} color="white" />
+        </TouchableOpacity>
+        <Text style={GlobalStyles.headerTitle}>Relief Request</Text>
+      </View>
 
-            {renderLabel('Contact Person', true)}
-            <TextInput
-              style={[ReliefRequestStyles.input, errors.contactPerson && ReliefRequestStyles.requiredInput]}
-              placeholder="Enter Name of the Contact Person"
-              onChangeText={(val) => handleChange('contactPerson', val)}
-              value={reportData.contactPerson}
-            />
-            {errors.contactPerson && (
-              <Text style={ReliefRequestStyles.errorText}>{errors.contactPerson}</Text>
-            )}
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+        <ScrollView contentContainerStyle={ReliefRequestStyles.scrollViewContent}>
+  
+          <View style={ReliefRequestStyles.form}>
+            <View style={ReliefRequestStyles.section}>
+              <Text style={ReliefRequestStyles.sectionTitle}>Contact Information</Text>
 
-            {renderLabel('Contact Number', true)}
-            <TextInput
-              style={[ReliefRequestStyles.input, errors.contactNumber && ReliefRequestStyles.requiredInput]}
-              placeholder="Enter Mobile Number"
-              onChangeText={(val) => handleChange('contactNumber', val)}
-              value={reportData.contactNumber}
-              keyboardType="numeric"
-            />
-            {errors.contactNumber && (
-              <Text style={ReliefRequestStyles.errorText}>{errors.contactNumber}</Text>
-            )}
-
-            {renderLabel('Email', true)}
-            <TextInput
-              style={[ReliefRequestStyles.input, errors.email && ReliefRequestStyles.requiredInput]}
-              placeholder="Enter Email"
-              onChangeText={(val) => handleChange('email', val)}
-              value={reportData.email}
-              keyboardType="email-address"
-            />
-            {errors.email && <Text style={ReliefRequestStyles.errorText}>{errors.email}</Text>}
-
-            {renderLabel('Exact Drop-off Address', true)}
-            <TextInput
-              style={[ReliefRequestStyles.input, errors.barangay && ReliefRequestStyles.requiredInput]}
-              placeholder="Enter Barangay"
-              onChangeText={(val) => handleChange('barangay', val)}
-              value={reportData.barangay}
-            />
-            {errors.barangay && <Text style={ReliefRequestStyles.errorText}>{errors.barangay}</Text>}
-
-            {renderLabel('City', true)}
-            <TextInput
-              style={[ReliefRequestStyles.input, errors.city && ReliefRequestStyles.requiredInput]}
-              placeholder="Enter City"
-              onChangeText={(val) => handleChange('city', val)}
-              value={reportData.city}
-            />
-            {errors.city && <Text style={ReliefRequestStyles.errorText}>{errors.city}</Text>}
-
-            {renderLabel('Donation Category', true)}
-            <View style={{ position: 'relative' }}>
+              {renderLabel('Contact Person', true)}
               <TextInput
-                ref={categoryInputRef}
-                style={[ReliefRequestStyles.input, errors.donationCategory && ReliefRequestStyles.requiredInput]}
-                placeholder="Enter or Select Donation Category"
-                onChangeText={(val) => handleChange('donationCategory', val)}
-                value={reportData.donationCategory}
-                onFocus={handleCategoryFocus}
-                onBlur={() => handleBlur(setIsCategoryDropdownVisible)}
+                style={[ReliefRequestStyles.input, errors.contactPerson && ReliefRequestStyles.requiredInput]}
+                placeholder="Enter Name of the Contact Person"
+                onChangeText={(val) => handleChange('contactPerson', val)}
+                value={reportData.contactPerson}
               />
-              {isCategoryDropdownVisible && filteredCategories.length > 0 && (
-                <View style={ReliefRequestStyles.dropdownContainer}>
-                  <FlatList
-                    data={filteredCategories}
-                    keyExtractor={(item) => item}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={ReliefRequestStyles.dropdownItem}
-                        onPress={() => handleCategorySelect(item)}
-                      >
-                        <Text style={ReliefRequestStyles.dropdownItemText}>{item}</Text>
-                      </TouchableOpacity>
-                    )}
-                  />
-                </View>
+              {errors.contactPerson && (
+                <Text style={ReliefRequestStyles.errorText}>{errors.contactPerson}</Text>
+              )}
+
+              {renderLabel('Contact Number', true)}
+              <TextInput
+                style={[ReliefRequestStyles.input, errors.contactNumber && ReliefRequestStyles.requiredInput]}
+                placeholder="Enter Mobile Number"
+                onChangeText={(val) => handleChange('contactNumber', val)}
+                value={reportData.contactNumber}
+                keyboardType="numeric"
+              />
+              {errors.contactNumber && (
+                <Text style={ReliefRequestStyles.errorText}>{errors.contactNumber}</Text>
+              )}
+
+              {renderLabel('Email', true)}
+              <TextInput
+                style={[ReliefRequestStyles.input, errors.email && ReliefRequestStyles.requiredInput]}
+                placeholder="Enter Email"
+                onChangeText={(val) => handleChange('email', val)}
+                value={reportData.email}
+                keyboardType="email-address"
+              />
+              {errors.email && <Text style={ReliefRequestStyles.errorText}>{errors.email}</Text>}
+
+              {renderLabel('Exact Drop-off Address', true)}
+              <TextInput
+                style={[ReliefRequestStyles.input, errors.barangay && ReliefRequestStyles.requiredInput]}
+                placeholder="Enter Barangay"
+                onChangeText={(val) => handleChange('barangay', val)}
+                value={reportData.barangay}
+              />
+              {errors.barangay && <Text style={ReliefRequestStyles.errorText}>{errors.barangay}</Text>}
+
+              {renderLabel('City', true)}
+              <TextInput
+                style={[ReliefRequestStyles.input, errors.city && ReliefRequestStyles.requiredInput]}
+                placeholder="Enter City"
+                onChangeText={(val) => handleChange('city', val)}
+                value={reportData.city}
+              />
+              {errors.city && <Text style={ReliefRequestStyles.errorText}>{errors.city}</Text>}
+
+              {renderLabel('Donation Category', true)}
+              <View style={{ position: 'relative' }}>
+                <TextInput
+                  ref={categoryInputRef}
+                  style={[ReliefRequestStyles.input, errors.donationCategory && ReliefRequestStyles.requiredInput]}
+                  placeholder="Enter or Select Donation Category"
+                  onChangeText={(val) => handleChange('donationCategory', val)}
+                  value={reportData.donationCategory}
+                  onFocus={handleCategoryFocus}
+                  onBlur={() => handleBlur(setIsCategoryDropdownVisible)}
+                />
+                {isCategoryDropdownVisible && filteredCategories.length > 0 && (
+                  <View style={ReliefRequestStyles.dropdownContainer}>
+                    <FlatList
+                      data={filteredCategories}
+                      keyExtractor={(item) => item}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={ReliefRequestStyles.dropdownItem}
+                          onPress={() => handleCategorySelect(item)}
+                        >
+                          <Text style={ReliefRequestStyles.dropdownItemText}>{item}</Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                )}
+              </View>
+              {errors.donationCategory && (
+                <Text style={ReliefRequestStyles.errorText}>{errors.donationCategory}</Text>
               )}
             </View>
-            {errors.donationCategory && (
-              <Text style={ReliefRequestStyles.errorText}>{errors.donationCategory}</Text>
-            )}
-          </View>
 
-          <View style={ReliefRequestStyles.section}>
-            <Text style={ReliefRequestStyles.sectionTitle}>Requested Items</Text>
+            <View style={ReliefRequestStyles.section}>
+              <Text style={ReliefRequestStyles.sectionTitle}>Requested Items</Text>
 
-            <View style={ReliefRequestStyles.addButtonContainer}>
-              <TouchableOpacity
-                style={[
-                  ReliefRequestStyles.addButton,
-                  !contactInfoValid && { opacity: 0.5 },
-                ]}
-                onPress={addButton}
-                disabled={!contactInfoValid}
-              >
-                <Text style={ReliefRequestStyles.addbuttonText}>Add Item</Text>
-              </TouchableOpacity>
-            </View>
+              <View style={ReliefRequestStyles.addButtonContainer}>
+                <TouchableOpacity
+                  style={[
+                    ReliefRequestStyles.addButton,
+                    !contactInfoValid && { opacity: 0.5 },
+                  ]}
+                  onPress={addButton}
+                  disabled={!contactInfoValid}
+                >
+                  <Text style={ReliefRequestStyles.addbuttonText}>Add Item</Text>
+                </TouchableOpacity>
+              </View>
 
-            {renderLabel('Item Name', true)}
-            <View style={{ position: 'relative' }}>
+              {renderLabel('Item Name', true)}
+              <View style={{ position: 'relative' }}>
+                <TextInput
+                  ref={itemInputRef}
+                  style={[ReliefRequestStyles.input, errors.itemName && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
+                  placeholder="Enter or Select Item Name"
+                  onChangeText={(val) => handleChange('itemName', val)}
+                  value={reportData.itemName}
+                  onFocus={handleItemFocus}
+                  onBlur={() => handleBlur(setIsItemDropdownVisible)}
+                  editable={contactInfoValid}
+                />
+                {isItemDropdownVisible && filteredItems.length > 0 && (
+                  <View style={ReliefRequestStyles.dropdownContainer}>
+                    <FlatList
+                      data={filteredItems}
+                      keyExtractor={(item) => item}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={ReliefRequestStyles.dropdownItem}
+                          onPress={() => handleItemSelect(item)}
+                        >
+                          <Text style={ReliefRequestStyles.dropdownItemText}>{item}</Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                )}
+              </View>
+              {errors.itemName && <Text style={ReliefRequestStyles.errorText}>{errors.itemName}</Text>}
+
+              {renderLabel('Quantity', true)}
               <TextInput
-                ref={itemInputRef}
-                style={[ReliefRequestStyles.input, errors.itemName && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
-                placeholder="Enter or Select Item Name"
-                onChangeText={(val) => handleChange('itemName', val)}
-                value={reportData.itemName}
-                onFocus={handleItemFocus}
-                onBlur={() => handleBlur(setIsItemDropdownVisible)}
+                style={[ReliefRequestStyles.input, errors.quantity && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
+                placeholder="Enter Quantity"
+                onChangeText={(val) => handleChange('quantity', val)}
+                value={reportData.quantity}
+                keyboardType="numeric"
                 editable={contactInfoValid}
               />
-              {isItemDropdownVisible && filteredItems.length > 0 && (
-                <View style={ReliefRequestStyles.dropdownContainer}>
-                  <FlatList
-                    data={filteredItems}
-                    keyExtractor={(item) => item}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={ReliefRequestStyles.dropdownItem}
-                        onPress={() => handleItemSelect(item)}
-                      >
-                        <Text style={ReliefRequestStyles.dropdownItemText}>{item}</Text>
-                      </TouchableOpacity>
-                    )}
-                  />
+              {errors.quantity && <Text style={ReliefRequestStyles.errorText}>{errors.quantity}</Text>}
+
+              {renderLabel('Additional Notes', false)}
+              <TextInput
+                style={[ReliefRequestStyles.input, errors.notes && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
+                placeholder="Enter Notes/Concerns (Optional)"
+                multiline
+                numberOfLines={4}
+                onChangeText={(val) => handleChange('notes', val)}
+                value={reportData.notes}
+                editable={contactInfoValid}
+              />
+              {errors.notes && <Text style={ReliefRequestStyles.errorText}>{errors.notes}</Text>}
+
+              {items.length > 0 && (
+                <View style={{ marginTop: 20 }}>
+                  <Text style={ReliefRequestStyles.addedItems}>Added Items:</Text>
+                  <View style={ReliefRequestStyles.tableRow}>
+                    <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.1 }]}>No.</Text>
+                    <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.25 }]}>Item</Text>
+                    <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.15 }]}>Qty</Text>
+                    <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.25 }]}>Notes</Text>
+                  </View>
+                  {items.map((item, index) => (
+                    <View key={index} style={ReliefRequestStyles.tableRow}>
+                      <Text style={[ReliefRequestStyles.tableCell, { flex: 0.1 }]}>{index + 1}</Text>
+                      
+                      <Text style={[ReliefRequestStyles.tableCell, { flex: 0.25 }]}>{item.itemName}</Text>
+                      <Text style={[ReliefRequestStyles.tableCell, { flex: 0.15 }]}>{item.quantity}</Text>
+                      <Text style={[ReliefRequestStyles.tableCell, { flex: 0.25 }]}>{item.notes || 'None'}</Text>
+                    </View>
+                  ))}
                 </View>
               )}
             </View>
-            {errors.itemName && <Text style={ReliefRequestStyles.errorText}>{errors.itemName}</Text>}
 
-            {renderLabel('Quantity', true)}
-            <TextInput
-              style={[ReliefRequestStyles.input, errors.quantity && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
-              placeholder="Enter Quantity"
-              onChangeText={(val) => handleChange('quantity', val)}
-              value={reportData.quantity}
-              keyboardType="numeric"
-              editable={contactInfoValid}
-            />
-            {errors.quantity && <Text style={ReliefRequestStyles.errorText}>{errors.quantity}</Text>}
-
-            {renderLabel('Additional Notes', false)}
-            <TextInput
-              style={[ReliefRequestStyles.input, errors.notes && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
-              placeholder="Enter Notes/Concerns (Optional)"
-              multiline
-              numberOfLines={4}
-              onChangeText={(val) => handleChange('notes', val)}
-              value={reportData.notes}
-              editable={contactInfoValid}
-            />
-            {errors.notes && <Text style={ReliefRequestStyles.errorText}>{errors.notes}</Text>}
-
-            {items.length > 0 && (
-              <View style={{ marginTop: 20 }}>
-                <Text style={ReliefRequestStyles.addedItems}>Added Items:</Text>
-                <View style={ReliefRequestStyles.tableRow}>
-                  <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.1 }]}>No.</Text>
-                  <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.25 }]}>Item</Text>
-                  <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.15 }]}>Qty</Text>
-                  <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.25 }]}>Notes</Text>
-                </View>
-                {items.map((item, index) => (
-                  <View key={index} style={ReliefRequestStyles.tableRow}>
-                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.1 }]}>{index + 1}</Text>
-                    
-                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.25 }]}>{item.itemName}</Text>
-                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.15 }]}>{item.quantity}</Text>
-                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.25 }]}>{item.notes || 'None'}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            <TouchableOpacity style={ReliefRequestStyles.button} onPress={handleSubmit}>
+              <Text style={ReliefRequestStyles.buttonText}>Next</Text>
+            </TouchableOpacity>
           </View>
-
-          <TouchableOpacity style={ReliefRequestStyles.button} onPress={handleSubmit}>
-            <Text style={ReliefRequestStyles.buttonText}>Next</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+    
   );
 };
 
