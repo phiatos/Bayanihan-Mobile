@@ -11,7 +11,7 @@ import ReportSubmissionScreen from '../screens/ReportSubmissionScreen';
 import ReportSummary from '../screens/ReportSummary'; 
 import CustomDrawer from '../components/CustomDrawer';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import Theme from '../contants/theme';
+import Theme from '../constants/theme';
 import RDANAScreen from '../screens/RDANAScreen';
 import RDANASummary from '../screens/RDANASummary';
 import CallforDonations from '../screens/CallforDonations';

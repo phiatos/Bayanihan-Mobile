@@ -1,5 +1,5 @@
 import { StyleSheet, Platform, StatusBar } from 'react-native';
-import Theme from '../contants/theme';
+import Theme from '../constants/theme';
 
 const spacing = {
   xsmall: 5,

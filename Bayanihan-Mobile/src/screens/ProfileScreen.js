@@ -22,15 +22,15 @@ const ProfileScreen = ({ navigation }) => {
         'Poppins-MediumItalic': require('../../assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
         'Poppins-Bold': require('../../assets/fonts/Poppins/Poppins-Bold.ttf'),
         'Poppins-Medium': require('../../assets/fonts/Poppins/Poppins-Medium.ttf'),
-        'Poppins_SemiBold': require('../../assets/fonts/Poppins/Poppins-SemiBold.ttf'), // Make sure this is loaded!
-        'Poppins_Regular': require('../../assets/fonts/Poppins/Poppins-Regular.ttf'), // Make sure this is loaded!
+        'Poppins_SemiBold': require('../../assets/fonts/Poppins/Poppins-SemiBold.ttf'),
+        'Poppins_Regular': require('../../assets/fonts/Poppins/Poppins-Regular.ttf'),
       });
       setFontsLoaded(true);
     })();
   }, []);
 
   if (!fontsLoaded) {
-    return null; // Optional: add a spinner here
+    return null;
   }
 
   return (
@@ -47,8 +47,9 @@ const ProfileScreen = ({ navigation }) => {
         <Text style={GlobalStyles.headerTitle}>Profile</Text>
       </View>
 
-      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}> {/* Remove 'top' edge */}
-        <ScrollView contentContainerStyle={ProfileStyles.scrollViewContent}> {/* New style for content padding */}
+      {/* Content wrapped in SafeAreaView for proper padding below the header */}
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+        <ScrollView contentContainerStyle={ProfileStyles.scrollViewContent}>
 
           {/* Volunteer Info */}
           <View style={ProfileStyles.section}>
