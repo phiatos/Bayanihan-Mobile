@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Theme from '../contants/theme';
+import Theme from '../constants/theme';
 import CustomModal from '../navigation/CustomModal';
 
 
