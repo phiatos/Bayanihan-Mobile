@@ -15,6 +15,7 @@ import Theme from '../constants/theme';
 import RDANAScreen from '../screens/RDANAScreen';
 import RDANASummary from '../screens/RDANASummary';
 import CallforDonations from '../screens/CallforDonations';
+import DashboardScreen from '../screens/Dashboard';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -71,6 +72,15 @@ const AppStack = ({ onSignOut }) => {
         options={{
           drawerIcon: ({ color }) => (
             <Ionicons name="home" size={22} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Volunteer Dashboard"
+        component={DashboardScreen}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="person" size={22} color={color} />
           ),
         }}
       />
