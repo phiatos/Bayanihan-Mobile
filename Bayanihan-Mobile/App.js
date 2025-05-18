@@ -1,31 +1,29 @@
-// import React, { useEffect, useState } from 'react';
-// import { NavigationContainer } from '@react-navigation/native';
-// import { createNativeStackNavigator } from '@react-navigation/native-stack';
-// import AuthStack from './src/navigation/AuthStack';
-// import AppStack from './src/navigation/AppStack';
-
-// function App () {
-//   return (
-//     <NavigationContainer>
-//       {/* <AppStack /> */}
-//       <AuthStack/>
-//     </NavigationContainer>
-//   )
-// }
-
-// export default App;
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import AuthStack from './src/navigation/AuthStack';
 import AppStack from './src/navigation/AppStack';
+import { useFonts } from 'expo-font';
 
-function App () {
+function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // fonts
+  const [fontsLoaded] = useFonts({
+    Poppins_Regular: require('./assets/fonts/Poppins/Poppins-Regular.ttf'),  
+    Poppins_SemiBold: require('./assets/fonts/Poppins/Poppins-SemiBold.ttf'),
+    Poppins_Bold: require('./assets/fonts/Poppins/Poppins-Bold.ttf'),
+    Poppins_Medium: require('./assets/fonts/Poppins/Poppins-Medium.ttf'),
+  });
+
+  if (!fontsLoaded) return null;
 
   return (
     <NavigationContainer>
-      {isLoggedIn ? <AppStack /> : <AuthStack onLogin={() => setIsLoggedIn(true)} />}
+      {isLoggedIn ? (
+        <AppStack onSignOut={() => setIsLoggedIn(false)} />
+      ) : (
+        <AuthStack onLogin={() => setIsLoggedIn(true)} />
+      )}
     </NavigationContainer>
   );
 }

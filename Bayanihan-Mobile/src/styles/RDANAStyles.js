@@ -44,7 +44,7 @@ export default StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
-    elevation: 3,  
+    elevation: 3,
   },
 
   sectionTitle: {
@@ -81,84 +81,86 @@ export default StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
   },
-
-  requiredInput: {            
-  borderColor: '#D32F2F',  
-  fontWeight: '400'
-  },
   
+  requiredInput: {
+    borderColor: '#D32F2F',
+    fontWeight: '400',
+  },
+
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#AAA', 
-    borderRadius: 10, 
+    borderColor: '#AAA',
+    borderRadius: 10,
     backgroundColor: '#fff',
-    marginBottom: 10,            
+    marginBottom: 10,
   },
-
   errorText: {
     color: 'red',
     fontSize: 12,
     marginLeft: 10,
-},
-
+  },
   addButtonContainer: {
-  flexDirection: 'row',
-  justifyContent: 'flex-end',
-  paddingHorizontal: 10,
-},
-
-addButton: {
-  paddingVertical: 10,
-  paddingHorizontal: 20,
-  backgroundColor: '#00BCD4',
-  borderRadius: 10,
-  shadowColor: '#000',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 10,
+  },
+  addButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#00BCD4',
+    borderRadius: 10,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    marginBottom: 10
-},
-
+    marginBottom: 10,
+  },
   addbuttonText: {
     color: 'white',
     textAlign: 'center',
     fontSize: 13,
     paddingHorizontal: 10,
-    fontFamily: 'Poppins_SemiBold', 
+    fontFamily: 'Poppins_SemiBold',
   },
-
-  addedItems:{
+  addedItems: {
     fontFamily: 'Poppins_Medium',
     fontSize: 18,
     color: '#14AEBB',
-
   },
-
+  table:{
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+    marginVertical: 20
+  },
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-    paddingVertical: 10,
+    borderBottomColor: Theme.colors.primary,
   },
   tableHeader: {
     textAlign: 'left',
-    paddingLeft: 10,    
-    fontFamily: 'Poppins_Bold',
-    color: '#4059A5', 
+    paddingLeft: 10,
+    fontFamily: 'Poppins_SemiBold',
+    paddingVertical: 15,
+    color: Theme.colors.white,
+    backgroundColor: '#00b3c3c2',
+    
   },
   tableCell: {
     textAlign: 'left',
     paddingLeft: 10,
-    fontFamily: 'Poppins_Regular'
-  },
+    fontFamily: 'Poppins_Regular',
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
 
+  },
   icon: {
-    padding: 10, 
+    padding: 10,
   },
-
   button: {
     backgroundColor: '#00BCD4',
     padding: 13,
@@ -170,38 +172,38 @@ addButton: {
     shadowRadius: 4,
     elevation: 3,
     marginBottom: 30,
-    marginHorizontal: 10
+    marginHorizontal: 10,
   },
   buttonText: {
     color: 'white',
-    textAlign: 'center',  
-    fontSize: 15,          
-    fontFamily: 'Poppins_Bold'
+    textAlign: 'center',
+    fontSize: 15,
+    fontFamily: 'Poppins_Bold',
   },
   dropdownContainer: {
-      position: 'absolute',
-      top: 50, // Adjust based on TextInput height
-      left: 0,
-      right: 0,
-      backgroundColor: '#fff',
-      borderWidth: 1,
-      borderColor: '#ccc',
-      borderRadius: 5,
-      maxHeight: 150,
-      zIndex: 1000,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 5,
-    },
-    dropdownItem: {
-      padding: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: '#eee',
-    },
-    dropdownItemText: {
-      fontSize: 16,
-      color: '#333',
-    },
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    maxHeight: 150,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  dropdownItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
 });

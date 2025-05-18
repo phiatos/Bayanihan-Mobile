@@ -1,114 +1,135 @@
-import React, { useState } from 'react';
-import { Text, View, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
+import React, { useState, useEffect } from 'react';
+import { Text, View, TextInput, TouchableOpacity, ScrollView} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import * as Font from 'expo-font';
 import ProfileStyles from '../styles/ProfileStyles';
+import GlobalStyles from '../styles/GlobalStyles';
+import { Ionicons } from '@expo/vector-icons';
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ navigation }) => {
+  const [fontsLoaded, setFontsLoaded] = useState(false);
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedConsent, setAgreedConsent] = useState(false);
 
-  const toggleTermsCheckbox = () => setAgreedTerms(!agreedTerms);
-  const toggleConsentCheckbox = () => setAgreedConsent(!agreedConsent);
+  useEffect(() => {
+    (async () => {
+      await Font.loadAsync({
+        'Poppins-MediumItalic': require('../../assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
+        'Poppins-Bold': require('../../assets/fonts/Poppins/Poppins-Bold.ttf'),
+        'Poppins-Medium': require('../../assets/fonts/Poppins/Poppins-Medium.ttf'),
+        'Poppins_SemiBold': require('../../assets/fonts/Poppins/Poppins-SemiBold.ttf'),
+        'Poppins_Regular': require('../../assets/fonts/Poppins/Poppins-Regular.ttf'),
+      });
+      setFontsLoaded(true);
+    })();
+  }, []);
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
-    <ScrollView style={ProfileStyles.container}>
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-        <Text style={ProfileStyles.header}>Profile</Text>
+    <View style={ProfileStyles.container}>
 
-        <View style={ProfileStyles.section}>
-          <Text style={ProfileStyles.sectionTitle}>Volunteer Group Information</Text>
-
-          <View style={ProfileStyles.infoRow}>
-            <Text style={ProfileStyles.label}>Organization Name:</Text>
-            <Text style={ProfileStyles.output}>ABVN Team A</Text>
-          </View>
-
-          <View style={ProfileStyles.infoRow}>
-            <Text style={ProfileStyles.label}>HQ:</Text>
-            <Text style={ProfileStyles.output}>Naga City, Camarines Sur</Text>
-          </View>
-
-          <View style={ProfileStyles.infoRow}>
-            <Text style={ProfileStyles.label}>Contact Person:</Text>
-            <Text style={ProfileStyles.output}>John Doe</Text>
-          </View>
-
-          <View style={ProfileStyles.infoRow}>
-            <Text style={ProfileStyles.label}>Email Address:</Text>
-            <Text style={ProfileStyles.output}>johnDoe@gmail.com</Text>
-          </View>
-
-          <View style={ProfileStyles.infoRow}>
-            <Text style={ProfileStyles.label}>Mobile Number:</Text>
-            <Text style={ProfileStyles.output}>0999 999 9999</Text>
-          </View>
-
-          <View style={ProfileStyles.infoRow}>
-            <Text style={ProfileStyles.label}>Area of Operation:</Text>
-            <View style={ProfileStyles.outputContainer}>
-              <Text style={ProfileStyles.output}>1. Sorsogon</Text>
-              <Text style={ProfileStyles.output}>2. Camarines Norte</Text>
-              <Text style={ProfileStyles.output}>3. Camarines Sur</Text>
-              <Text style={ProfileStyles.output}>4. Albay</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={ProfileStyles.section}>
-          <Text style={ProfileStyles.sectionTitle}>Change Password</Text>
-
-          <TextInput
-            style={ProfileStyles.input}
-            placeholder="Temporary Password"
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            secureTextEntry
-          />
-          <TextInput
-            style={ProfileStyles.input}
-            placeholder="New Password"
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry
-          />
-          <TextInput
-            style={ProfileStyles.input}
-            placeholder="Confirm Password"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-        </View>
-
-        <View style={ProfileStyles.submission}>
-          <TouchableOpacity onPress={toggleTermsCheckbox} style={ProfileStyles.checkboxContainer}>
-            <View style={ProfileStyles.checkboxBox}>
-              {agreedTerms && <Icon name="check" style={ProfileStyles.checkmark} />}
-            </View>
-            <Text style={ProfileStyles.checkboxLabel}>I agree to the terms and privacy policy</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={toggleConsentCheckbox} style={ProfileStyles.checkboxContainer}>
-            <View style={ProfileStyles.checkboxBox}>
-              {agreedConsent && <Icon name="check" style={ProfileStyles.checkmark} />}
-            </View>
-            <Text style={ProfileStyles.checkboxLabel}>
-              I consent to Bayanihan collecting and storing my data for disaster response purposes
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={ProfileStyles.button}>
-            <Text style={ProfileStyles.buttonText}>Next</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Header - Use GlobalStyles for header properties */}
+      <View style={GlobalStyles.headerContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.openDrawer()}
+          style={GlobalStyles.headerMenuIcon}
+        >
+          <Ionicons name="menu" size={32} color="white" />
+        </TouchableOpacity>
+        <Text style={GlobalStyles.headerTitle}>Profile</Text>
       </View>
-    </ScrollView>
-    
-  )
-}
 
-export default ProfileScreen
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+        <ScrollView contentContainerStyle={ProfileStyles.scrollViewContent}>
+
+          {/* Volunteer Info */}
+          <View style={ProfileStyles.section}>
+            <Text style={[ProfileStyles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>
+              Volunteer Group Information
+            </Text>
+
+            {[
+              ['Organization Name:', 'ABVN Team A'],
+              ['HQ:', 'Naga City, Camarines Sur'],
+              ['Contact Person:', 'John Doe'],
+              ['Email Address:', 'johnDoe@gmail.com'],
+              ['Mobile Number:', '0999 999 9999'],
+            ].map(([label, value], idx) => (
+              <View key={idx} style={ProfileStyles.infoRow}>
+                <Text style={[ProfileStyles.label, { fontFamily: 'Poppins-MediumItalic' }]}>{label}</Text>
+                <Text style={[ProfileStyles.output, { fontFamily: 'Poppins-Medium' }]}>{value}</Text>
+              </View>
+            ))}
+
+            <View style={ProfileStyles.infoRow}>
+              <Text style={[ProfileStyles.label, { fontFamily: 'Poppins-MediumItalic' }]}>Area of Operation:</Text>
+              <View style={ProfileStyles.outputContainer}>
+                {['Sorsogon', 'Camarines Norte', 'Camarines Sur', 'Albay', 'Masbate', 'Catanduanes', 'Quezon Province'].map((area, i) => (
+                  <Text key={i} style={[ProfileStyles.output, { fontFamily: 'Poppins-Medium' }]}>
+                    {`${i + 1}. ${area}`}
+                  </Text>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* Change Password */}
+          <View style={ProfileStyles.section}>
+            <Text style={[ProfileStyles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>
+              Change Password
+            </Text>
+
+            {[['Temporary Password', currentPassword, setCurrentPassword],
+              ['New Password', newPassword, setNewPassword],
+              ['Confirm Password', confirmPassword, setConfirmPassword],
+            ].map(([placeholder, value, setter], idx) => (
+              <TextInput
+                key={idx}
+                style={[ProfileStyles.input, { fontFamily: 'Poppins-Medium' }]}
+                placeholder={placeholder}
+                value={value}
+                onChangeText={setter}
+                secureTextEntry
+              />
+            ))}
+          </View>
+
+          {/* Checkboxes & Button */}
+          <View style={ProfileStyles.submission}>
+            <TouchableOpacity onPress={() => setAgreedTerms(!agreedTerms)} style={ProfileStyles.checkboxContainer}>
+              <View style={ProfileStyles.checkboxBox}>
+                {agreedTerms && <Icon name="check" style={ProfileStyles.checkmark} />}
+              </View>
+              <Text style={[ProfileStyles.checkboxLabel, { fontFamily: 'Poppins-MediumItalic' }]}>
+                I agree to the terms and privacy policy
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setAgreedConsent(!agreedConsent)} style={ProfileStyles.checkboxContainer}>
+              <View style={ProfileStyles.checkboxBox}>
+                {agreedConsent && <Icon name="check" style={ProfileStyles.checkmark} />}
+              </View>
+              <Text style={[ProfileStyles.checkboxLabel, { fontFamily: 'Poppins-MediumItalic' }]}>
+                I consent to Bayanihan collecting and storing my data for disaster response purposes
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={ProfileStyles.button}>
+              <Text style={[ProfileStyles.buttonText, { fontFamily: 'Poppins-Bold' }]}>Next</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+};
+
+export default ProfileScreen;
