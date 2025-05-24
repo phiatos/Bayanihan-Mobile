@@ -16,6 +16,7 @@ import RDANAScreen from '../screens/RDANAScreen';
 import RDANASummary from '../screens/RDANASummary';
 import CallforDonations from '../screens/CallforDonations';
 import DashboardScreen from '../screens/Dashboard';
+import CallForDonationsSummary from '../screens/CallForDonationsSummary';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -30,6 +31,8 @@ const RDANAStack = () => (
 const CallforDonationsStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="CallforDonations" component={CallforDonations} />
+        <Stack.Screen name="CallforDonationsSummary" component={CallForDonationsSummary} />
+
   </Stack.Navigator>
 );
 
