@@ -42,6 +42,7 @@ const RequestStack = () => (
   </Stack.Navigator>
 );
 
+
 const ReportStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="ReportSubmission" component={ReportSubmissionScreen} />

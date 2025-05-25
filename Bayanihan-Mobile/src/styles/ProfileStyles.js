@@ -73,7 +73,7 @@ export default StyleSheet.create({
     flex: 1,
     alignItems: 'flex-start',
     flexDirection: 'row',
-
+    
   },
   
   output: {

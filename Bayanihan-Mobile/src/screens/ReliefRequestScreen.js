@@ -190,8 +190,25 @@ const ReliefRequestScreen = ({ navigation }) => {
       Alert.alert('Incomplete Data', `Please fill in required fields:\n${Object.values(newErrors).join('\n')}`);
       return;
     }
-    console.log('Navigating to ReliefSummary with:', { reportData, addedItems: items });
-    navigation.navigate('ReliefSummary', { reportData, addedItems: items });
+
+    // Automatically add current item inputs if valid
+    let itemsToSubmit = [...items];
+    const { donationCategory, itemName, quantity, notes } = reportData;
+    if (donationCategory && itemName && quantity) {
+      const newItem = { itemName, quantity, notes: notes || '' };
+      itemsToSubmit = [...itemsToSubmit, newItem];
+      setItems(itemsToSubmit);
+      setReportData((prev) => ({
+        ...prev,
+        itemName: '',
+        quantity: '',
+        notes: '',
+      }));
+      setIsItemDropdownVisible(false);
+    }
+
+    console.log('Navigating to ReliefSummary with:', { reportData, addedItems: itemsToSubmit });
+    navigation.navigate('ReliefSummary', { reportData, addedItems: itemsToSubmit });
   };
 
   // Add item function
@@ -227,12 +244,8 @@ const ReliefRequestScreen = ({ navigation }) => {
     </Text>
   );
 
-  // Check contact info validity for enabling item inputs
-  const contactInfoValid = isContactInfoValid();
-
   return (
     <View style={ReliefRequestStyles.container}>
-
       <View style={GlobalStyles.headerContainer}>
         <TouchableOpacity
           onPress={() => navigation.openDrawer()}
@@ -245,7 +258,6 @@ const ReliefRequestScreen = ({ navigation }) => {
 
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
         <ScrollView contentContainerStyle={ReliefRequestStyles.scrollViewContent}>
-  
           <View style={ReliefRequestStyles.form}>
             <View style={ReliefRequestStyles.section}>
               <Text style={ReliefRequestStyles.sectionTitle}>Contact Information</Text>
@@ -339,12 +351,8 @@ const ReliefRequestScreen = ({ navigation }) => {
 
               <View style={ReliefRequestStyles.addButtonContainer}>
                 <TouchableOpacity
-                  style={[
-                    ReliefRequestStyles.addButton,
-                    !contactInfoValid && { opacity: 0.5 },
-                  ]}
+                  style={ReliefRequestStyles.addButton}
                   onPress={addButton}
-                  disabled={!contactInfoValid}
                 >
                   <Text style={ReliefRequestStyles.addbuttonText}>Add Item</Text>
                 </TouchableOpacity>
@@ -354,13 +362,12 @@ const ReliefRequestScreen = ({ navigation }) => {
               <View style={{ position: 'relative' }}>
                 <TextInput
                   ref={itemInputRef}
-                  style={[ReliefRequestStyles.input, errors.itemName && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
+                  style={[ReliefRequestStyles.input, errors.itemName && ReliefRequestStyles.requiredInput]}
                   placeholder="Enter or Select Item Name"
                   onChangeText={(val) => handleChange('itemName', val)}
                   value={reportData.itemName}
                   onFocus={handleItemFocus}
                   onBlur={() => handleBlur(setIsItemDropdownVisible)}
-                  editable={contactInfoValid}
                 />
                 {isItemDropdownVisible && filteredItems.length > 0 && (
                   <View style={ReliefRequestStyles.dropdownContainer}>
@@ -383,24 +390,22 @@ const ReliefRequestScreen = ({ navigation }) => {
 
               {renderLabel('Quantity', true)}
               <TextInput
-                style={[ReliefRequestStyles.input, errors.quantity && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
+                style={[ReliefRequestStyles.input, errors.quantity && ReliefRequestStyles.requiredInput]}
                 placeholder="Enter Quantity"
                 onChangeText={(val) => handleChange('quantity', val)}
                 value={reportData.quantity}
                 keyboardType="numeric"
-                editable={contactInfoValid}
               />
               {errors.quantity && <Text style={ReliefRequestStyles.errorText}>{errors.quantity}</Text>}
 
               {renderLabel('Additional Notes', false)}
               <TextInput
-                style={[ReliefRequestStyles.input, errors.notes && ReliefRequestStyles.requiredInput, !contactInfoValid && { opacity: 0.5 }]}
+                style={[ReliefRequestStyles.input, errors.notes && ReliefRequestStyles.requiredInput]}
                 placeholder="Enter Notes/Concerns (Optional)"
                 multiline
                 numberOfLines={4}
                 onChangeText={(val) => handleChange('notes', val)}
                 value={reportData.notes}
-                editable={contactInfoValid}
               />
               {errors.notes && <Text style={ReliefRequestStyles.errorText}>{errors.notes}</Text>}
 
@@ -416,7 +421,6 @@ const ReliefRequestScreen = ({ navigation }) => {
                   {items.map((item, index) => (
                     <View key={index} style={ReliefRequestStyles.tableRow}>
                       <Text style={[ReliefRequestStyles.tableCell, { flex: 0.1 }]}>{index + 1}</Text>
-                      
                       <Text style={[ReliefRequestStyles.tableCell, { flex: 0.25 }]}>{item.itemName}</Text>
                       <Text style={[ReliefRequestStyles.tableCell, { flex: 0.15 }]}>{item.quantity}</Text>
                       <Text style={[ReliefRequestStyles.tableCell, { flex: 0.25 }]}>{item.notes || 'None'}</Text>
@@ -433,7 +437,6 @@ const ReliefRequestScreen = ({ navigation }) => {
         </ScrollView>
       </SafeAreaView>
     </View>
-    
   );
 };
 
