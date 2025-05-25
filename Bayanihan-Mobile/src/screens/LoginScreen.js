@@ -1,85 +1,94 @@
-import { useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, SafeAreaView } from "react-native";
-import { Ionicons } from "react-native-vector-icons";
-import { useNavigation } from '@react-navigation/native';
-import { Picker } from '@react-native-picker/picker';
+import React, { useContext, useState, useCallback } from 'react';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, ToastAndroid } from 'react-native';
+import { Ionicons } from 'react-native-vector-icons';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { get, ref } from 'firebase/database';
+import { auth, database } from '../configuration/firebaseConfig';
+import { AuthContext } from '../context/AuthContext';
+import { debounce } from 'lodash';
 
-const LoginScreen = ({navigation, onLogin }) => {
-  const [mobileNumber, setMobileNumber] = useState("");
-  const [password, setPassword] = useState("");
-  const [mobileError, setMobileError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
+const LoginScreen = ({ navigation }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { setUser } = useContext(AuthContext);
 
-    const handleLogin = () => {
-    let isValid = true;
+  const handleLogin = useCallback(
+    debounce(async () => {
+      if (!email || !password) {
+        ToastAndroid.show('Please enter email and password', ToastAndroid.BOTTOM);
+        return;
+      }
 
-    setMobileError("");
-    setPasswordError("");
+      if (isLoading) return;
 
-    if (!mobileNumber) {
-      setMobileError("Mobile Number is required");
-      isValid = false;
-    } else if (!/^\d{11}$/.test(mobileNumber)) {
-      setMobileError("Mobile Number Invalid");
-      isValid = false;
-    }
-
-    if (!password) {
-      setPasswordError("Password is required");
-      isValid = false;
-    } else if (password.length < 6) {
-      setPasswordError("Password is Incorrect");
-      isValid = false;
-    }
-
-    if (isValid) {
       setIsLoading(true);
-      setTimeout(() => {
-        console.log("Logged in with", mobileNumber, password);
+      try {
+        console.log('Attempting login with auth:', !!auth);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Fetch user data from Realtime Database
+        const userSnapshot = await get(ref(database, `users/${user.uid}`));
+        const userData = userSnapshot.val();
+
+        // If no user data exists, show toast and stop
+        if (!userData) {
+          ToastAndroid.show('Contact Support: No account registered in the system.', ToastAndroid.BOTTOM);
+          setIsLoading(false);
+          return;
+        }
+
+        setUser({
+          id: user.uid,
+          contactPerson: userData.contactPerson || user.displayName, 
+          email: user.email,
+          role: userData.role,
+        });
+
+        ToastAndroid.show('Login successful.', ToastAndroid.BOTTOM);
+        navigation.navigate('Home')
+      } catch (error) {
         setIsLoading(false);
-        onLogin(); // Call the onLogin function passed from App.js
-        // No need to navigate here, App.js will re-render and show AppStack
-      }, 2000);
-    } else {
-      Alert.alert("Error", "Please fix the errors above.");
-    }
-  };
+        if (error.code === 'auth/invalid-credential') {
+          ToastAndroid.show('Invalid email or password', ToastAndroid.BOTTOM);
+        } else {
+          ToastAndroid.show(`Error: ${error.message}`, ToastAndroid.BOTTOM);
+          console.error('Login error:', error);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }, 1000, { leading: true, trailing: false }),
+    [email, password, isLoading, auth, database, setUser]
+  );
 
   return (
-    <SafeAreaView style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#FFF9F0',
-      }}
-    >
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => navigation.navigate("Onboarding")}
-          style={styles.backButton} >
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Onboarding')}
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={28} color="#14AFBC" />
         </TouchableOpacity>
-
         <Text style={styles.title}>Welcome Back!</Text>
       </View>
-
-      {/* Mobile Number Input */}
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>Mobile Number:</Text>
+        <Text style={styles.label}>Email:</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter Mobile Number"
-          keyboardType="phone-pad"
-          value={mobileNumber}
-          onChangeText={setMobileNumber}
+          placeholder="Enter Email"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
         />
-        {mobileError ? <Text style={styles.errorText}>{mobileError}</Text> : null}
       </View>
-
-      {/* Password Input */}
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>Password:</Text>
+        <Text style={styles.label}>
+          <Text style={styles.asterisk}>*</Text> Password
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="Enter Password"
@@ -87,64 +96,57 @@ const LoginScreen = ({navigation, onLogin }) => {
           value={password}
           onChangeText={setPassword}
         />
-        {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-
-        {/* Recover Access Button */}
-        <TouchableOpacity style={styles.recoverButton} onPress={() => navigation.navigate("RecoveryScreen")}>
+        <TouchableOpacity
+          style={styles.recoverButton}
+          onPress={() => navigation.navigate('RecoveryScreen')}
+          disabled={isLoading}
+        >
           <Text style={styles.recoverText}>Recover Access</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Login Button */}
       <TouchableOpacity
         style={[styles.button, isLoading && styles.disabledButton]}
         onPress={handleLogin}
         disabled={isLoading}
       >
-        <Text style={styles.buttonText}>{isLoading ? "Loading..." : "Log in"}</Text>
+        <Text style={styles.buttonText}>{isLoading ? 'Loading...' : 'Log in'}</Text>
       </TouchableOpacity>
-
-      <Text style={styles.termsText}>By using Bayanihan, you agree to the Terms and Privacy Policy.</Text>
-
+      <Text style={styles.termsText}>
+        By continuing, you agree to the Terms and Conditions and Privacy Policy.
+      </Text>
     </SafeAreaView>
-  )
-}
-
-export default LoginScreen
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "flex-start", // Align elements at the top
-    alignItems: "center",
-    backgroundColor: "#FFF9F0",
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    backgroundColor: '#FFF9F0',
     padding: 26,
-    fontFamily: 'Poppins_Bold'
   },
   header: {
-    flexDirection: "row", // Align title and back button horizontally
-    alignItems: "center",
-    marginBottom: 60, // Reduce space between header and form
-    width: "100%", // Take full width of the screen
-    position: "relative",
-    fontFamily: 'Poppins_Bold'
-
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 60,
+    width: '100%',
+    position: 'relative',
   },
   backButton: {
-    position: "absolute",
+    position: 'absolute',
     left: 5,
-    zIndex: 1, // Ensure the button is on top
-    padding: 10, 
-    paddingTop: 25
+    zIndex: 1,
+    padding: 10,
+    paddingTop: 25,
   },
   title: {
     fontSize: 26,
-    color: "#14AFBC",
-    textAlign: "center", // Keep the title centered
-    width: "100%", 
+    color: '#14AFBC',
+    textAlign: 'center',
+    width: '100%',
     paddingTop: 20,
-    fontFamily: 'Poppins_Medium'
-
+    fontFamily: 'Poppins-Medium',
   },
   inputContainer: {
     width: 300,
@@ -152,24 +154,27 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontFamily: 'Poppins_Bold',
-    color: "#333",
+    fontFamily: 'Poppins-Bold',
+    color: '#333',
     marginBottom: 5,
-    alignSelf: "flex-start", // Align label to the left (start)
+    alignSelf: 'flex-start',
+  },
+  asterisk: {
+    color: 'red',
   },
   input: {
     height: 50,
-    borderColor: "#ccc",
+    borderColor: '#ccc',
     borderWidth: 2.5,
     borderRadius: 10,
     paddingLeft: 10,
     fontSize: 15,
     color: '#444',
-    backgroundColor: "#fff",
-    fontFamily: 'Poppins_Regular'
+    backgroundColor: '#fff',
+    fontFamily: 'Poppins-Regular',
   },
   button: {
-    backgroundColor: "#14AFBC",
+    backgroundColor: '#14AFBC',
     paddingVertical: 20,
     width: 300,
     paddingHorizontal: 30,
@@ -182,39 +187,39 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   disabledButton: {
-    backgroundColor: "#A1D8D9", // Lighter shade when loading
+    backgroundColor: '#A1D8D9',
   },
   buttonText: {
-    textAlign: 'center', // Corrected textAlign for centering button text
-    color: "#fff",
-    fontFamily: 'Poppins_Regular',
+    textAlign: 'center',
+    color: '#fff',
+    fontFamily: 'Poppins-Regular',
     fontSize: 16,
   },
   recoverButton: {
     marginTop: 10,
     marginBottom: 10,
-    alignSelf: "flex-end", // Align 'Recover Access' to the right
+    alignSelf: 'flex-end',
   },
   recoverText: {
-    color: "#FB3B9A",
+    color: '#FB3B9A',
     fontSize: 14,
-    textDecorationLine: "underline",
-    fontFamily: 'Poppins_Regular',
+    textDecorationLine: 'underline',
+    fontFamily: 'Poppins-Regular',
   },
   termsText: {
     textAlign: 'center',
     width: 230,
     lineHeight: 22.4,
-    marginTop: 290, // Add top margin to prevent overlap
     fontSize: 14,
     color: '#444',
-    fontFamily: 'Poppins_Regular',
-
+    fontFamily: 'Poppins-Regular',
+    marginTop: 20, // Reduced from 290 to avoid layout issues
   },
   errorText: {
-    color: "red",
+    color: 'red',
     fontSize: 12,
     marginTop: 5,
   },
 });
 
+export default LoginScreen;

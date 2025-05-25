@@ -1,22 +1,22 @@
-// src/navigation/AppStack.js
 import React from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ReliefRequestScreen from '../screens/ReliefRequestScreen';
 import ReliefSummary from '../screens/ReliefSummary';
 import ReportSubmissionScreen from '../screens/ReportSubmissionScreen';
-import ReportSummary from '../screens/ReportSummary'; 
-import CustomDrawer from '../components/CustomDrawer';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import ReportSummary from '../screens/ReportSummary';
 import Theme from '../constants/theme';
 import RDANAScreen from '../screens/RDANAScreen';
 import RDANASummary from '../screens/RDANASummary';
 import CallforDonations from '../screens/CallforDonations';
 import DashboardScreen from '../screens/Dashboard';
 import CallForDonationsSummary from '../screens/CallForDonationsSummary';
+import { AuthContext } from '../context/AuthContext';
+import CustomDrawer from '../components/CustomDrawer';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -31,8 +31,7 @@ const RDANAStack = () => (
 const CallforDonationsStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="CallforDonations" component={CallforDonations} />
-        <Stack.Screen name="CallforDonationsSummary" component={CallForDonationsSummary} />
-
+    <Stack.Screen name="CallForDonationsSummary" component={CallForDonationsSummary} />
   </Stack.Navigator>
 );
 
@@ -50,10 +49,16 @@ const ReportStack = () => (
   </Stack.Navigator>
 );
 
-const AppStack = ({ onSignOut }) => {
+const AppStack = () => {
+  const { setUser } = React.useContext(AuthContext);
+
+  const handleSignOut = () => {
+    setUser(null); // Clear user to navigate to AuthStack
+  };
+
   return (
     <Drawer.Navigator
-      drawerContent={(props) => <CustomDrawer {...props} onSignOut={onSignOut} />}
+      drawerContent={(props) => <CustomDrawer {...props} onSignOut={handleSignOut} />}
       screenOptions={{
         headerShown: false,
         drawerActiveBackgroundColor: 'white',
@@ -61,7 +66,7 @@ const AppStack = ({ onSignOut }) => {
         drawerInactiveTintColor: 'white',
         drawerLabelStyle: {
           marginLeft: 15,
-          fontFamily: 'Poppins_Medium',
+          fontFamily: 'Poppins-Medium',
           fontSize: 13,
         },
         drawerStyle: {
@@ -132,7 +137,6 @@ const AppStack = ({ onSignOut }) => {
           ),
         }}
       />
-      
     </Drawer.Navigator>
   );
 };

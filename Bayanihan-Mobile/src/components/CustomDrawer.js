@@ -1,14 +1,26 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import {FontAwesome5, MaterialIcons} from 'react-native-vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { MaterialIcons } from '@expo/vector-icons';
 import styles from '../styles/CustomDrawerStyles';
 import Theme from '../constants/theme';
-
+import { signOut } from 'firebase/auth';
+import { auth } from '../configuration/firebaseConfig';
+import { AuthContext } from '../context/AuthContext';
 
 const CustomDrawer = (props) => {
   const { onSignOut } = props;
+  const { user } = useContext(AuthContext);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      onSignOut();
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -22,10 +34,10 @@ const CustomDrawer = (props) => {
             style={styles.profileImage}
           />
           <View style={styles.header}>
-             <View style={styles.userRoleContainer}>
-            <Text style={styles.userRole}>Admin</Text>
-          </View>
-          <Text style={styles.userName}>John Doe</Text>
+            <View style={styles.userRoleContainer}>
+              <Text style={styles.userRole}>{user?.role}</Text>
+            </View>
+            <Text style={styles.userName}>{user?.contactPerson}</Text>
           </View>
         </View>
         <View style={styles.drawerListContainer}>
@@ -36,20 +48,13 @@ const CustomDrawer = (props) => {
       <View style={styles.footer}>
         <TouchableOpacity onPress={() => {}} style={styles.footerButton}>
           <View style={styles.footerButtonContent}>
-            <MaterialIcons name='info' size={22} style={{color: Theme.colors.white}} />
+            <MaterialIcons name="info" size={22} style={{ color: Theme.colors.white }} />
             <Text style={styles.footerButtonText}>Help</Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            if (onSignOut) {
-              onSignOut(); 
-            }
-          }}
-          style={styles.footerButton}
-        >
+        <TouchableOpacity onPress={handleSignOut} style={styles.footerButton}>
           <View style={styles.footerButtonContent}>
-            <Ionicons name='exit-outline' size={22} style={{color: Theme.colors.white}}/>
+            <Ionicons name="exit-outline" size={22} style={{ color: Theme.colors.white }} />
             <Text style={styles.footerButtonText}>Log Out</Text>
           </View>
         </TouchableOpacity>
@@ -59,4 +64,3 @@ const CustomDrawer = (props) => {
 };
 
 export default CustomDrawer;
-

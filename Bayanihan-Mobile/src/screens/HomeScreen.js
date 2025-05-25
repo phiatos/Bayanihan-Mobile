@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useContext } from 'react';
 import * as Font from 'expo-font';
 import {
   View,
@@ -18,6 +18,8 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import WebView from 'react-native-webview';
 import Theme from '../constants/theme';
+import { AuthContext } from '../context/AuthContext';
+
 
 const { height, width } = Dimensions.get('window');
 
@@ -29,6 +31,8 @@ const HomeScreen = ({ navigation }) => {
   const [searchBarVisible, setSearchBarVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(height)).current;
   const searchAnim = useRef(new Animated.Value(0)).current;
+  const { user } = useContext(AuthContext);
+  
 
   useEffect(() => {
     (async () => {
@@ -175,7 +179,7 @@ const HomeScreen = ({ navigation }) => {
                 />
               </TouchableOpacity>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={styles.userName}>Hello, John Doe</Text>
+                <Text style={styles.userName}>{user?.contactPerson}</Text>
                 <ImageBackground
                   source={require('../../assets/images/user.jpg')}
                   style={{ width: 35, height: 35 }}
@@ -257,7 +261,7 @@ const HomeScreen = ({ navigation }) => {
                     marginTop: 10,
                   }}
                 >
-                  Hello, John Doe
+                {user?.contactPerson}
                 </Text>
                 <ImageBackground
                   source={require('../../assets/images/user.jpg')}
