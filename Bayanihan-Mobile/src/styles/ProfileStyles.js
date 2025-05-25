@@ -73,7 +73,7 @@ export default StyleSheet.create({
     flex: 1,
     alignItems: 'flex-start',
     flexDirection: 'row',
-    flexWrap: 'wrap',
+
   },
   
   output: {
@@ -94,35 +94,6 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_Regular',
     fontSize: 14,
     color: Theme.colors.black,
-  },
-
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.small,
-  },
-  checkboxBox: {
-    width: 24,
-    height: 24,
-    borderRadius: borderRadius.small,
-    borderWidth: borderWidth.thin,
-    borderColor: Theme.colors.primary,
-    marginRight: spacing.small,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.white,
-  },
-  checkmark: {
-    fontSize: 24,
-    color: Theme.colors.white,
-    backgroundColor: Theme.colors.primary,
-    lineHeight: 24,
-  },
-  checkboxLabel: {
-    flex: 1,
-    fontSize: 14,
-    color: Theme.colors.black,
-    fontFamily: 'Poppins_Regular',
   },
 
   submission: {

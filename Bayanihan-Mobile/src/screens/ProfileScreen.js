@@ -1,42 +1,77 @@
-import React, { useState, useEffect } from 'react';
-import { Text, View, TextInput, TouchableOpacity, ScrollView} from 'react-native';
+import React, { useState, useEffect, useContext } from 'react';
+import { Text, View, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import * as Font from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import ProfileStyles from '../styles/ProfileStyles';
 import GlobalStyles from '../styles/GlobalStyles';
-import { Ionicons } from '@expo/vector-icons';
+import { AuthContext } from '../context/AuthContext';
+import { getDatabase, ref, get } from 'firebase/database';
 
 const ProfileScreen = ({ navigation }) => {
-  const [fontsLoaded, setFontsLoaded] = useState(false);
-
+  const { user } = useContext(AuthContext);
+  const [profileData, setProfileData] = useState({
+    organization: '',
+    hq: '',
+    contactPerson: '',
+    email: '',
+    mobile: '',
+    areaOfOperation: [],
+  });
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedConsent, setAgreedConsent] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      await Font.loadAsync({
-        'Poppins-MediumItalic': require('../../assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
-        'Poppins-Bold': require('../../assets/fonts/Poppins/Poppins-Bold.ttf'),
-        'Poppins-Medium': require('../../assets/fonts/Poppins/Poppins-Medium.ttf'),
-        'Poppins_SemiBold': require('../../assets/fonts/Poppins/Poppins-SemiBold.ttf'),
-        'Poppins_Regular': require('../../assets/fonts/Poppins/Poppins-Regular.ttf'),
-      });
-      setFontsLoaded(true);
-    })();
-  }, []);
+    const fetchProfileData = async () => {
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
 
-  if (!fontsLoaded) {
-    return null;
+      try {
+        const db = getDatabase();
+        const userRef = ref(db, `users/${user.id}`);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          setProfileData({
+            organization: data.organization || 'N/A',
+            hq: data.hq || 'N/A',
+            contactPerson: data.contactPerson || user.contactPerson || 'N/A',
+            email: data.email || user.email || 'N/A',
+            mobile: data.mobile || 'N/A',
+            areaOfOperation: data.areaOfOperation || [],
+          });
+        } else {
+          console.warn('No profile data found for user:', user.id);
+        }
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <View style={ProfileStyles.container}>
+        <Text style={ProfileStyles.sectionTitle}>
+          Loading...
+        </Text>
+      </View>
+    );
   }
 
   return (
     <View style={ProfileStyles.container}>
-
-      {/* Header - Use GlobalStyles for header properties */}
+      {/* Header */}
       <View style={GlobalStyles.headerContainer}>
         <TouchableOpacity
           onPress={() => navigation.openDrawer()}
@@ -49,34 +84,38 @@ const ProfileScreen = ({ navigation }) => {
 
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
         <ScrollView contentContainerStyle={ProfileStyles.scrollViewContent}>
-
           {/* Volunteer Info */}
           <View style={ProfileStyles.section}>
-            <Text style={[ProfileStyles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>
+            <Text style={ProfileStyles.sectionTitle}>
               Volunteer Group Information
             </Text>
 
             {[
-              ['Organization Name:', 'ABVN Team A'],
-              ['HQ:', 'Naga City, Camarines Sur'],
-              ['Contact Person:', 'John Doe'],
-              ['Email Address:', 'johnDoe@gmail.com'],
-              ['Mobile Number:', '0999 999 9999'],
+              ['Organization Name:', profileData.organization],
+              ['HQ:', profileData.hq],
+              ['Contact Person:', profileData.contactPerson],
+              ['Email Address:', profileData.email],
+              ['Mobile Number:', profileData.mobile],
             ].map(([label, value], idx) => (
               <View key={idx} style={ProfileStyles.infoRow}>
-                <Text style={[ProfileStyles.label, { fontFamily: 'Poppins-MediumItalic' }]}>{label}</Text>
-                <Text style={[ProfileStyles.output, { fontFamily: 'Poppins-Medium' }]}>{value}</Text>
+                <Text style={ProfileStyles.label}>{label}</Text>
+                <View style={ProfileStyles.outputContainer}>
+                <Text style={ProfileStyles.output}>{value}</Text></View>
               </View>
             ))}
 
             <View style={ProfileStyles.infoRow}>
-              <Text style={[ProfileStyles.label, { fontFamily: 'Poppins-MediumItalic' }]}>Area of Operation:</Text>
+              <Text style={ProfileStyles.label}>Area of Operation:</Text>
               <View style={ProfileStyles.outputContainer}>
-                {['Sorsogon', 'Camarines Norte', 'Camarines Sur', 'Albay', 'Masbate', 'Catanduanes', 'Quezon Province'].map((area, i) => (
-                  <Text key={i} style={[ProfileStyles.output, { fontFamily: 'Poppins-Medium' }]}>
-                    {`${i + 1}. ${area}`}
-                  </Text>
-                ))}
+                {profileData.areaOfOperation.length > 0 ? (
+                  profileData.areaOfOperation.map((area, i) => (
+                    <Text key={i} style={ProfileStyles.output}>
+                      {`${i + 1}. ${area}`}
+                    </Text>
+                  ))
+                ) : (
+                  <Text style={ProfileStyles.output}>N/A</Text>
+                )}
               </View>
             </View>
           </View>
@@ -87,7 +126,8 @@ const ProfileScreen = ({ navigation }) => {
               Change Password
             </Text>
 
-            {[['Temporary Password', currentPassword, setCurrentPassword],
+            {[
+              ['Temporary Password', currentPassword, setCurrentPassword],
               ['New Password', newPassword, setNewPassword],
               ['Confirm Password', confirmPassword, setConfirmPassword],
             ].map(([placeholder, value, setter], idx) => (
@@ -102,26 +142,9 @@ const ProfileScreen = ({ navigation }) => {
             ))}
           </View>
 
-          {/* Checkboxes & Button */}
+          {/* Submit Button */}
           <View style={ProfileStyles.submission}>
-            <TouchableOpacity onPress={() => setAgreedTerms(!agreedTerms)} style={ProfileStyles.checkboxContainer}>
-              <View style={ProfileStyles.checkboxBox}>
-                {agreedTerms && <Icon name="check" style={ProfileStyles.checkmark} />}
-              </View>
-              <Text style={[ProfileStyles.checkboxLabel, { fontFamily: 'Poppins-MediumItalic' }]}>
-                I agree to the terms and privacy policy
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => setAgreedConsent(!agreedConsent)} style={ProfileStyles.checkboxContainer}>
-              <View style={ProfileStyles.checkboxBox}>
-                {agreedConsent && <Icon name="check" style={ProfileStyles.checkmark} />}
-              </View>
-              <Text style={[ProfileStyles.checkboxLabel, { fontFamily: 'Poppins-MediumItalic' }]}>
-                I consent to Bayanihan collecting and storing my data for disaster response purposes
-              </Text>
-            </TouchableOpacity>
-
+            
             <TouchableOpacity style={ProfileStyles.button}>
               <Text style={[ProfileStyles.buttonText, { fontFamily: 'Poppins-Bold' }]}>Next</Text>
             </TouchableOpacity>

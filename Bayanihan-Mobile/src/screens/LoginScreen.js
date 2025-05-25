@@ -65,13 +65,14 @@ const LoginScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
+      <TouchableOpacity
           onPress={() => navigation.navigate('Onboarding')}
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={28} color="#14AFBC" />
         </TouchableOpacity>
+      <View style={styles.header}>
+        
         <Text style={styles.title}>Welcome Back!</Text>
       </View>
       <View style={styles.inputContainer}>
@@ -87,7 +88,7 @@ const LoginScreen = ({ navigation }) => {
       </View>
       <View style={styles.inputContainer}>
         <Text style={styles.label}>
-          <Text style={styles.asterisk}>*</Text> Password
+         Password
         </Text>
         <TextInput
           style={styles.input}
@@ -135,8 +136,9 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    left: 5,
     zIndex: 1,
+    left: 10,
+    top: 25,
     padding: 10,
     paddingTop: 25,
   },
@@ -146,7 +148,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     paddingTop: 20,
-    fontFamily: 'Poppins-Medium',
+    fontFamily: 'Poppins_Medium',
   },
   inputContainer: {
     width: 300,
@@ -154,13 +156,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontFamily: 'Poppins-Bold',
+    fontFamily: 'Poppins_Bold',
     color: '#333',
     marginBottom: 5,
     alignSelf: 'flex-start',
-  },
-  asterisk: {
-    color: 'red',
   },
   input: {
     height: 50,
@@ -171,7 +170,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#444',
     backgroundColor: '#fff',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: 'Poppins_Regular',
   },
   button: {
     backgroundColor: '#14AFBC',
@@ -192,7 +191,7 @@ const styles = StyleSheet.create({
   buttonText: {
     textAlign: 'center',
     color: '#fff',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: 'Poppins_Regular',
     fontSize: 16,
   },
   recoverButton: {
@@ -204,16 +203,16 @@ const styles = StyleSheet.create({
     color: '#FB3B9A',
     fontSize: 14,
     textDecorationLine: 'underline',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: 'Poppins_Regular',
   },
   termsText: {
     textAlign: 'center',
-    width: 230,
-    lineHeight: 22.4,
-    fontSize: 14,
+    width: '100%',
+    lineHeight: 22,
+    fontSize: 12,
     color: '#444',
-    fontFamily: 'Poppins-Regular',
-    marginTop: 20, // Reduced from 290 to avoid layout issues
+    fontFamily: 'Poppins_Regular',
+    marginTop: 250
   },
   errorText: {
     color: 'red',
