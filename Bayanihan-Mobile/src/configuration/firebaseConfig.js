@@ -1,7 +1,7 @@
+import { getAnalytics, isSupported } from 'firebase/analytics';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
-import { getAnalytics, isSupported } from 'firebase/analytics';
 
 console.log('Initializing Firebase with config...');
 console.log('Database URL:', 'https://bayanihan-5ce7e-default-rtdb.asia-southeast1.firebasedatabase.app');
@@ -36,4 +36,5 @@ isSupported().then((supported) => {
   }
 });
 
-export { app, auth, database, analytics };
+export { analytics, app, auth, database };
+
