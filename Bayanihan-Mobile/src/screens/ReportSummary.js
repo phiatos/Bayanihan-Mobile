@@ -1,132 +1,215 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { ref as databaseRef, push } from 'firebase/database';
+import React, { useState } from 'react';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../navigation/CustomModal';
 
-
-const ReportSummary = ({ route }) => {
-  const { reportData } = route.params;
-    const [modalVisible, setModalVisible] = useState(false);
-  
+const ReportSummary = () => {
+  const route = useRoute();
+  const { reportData, userUid, organizationName = '[Organization Name]' } = route.params || {};
   const navigation = useNavigation();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
 
+  const handleSubmit = async () => {
+    if (!userUid) {
+      console.error('No user UID available. Cannot submit report.');
+      setErrorMessage('User not authenticated. Please log in again.');
+      setModalVisible(true);
+      return;
+    }
+
+    if (isLoading) return;
+    setIsLoading(true);
+
+    try {
+      console.log('Database instance in ReportSummary:', database);
+      if (!database || typeof databaseRef !== 'function') {
+        throw new Error('Database reference is not available');
+      }
+
+      const newReport = {
+        reportID: reportData.reportID || `RPT-${Date.now()}`,
+        timeOfIntervention: reportData.timeOfIntervention || '',
+        submittedBy: reportData.submittedBy || '',
+        dateOfReport: reportData.dateOfReport || '',
+        operationDate: reportData.operationDate || '',
+        families: parseInt(reportData.families) || 0,
+        foodPacks: parseInt(reportData.foodPacks) || 0,
+        hotMeals: parseInt(reportData.hotMeals) || 0,
+        water: parseInt(reportData.water) || 0,
+        volunteers: parseInt(reportData.volunteers) || 0,
+        amountRaised: parseInt(reportData.amountRaised) || 0,
+        inKindValue: parseInt(reportData.inKindValue) || 0,
+        urgentNeeds: reportData.urgentNeeds || '',
+        remarks: reportData.remarks || '',
+        status: 'Pending',
+        userUid: userUid,
+        timestamp: Date.now(),
+        organization: organizationName,
+      };
+
+      // Save to reports/submitted subnode
+      const reportRef = databaseRef(database, 'reports/submitted');
+      await push(reportRef, newReport);
+      console.log('Report saved successfully to reports/submitted');
+      setErrorMessage(null);
+      setModalVisible(true);
+    } catch (error) {
+      console.error('Error saving report:', error.message);
+      setErrorMessage('Failed to save report: ' + error.message);
+      setModalVisible(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleConfirm = () => {
     setModalVisible(false);
-    navigation.navigate('Home');
+    if (!errorMessage) {
+      navigation.navigate('Home');
+    } else {
+      navigation.navigate('Login');
+    }
   };
 
   const handleCancel = () => {
     setModalVisible(false);
   };
 
+  const handleBack = () => {
+    navigation.navigate('ReportSubmission', { reportData });
+  };
+
   const formatLabel = (key) => {
     return key.replace(/([A-Z])/g, ' $1').toLowerCase();
   };
 
-  const formatDate = (date) => {
-    if (!date || !(date instanceof Date) || isNaN(date)) return 'N/A';
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return !isNaN(date) ? date.toLocaleDateString('en-GB') : 'N/A';
   };
 
-  const formatTime = (date) => {
-    if (!date || !(date instanceof Date) || isNaN(date)) return 'N/A';
-    return date.toLocaleTimeString('en-US', {
+  const formatTime = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return !isNaN(date) ? date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
-    });
-  };
-
-  const handleSubmit = () => {
-        setModalVisible(true);
+    }) : 'N/A';
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.menuIcon} onPress={() => navigation.openDrawer()}>
-          <Ionicons name="menu" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerText}>Reports Summary</Text>
-      </View>
-      <Text style={styles.subheader}>[Organization Name]</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.menuIcon} onPress={() => navigation.openDrawer()}>
+            <Ionicons name="menu" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerText}>Reports Summary</Text>
+        </View>
+        <Text style={styles.subheader}>{organizationName}</Text>
 
-      <View style={styles.formContainer}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Basic Information</Text>
-          {['reportID', 'submittedBy'].map((field) => (
-            <View key={field} style={styles.fieldContainer}>
-              <Text style={styles.label}>{formatLabel(field)}</Text>
-              <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+        <View style={styles.formContainer}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Basic Information</Text>
+            {['reportID', 'submittedBy'].map((field) => (
+              <View key={field} style={styles.fieldContainer}>
+                <Text style={styles.label}>{formatLabel(field)}</Text>
+                <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+              </View>
+            ))}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Time of Intervention</Text>
+              <Text style={styles.value}>{formatTime(reportData.timeOfIntervention)}</Text>
             </View>
-          ))}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Time of Intervention</Text>
-            <Text style={styles.value}>{formatTime(reportData.timeOfIntervention)}</Text>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Date of Report</Text>
+              <Text style={styles.value}>{formatDate(reportData.dateOfReport)}</Text>
+            </View>
           </View>
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Date of Report</Text>
-            <Text style={styles.value}>{formatDate(reportData.dateOfReport)}</Text>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Relief Operations</Text>
+            {['operationDate', 'families', 'foodPacks', 'hotMeals', 'water', 'volunteers', 'amountRaised', 'inKindValue'].map((field) => (
+              <View key={field} style={styles.fieldContainer}>
+                <Text style={styles.label}>{formatLabel(field)}</Text>
+                <Text style={styles.value}>
+                  {field === 'operationDate' ? formatDate(reportData[field]) : reportData[field] || 'N/A'}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Additional Updates</Text>
+            {['urgentNeeds', 'remarks'].map((field) => (
+              <View key={field} style={styles.fieldContainer}>
+                <Text style={styles.label}>{formatLabel(field)}</Text>
+                <Text style={styles.value}>{reportData[field] || 'None'}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Relief Operations</Text>
-          {['operationDate', 'families', 'foodPacks', 'hotMeals', 'water', 'volunteers', 'amountRaised', 'inKindValue'].map((field) => (
-            <View key={field} style={styles.fieldContainer}>
-              <Text style={styles.label}>{formatLabel(field)}</Text>
-              <Text style={styles.value}>
-                {field === 'operationDate' ? formatDate(reportData[field]) : reportData[field] || 'N/A'}
-              </Text>
-            </View>
-          ))}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            disabled={isLoading}
+          >
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={handleSubmit}
+            disabled={isLoading}
+          >
+            <Text style={styles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Additional Updates</Text>
-          {['urgentNeeds', 'remarks'].map((field) => (
-            <View key={field} style={styles.fieldContainer}>
-              <Text style={styles.label}>{formatLabel(field)}</Text>
-              <Text style={styles.value}>{reportData[field] || 'None'}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.navigate('ReportSubmission')}
-        >
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Submit</Text>
-        </TouchableOpacity>
-      </View>
         <CustomModal
-        visible={modalVisible}
-        title="Success!"
-        message={
-          <View style={styles.modalContent}>
-            <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={styles.modalIcon} />
-            <Text style={styles.modalMessage}>Report submitted successfully!</Text>
-          </View>
-        }
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-        confirmText="Proceed"
-        showCancel={false}
-      />
-
-      
-    </ScrollView>
+          visible={modalVisible}
+          title={errorMessage ? 'Error' : 'Success!'}
+          message={
+            <View style={styles.modalContent}>
+              {errorMessage ? (
+                <>
+                  <Ionicons
+                    name="warning-outline"
+                    size={60}
+                    color="#FF0000"
+                    style={styles.modalIcon}
+                  />
+                  <Text style={styles.modalMessage}>{errorMessage}</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={60}
+                    color={Theme.colors.primary}
+                    style={styles.modalIcon}
+                  />
+                  <Text style={styles.modalMessage}>Report submitted successfully!</Text>
+                </>
+              )}
+            </View>
+          }
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+          confirmText={errorMessage ? 'Retry' : 'Proceed'}
+          showCancel={false}
+        />
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -136,23 +219,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-     flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: Theme.colors.primary,
-  paddingHorizontal: 10,
-  width: '100%',
-  borderBottomLeftRadius: 20,
-  borderBottomRightRadius: 20,
-  height: 92,
-  paddingTop: 40,
-  position: 'relative', 
-  elevation: 10
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: 10,
+    width: '100%',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    height: 92,
+    paddingTop: 40,
+    position: 'relative',
+    elevation: 10,
   },
   menuIcon: {
- position: 'absolute',
-  left: 30,
-  top: 50, 
+    position: 'absolute',
+    left: 30,
+    top: 50,
   },
   headerText: {
     color: 'white',
@@ -211,10 +294,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginHorizontal: 10,
     marginBottom: 40,
-    height:45
+    height: 45,
   },
   backButton: {
-     borderWidth: 1.5,
+    borderWidth: 1.5,
     borderColor: '#4059A5',
     borderRadius: 12,
     justifyContent: 'center',
@@ -225,24 +308,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   backButtonText: {
-   color: '#4059A5',
+    color: '#4059A5',
     fontSize: 16,
     fontFamily: 'Poppins_Medium',
   },
   submitButton: {
-      flex: 1,
+    flex: 1,
     backgroundColor: '#14AEBB',
     borderRadius: 12,
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   submitButtonText: {
-     color: '#FFFFFF',
+    color: '#FFFFFF',
     fontSize: 16,
     paddingTop: 5,
     fontFamily: 'Poppins_SemiBold',
     textAlign: 'center',
   },
-    modalContent: {
+  modalContent: {
     alignItems: 'center',
     width: '100%',
     justifyContent: 'center',

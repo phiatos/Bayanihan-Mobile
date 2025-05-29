@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Platform, Alert, SafeAreaView } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import styles from '../styles/ReportSubmissionStyles';
-import GlobalStyles from '../styles/GlobalStyles';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import ReportSubmissionStyles from '../styles/ReportSubmissionStyles';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useNavigation } from '@react-navigation/native';
+import { ref as databaseRef, get } from 'firebase/database';
+import React, { useEffect, useState } from 'react';
+import { Alert, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import { auth, database } from '../configuration/firebaseConfig';
+import GlobalStyles from '../styles/GlobalStyles';
+import { default as ReportSubmissionStyles, default as styles } from '../styles/ReportSubmissionStyles';
 
 const ReportSubmissionScreen = () => {
   const navigation = useNavigation();
@@ -29,6 +30,8 @@ const ReportSubmissionScreen = () => {
 
   const [showPicker, setShowPicker] = useState({ field: '', visible: false, mode: 'date' });
   const [errors, setErrors] = useState({});
+  const [userUid, setUserUid] = useState(null);
+  const [organizationName, setOrganizationName] = useState('[Organization Name]');
 
   const requiredFields = [
     'timeOfIntervention',
@@ -54,7 +57,45 @@ const ReportSubmissionScreen = () => {
       return `RPT-${year}${month}${day}-${random}`;
     };
     setReportData((prev) => ({ ...prev, reportID: generateReportID() }));
-  }, []);
+
+    console.log('Database instance in ReportSubmissionScreen:', database);
+
+    const unsubscribe = auth.onAuthStateChanged(
+      (user) => {
+        if (user) {
+          setUserUid(user.uid);
+          console.log('Logged-in user UID:', user.uid);
+          if (database && typeof databaseRef === 'function') {
+            const userRef = databaseRef(database, `users/${user.uid}`);
+            get(userRef)
+              .then((snapshot) => {
+                const userData = snapshot.val();
+                if (userData && userData.group) {
+                  setOrganizationName(userData.group);
+                  console.log('Fetched organizationName:', userData.group);
+                } else {
+                  console.warn('No group found for user:', user.uid);
+                }
+              })
+              .catch((error) => {
+                console.error('Error fetching user data:', error.message);
+              });
+          } else {
+            console.warn('Database reference not available for fetching user data');
+          }
+        } else {
+          console.warn('No user is logged in');
+          navigation.navigate('Login');
+        }
+      },
+      (error) => {
+        console.error('Auth state listener error:', error.message);
+        Alert.alert('Error', 'Authentication error: ' + error.message);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [navigation]);
 
   const capitalizeFirstLetter = (string) => {
     if (!string) return string;
@@ -123,8 +164,15 @@ const ReportSubmissionScreen = () => {
       return;
     }
 
-    console.log('Navigating to ReportSummary with:', { reportData });
-    navigation.navigate('ReportSummary', { reportData });
+    const serializedReportData = {
+      ...reportData,
+      timeOfIntervention: reportData.timeOfIntervention ? reportData.timeOfIntervention.toISOString() : null,
+      dateOfReport: reportData.dateOfReport ? reportData.dateOfReport.toISOString() : null,
+      operationDate: reportData.operationDate ? reportData.operationDate.toISOString() : null,
+    };
+
+    console.log('Navigating to ReportSummary with:', { reportData: serializedReportData, userUid, organizationName });
+    navigation.navigate('ReportSummary', { reportData: serializedReportData, userUid, organizationName });
   };
 
   const renderLabel = (label, isRequired) => (
@@ -136,13 +184,8 @@ const ReportSubmissionScreen = () => {
 
   return (
     <View style={ReportSubmissionStyles.container}>
-
-      {/* Header - Use GlobalStyles for header properties */}
       <View style={GlobalStyles.headerContainer}>
-        <TouchableOpacity
-          onPress={() => navigation.openDrawer()}
-          style={GlobalStyles.headerMenuIcon}
-        >
+        <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
           <Ionicons name="menu" size={32} color="white" />
         </TouchableOpacity>
         <Text style={GlobalStyles.headerTitle}>Reports Submission</Text>
@@ -150,11 +193,9 @@ const ReportSubmissionScreen = () => {
 
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
         <ScrollView contentContainerStyle={ReportSubmissionStyles.scrollViewContent}>
-
           <View style={styles.form}>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Basic Information</Text>
-
               {renderLabel('Report ID', true)}
               <TextInput
                 style={[styles.input, { backgroundColor: '#f0f0f0' }]}
@@ -162,7 +203,6 @@ const ReportSubmissionScreen = () => {
                 editable={false}
                 selectTextOnFocus={false}
               />
-
               {renderLabel('Time of Intervention', true)}
               <TouchableOpacity onPress={() => setShowPicker({ field: 'timeOfIntervention', visible: true, mode: 'time' })}>
                 <View style={[styles.inputContainer, errors.timeOfIntervention && styles.requiredInput]}>
@@ -172,7 +212,7 @@ const ReportSubmissionScreen = () => {
                     placeholderTextColor="#999"
                     value={
                       reportData.timeOfIntervention
-                        ? reportData.timeOfIntervention.toLocaleTimeString('en-US', {
+                        ? new Date(reportData.timeOfIntervention).toLocaleTimeString('en-US', {
                             hour: '2-digit',
                             minute: '2-digit',
                             hour12: true,
@@ -185,7 +225,6 @@ const ReportSubmissionScreen = () => {
                 </View>
               </TouchableOpacity>
               {errors.timeOfIntervention && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.timeOfIntervention}</Text>}
-
               {renderLabel('Submitted by', true)}
               <TextInput
                 style={[styles.input, errors.submittedBy && styles.requiredInput]}
@@ -194,7 +233,6 @@ const ReportSubmissionScreen = () => {
                 value={reportData.submittedBy}
               />
               {errors.submittedBy && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.submittedBy}</Text>}
-
               {renderLabel('Date of Report', true)}
               <TouchableOpacity onPress={() => setShowPicker({ field: 'dateOfReport', visible: true, mode: 'date' })}>
                 <View style={[styles.inputContainer, errors.dateOfReport && styles.requiredInput]}>
@@ -202,7 +240,7 @@ const ReportSubmissionScreen = () => {
                     style={[styles.input, styles.dateInput]}
                     placeholder="mm/dd/yyyy"
                     placeholderTextColor="#999"
-                    value={reportData.dateOfReport ? reportData.dateOfReport.toLocaleDateString('en-GB') : ''}
+                    value={reportData.dateOfReport ? new Date(reportData.dateOfReport).toLocaleDateString('en-GB') : ''}
                     editable={false}
                   />
                   <Icon name="calendar-today" size={16} color="#666" style={styles.icon} />
@@ -210,10 +248,8 @@ const ReportSubmissionScreen = () => {
               </TouchableOpacity>
               {errors.dateOfReport && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.dateOfReport}</Text>}
             </View>
-
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Relief Operations</Text>
-
               {renderLabel('Operation Date', true)}
               <TouchableOpacity onPress={() => setShowPicker({ field: 'operationDate', visible: true, mode: 'date' })}>
                 <View style={[styles.inputContainer, errors.operationDate && styles.requiredInput]}>
@@ -221,14 +257,13 @@ const ReportSubmissionScreen = () => {
                     style={[styles.input, styles.dateInput]}
                     placeholder="mm/dd/yyyy"
                     placeholderTextColor="#999"
-                    value={reportData.operationDate ? reportData.operationDate.toLocaleDateString('en-GB') : ''}
+                    value={reportData.operationDate ? new Date(reportData.operationDate).toLocaleDateString('en-GB') : ''}
                     editable={false}
                   />
                   <Icon name="calendar-today" size={16} color="#666" style={styles.icon} />
                 </View>
               </TouchableOpacity>
               {errors.operationDate && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.operationDate}</Text>}
-
               {renderLabel('Number of Families', true)}
               <TextInput
                 style={[styles.input, errors.families && styles.requiredInput]}
@@ -238,7 +273,6 @@ const ReportSubmissionScreen = () => {
                 keyboardType="numeric"
               />
               {errors.families && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.families}</Text>}
-
               {renderLabel('No. of Food Packs', true)}
               <TextInput
                 style={[styles.input, errors.foodPacks && styles.requiredInput]}
@@ -248,7 +282,6 @@ const ReportSubmissionScreen = () => {
                 keyboardType="numeric"
               />
               {errors.foodPacks && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.foodPacks}</Text>}
-
               {renderLabel('No. of Hot Meals', true)}
               <TextInput
                 style={[styles.input, errors.hotMeals && styles.requiredInput]}
@@ -258,7 +291,6 @@ const ReportSubmissionScreen = () => {
                 keyboardType="numeric"
               />
               {errors.hotMeals && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.hotMeals}</Text>}
-
               {renderLabel('Liters of Water', true)}
               <TextInput
                 style={[styles.input, errors.water && styles.requiredInput]}
@@ -268,7 +300,6 @@ const ReportSubmissionScreen = () => {
                 keyboardType="numeric"
               />
               {errors.water && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.water}</Text>}
-
               {renderLabel('No. of Volunteers Mobilized', true)}
               <TextInput
                 style={[styles.input, errors.volunteers && styles.requiredInput]}
@@ -278,7 +309,6 @@ const ReportSubmissionScreen = () => {
                 keyboardType="numeric"
               />
               {errors.volunteers && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.volunteers}</Text>}
-
               {renderLabel('Total Amount Raised', true)}
               <TextInput
                 style={[styles.input, errors.amountRaised && styles.requiredInput]}
@@ -288,7 +318,6 @@ const ReportSubmissionScreen = () => {
                 keyboardType="numeric"
               />
               {errors.amountRaised && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.amountRaised}</Text>}
-
               {renderLabel('Total Value of In-Kind Donations', true)}
               <TextInput
                 style={[styles.input, errors.inKindValue && styles.requiredInput]}
@@ -299,10 +328,8 @@ const ReportSubmissionScreen = () => {
               />
               {errors.inKindValue && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.inKindValue}</Text>}
             </View>
-
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Additional Updates</Text>
-
               {renderLabel('Urgent Needs', false)}
               <TextInput
                 style={[styles.input]}
@@ -311,7 +338,6 @@ const ReportSubmissionScreen = () => {
                 value={reportData.urgentNeeds}
               />
               {errors.urgentNeeds && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.urgentNeeds}</Text>}
-
               {renderLabel('Remarks', false)}
               <TextInput
                 style={[styles.input, styles.textArea]}
@@ -323,14 +349,12 @@ const ReportSubmissionScreen = () => {
               />
               {errors.remarks && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.remarks}</Text>}
             </View>
-
             <TouchableOpacity style={styles.button} onPress={handleSubmit}>
               <Text style={styles.buttonText}>Submit</Text>
             </TouchableOpacity>
-
             {showPicker.visible && (
               <DateTimePicker
-                value={reportData[showPicker.field] || new Date()}
+                value={new Date(reportData[showPicker.field] || new Date())}
                 mode={showPicker.mode}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 onChange={onChangePicker}
@@ -340,7 +364,6 @@ const ReportSubmissionScreen = () => {
         </ScrollView>
       </SafeAreaView>
     </View>
-    
   );
 };
 

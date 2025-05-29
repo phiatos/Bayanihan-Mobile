@@ -1,32 +1,141 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // For persistence
+import { useNavigation } from '@react-navigation/native';
+import { get, push, ref, serverTimestamp, set } from 'firebase/database';
+import React, { useEffect, useState } from 'react';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../navigation/CustomModal';
 
 const ReliefSummary = ({ route }) => {
-  console.log('ReliefSummary params:', route.params);
   const { reportData = {}, addedItems: initialItems = [] } = route.params || {};
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [addedItems, setAddedItems] = useState(initialItems);
+  const [userUid, setUserUid] = useState(null);
+  const [volunteerOrganization, setVolunteerOrganization] = useState('[Unknown Org]');
+  const [errorMessage, setErrorMessage] = useState(null);
 
-  const formatLabel = (key) => key.replace(/([A-Z])/g, ' $1').toLowerCase();
+  useEffect(() => {
+    const fetchVolunteerGroup = async () => {
+      // Check if volunteerOrganization is already stored in AsyncStorage
+      const storedGroup = await AsyncStorage.getItem('volunteerOrganization');
+      if (storedGroup) {
+        setVolunteerOrganization(storedGroup);
+        console.log('Volunteer group loaded from storage:', storedGroup);
+      }
+
+      console.log('Setting up auth state listener...');
+      const unsubscribe = auth.onAuthStateChanged(
+        (user) => {
+          if (user) {
+            setUserUid(user.uid);
+            console.log('Logged-in user UID:', user.uid);
+            const userRef = ref(database, `users/${user.uid}`);
+            get(userRef)
+              .then((snapshot) => {
+                const userData = snapshot.val();
+                if (userData && userData.group) {
+                  setVolunteerOrganization(userData.group);
+                  AsyncStorage.setItem('volunteerOrganization', userData.group); // Persist the group
+                  console.log('Volunteer group fetched:', userData.group);
+                } else {
+                  console.warn('User data or group not found for UID:', user.uid);
+                  setErrorMessage('Volunteer group not found. Please contact support.');
+                  setModalVisible(true);
+                }
+              })
+              .catch((error) => {
+                console.error('Error fetching user data:', error.message);
+                setErrorMessage('Failed to fetch user data: ' + error.message);
+                setModalVisible(true);
+              });
+          } else {
+            console.warn('No user is logged in');
+            setModalVisible(true);
+          }
+        },
+        (error) => {
+          console.error('Auth state listener error:', error.message);
+          setErrorMessage('Authentication error: ' + error.message);
+          setModalVisible(true);
+        }
+      );
+
+      return () => unsubscribe();
+    };
+
+    fetchVolunteerGroup();
+  }, []);
 
   const handleSubmit = () => {
-    setModalVisible(true);
+    if (!userUid) {
+      console.error('No user UID available. Cannot submit request.');
+      setErrorMessage('User not authenticated. Please log in again.');
+      setModalVisible(true);
+      return;
+    }
+
+    try {
+      console.log('serverTimestamp:', serverTimestamp);
+      const newRequest = {
+        contactPerson: reportData.contactPerson,
+        contactNumber: reportData.contactNumber,
+        email: reportData.email,
+        address: reportData.barangay,
+        city: reportData.city,
+        category: reportData.donationCategory,
+        volunteerOrganization,
+        userUid,
+        items: addedItems.map((item) => ({
+          name: item.itemName,
+          quantity: item.quantity,
+          notes: item.notes || '',
+        })),
+        timestamp: serverTimestamp(),
+      };
+
+      console.log('Submitting request to Firebase:', newRequest);
+
+      const requestRef = push(ref(database, 'requestRelief/requests'));
+      const userRequestRef = ref(database, `users/${userUid}/requests/${requestRef.key}`);
+
+      Promise.all([
+        set(requestRef, newRequest),
+        set(userRequestRef, newRequest),
+      ])
+        .then(() => {
+          console.log('Data saved to Firebase successfully');
+          setErrorMessage(null);
+          setModalVisible(true);
+        })
+        .catch((error) => {
+          console.error('Failed to save data to Firebase:', error.message);
+          setErrorMessage('Failed to submit request: ' + error.message);
+          setModalVisible(true);
+        });
+    } catch (error) {
+      console.error('Error in handleSubmit:', error.message);
+      setErrorMessage('Failed to submit request: ' + error.message);
+      setModalVisible(true);
+    }
   };
 
   const handleConfirm = () => {
     setModalVisible(false);
-    navigation.navigate('Home');
+    if (!errorMessage) {
+      navigation.navigate('Home');
+    } else {
+      navigation.navigate('Login');
+    }
   };
 
   const handleCancel = () => {
     setModalVisible(false);
+    navigation.navigate('Login');
   };
 
   const handleDelete = (index) => {
@@ -62,17 +171,17 @@ const ReliefSummary = ({ route }) => {
     </View>
   );
 
-  return (
-    <ScrollView style={styles.container}>
+  const renderHeader = () => (
+    <>
       <View style={styles.header}>
         <TouchableOpacity style={styles.menuIcon} onPress={() => navigation.openDrawer()}>
           <Ionicons name="menu" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerText}>Relief Summary</Text>
       </View>
-      <Text style={styles.subheader}>[Organization Name]</Text>
+      <Text style={styles.subheader}>{volunteerOrganization}</Text>
       <View style={styles.formContainer}>
-        <View style={styles.section}> 
+        <View style={styles.section}>
           {['contactPerson', 'contactNumber', 'email', 'barangay', 'city', 'donationCategory'].map(
             (field) => (
               <View key={field} style={styles.fieldContainer}>
@@ -84,7 +193,10 @@ const ReliefSummary = ({ route }) => {
         </View>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Requested Items</Text>
-          {addedItems.length > 0 ? (
+          {addedItems.length === 0 && (
+            <Text style={styles.value}>No items added yet.</Text>
+          )}
+          {addedItems.length > 0 && (
             <View style={styles.table}>
               <View style={styles.tableHeader}>
                 <Text style={styles.tableHeaderCell}>Item Name</Text>
@@ -92,41 +204,79 @@ const ReliefSummary = ({ route }) => {
                 <Text style={styles.tableHeaderCell}>Notes</Text>
                 <Text style={styles.tableHeaderCell}>Actions</Text>
               </View>
-              <FlatList
-                data={addedItems}
-                renderItem={renderItem}
-                keyExtractor={(item, index) => index.toString()}
-              />
             </View>
-          ) : (
-            <Text style={styles.value}>No items added yet.</Text>
           )}
         </View>
       </View>
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Submit</Text>
-        </TouchableOpacity>
-      </View>
-      
+    </>
+  );
+
+  const renderFooter = () => (
+    <View style={styles.buttonContainer}>
+      <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+        <Text style={styles.backButtonText}>Back</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+        <Text style={styles.submitButtonText}>Submit</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const formatLabel = (key) => key.replace(/([A-Z])/g, ' $1').toLowerCase();
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={addedItems}
+        renderItem={renderItem}
+        keyExtractor={(item, index) => index.toString()}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
+        showsVerticalScrollIndicator={false}
+      />
       <CustomModal
         visible={modalVisible}
-        title="Success!"
+        title={errorMessage ? 'Error' : userUid ? 'Success!' : 'Authentication Error'}
         message={
           <View style={styles.modalContent}>
-            <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={styles.modalIcon} />
-            <Text style={styles.modalMessage}>Report submitted successfully!</Text>
+            {errorMessage ? (
+              <>
+                <Ionicons
+                  name="warning-outline"
+                  size={60}
+                  color="#FF0000"
+                  style={styles.modalIcon}
+                />
+                <Text style={styles.modalMessage}>{errorMessage}</Text>
+              </>
+            ) : userUid ? (
+              <>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={60}
+                  color={Theme.colors.primary}
+                  style={styles.modalIcon}
+                />
+                <Text style={styles.modalMessage}>Report submitted successfully!</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons
+                  name="warning-outline"
+                  size={60}
+                  color="#FF0000"
+                  style={styles.modalIcon}
+                />
+                <Text style={styles.modalMessage}>Please log in again.</Text>
+              </>
+            )}
           </View>
         }
         onConfirm={handleConfirm}
         onCancel={handleCancel}
-        confirmText="Proceed"
+        confirmText={errorMessage ? 'Retry' : userUid ? 'Proceed' : 'Login'}
         showCancel={false}
       />
-
       <CustomModal
         visible={deleteModalVisible}
         title="Confirm Deletion"
@@ -142,12 +292,14 @@ const ReliefSummary = ({ route }) => {
         cancelText="Cancel"
         showCancel={true}
       />
-    </ScrollView>
+    </View>
   );
 };
 
+// Styles (unchanged)
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     backgroundColor: '#FFF9F0',
   },
   header: {
@@ -161,8 +313,8 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 20,
     height: 92,
     paddingTop: 40,
-    position: 'relative', 
-    elevation: 10
+    position: 'relative',
+    elevation: 10,
   },
   menuIcon: {
     position: 'absolute',
@@ -222,7 +374,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginHorizontal: 10,
     marginBottom: 20,
-    height: 45
+    height: 45,
   },
   backButton: {
     borderWidth: 1.5,
@@ -244,7 +396,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#14AEBB',
     borderRadius: 12,
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   submitButtonText: {
     color: '#FFFFFF',
@@ -291,7 +443,7 @@ const styles = StyleSheet.create({
   modalContent: {
     alignItems: 'center',
     width: '100%',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   modalIcon: {
     marginBottom: 15,
