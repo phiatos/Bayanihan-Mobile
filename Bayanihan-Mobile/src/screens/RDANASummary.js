@@ -5,7 +5,7 @@ import { push, ref, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
-import CustomModal from '../navigation/CustomModal';
+import CustomModal from '../components/CustomModal';
 
 const RDANASummary = () => {
   const { reportData = {}, affectedMunicipalities = [] } = useRoute().params || {};

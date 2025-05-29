@@ -83,8 +83,8 @@ export default StyleSheet.create({
   },
 
    requiredInput: {            
-    borderColor: '#D32F2F',  
-    fontWeight: '400'         
+    borderColor: '#D32F2F',
+    fontWeight: '400',        
   },
 
     errorText: {

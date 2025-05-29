@@ -204,225 +204,64 @@ const RecoveryScreen = ({ navigation }) => {
     };
 
     return (
-        <SafeAreaView
-            style={{
-                flex: 1,
-                justifyContent: 'center',
-                alignItems: 'center',
-                backgroundColor: '#FFF9F0',
+<SafeAreaView style={styles.container}>
+    
+        <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+                setPasswordRecoveryStage(1);
+                setEmail("");
+                navigation.goBack();
             }}
         >
-            <View style={styles.header}>
+            <Ionicons name="arrow-back" size={28} color="#14AFBC" />
+        </TouchableOpacity>
+        <Text style={styles.title}>Forgot Password</Text>
+    
+
+    <View style={styles.optionContent}>
+        {passwordRecoveryStage === 1 ? (
+            <>
+                {/* <Text style={styles.titleSecondary}>Enter your email address</Text> */}
+                <Text style={styles.descSecondary}>
+                    Please enter your registered email address to recover your password.
+                </Text>
+                <Text style={styles.label}>Email Address</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Enter email"
+                    placeholderTextColor="#999"
+                    value={email}
+                    onChangeText={setEmail}
+                />
                 <TouchableOpacity
-                    style={styles.backButton}
+                    style={styles.button}
+                    onPress={handleEmailSubmit}
+                >
+                    <Text style={styles.buttonText}>Submit</Text>
+                </TouchableOpacity>
+            </>
+        ) : (
+            <>
+                <Ionicons name="checkmark-circle" size={130} color="#14AFBC" style={{ marginTop: 20 }} />
+                <Text style={styles.title}>Success!</Text>
+                <Text style={styles.description}>
+                    A password reset link was sent to your registered email.
+                </Text>
+                <TouchableOpacity
+                    style={styles.button}
                     onPress={() => {
-                        if (selectedOption) {
-                            setSelectedOption("");
-                            setMobileRecoveryStage(1);
-                            setPasswordRecoveryStage(1);
-                            setPasswordRecoveryMethod("");
-                            setEmail("");
-                            setMobileNumber("");
-                            setCountryCode("+63");
-                        } else {
-                            navigation.goBack();
-                        }
+                        setPasswordRecoveryStage(1);
+                        setEmail("");
+                        navigation.goBack();
                     }}
                 >
-                    <Ionicons name="arrow-back" size={28} color="#14AFBC" />
+                    <Text style={styles.buttonText}>Continue</Text>
                 </TouchableOpacity>
-                <Text style={styles.title}>Recover Access</Text>
-            </View>
-
-            {!selectedOption && (
-                <>
-                    <Text style={styles.titleSecondary}>How can we help?</Text>
-                    <Text style={styles.descSecondary}>
-                        Select from the following options below if you are having trouble accessing your account.
-                    </Text>
-
-                    <TouchableOpacity style={styles.button} onPress={() => handleOptionSelect("mobile")}>
-                        <Text style={[styles.buttonText, selectedOption === "mobile" && styles.selectedOption]}>
-                            I forgot my mobile number
-                        </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.button} onPress={() => handleOptionSelect("password")}>
-                        <Text style={[styles.buttonText, selectedOption === "password" && styles.selectedOption]}>
-                            I forgot my password
-                        </Text>
-                    </TouchableOpacity>
-                </>
-            )}
-
-            {/* Forgot Mobile Number Flow */}
-            {selectedOption === "mobile" && (
-                <View style={styles.optionContent}>
-                    {mobileRecoveryStage === 1 ? (
-                        <>
-                            <Text style={styles.titleSecondary}>Enter your email address</Text>
-                            <Text style={styles.descSecondary}>
-                                Please enter your registered email address to recover your mobile number.
-                            </Text>
-                            <Text style={styles.label}>Email Address</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Enter email"
-                                placeholderTextColor="#999"
-                                value={email}
-                                onChangeText={setEmail}
-                            />
-                            <TouchableOpacity
-                                style={styles.button}
-                                onPress={handleMobileRecoverySubmit}
-                            >
-                                <Text style={styles.buttonText}>Submit</Text>
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <>
-                            <Ionicons name="checkmark-circle" size={150} color="#14AFBC" style={{ marginBottom: 10 }} />
-                            <Text style={styles.title}>Success!</Text>
-                            <Text style={styles.description}>
-                                Your mobile number was sent to your registered email.
-                            </Text>
-                            <TouchableOpacity
-                                style={styles.button}
-                                onPress={() => {
-                                    setSelectedOption("");
-                                    setMobileRecoveryStage(1);
-                                    setEmail("");
-                                }}
-                            >
-                                <Text style={styles.buttonText}>Continue</Text>
-                            </TouchableOpacity>
-                        </>
-                    )}
-                </View>
-            )}
-
-            {/* Forgot Password Flow */}
-            {selectedOption === "password" && (
-                <View style={styles.optionContent}>
-                    {!passwordRecoveryMethod ? (
-                        <>
-                            <Text style={styles.titleSecondary}>Forgot Password</Text>
-                            <Text style={styles.descSecondary}>
-                                To make sure it’s really you, we’ll be authenticating your request.
-                                Please select where you like to receive it.
-                            </Text>
-                            <TouchableOpacity
-                                style={styles.button}
-                                onPress={() => setPasswordRecoveryMethod("email")}
-                            >
-                                <Text style={styles.buttonText}>Email</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.button}
-                                onPress={() => setPasswordRecoveryMethod("mobile")}
-                            >
-                                <Text style={styles.buttonText}>Mobile Number</Text>
-                            </TouchableOpacity>
-                        </>
-                    ) : passwordRecoveryMethod === "email" ? (
-                        passwordRecoveryStage === 1 ? (
-                            <>
-                                <Text style={styles.titleSecondary}>Enter your email address</Text>
-                                <Text style={styles.descSecondary}>
-                                    Please enter your registered email address to recover your password.
-                                </Text>
-                                <Text style={styles.label}>Email Address</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Enter email"
-                                    placeholderTextColor="#999"
-                                    value={email}
-                                    onChangeText={setEmail}
-                                />
-                                <TouchableOpacity
-                                    style={styles.button}
-                                    onPress={handleEmailSubmit}
-                                >
-                                    <Text style={styles.buttonText}>Submit</Text>
-                                </TouchableOpacity>
-                            </>
-                        ) : (
-                            <>
-                                <Ionicons name="checkmark-circle" size={150} color="#14AFBC" style={{ marginBottom: 10 }} />
-                                <Text style={styles.title}>Success!</Text>
-                                <Text style={styles.description}>
-                                    A password reset link was sent to your registered email.
-                                </Text>
-                                <TouchableOpacity
-                                    style={styles.button}
-                                    onPress={() => {
-                                        setSelectedOption("");
-                                        setPasswordRecoveryStage(1);
-                                        setPasswordRecoveryMethod("");
-                                        setEmail("");
-                                    }}
-                                >
-                                    <Text style={styles.buttonText}>Continue</Text>
-                                </TouchableOpacity>
-                            </>
-                        )
-                    ) : passwordRecoveryStage === 1 ? (
-                        <>
-                            <Text style={styles.titleSecondary}>Enter your mobile number</Text>
-                            <Text style={styles.descSecondary}>
-                                Please enter your registered mobile number to recover your password.
-                            </Text>
-                            <Text style={styles.label}>Mobile Number</Text>
-                            <View style={{ flexDirection: "row", marginBottom: 20 }}>
-                                <Picker
-                                    selectedValue={countryCode}
-                                    style={[styles.input, styles.countryCodePicker]}
-                                    onValueChange={setCountryCode}
-                                >
-                                    <Picker.Item label="+63" value="+63" />
-                                    <Picker.Item label="+1" value="+1" />
-                                    <Picker.Item label="+44" value="+44" />
-                                </Picker>
-                                <TextInput
-                                    style={[styles.input, styles.mobileInput]}
-                                    placeholder="Enter mobile number"
-                                    placeholderTextColor="#999"
-                                    value={mobileNumber}
-                                    onChangeText={setMobileNumber}
-                                    keyboardType="phone-pad"
-                                />
-                            </View>
-                            <TouchableOpacity
-                                style={styles.button}
-                                onPress={handleMobileSubmit}
-                            >
-                                <Text style={styles.buttonText}>Submit</Text>
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <>
-                            <Ionicons name="checkmark-circle" size={150} color="#14AFBC" style={{ marginBottom: 10 }} />
-                            <Text style={styles.title}>Success!</Text>
-                            <Text style={styles.description}>
-                                A password reset link was sent to your registered email.
-                            </Text>
-                            <TouchableOpacity
-                                style={styles.button}
-                                onPress={() => {
-                                    setSelectedOption("");
-                                    setPasswordRecoveryStage(1);
-                                    setPasswordRecoveryMethod("");
-                                    setMobileNumber("");
-                                    setCountryCode("+63");
-                                }}
-                            >
-                                <Text style={styles.buttonText}>Continue</Text>
-                            </TouchableOpacity>
-                        </>
-                    )}
-                </View>
-            )}
-        </SafeAreaView>
+            </>
+        )}
+    </View>
+</SafeAreaView>
     );
 };
 
@@ -444,17 +283,20 @@ const styles = StyleSheet.create({
         position: "relative",
     },
     backButton: {
-        position: "absolute",
-        left: 5,
+        position: 'absolute',
         zIndex: 1,
+        left: 10,
+        top: 25,
         padding: 10,
+        paddingTop: 25,
     },
     title: {
         fontSize: 26,
-        fontWeight: "bold",
-        color: "#14AFBC",
-        textAlign: "center",
-        width: "100%",
+        color: '#14AFBC',
+        textAlign: 'center',
+        width: '100%',
+        paddingTop: 20,
+        fontFamily: 'Poppins_Medium',
     },
     titleSecondary: {
         fontSize: 28,
@@ -468,28 +310,19 @@ const styles = StyleSheet.create({
         marginTop: 20,
         marginBottom: 30,
         textAlign: "center",
-        width: "90%",
-    },
-    optionText: {
-        fontSize: 16,
-        color: "#FFF",
-        marginBottom: 20,
-        textAlign: "center",
-    },
-    selectedOption: {
-        fontWeight: "bold",
-        color: "#FB3B9A",
+        fontFamily: 'Poppins_Regular'
     },
     optionContent: {
         width: "100%",
         alignItems: "center",
     },
     description: {
-        fontSize: 16,
+        fontSize: 14,
         textAlign: 'center',
         color: "#444",
         marginTop: 20,
         marginBottom: 20,
+        fontFamily: 'Poppins_Regular'
     },
     input: {
         height: 50,
@@ -502,6 +335,8 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff",
         width: "100%",
         marginBottom: 20,
+        fontFamily: 'Poppins_Regular'
+
     },
     button: {
         backgroundColor: "#14AFBC",
@@ -513,24 +348,16 @@ const styles = StyleSheet.create({
     buttonText: {
         textAlign: "center",
         color: "#fff",
-        fontWeight: "bold",
+        fontFamily: 'Poppins_SemiBold',
         fontSize: 16,
     },
     label: {
         alignSelf: "flex-start",
-        fontSize: 16,
+        fontSize: 14,
         color: "#333",
         marginBottom: 5,
+        fontFamily: 'Poppins_Bold'
+
     },
-    countryCodePicker: {
-        width: 80,
-        height: 50,
-        fontSize: 18,
-    },
-    mobileInput: {
-        width: 285,
-        height: 50,
-        marginLeft: 5,
-        fontSize: 18,
-    },
+
 });

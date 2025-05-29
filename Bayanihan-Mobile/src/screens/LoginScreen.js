@@ -6,12 +6,14 @@ import { Modal, Pressable, SafeAreaView, StyleSheet, Text, TextInput, ToastAndro
 import { Ionicons } from 'react-native-vector-icons';
 import { auth, database } from '../configuration/firebaseConfig';
 import { AuthContext } from '../context/AuthContext';
+import Theme from '../constants/theme';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { setUser } = useContext(AuthContext);
 
   const handleLogin = useCallback(
@@ -43,12 +45,12 @@ const LoginScreen = ({ navigation }) => {
         const isAdmin = userData?.role === 'AB ADMIN' || userData?.role === 'admin';
         if (!isAdmin && !user.emailVerified) {
           const actionCodeSettings = {
-            url: 'https://bayanihan-5ce7e.firebaseapp.com', // Firebase project domain
+            url: 'https://bayanihan-5ce7e.firebaseapp.com',
             handleCodeInApp: false,
           };
           await sendEmailVerification(user, actionCodeSettings);
-          await signOut(auth); // Sign out until email is verified
-          setModalVisible(true); // Show modal
+          await signOut(auth);
+          setModalVisible(true);
           setIsLoading(false);
           return;
         }
@@ -61,7 +63,7 @@ const LoginScreen = ({ navigation }) => {
           role: userData.role,
         });
 
-        ToastAndroid.show('Login successful.', ToastAndroid.BOTTOM);
+        // ToastAndroid.show('Login successful.', ToastAndroid.BOTTOM);
         navigation.navigate('Home');
       } catch (error) {
         setIsLoading(false);
@@ -123,19 +125,31 @@ const LoginScreen = ({ navigation }) => {
       </View>
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter Password"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={[styles.input, styles.passwordInput]}
+            placeholder="Enter Password"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Ionicons
+              name={showPassword ? "eye-off" : "eye"}
+              size={24}
+              color= {Theme.colors.primary}
+            />
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity
           style={styles.recoverButton}
           onPress={() => navigation.navigate('RecoveryScreen')}
           disabled={isLoading}
         >
-          <Text style={styles.recoverText}>Recover Access</Text>
+          <Text style={styles.recoverText}>Forgot Password</Text>
         </TouchableOpacity>
       </View>
       <TouchableOpacity
@@ -204,6 +218,22 @@ const styles = StyleSheet.create({
     color: '#444',
     backgroundColor: '#fff',
     fontFamily: 'Poppins_Regular',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  passwordInput: {
+    flex: 1,
+    paddingRight: 40, // Space for the eye icon
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 10,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   button: {
     backgroundColor: '#14AFBC',
@@ -274,7 +304,7 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     backgroundColor: '#14AFBC',
-    paddingVertical: 10, // Fixed the syntax error here
+    paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 10,
   },

@@ -10,6 +10,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -18,10 +19,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../configuration/firebaseConfig';
-import Theme from '../constants/theme'; // Ensure Theme is imported
+import Theme from '../constants/theme';
 import { AuthContext } from '../context/AuthContext';
 import GlobalStyles from '../styles/GlobalStyles';
 import ProfileStyles from '../styles/ProfileStyles';
+import { KeyboardAvoidingView } from 'react-native';
 
 const ProfileScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
@@ -39,10 +41,11 @@ const ProfileScreen = ({ navigation }) => {
   const [passwordStrength, setPasswordStrength] = useState({
     strength: '',
     barWidth: '0%',
-    barColor: 'red',
+    barColor: 'transparent',
     checks: {
       hasLength: false,
       hasUppercase: false,
+      hasLowercase: false,
       hasNumber: false,
       hasSymbol: false,
     },
@@ -54,6 +57,10 @@ const ProfileScreen = ({ navigation }) => {
   const [isNavigationBlocked, setIsNavigationBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const currentTermsVersion = 1;
 
@@ -130,6 +137,18 @@ const ProfileScreen = ({ navigation }) => {
 
     if (password.length === 0) {
       setShowPasswordStrength(false);
+      setPasswordStrength({
+        strength: '',
+        barWidth: '0%',
+        barColor: 'transparent',
+        checks: {
+          hasLength: false,
+          hasUppercase: false,
+          hasLowercase: false,
+          hasNumber: false,
+          hasSymbol: false,
+        },
+      });
       return;
     }
 
@@ -137,37 +156,45 @@ const ProfileScreen = ({ navigation }) => {
 
     const hasLength = password.length >= 8;
     const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
-    const hasSymbol = /[^A-Za-z0-9]/.test(password);
+    const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const lengthScore = password.length >= 12 ? 2 : password.length >= 8 ? 1 : 0;
 
-    const passedChecks = [hasLength, hasUppercase, hasNumber, hasSymbol].filter(Boolean).length;
+    const score = lengthScore + (hasUppercase ? 1 : 0) + (hasLowercase ? 1 : 0) +
+      (hasNumber ? 1 : 0) + (hasSymbol ? 1 : 0);
+
     let strength = '';
     let barWidth = '0%';
     let barColor = 'red';
 
-    if (passedChecks <= 1) {
+    if (score <= 2) {
+      strength = 'Very Weak';
+      barWidth = '20%';
+      barColor = '#FF4D4D';
+    } else if (score === 3) {
       strength = 'Weak';
-      barWidth = '25%';
-      barColor = 'red';
-    } else if (passedChecks === 2) {
+      barWidth = '40%';
+      barColor = '#FF8C00';
+    } else if (score === 4) {
       strength = 'Medium';
-      barWidth = '50%';
-      barColor = 'orange';
-    } else if (passedChecks === 3) {
-      strength = 'Good';
-      barWidth = '75%';
-      barColor = 'yellowgreen';
-    } else if (passedChecks === 4) {
+      barWidth = '60%';
+      barColor = '#FFD700';
+    } else if (score === 5) {
       strength = 'Strong';
+      barWidth = '80%';
+      barColor = '#32CD32';
+    } else if (score >= 6) {
+      strength = 'Very Strong';
       barWidth = '100%';
-      barColor = 'green';
+      barColor = '#008000';
     }
 
     setPasswordStrength({
       strength,
       barWidth,
       barColor,
-      checks: { hasLength, hasUppercase, hasNumber, hasSymbol },
+      checks: { hasLength, hasUppercase, hasLowercase, hasNumber, hasSymbol },
     });
   };
 
@@ -189,11 +216,11 @@ const ProfileScreen = ({ navigation }) => {
       return;
     }
 
-    const { hasLength, hasUppercase, hasNumber, hasSymbol } = passwordStrength.checks;
-    if (!hasLength || !hasUppercase || !hasNumber || !hasSymbol) {
+    const { hasLength, hasUppercase, hasLowercase, hasNumber, hasSymbol } = passwordStrength.checks;
+    if (!hasLength || !hasUppercase || !hasLowercase || !hasNumber || !hasSymbol) {
       Alert.alert(
         'Weak Password',
-        'Your new password does not meet the complexity requirements. Please ensure it has at least 8 characters, one uppercase letter, one number, and one symbol.'
+        'Your new password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a symbol.'
       );
       return;
     }
@@ -208,7 +235,6 @@ const ProfileScreen = ({ navigation }) => {
 
       const credential = EmailAuthProvider.credential(userEmail, currentPassword);
       await reauthenticateWithCredential(auth.currentUser, credential);
-
       await updatePassword(auth.currentUser, newPassword);
 
       const db = getDatabase();
@@ -299,7 +325,8 @@ const ProfileScreen = ({ navigation }) => {
   if (loading) {
     return (
       <View style={ProfileStyles.container}>
-        <Text style={ProfileStyles.sectionTitle}>Loading...</Text>
+        <ActivityIndicator size="large" color={Theme.colors.primary} />
+        <Text style={ProfileStyles.sectionTitle}>Loading Profile...</Text>
       </View>
     );
   }
@@ -315,149 +342,211 @@ const ProfileScreen = ({ navigation }) => {
       </View>
 
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
-        <ScrollView contentContainerStyle={ProfileStyles.scrollViewContent}>
-          {/* Volunteer Info */}
-          {!termsModalVisible && !passwordNeedsReset && (
-            <View style={ProfileStyles.section}>
-              <Text style={ProfileStyles.sectionTitle}>Volunteer Group Information</Text>
-              {[
-                ['Organization Name:', profileData.organization],
-                ['HQ:', profileData.hq],
-                ['Contact Person:', profileData.contactPerson],
-                ['Email Address:', profileData.email],
-                ['Mobile Number:', profileData.mobile],
-              ].map(([label, value], idx) => (
-                <View key={idx} style={ProfileStyles.infoRow}>
-                  <Text style={ProfileStyles.label}>{label}</Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <ScrollView contentContainerStyle={ProfileStyles.scrollViewContent}>
+            {/* Volunteer Info */}
+            {!termsModalVisible && !passwordNeedsReset && (
+              <View style={ProfileStyles.section}>
+                <Text style={ProfileStyles.sectionTitle}>Volunteer Group Information</Text>
+                {[
+                  ['Organization Name:', profileData.organization],
+                  ['HQ:', profileData.hq],
+                  ['Contact Person:', profileData.contactPerson],
+                  ['Email Address:', profileData.email],
+                  ['Mobile Number:', profileData.mobile],
+                ].map(([label, value], idx) => (
+                  <View key={idx} style={ProfileStyles.infoRow}>
+                    <Text style={ProfileStyles.label}>{label}</Text>
+                    <View style={ProfileStyles.outputContainer}>
+                      <Text style={ProfileStyles.output}>{value}</Text>
+                    </View>
+                  </View>
+                ))}
+                <View style={ProfileStyles.infoRow}>
+                  <Text style={ProfileStyles.label}>Area of Operation:</Text>
                   <View style={ProfileStyles.outputContainer}>
-                    <Text style={ProfileStyles.output}>{value}</Text>
+                    {profileData.areaOfOperation.length > 0 ? (
+                      profileData.areaOfOperation.map((area, i) => (
+                        <Text key={i} style={ProfileStyles.output}>{`${i + 1}. ${area}`}</Text>
+                      ))
+                    ) : (
+                      <Text style={ProfileStyles.output}>N/A</Text>
+                    )}
                   </View>
                 </View>
-              ))}
-              <View style={ProfileStyles.infoRow}>
-                <Text style={ProfileStyles.label}>Area of Operation:</Text>
-                <View style={ProfileStyles.outputContainer}>
-                  {profileData.areaOfOperation.length > 0 ? (
-                    profileData.areaOfOperation.map((area, i) => (
-                      <Text key={i} style={ProfileStyles.output}>{`${i + 1}. ${area}`}</Text>
-                    ))
-                  ) : (
-                    <Text style={ProfileStyles.output}>N/A</Text>
-                  )}
+              </View>
+            )}
+
+            {/* Terms and Conditions Modal */}
+            {termsModalVisible && (
+              <View style={ProfileStyles.modalOverlay}>
+                <View style={ProfileStyles.modalContainer}>
+                  <Text style={ProfileStyles.modalTitle}>Terms and Conditions</Text>
+                  <ScrollView style={ProfileStyles.modalContent}>
+                    <Text style={ProfileStyles.modalText}>
+                      Please read and accept the Terms and Conditions to continue using the app.
+                      Lorem ipsum dolor sit amet, consectetur adipiscing elit...
+                    </Text>
+                  </ScrollView>
+                  <View style={ProfileStyles.checkboxContainer}>
+                    <TouchableOpacity
+                      onPress={() => setAgreedTerms(!agreedTerms)}
+                      style={ProfileStyles.checkbox}
+                    >
+                      {agreedTerms ? (
+                        <Ionicons name="checkbox" size={24} color={Theme.colors.primary} />
+                      ) : (
+                        <Ionicons name="checkbox-outline" size={24} color={Theme.colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                    <Text style={ProfileStyles.checkboxLabel}>
+                      I agree to the Terms and Conditions
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[ProfileStyles.modalButton, !agreedTerms && { opacity: 0.5 }]}
+                    onPress={handleAgreeTerms}
+                    disabled={!agreedTerms}
+                  >
+                    <Text style={ProfileStyles.modalButtonText}>Agree and Continue</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-            </View>
-          )}
+            )}
 
-          {/* Terms and Conditions Modal */}
-          {termsModalVisible && (
-            <View style={ProfileStyles.modalOverlay}>
-              <View style={ProfileStyles.modalContainer}>
-                <Text style={ProfileStyles.modalTitle}>Terms and Conditions</Text>
-                <ScrollView style={ProfileStyles.modalContent}>
-                  <Text style={ProfileStyles.modalText}>
-                    Please read and accept the Terms and Conditions to continue using the app.
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit...
-                  </Text>
-                </ScrollView>
-                <View style={ProfileStyles.checkboxContainer}>
+            {/* Change Password Section */}
+            {(!termsModalVisible || passwordNeedsReset) && (
+              <View style={ProfileStyles.section}>
+                <Text style={[ProfileStyles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>
+                  Change Password
+                </Text>
+
+                {/* Current Password Input Field */}
+                <View style={ProfileStyles.passwordInputField}>
+                  <TextInput
+                    style={[ProfileStyles.input, { fontFamily: 'Poppins-Medium' }]}
+                    placeholder="Current Password"
+                    value={currentPassword}
+                    onChangeText={setCurrentPassword}
+                    secureTextEntry={!showCurrentPassword}
+                  />
                   <TouchableOpacity
-                    onPress={() => setAgreedTerms(!agreedTerms)}
-                    style={ProfileStyles.checkbox}
+                    onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                    style={ProfileStyles.passwordEyeIcon}
                   >
-                    {agreedTerms ? (
-                      <Ionicons name="checkbox" size={24} color={Theme.colors.primary} />
-                    ) : (
-                      <Ionicons name="checkbox-outline" size={24} color={Theme.colors.primary} />
-                    )}
+                    <Ionicons
+                      name={showCurrentPassword ? 'eye-off' : 'eye'}
+                      size={24}
+                      color={Theme.colors.primary}
+                    />
                   </TouchableOpacity>
-                  <Text style={ProfileStyles.checkboxLabel}>
-                    I agree to the Terms and Conditions
-                  </Text>
                 </View>
+
+                {/* New Password Input Field */}
+                <View style={ProfileStyles.passwordInputField}>
+                  <TextInput
+                    style={[ProfileStyles.input, { fontFamily: 'Poppins-Medium' }]}
+                    placeholder="New Password"
+                    value={newPassword}
+                    onChangeText={handlePasswordInput}
+                    secureTextEntry={!showNewPassword}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowNewPassword(!showNewPassword)}
+                    style={ProfileStyles.passwordEyeIcon}
+                  >
+                    <Ionicons
+                      name={showNewPassword ? 'eye-off' : 'eye'}
+                      size={24}
+                      color={Theme.colors.primary}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Confirm Password Input Field */}
+                <View style={ProfileStyles.passwordInputField}>
+                  <TextInput
+                    style={[ProfileStyles.input, { fontFamily: 'Poppins-Medium' }]}
+                    placeholder="Confirm Password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={ProfileStyles.passwordEyeIcon}
+                  >
+                    <Ionicons
+                      name={showConfirmPassword ? 'eye-off' : 'eye'}
+                      size={24}
+                      color={Theme.colors.primary}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Password Strength Indicator */}
+                {showPasswordStrength && (
+                  <View style={ProfileStyles.strengthContainer}>
+                    <Text style={[ProfileStyles.strengthText, { fontFamily: 'Poppins-SemiBold' }]}>
+                      Password Strength: {passwordStrength.strength}
+                    </Text>
+                    <View style={ProfileStyles.strengthBarContainer}>
+                      <View
+                        style={[
+                          ProfileStyles.strengthBar,
+                          {
+                            width: passwordStrength.barWidth,
+                            backgroundColor: passwordStrength.barColor,
+                          },
+                        ]}
+                      />
+                    </View>
+                    {[
+                      ['At least 8 characters', passwordStrength.checks.hasLength],
+                      ['An uppercase letter', passwordStrength.checks.hasUppercase],
+                      ['A lowercase letter', passwordStrength.checks.hasLowercase],
+                      ['A number', passwordStrength.checks.hasNumber],
+                      ['A symbol (!@#$ etc.)', passwordStrength.checks.hasSymbol],
+                    ].map(([text, passed], idx) => (
+                      <Text
+                        key={idx}
+                        style={[
+                          ProfileStyles.checkText,
+                          { fontFamily: 'Poppins-Regular', color: passed ? '#008000' : '#FF4D4D' },
+                        ]}
+                      >
+                        {passed ? '✅' : '❌'} {text}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Submit Button */}
+            {(!termsModalVisible || passwordNeedsReset) && (
+              <View style={ProfileStyles.submission}>
                 <TouchableOpacity
-                  style={[ProfileStyles.modalButton, !agreedTerms && { opacity: 0.5 }]}
-                  onPress={handleAgreeTerms}
-                  disabled={!agreedTerms}
+                  style={[ProfileStyles.button, submitting && { opacity: 0.5 }]}
+                  onPress={handleChangePassword}
+                  disabled={submitting}
                 >
-                  <Text style={ProfileStyles.modalButtonText}>Agree and Continue</Text>
+                  {submitting ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={[ProfileStyles.buttonText, { fontFamily: 'Poppins-Bold' }]}>
+                      Submit
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
-            </View>
-          )}
-
-          {/* Change Password */}
-          {(!termsModalVisible || passwordNeedsReset) && (
-            <View style={ProfileStyles.section}>
-              <Text style={[ProfileStyles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>
-                Change Password
-              </Text>
-              {[
-                ['Current Password', currentPassword, setCurrentPassword],
-                ['New Password', newPassword, setNewPassword, handlePasswordInput],
-                ['Confirm Password', confirmPassword, setConfirmPassword],
-              ].map(([placeholder, value, setter, onChange], idx) => (
-                <TextInput
-                  key={idx}
-                  style={[ProfileStyles.input, { fontFamily: 'Poppins-Medium' }]}
-                  placeholder={placeholder}
-                  value={value}
-                  onChangeText={onChange || setter}
-                  secureTextEntry
-                />
-              ))}
-
-              {/* Password Strength Indicator */}
-              {showPasswordStrength && (
-                <View style={ProfileStyles.strengthContainer}>
-                  <Text style={ProfileStyles.strengthText}>
-                    Strength: {passwordStrength.strength}
-                  </Text>
-                  <View style={ProfileStyles.strengthBarContainer}>
-                    <View
-                      style={[
-                        ProfileStyles.strengthBar,
-                        {
-                          width: passwordStrength.barWidth,
-                          backgroundColor: passwordStrength.barColor,
-                        },
-                      ]}
-                    />
-                  </View>
-                  {[
-                    ['At least 8 characters', passwordStrength.checks.hasLength],
-                    ['An uppercase letter', passwordStrength.checks.hasUppercase],
-                    ['A number', passwordStrength.checks.hasNumber],
-                    ['A symbol (!@#$ etc.)', passwordStrength.checks.hasSymbol],
-                  ].map(([text, passed], idx) => (
-                    <Text key={idx} style={ProfileStyles.checkText}>
-                      {passed ? '✅' : '❌'} {text}
-                    </Text>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Submit Button */}
-          {(!termsModalVisible || passwordNeedsReset) && (
-            <View style={ProfileStyles.submission}>
-              <TouchableOpacity
-                style={[ProfileStyles.button, submitting && { opacity: 0.5 }]}
-                onPress={handleChangePassword}
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text style={[ProfileStyles.buttonText, { fontFamily: 'Poppins-Bold' }]}>
-                    Submit
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-        </ScrollView>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );

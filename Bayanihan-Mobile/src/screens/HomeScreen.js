@@ -416,6 +416,8 @@ const HomeScreen = ({ navigation }) => {
     : null;
 
   return (
+    
+
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
       {permissionStatus === 'granted' && location && mapHtml ? (
         <View style={styles.fullScreenContainer}>

@@ -1,15 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native'; // Import CommonActions
 import { ref as databaseRef, push } from 'firebase/database';
 import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
-import CustomModal from '../navigation/CustomModal';
+import CustomModal from '../components/CustomModal';
 
 const ReportSummary = () => {
   const route = useRoute();
-  const { reportData, userUid, organizationName = '[Organization Name]' } = route.params || {};
+  // Use state to manage reportData so it can be passed back if needed
+  const [reportData, setReportData] = useState(route.params?.reportData || {});
+  const { userUid, organizationName = '[Organization Name]' } = route.params || {};
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,7 +59,7 @@ const ReportSummary = () => {
       const reportRef = databaseRef(database, 'reports/submitted');
       await push(reportRef, newReport);
       console.log('Report saved successfully to reports/submitted');
-      setErrorMessage(null);
+      setErrorMessage(null); // Clear any previous error
       setModalVisible(true);
     } catch (error) {
       console.error('Error saving report:', error.message);
@@ -71,17 +73,34 @@ const ReportSummary = () => {
   const handleConfirm = () => {
     setModalVisible(false);
     if (!errorMessage) {
-      navigation.navigate('Home');
+      // SUCCESS: Reset the navigation stack and go to the Home screen
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            { name: 'Home' }, // Assuming 'Home' is the name of your dashboard/main screen
+          ],
+        })
+      );
     } else {
-      navigation.navigate('Login');
+      // ERROR: Navigate to Login or stay on current screen
+      // For now, we'll navigate back to ReportSubmission to allow retry if error
+      navigation.navigate('ReportSubmission', { reportData });
     }
   };
 
   const handleCancel = () => {
     setModalVisible(false);
+    // If there was an error and user cancels, they might want to correct it.
+    // So, we navigate back to ReportSubmission.
+    if (errorMessage) {
+      navigation.navigate('ReportSubmission', { reportData });
+    }
+    // If no error, just close modal and stay on summary.
   };
 
   const handleBack = () => {
+    // Navigate back to ReportSubmission and pass the current reportData
     navigation.navigate('ReportSubmission', { reportData });
   };
 
@@ -89,20 +108,37 @@ const ReportSummary = () => {
     return key.replace(/([A-Z])/g, ' $1').toLowerCase();
   };
 
-  const formatDate = (dateStr) => {
+  const formatDateDisplay = (dateStr) => {
     if (!dateStr) return 'N/A';
+    // If the format is YYYY-MM-DD, just return it.
+    if(/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return dateStr;
+    }
+    // Otherwise, try to parse it
     const date = new Date(dateStr);
     return !isNaN(date) ? date.toLocaleDateString('en-GB') : 'N/A';
   };
 
-  const formatTime = (dateStr) => {
-    if (!dateStr) return 'N/A';
-    const date = new Date(dateStr);
-    return !isNaN(date) ? date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }) : 'N/A';
+  const formatTimeDisplay = (timeStr) => {
+    if (!timeStr) return 'N/A';
+    // If the format is already HH:MM AM/PM, just return it.
+    if (/(^([0-9]{1,2}):([0-9]{2})\s(AM|PM)$)/i.test(timeStr)) {
+        return timeStr;
+    }
+    // Otherwise, try to parse it (assuming it's a parsable date string with time)
+    const date = new Date(`2000-01-01T${timeStr}`); // Create a dummy date for parsing time
+    if (!isNaN(date.getTime())) {
+        return date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+        });
+    }
+    // As a fallback, return the original string if it looks like a time but parsing failed
+    if (timeStr.includes(':')) {
+        return timeStr;
+    }
+    return 'N/A';
   };
 
   return (
@@ -127,11 +163,11 @@ const ReportSummary = () => {
             ))}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>Time of Intervention</Text>
-              <Text style={styles.value}>{formatTime(reportData.timeOfIntervention)}</Text>
+              <Text style={styles.value}>{formatTimeDisplay(reportData.timeOfIntervention)}</Text>
             </View>
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>Date of Report</Text>
-              <Text style={styles.value}>{formatDate(reportData.dateOfReport)}</Text>
+              <Text style={styles.value}>{formatDateDisplay(reportData.dateOfReport)}</Text>
             </View>
           </View>
 
@@ -141,7 +177,7 @@ const ReportSummary = () => {
               <View key={field} style={styles.fieldContainer}>
                 <Text style={styles.label}>{formatLabel(field)}</Text>
                 <Text style={styles.value}>
-                  {field === 'operationDate' ? formatDate(reportData[field]) : reportData[field] || 'N/A'}
+                  {field === 'operationDate' ? formatDateDisplay(reportData[field]) : reportData[field] || 'N/A'}
                 </Text>
               </View>
             ))}

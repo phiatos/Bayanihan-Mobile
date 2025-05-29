@@ -6,7 +6,8 @@ import React, { useEffect, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, database, storage } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
-import CustomModal from '../navigation/CustomModal';
+import CustomModal from '../components/CustomModal';
+import GlobalStyles from '../styles/GlobalStyles';
 
 const CallForDonationsSummary = () => {
   const route = useRoute();
@@ -33,8 +34,8 @@ const CallForDonationsSummary = () => {
             databaseRef(userRef).once('value')
               .then((snapshot) => {
                 const userData = snapshot.val();
-                if (userData && userData.group) {
-                  setOrganizationName(userData.group);
+                if (userData && userData.organization) { // Changed 'group' to 'organization'
+                  setOrganizationName(userData.organization);
                 }
               })
               .catch((error) => {
@@ -153,21 +154,22 @@ const CallForDonationsSummary = () => {
   };
 
   const handleBack = () => {
-    navigation.navigate('CallforDonations', { formData, donationImage }); // Matches old code's route name
+    // Pass formData and donationImage back to the previous screen
+    navigation.navigate('CallForDonations', { formData, donationImage });
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
+      <View style={GlobalStyles.headerContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.openDrawer()}
+          style={GlobalStyles.headerMenuIcon}
+        >
+          <Ionicons name="menu" size={32} color="white" />
+        </TouchableOpacity>
+        <Text style={GlobalStyles.headerTitle}>Call for Donations</Text>
+      </View>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.openDrawer()}
-            style={styles.menuIcon}
-          >
-            <Ionicons name="menu" size={32} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerText}>Call for Donations</Text>
-        </View>
         <Text style={styles.subheader}>{organizationName}</Text>
         <View style={styles.formContainer}>
           <View style={styles.section}>
@@ -234,7 +236,7 @@ const CallForDonationsSummary = () => {
                   <Ionicons
                     name="checkmark-circle"
                     size={60}
-                    color="#4059A5"
+                    color={Theme.colors.primary}
                     style={styles.modalIcon}
                   />
                   <Text style={styles.modalMessage}>
@@ -254,24 +256,37 @@ const CallForDonationsSummary = () => {
   );
 };
 
+
+const spacing = {
+  xsmall: 5,
+  small: 10,
+  medium: 15,
+  large: 20,
+  xlarge: 30,
+};
+
+const borderRadius = {
+  small: 4,
+  medium: 8,
+  large: 10,
+  xlarge: 20,
+};
+
+const borderWidth = {
+  thin: 1,
+  medium: 2,
+  thick: 3,
+};
+
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFF9F0',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.primary,
-    paddingHorizontal: 10,
-    width: '100%',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    height: 92,
-    paddingTop: 40,
-    position: 'relative',
-    elevation: 10,
+  contentContainer: {
+    paddingVertical: spacing.small,
+    paddingBottom: spacing.xlarge * 2,
   },
+
   menuIcon: {
     position: 'absolute',
     left: 30,

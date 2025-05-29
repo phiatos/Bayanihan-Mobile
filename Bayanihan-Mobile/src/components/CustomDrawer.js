@@ -47,10 +47,10 @@ const CustomDrawer = (props) => {
 
       <View style={styles.footer}>
         <TouchableOpacity onPress={() => {}} style={styles.footerButton}>
-          <View style={styles.footerButtonContent}>
+          {/* <View style={styles.footerButtonContent}>
             <MaterialIcons name="info" size={22} style={{ color: Theme.colors.white }} />
             <Text style={styles.footerButtonText}>Help</Text>
-          </View>
+          </View> */}
         </TouchableOpacity>
         <TouchableOpacity onPress={handleSignOut} style={styles.footerButton}>
           <View style={styles.footerButtonContent}>

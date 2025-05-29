@@ -1,27 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // For persistence
-import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { get, push, ref, serverTimestamp, set } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
-import CustomModal from '../navigation/CustomModal';
+import CustomModal from '../components/CustomModal';
 
-const ReliefSummary = ({ route }) => {
-  const { reportData = {}, addedItems: initialItems = [] } = route.params || {};
-  const navigation = useNavigation();
+const ReliefSummary = ({ route, navigation }) => {
+  const { reportData: initialReportData = {}, addedItems: initialItems = [] } = route.params || {};
+  const [reportData, setReportData] = useState(initialReportData);
+  const [addedItems, setAddedItems] = useState(initialItems);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
-  const [addedItems, setAddedItems] = useState(initialItems);
   const [userUid, setUserUid] = useState(null);
   const [volunteerOrganization, setVolunteerOrganization] = useState('[Unknown Org]');
   const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
     const fetchVolunteerGroup = async () => {
-      // Check if volunteerOrganization is already stored in AsyncStorage
       const storedGroup = await AsyncStorage.getItem('volunteerOrganization');
       if (storedGroup) {
         setVolunteerOrganization(storedGroup);
@@ -40,7 +40,7 @@ const ReliefSummary = ({ route }) => {
                 const userData = snapshot.val();
                 if (userData && userData.group) {
                   setVolunteerOrganization(userData.group);
-                  AsyncStorage.setItem('volunteerOrganization', userData.group); // Persist the group
+                  AsyncStorage.setItem('volunteerOrganization', userData.group);
                   console.log('Volunteer group fetched:', userData.group);
                 } else {
                   console.warn('User data or group not found for UID:', user.uid);
@@ -55,6 +55,7 @@ const ReliefSummary = ({ route }) => {
               });
           } else {
             console.warn('No user is logged in');
+            setErrorMessage('User not authenticated. Please log in.');
             setModalVisible(true);
           }
         },
@@ -94,6 +95,7 @@ const ReliefSummary = ({ route }) => {
           name: item.itemName,
           quantity: item.quantity,
           notes: item.notes || '',
+          category: item.donationCategory || reportData.donationCategory,
         })),
         timestamp: serverTimestamp(),
       };
@@ -127,7 +129,14 @@ const ReliefSummary = ({ route }) => {
   const handleConfirm = () => {
     setModalVisible(false);
     if (!errorMessage) {
-      navigation.navigate('Home');
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            { name: 'Volunteer Dashboard' },
+          ],
+        })
+      );
     } else {
       navigation.navigate('Login');
     }
@@ -135,7 +144,9 @@ const ReliefSummary = ({ route }) => {
 
   const handleCancel = () => {
     setModalVisible(false);
-    navigation.navigate('Login');
+    if (errorMessage) {
+      navigation.navigate('Login');
+    }
   };
 
   const handleDelete = (index) => {
@@ -171,8 +182,10 @@ const ReliefSummary = ({ route }) => {
     </View>
   );
 
-  const renderHeader = () => (
-    <>
+  const formatLabel = (key) => key.replace(/([A-Z])/g, ' $1').toLowerCase();
+
+  return (
+    <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.menuIcon} onPress={() => navigation.openDrawer()}>
           <Ionicons name="menu" size={24} color="#FFFFFF" />
@@ -180,6 +193,7 @@ const ReliefSummary = ({ route }) => {
         <Text style={styles.headerText}>Relief Summary</Text>
       </View>
       <Text style={styles.subheader}>{volunteerOrganization}</Text>
+
       <View style={styles.formContainer}>
         <View style={styles.section}>
           {['contactPerson', 'contactNumber', 'email', 'barangay', 'city', 'donationCategory'].map(
@@ -191,49 +205,41 @@ const ReliefSummary = ({ route }) => {
             )
           )}
         </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Requested Items</Text>
-          {addedItems.length === 0 && (
+          {addedItems.length === 0 ? (
             <Text style={styles.value}>No items added yet.</Text>
-          )}
-          {addedItems.length > 0 && (
+          ) : (
             <View style={styles.table}>
+              {/* Table Header */}
               <View style={styles.tableHeader}>
                 <Text style={styles.tableHeaderCell}>Item Name</Text>
                 <Text style={styles.tableHeaderCell}>Quantity</Text>
                 <Text style={styles.tableHeaderCell}>Notes</Text>
                 <Text style={styles.tableHeaderCell}>Actions</Text>
               </View>
+              {/* FlatList for Table Rows */}
+              <FlatList
+                data={addedItems}
+                renderItem={renderItem}
+                keyExtractor={(item, index) => index.toString()}
+                scrollEnabled={false} // Disable FlatList's own scrolling as it's inside a ScrollView (or other scrollable parent)
+              />
             </View>
           )}
         </View>
       </View>
-    </>
-  );
 
-  const renderFooter = () => (
-    <View style={styles.buttonContainer}>
-      <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-        <Text style={styles.backButtonText}>Back</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Submit</Text>
-      </TouchableOpacity>
-    </View>
-  );
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <Text style={styles.submitButtonText}>Submit</Text>
+        </TouchableOpacity>
+      </View>
 
-  const formatLabel = (key) => key.replace(/([A-Z])/g, ' $1').toLowerCase();
-
-  return (
-    <View style={styles.container}>
-      <FlatList
-        data={addedItems}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => index.toString()}
-        ListHeaderComponent={renderHeader}
-        ListFooterComponent={renderFooter}
-        showsVerticalScrollIndicator={false}
-      />
       <CustomModal
         visible={modalVisible}
         title={errorMessage ? 'Error' : userUid ? 'Success!' : 'Authentication Error'}

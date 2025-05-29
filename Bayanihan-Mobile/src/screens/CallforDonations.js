@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native'; // Import useRoute
 import * as ImagePicker from 'expo-image-picker';
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react'; // Import useEffect
 import {
   Alert,
   KeyboardAvoidingView,
@@ -15,9 +15,11 @@ import {
 } from 'react-native';
 import CallForDonationsStyles from '../styles/CallForDonationsStyles';
 import GlobalStyles from '../styles/GlobalStyles';
+import Theme from '../constants/theme';
 
-const CallForDonations = () => {
+const CallforDonations = () => {
   const navigation = useNavigation();
+  const route = useRoute(); // Get route object
   const [formData, setFormData] = useState({
     donationDrive: '',
     contactPerson: '',
@@ -67,6 +69,16 @@ const CallForDonations = () => {
     'barangay',
     'address',
   ];
+
+  // UseEffect to populate form data when navigating back
+  useEffect(() => {
+    if (route.params?.formData) {
+      setFormData(route.params.formData);
+    }
+    if (route.params?.donationImage) {
+      setDonationImage(route.params.donationImage);
+    }
+  }, [route.params]);
 
   // Handle TextInput changes
   const handleChange = (field, value) => {
@@ -144,7 +156,7 @@ const CallForDonations = () => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['photo'],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, // Use MediaTypeOptions.Images
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
@@ -198,9 +210,9 @@ const CallForDonations = () => {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: Theme.colors.lightBg }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={100}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} // Adjusted offset for Android
     >
       <View style={CallForDonationsStyles.container}>
         {/* Header */}
@@ -377,4 +389,4 @@ const CallForDonations = () => {
   );
 };
 
-export default CallForDonations;
+export default CallforDonations;
