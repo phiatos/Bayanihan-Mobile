@@ -3,25 +3,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ref as databaseRef, get } from 'firebase/database';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  Modal,
-  KeyboardAvoidingView,
-  StyleSheet,
-  Dimensions,
-} from 'react-native';
+import { Alert, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View, Modal, StyleSheet, Dimensions } from 'react-native';
 import * as Location from 'expo-location';
 import WebView from 'react-native-webview';
 import { auth, database } from '../configuration/firebaseConfig';
 import GlobalStyles from '../styles/GlobalStyles';
-import ReportSubmissionStyles from '../styles/ReportSubmissionStyles';
+import RDANAStyles from '../styles/RDANAStyles';
 
 const { height, width } = Dimensions.get('window');
 
@@ -29,7 +16,6 @@ const ReportSubmissionScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const webViewRef = useRef(null);
-  const scrollViewRef = useRef(null);
 
   // Helper functions for formatting
   const formatDate = (date) => {
@@ -93,7 +79,7 @@ const ReportSubmissionScreen = () => {
   const [mapError, setMapError] = useState(null);
   const [permissionStatus, setPermissionStatus] = useState(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
-  const [locationName, setLocationName] = useState(''); // For human-readable location
+  const [locationName, setLocationName] = useState(''); // New state for human-readable location
 
   const requiredFields = [
     'areaOfOperation',
@@ -141,7 +127,7 @@ const ReportSubmissionScreen = () => {
 
   // Handle permission retry
   const handleRetryPermission = async () => {
-    setShowPermissionModal(false);
+    setShowPermissionModal(false); // Close the modal before re-requesting
     await requestLocationPermission();
   };
 
@@ -150,19 +136,13 @@ const ReportSubmissionScreen = () => {
     if (route.params?.reportData) {
       setReportData(route.params.reportData);
       if (route.params.reportData.dateOfReport) {
-        setTempDate((prev) => ({ ...prev, dateOfReport: new Date(route.params.reportData.dateOfReport) }));
+        setTempDate(prev => ({ ...prev, dateOfReport: new Date(route.params.reportData.dateOfReport) }));
       }
       if (route.params.reportData.startingDateOfOperation) {
-        setTempDate((prev) => ({
-          ...prev,
-          startingDateOfOperation: new Date(route.params.reportData.startingDateOfOperation),
-        }));
+        setTempDate(prev => ({ ...prev, startingDateOfOperation: new Date(route.params.reportData.startingDateOfOperation) }));
       }
       if (route.params.reportData.endingDateOfOperation) {
-        setTempDate((prev) => ({
-          ...prev,
-          endingDateOfOperation: new Date(route.params.reportData.endingDateOfOperation),
-        }));
+        setTempDate(prev => ({ ...prev, endingDateOfOperation: new Date(route.params.reportData.endingDateOfOperation) }));
       }
       if (route.params.reportData.completionTimeOfIntervention) {
         const [timePart, ampmPart] = route.params.reportData.completionTimeOfIntervention.split(' ');
@@ -171,7 +151,7 @@ const ReportSubmissionScreen = () => {
         if (ampmPart === 'AM' && hours === 12) hours = 0;
         const dummyDateForTime = new Date();
         dummyDateForTime.setHours(hours, minutes, 0, 0);
-        setTempDate((prev) => ({ ...prev, completionTimeOfIntervention: dummyDateForTime }));
+        setTempDate(prev => ({ ...prev, completionTimeOfIntervention: dummyDateForTime }));
       }
       if (route.params.reportData.areaOfOperation) {
         const [lat, lng] = route.params.reportData.areaOfOperation.split(',').map(Number);
@@ -180,13 +160,15 @@ const ReportSubmissionScreen = () => {
             latitude: lat,
             longitude: lng,
           });
+          // Also set the locationName if it was passed or can be derived
           if (route.params.reportData.locationName) {
             setLocationName(route.params.reportData.locationName);
           } else {
+            // Attempt to reverse geocode if only coordinates are available
             reverseGeocode(lat, lng);
           }
         } else {
-          setErrors((prev) => ({
+          setErrors(prev => ({
             ...prev,
             areaOfOperation: 'Invalid coordinates format',
           }));
@@ -232,22 +214,23 @@ const ReportSubmissionScreen = () => {
     return () => unsubscribe();
   }, [navigation, route.params]);
 
-  // Reverse geocode coordinates
+  // Function to reverse geocode coordinates to a human-readable address
   const reverseGeocode = async (latitude, longitude) => {
     try {
-      const geocoded = await Location.reverseGeocodeAsync({ latitude, longitude });
-      if (geocoded && geocoded.length > 0) {
-        const address = geocoded[0];
-        const info = `${address.name ? address.name + ', ' : ''}${address.street ? address.street + ', ' : ''}${address.city}${address.region ? ', ' + address.region : ''}${address.country ? ', ' + address.country : ''}`;
-        setLocationName(info.replace(/, $/, '')); // Remove trailing comma
+      const geocodedLocation = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (geocodedLocation && geocodedLocation.length > 0) {
+        const address = geocodedLocation[0];
+        const fullAddress = `${address.name ? address.name + ', ' : ''}${address.street ? address.street + ', ' : ''}${address.city ? address.city + ', ' : ''}${address.region ? address.region + ', ' : ''}${address.country ? address.country : ''}`;
+        setLocationName(fullAddress.replace(/, $/, '')); // Remove trailing comma and space
       } else {
         setLocationName(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
       }
     } catch (error) {
-      console.error('Reverse geocode error:', error);
-      setLocationName(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+      console.error("Error reverse geocoding:", error);
+      setLocationName(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`); // Fallback to coordinates
     }
   };
+
 
   const capitalizeFirstLetter = (string) => {
     if (!string) return string;
@@ -318,6 +301,7 @@ const ReportSubmissionScreen = () => {
     });
     const locationString = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
 
+    // Set locationName from formattedAddress if available, otherwise reverse geocode
     if (formattedAddress) {
       setLocationName(formattedAddress);
     } else {
@@ -393,22 +377,21 @@ const ReportSubmissionScreen = () => {
     const serializedReportData = {
       ...reportData,
       reportID: reportData.reportID || `REPORTS-${Math.floor(100000 + Math.random() * 900000)}`,
-      locationName,
+      locationName, // Include human-readable location name
     };
 
     navigation.navigate('ReportSummary', { reportData: serializedReportData, userUid, organizationName });
   };
 
   const renderLabel = (label, isRequired) => (
-    <Text style={ReportSubmissionStyles.formTitle}>
+    <Text style={RDANAStyles.formTitle}>
       {label}
       {isRequired && <Text style={{ color: 'red' }}>*</Text>}
     </Text>
   );
 
-  const mapHtml =
-    permissionStatus === 'granted' && selectedLocation
-      ? `
+  const mapHtml = permissionStatus === 'granted' && selectedLocation
+    ? `
       <!DOCTYPE html>
       <html>
       <head>
@@ -430,79 +413,80 @@ const ReportSubmissionScreen = () => {
           let geocoder;
 
           function initMap() {
-            try {
-              const userLocation = { lat: ${selectedLocation.latitude}, lng: ${selectedLocation.longitude} };
-              if (!userLocation.lat || !userLocation.lng) {
-                throw new Error("Invalid user location");
-              }
-              map = new google.maps.Map(document.getElementById("map"), {
-                center: userLocation,
-                zoom: 16,
-                mapTypeId: "roadmap",
+            const userLocation = { lat: ${selectedLocation.latitude}, lng: ${selectedLocation.longitude} };
+            map = new google.maps.Map(document.getElementById("map"), {
+              center: userLocation,
+              zoom: 16,
+              mapTypeId: "roadmap",
+            });
+
+            geocoder = new google.maps.Geocoder();
+
+            // Initial marker for current location
+            const userMarker = new google.maps.Marker({
+              position: userLocation,
+              map: map,
+              title: "Current Location",
+              icon: {
+                url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png", // Changed to a more distinct blue dot
+              },
+            });
+            markers.push(userMarker);
+
+            geocoder.geocode({ location: userLocation }, (results, status) => {
+              // FIX: Changed 'location.lat' to 'userLocation.lat' and 'location.lng' to 'userLocation.lng'
+              let infoContent = status === "OK" && results[0] ? results[0].formatted_address : \`Lat: \${userLocation.lat}, Lng: \${userLocation.lng}\`;
+              const userInfowindow = new google.maps.InfoWindow({
+                content: infoContent,
               });
-
-              geocoder = new google.maps.Geocoder();
-
-              const userMarker = new google.maps.Marker({
-                position: userLocation,
-                map: map,
-                title: "Current Location",
-                icon: {
-                  url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-                },
-              });
-              markers.push(userMarker);
-
-              geocoder.geocode({ location: userLocation }, (results, status) => {
-                let infoContent = status === "OK" && results[0] ? results[0].formatted_address : \`Lat: \${userLocation.lat}, Lng: \${userLocation.lng}\`;
-                const userInfowindow = new google.maps.InfoWindow({
-                  content: infoContent,
-                });
-                userMarker.addListener("click", () => {
-                  userInfowindow.open(map, userMarker);
-                });
+              userMarker.addListener("click", () => {
                 userInfowindow.open(map, userMarker);
               });
+              userInfowindow.open(map, userMarker); // Open info window on load
+            });
 
-              map.addListener("click", (event) => {
-                clearMarkers();
-                const marker = new google.maps.Marker({
-                  position: event.latLng,
-                  map: map,
-                  title: "Pinned Location",
-                });
-                markers.push(marker);
+            map.addListener("click", (event) => {
+              clearMarkers(); // Clear existing markers before adding new one
+              const clickedLocation = { lat: event.latLng.lat(), lng: event.latLng.lng() };
 
-                geocoder.geocode({ location: event.latLng }, (results, status) => {
-                  let infoContent = status === "OK" && results[0] ? results[0].formatted_address : \`Lat: \${event.latLng.lat()}, Lng: \${event.latLng.lng()}\`;
-                  const infowindow = new google.maps.InfoWindow({
-                    content: infoContent,
-                  });
-                  marker.addListener("click", () => {
-                    infowindow.open(map, marker);
-                  });
-                  infowindow.open(map, marker);
-
-                  try {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({
-                      latitude: event.latLng.lat(),
-                      longitude: event.latLng.lng(),
-                      formattedAddress: status === "OK" && results[0] ? results[0].formatted_address : ""
-                    }));
-                  } catch (error) {
-                    console.error("postMessage error:", error);
-                  }
-                });
-
-                map.setCenter(event.latLng);
-                map.setZoom(16);
+              const marker = new google.maps.Marker({
+                position: clickedLocation,
+                map: map,
+                title: "Pinned Location",
               });
-            } catch (error) {
-              console.error("Map initialization error:", error);
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                error: "Failed to initialize map: " + error.message
-              }));
-            }
+              markers.push(marker);
+
+              geocoder.geocode({ location: clickedLocation }, (results, status) => {
+                let formattedAddress = "";
+                let infoContent = \`Lat: \${clickedLocation.lat.toFixed(6)}, Lng: \${clickedLocation.lng.toFixed(6)}\`;
+
+                if (status === "OK" && results[0]) {
+                  formattedAddress = results[0].formatted_address;
+                  infoContent = formattedAddress;
+                }
+
+                const infowindow = new google.maps.InfoWindow({
+                  content: infoContent,
+                });
+                marker.addListener("click", () => {
+                  infowindow.open(map, marker);
+                });
+                infowindow.open(map, marker); // Open info window on pin
+
+                try {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    latitude: clickedLocation.lat,
+                    longitude: clickedLocation.lng,
+                    formattedAddress: formattedAddress // Pass formatted address
+                  }));
+                } catch (error) {
+                  console.error("postMessage error:", error);
+                }
+              });
+
+              map.setCenter(event.latLng);
+              map.setZoom(16); // Zoom in slightly on selection
+            });
           }
 
           function clearMarkers() {
@@ -516,14 +500,10 @@ const ReportSubmissionScreen = () => {
       </body>
       </html>
     `
-      : null;
+    : null;
 
   return (
-    <KeyboardAvoidingView
-      style={ReportSubmissionStyles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : null}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-    >
+    <View style={RDANAStyles.container}>
       <View style={GlobalStyles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
           <Ionicons name="menu" size={32} color="white" />
@@ -532,39 +512,35 @@ const ReportSubmissionScreen = () => {
       </View>
 
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
-        <ScrollView
-          ref={scrollViewRef}
-          contentContainerStyle={ReportSubmissionStyles.scrollViewContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={ReportSubmissionStyles.form}>
-            <View style={ReportSubmissionStyles.section}>
-              <Text style={ReportSubmissionStyles.sectionTitle}>Basic Information</Text>
+        <ScrollView contentContainerStyle={RDANAStyles.scrollViewContent}>
+          <View style={RDANAStyles.form}>
+            <View style={RDANAStyles.section}>
+              <Text style={RDANAStyles.sectionTitle}>Basic Information</Text>
               {renderLabel('Report ID', true)}
               <TextInput
-                style={[ReportSubmissionStyles.input, { backgroundColor: '#f0f0f0' }]}
+                style={[RDANAStyles.input, { backgroundColor: '#f0f0f0' }]}
                 value={reportData.reportID}
                 editable={false}
                 selectTextOnFocus={false}
               />
               {renderLabel('Area of Operation', true)}
               <TextInput
-                style={[ReportSubmissionStyles.input, errors.areaOfOperation && ReportSubmissionStyles.requiredInput]}
+                style={[RDANAStyles.input, errors.areaOfOperation && RDANAStyles.requiredInput]}
                 placeholder="Select location on map"
                 value={locationName || reportData.areaOfOperation}
                 editable={false}
                 selectTextOnFocus={false}
               />
               <TouchableOpacity
-                style={[ReportSubmissionStyles.button, { backgroundColor: '#00BCD4', marginTop: 8 }]}
+                style={[RDANAStyles.button, { backgroundColor: '#00BCD4', marginTop: 8 }]}
                 onPress={handleOpenMap}
               >
-                <Text style={ReportSubmissionStyles.buttonText}>📍 Pin Location</Text>
+                <Text style={RDANAStyles.buttonText}>📍 Pin Location</Text>
               </TouchableOpacity>
-              {errors.areaOfOperation && <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.areaOfOperation}</Text>}
+              {errors.areaOfOperation && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.areaOfOperation}</Text>}
               {renderLabel('Date of Report', true)}
               <TouchableOpacity
-                style={[ReportSubmissionStyles.input, errors.dateOfReport && ReportSubmissionStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                style={[RDANAStyles.input, errors.dateOfReport && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => setShowDatePicker((prev) => ({ ...prev, dateOfReport: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.dateOfReport ? '#000' : '#999' }}>
@@ -580,24 +556,22 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, date) => handleDateChange('dateOfReport', event, date)}
                 />
               )}
-              {errors.dateOfReport && <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.dateOfReport}</Text>}
+              {errors.dateOfReport && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.dateOfReport}</Text>}
             </View>
 
-            <View style={ReportSubmissionStyles.section}>
-              <Text style={ReportSubmissionStyles.sectionTitle}>Relief Operations</Text>
+            <View style={RDANAStyles.section}>
+              <Text style={RDANAStyles.sectionTitle}>Relief Operations</Text>
               {renderLabel('Select Calamity & Area of Operation', true)}
               <TextInput
-                style={[ReportSubmissionStyles.input, errors.calamityAndArea && ReportSubmissionStyles.requiredInput]}
+                style={[RDANAStyles.input, errors.calamityAndArea && RDANAStyles.requiredInput]}
                 placeholder="Enter Calamity & Area"
                 onChangeText={(val) => handleChange('calamityAndArea', val)}
                 value={reportData.calamityAndArea}
-                blurOnSubmit={true}
-                onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
               />
-              {errors.calamityAndArea && <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.calamityAndArea}</Text>}
+              {errors.calamityAndArea && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.calamityAndArea}</Text>}
               {renderLabel('Completion Time of Intervention', true)}
               <TouchableOpacity
-                style={[ReportSubmissionStyles.input, errors.completionTimeOfIntervention && ReportSubmissionStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                style={[RDANAStyles.input, errors.completionTimeOfIntervention && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => setShowTimePicker((prev) => ({ ...prev, completionTimeOfIntervention: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.completionTimeOfIntervention ? '#000' : '#999' }}>
@@ -614,12 +588,10 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, time) => handleTimeChange('completionTimeOfIntervention', event, time)}
                 />
               )}
-              {errors.completionTimeOfIntervention && (
-                <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.completionTimeOfIntervention}</Text>
-              )}
+              {errors.completionTimeOfIntervention && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.completionTimeOfIntervention}</Text>}
               {renderLabel('Starting Date of Operation', true)}
               <TouchableOpacity
-                style={[ReportSubmissionStyles.input, errors.startingDateOfOperation && ReportSubmissionStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                style={[RDANAStyles.input, errors.startingDateOfOperation && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => setShowDatePicker((prev) => ({ ...prev, startingDateOfOperation: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.startingDateOfOperation ? '#000' : '#999' }}>
@@ -635,12 +607,10 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, date) => handleDateChange('startingDateOfOperation', event, date)}
                 />
               )}
-              {errors.startingDateOfOperation && (
-                <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.startingDateOfOperation}</Text>
-              )}
+              {errors.startingDateOfOperation && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.startingDateOfOperation}</Text>}
               {renderLabel('Ending Date of Operation', true)}
               <TouchableOpacity
-                style={[ReportSubmissionStyles.input, errors.endingDateOfOperation && ReportSubmissionStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                style={[RDANAStyles.input, errors.endingDateOfOperation && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => setShowDatePicker((prev) => ({ ...prev, endingDateOfOperation: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.endingDateOfOperation ? '#000' : '#999' }}>
@@ -656,143 +626,118 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, date) => handleDateChange('endingDateOfOperation', event, date)}
                 />
               )}
-              {errors.endingDateOfOperation && (
-                <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.endingDateOfOperation}</Text>
-              )}
+              {errors.endingDateOfOperation && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.endingDateOfOperation}</Text>}
               {renderLabel('No. of Individuals or Families', true)}
               <TextInput
-                style={[ReportSubmissionStyles.input, errors.individualsOrFamilies && ReportSubmissionStyles.requiredInput]}
+                style={[RDANAStyles.input, errors.individualsOrFamilies && RDANAStyles.requiredInput]}
                 placeholder="Enter No. of Individuals or Families"
                 onChangeText={(val) => handleChange('individualsOrFamilies', val)}
                 value={reportData.individualsOrFamilies}
                 keyboardType="numeric"
-                blurOnSubmit={true}
-                onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
               />
-              {errors.individualsOrFamilies && (
-                <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.individualsOrFamilies}</Text>
-              )}
+              {errors.individualsOrFamilies && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.individualsOrFamilies}</Text>}
               {renderLabel('No. of Relief Packs', true)}
               <TextInput
-                style={[ReportSubmissionStyles.input, errors.reliefPacks && ReportSubmissionStyles.requiredInput]}
+                style={[RDANAStyles.input, errors.reliefPacks && RDANAStyles.requiredInput]}
                 placeholder="Enter No. of Relief Packs"
                 onChangeText={(val) => handleChange('reliefPacks', val)}
                 value={reportData.reliefPacks}
                 keyboardType="numeric"
-                blurOnSubmit={true}
-                onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
               />
-              {errors.reliefPacks && <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.reliefPacks}</Text>}
+              {errors.reliefPacks && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.reliefPacks}</Text>}
               {renderLabel('No. of Hot Meals/Ready-to-eat Food', true)}
               <TextInput
-                style={[ReportSubmissionStyles.input, errors.hotMeals && ReportSubmissionStyles.requiredInput]}
+                style={[RDANAStyles.input, errors.hotMeals && RDANAStyles.requiredInput]}
                 placeholder="Enter No. of Hot Meals"
                 onChangeText={(val) => handleChange('hotMeals', val)}
                 value={reportData.hotMeals}
                 keyboardType="numeric"
-                blurOnSubmit={true}
-                onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
               />
-              {errors.hotMeals && <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.hotMeals}</Text>}
+              {errors.hotMeals && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.hotMeals}</Text>}
               {renderLabel('Liters of Water', true)}
               <TextInput
-                style={[ReportSubmissionStyles.input, errors.water && ReportSubmissionStyles.requiredInput]}
+                style={[RDANAStyles.input, errors.water && RDANAStyles.requiredInput]}
                 placeholder="Enter Liters of Water"
                 onChangeText={(val) => handleChange('water', val)}
                 value={reportData.water}
                 keyboardType="numeric"
-                blurOnSubmit={true}
-                onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
               />
-              {errors.water && <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.water}</Text>}
+              {errors.water && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.water}</Text>}
               {renderLabel('No. of Volunteers Mobilized', true)}
               <TextInput
-                style={[ReportSubmissionStyles.input, errors.volunteers && ReportSubmissionStyles.requiredInput]}
+                style={[RDANAStyles.input, errors.volunteers && RDANAStyles.requiredInput]}
                 placeholder="Enter No. of Volunteers"
                 onChangeText={(val) => handleChange('volunteers', val)}
                 value={reportData.volunteers}
                 keyboardType="numeric"
-                blurOnSubmit={true}
-                onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
               />
-              {errors.volunteers && <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.volunteers}</Text>}
+              {errors.volunteers && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.volunteers}</Text>}
               {renderLabel('No. of Organizations Activated', true)}
               <TextInput
-                style={[ReportSubmissionStyles.input, errors.organizationsActivated && ReportSubmissionStyles.requiredInput]}
+                style={[RDANAStyles.input, errors.organizationsActivated && RDANAStyles.requiredInput]}
                 placeholder="Enter No. of Organizations"
                 onChangeText={(val) => handleChange('organizationsActivated', val)}
                 value={reportData.organizationsActivated}
                 keyboardType="numeric"
-                blurOnSubmit={true}
-                onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
               />
-              {errors.organizationsActivated && (
-                <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.organizationsActivated}</Text>
-              )}
+              {errors.organizationsActivated && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.organizationsActivated}</Text>}
               {renderLabel('Total Value of In-Kind Donations', true)}
               <TextInput
-                style={[ReportSubmissionStyles.input, errors.inKindValue && ReportSubmissionStyles.requiredInput]}
+                style={[RDANAStyles.input, errors.inKindValue && RDANAStyles.requiredInput]}
                 placeholder="Enter Value of In-Kind Donations"
                 onChangeText={(val) => handleChange('inKindValue', val)}
                 value={reportData.inKindValue}
                 keyboardType="numeric"
-                blurOnSubmit={true}
-                onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
               />
-              {errors.inKindValue && <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.inKindValue}</Text>}
+              {errors.inKindValue && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.inKindValue}</Text>}
               {renderLabel('Total Monetary Donations', true)}
               <TextInput
-                style={[ReportSubmissionStyles.input, errors.monetaryDonations && ReportSubmissionStyles.requiredInput]}
+                style={[RDANAStyles.input, errors.monetaryDonations && RDANAStyles.requiredInput]}
                 placeholder="Enter Total Monetary Donations"
                 onChangeText={(val) => handleChange('monetaryDonations', val)}
                 value={reportData.monetaryDonations}
                 keyboardType="numeric"
-                blurOnSubmit={true}
-                onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
               />
-              {errors.monetaryDonations && (
-                <Text style={[ReportSubmissionStyles.errorText, { marginTop: 2 }]}>{errors.monetaryDonations}</Text>
-              )}
+              {errors.monetaryDonations && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.monetaryDonations}</Text>}
             </View>
-            <TouchableOpacity style={ReportSubmissionStyles.button} onPress={handleSubmit}>
-              <Text style={ReportSubmissionStyles.buttonText}>Submit</Text>
+            <TouchableOpacity style={RDANAStyles.button} onPress={handleSubmit}>
+              <Text style={RDANAStyles.buttonText}>Submit</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </SafeAreaView>
 
       {/* Map Modal */}
-      <Modal visible={showMapModal} animationType="slide" onRequestClose={() => setShowMapModal(false)}>
-        <View style={ReportSubmissionStyles.mapModalContainer}>
+      <Modal
+        visible={showMapModal}
+        animationType="slide"
+        onRequestClose={() => setShowMapModal(false)}
+      >
+        <View style={styles.mapModalContainer}>
           {mapError ? (
-            <View style={ReportSubmissionStyles.errorContainer}>
-              <Text style={ReportSubmissionStyles.errorText}>{mapError}</Text>
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{mapError}</Text>
               <TouchableOpacity
-                style={[ReportSubmissionStyles.modalButton, { backgroundColor: '#FF4444' }]}
+                style={[styles.modalButton, { backgroundColor: '#FF4444' }]}
                 onPress={() => {
                   setMapError(null);
                   setShowMapModal(false);
                 }}
               >
-                <Text style={ReportSubmissionStyles.modalButtonText}>Close</Text>
+                <Text style={styles.modalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           ) : mapHtml ? (
             <>
               <WebView
                 ref={webViewRef}
-                style={ReportSubmissionStyles.map}
+                style={styles.map}
                 source={{ html: mapHtml }}
                 originWhitelist={['*']}
-                javaScriptEnabled={true}
-                domStorageEnabled={true}
                 onMessage={(event) => {
                   try {
                     const data = JSON.parse(event.nativeEvent.data);
-                    if (data.error) {
-                      console.error('WebView JavaScript Error:', data.error);
-                      setMapError(data.error);
-                    } else if (data.latitude && data.longitude) {
+                    if (data.latitude && data.longitude) {
                       handleMapPress(data);
                     } else {
                       console.error('Invalid message data:', data);
@@ -809,30 +754,24 @@ const ReportSubmissionScreen = () => {
                   setMapError('Failed to load map. Please check your internet connection or API key.');
                 }}
               />
-              <View style={ReportSubmissionStyles.modalButtonContainer}>
+              <View style={styles.modalButtonContainer}>
                 <TouchableOpacity
-                  style={[ReportSubmissionStyles.modalButton, { backgroundColor: '#00BCD4', marginRight: 10 }]}
+                  style={[styles.modalButton, { backgroundColor: '#00BCD4', marginRight: 10 }]}
                   onPress={handleMapConfirm}
                 >
-                  <Text style={ReportSubmissionStyles.modalButtonText}>Confirm Location</Text>
+                  <Text style={styles.modalButtonText}>Confirm Location</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[ReportSubmissionStyles.modalButton, { backgroundColor: '#FF4444' }]}
+                  style={[styles.modalButton, { backgroundColor: '#FF4444' }]}
                   onPress={() => setShowMapModal(false)}
                 >
-                  <Text style={ReportSubmissionStyles.modalButtonText}>Cancel</Text>
+                  <Text style={styles.modalButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             </>
           ) : (
-            <View style={ReportSubmissionStyles.errorContainer}>
-              <Text style={ReportSubmissionStyles.errorText}>Unable to load map. Please try again.</Text>
-              <TouchableOpacity
-                style={[ReportSubmissionStyles.modalButton, { backgroundColor: '#FF4444' }]}
-                onPress={() => setShowMapModal(false)}
-              >
-                <Text style={ReportSubmissionStyles.modalButtonText}>Close</Text>
-              </TouchableOpacity>
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>Initializing map...</Text>
             </View>
           )}
         </View>
@@ -845,30 +784,104 @@ const ReportSubmissionScreen = () => {
         transparent={true}
         onRequestClose={() => setShowPermissionModal(false)}
       >
-        <View style={ReportSubmissionStyles.permissionModalOverlay}>
-          <View style={ReportSubmissionStyles.permissionModalContainer}>
+        <View style={styles.permissionModalOverlay}>
+          <View style={styles.permissionModalContainer}>
             <Ionicons name="location" size={60} color="#00BCD4" />
-            <Text style={ReportSubmissionStyles.permissionModalTitle}>Location Access Required</Text>
-            <Text style={ReportSubmissionStyles.permissionModalText}>
+            <Text style={styles.permissionModalTitle}>Location Access Required</Text>
+            <Text style={styles.permissionModalText}>
               Please allow location access to pin a location on the map.
             </Text>
             <TouchableOpacity
-              style={[ReportSubmissionStyles.modalButton, { backgroundColor: '#00BCD4', marginBottom: 10 }]}
+              style={[styles.modalButton, { backgroundColor: '#00BCD4', marginBottom: 10 }]}
               onPress={handleRetryPermission}
             >
-              <Text style={ReportSubmissionStyles.modalButtonText}>Allow Location</Text>
+              <Text style={styles.modalButtonText}>Allow Location</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[ReportSubmissionStyles.modalButton, { backgroundColor: '#FF4444' }]}
+              style={[styles.modalButton, { backgroundColor: '#FF4444' }]}
               onPress={() => setShowPermissionModal(false)}
             >
-              <Text style={ReportSubmissionStyles.modalButtonText}>No Thanks</Text>
+              <Text style={styles.modalButtonText}>No Thanks</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </KeyboardAvoidingView>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  mapModalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white',
+  },
+  map: {
+    width: width * 1,
+    height: height * 0.9,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    marginVertical: 10,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    color: 'red',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  permissionModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  permissionModalContainer: {
+    backgroundColor: 'white',
+    padding: 25,
+    borderRadius: 15,
+    alignItems: 'center',
+    width: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  permissionModalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333',
+    textAlign: 'center',
+  },
+  permissionModalText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+  },
+});
 
 export default ReportSubmissionScreen;

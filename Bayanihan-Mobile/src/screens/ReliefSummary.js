@@ -3,10 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { get, push, ref, serverTimestamp, set } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
+import GlobalStyles from '../styles/GlobalStyles';
+
 
 const ReliefSummary = ({ route, navigation }) => {
   const { reportData: initialReportData = {}, addedItems: initialItems = [] } = route.params || {};
@@ -185,15 +187,22 @@ const ReliefSummary = ({ route, navigation }) => {
   const formatLabel = (key) => key.replace(/([A-Z])/g, ' $1').toLowerCase();
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.menuIcon} onPress={() => navigation.openDrawer()}>
-          <Ionicons name="menu" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerText}>Relief Summary</Text>
-      </View>
+     <View style={styles.container}>
+          {/* Header */}
+          <View style={GlobalStyles.headerContainer}>
+            <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+              <Ionicons name="menu" size={32} color="white" />
+            </TouchableOpacity>
+            <Text style={GlobalStyles.headerTitle}>Profile</Text>
+          </View>
       <Text style={styles.subheader}>{volunteerOrganization}</Text>
-
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <ScrollView contentContainerStyle={styles.scrollViewContent}></ScrollView>
       <View style={styles.formContainer}>
         <View style={styles.section}>
           {['contactPerson', 'contactNumber', 'email', 'barangay', 'city', 'donationCategory'].map(
@@ -298,15 +307,38 @@ const ReliefSummary = ({ route, navigation }) => {
         cancelText="Cancel"
         showCancel={true}
       />
+      </KeyboardAvoidingView>
+      </SafeAreaView>
     </View>
   );
 };
 
-// Styles (unchanged)
+
+const spacing = {
+  xsmall: 5,
+  small: 10,
+  medium: 15,
+  large: 20,
+  xlarge: 30,
+};
+
+const borderRadius = {
+  small: 4,
+  medium: 8,
+  large: 10,
+  xlarge: 20,
+};
+
+const borderWidth = {
+  thin: 1,
+  medium: 2,
+  thick: 3,
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF9F0',
+    backgroundColor: Theme.colors.lightBg,
   },
   header: {
     flexDirection: 'row',
@@ -397,6 +429,9 @@ const styles = StyleSheet.create({
     color: '#4059A5',
     fontSize: 16,
     fontFamily: 'Poppins_Medium',
+  },
+    scrollViewContent: {
+    paddingVertical: spacing.small,
   },
   submitButton: {
     flex: 1,
