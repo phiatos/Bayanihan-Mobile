@@ -1,19 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
+  Alert,
+  Dimensions,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
-  FlatList,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import ReliefRequestStyles from '../styles/ReliefRequestStyles';
 import GlobalStyles from '../styles/GlobalStyles';
+import ReliefRequestStyles from '../styles/ReliefRequestStyles';
 
 const ReliefRequestScreen = ({ navigation, route }) => {
   const [errors, setErrors] = useState({});
@@ -36,7 +36,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
   const categoryInputRef = useRef(null);
   const itemInputRef = useRef(null);
   const flatListRef = useRef(null);
-  const inputContainerRefs = useRef({}).current;
 
   useEffect(() => {
     if (route.params?.reportData) {
@@ -48,7 +47,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     if (route.params?.reportData?.donationCategory) {
       setFilteredItems(itemSuggestions[route.params.reportData.donationCategory] || []);
     }
-    // Initialize filteredCategories with all categories
     setFilteredCategories(categories);
   }, [route.params]);
 
@@ -180,15 +178,22 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     setTimeout(() => setDropdownVisible(false), 200);
   };
 
+  // Updated scrollToInput to use scrollToIndex
   const scrollToInput = (field) => {
-    if (inputContainerRefs[field] && flatListRef.current) {
-      inputContainerRefs[field].measureLayout(
-        flatListRef.current.getScrollableNode(),
-        (x, y, width, height) => {
-          flatListRef.current.scrollToOffset({ offset: y - 50, animated: true }); // Offset for better visibility
-        },
-        () => {}
-      );
+    const sectionMap = {
+      contactPerson: 0,
+      contactNumber: 0,
+      email: 0,
+      barangay: 0,
+      city: 0,
+      donationCategory: 0,
+      itemName: 1,
+      quantity: 1,
+      notes: 1,
+    };
+    const index = sectionMap[field] || 0;
+    if (flatListRef.current) {
+      flatListRef.current.scrollToIndex({ index, animated: true });
     }
   };
 
@@ -283,7 +288,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           <Text style={ReliefRequestStyles.sectionTitle}>Contact Information</Text>
 
           {renderLabel('Contact Person', true)}
-          <View ref={(ref) => (inputContainerRefs.contactPerson = ref)}>
+          <View>
             <TextInput
               style={[ReliefRequestStyles.input, errors.contactPerson && ReliefRequestStyles.requiredInput]}
               placeholder="Enter Name of the Contact Person"
@@ -297,7 +302,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           )}
 
           {renderLabel('Contact Number', true)}
-          <View ref={(ref) => (inputContainerRefs.contactNumber = ref)}>
+          <View>
             <TextInput
               style={[ReliefRequestStyles.input, errors.contactNumber && ReliefRequestStyles.requiredInput]}
               placeholder="Enter Mobile Number"
@@ -312,7 +317,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           )}
 
           {renderLabel('Email', true)}
-          <View ref={(ref) => (inputContainerRefs.email = ref)}>
+          <View>
             <TextInput
               style={[ReliefRequestStyles.input, errors.email && ReliefRequestStyles.requiredInput]}
               placeholder="Enter Email"
@@ -325,7 +330,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           {errors.email && <Text style={ReliefRequestStyles.errorText}>{errors.email}</Text>}
 
           {renderLabel('Exact Drop-off Address', true)}
-          <View ref={(ref) => (inputContainerRefs.barangay = ref)}>
+          <View>
             <TextInput
               style={[ReliefRequestStyles.input, errors.barangay && ReliefRequestStyles.requiredInput]}
               placeholder="Enter Barangay"
@@ -337,7 +342,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           {errors.barangay && <Text style={ReliefRequestStyles.errorText}>{errors.barangay}</Text>}
 
           {renderLabel('City', true)}
-          <View ref={(ref) => (inputContainerRefs.city = ref)}>
+          <View>
             <TextInput
               style={[ReliefRequestStyles.input, errors.city && ReliefRequestStyles.requiredInput]}
               placeholder="Enter City"
@@ -349,7 +354,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           {errors.city && <Text style={ReliefRequestStyles.errorText}>{errors.city}</Text>}
 
           {renderLabel('Donation Category', true)}
-          <View style={{ position: 'relative', zIndex: 2000 }} ref={(ref) => (inputContainerRefs.donationCategory = ref)}>
+          <View style={{ position: 'relative', zIndex: 2000 }}>
             <TextInput
               ref={categoryInputRef}
               style={[ReliefRequestStyles.input, errors.donationCategory && ReliefRequestStyles.requiredInput]}
@@ -390,7 +395,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           <Text style={ReliefRequestStyles.sectionTitle}>Requested Items</Text>
 
           {renderLabel('Item Name', true)}
-          <View style={{ position: 'relative', zIndex: 1500 }} ref={(ref) => (inputContainerRefs.itemName = ref)}>
+          <View style={{ position: 'relative', zIndex: 1500 }}>
             <TextInput
               ref={itemInputRef}
               style={[ReliefRequestStyles.input, errors.itemName && ReliefRequestStyles.requiredInput]}
@@ -425,7 +430,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           {errors.itemName && <Text style={ReliefRequestStyles.errorText}>{errors.itemName}</Text>}
 
           {renderLabel('Quantity', true)}
-          <View ref={(ref) => (inputContainerRefs.quantity = ref)}>
+          <View>
             <TextInput
               style={[ReliefRequestStyles.input, errors.quantity && ReliefRequestStyles.requiredInput]}
               placeholder="Enter Quantity"
@@ -438,7 +443,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           {errors.quantity && <Text style={ReliefRequestStyles.errorText}>{errors.quantity}</Text>}
 
           {renderLabel('Additional Notes', false)}
-          <View ref={(ref) => (inputContainerRefs.notes = ref)}>
+          <View>
             <TextInput
               style={[
                 ReliefRequestStyles.input,
@@ -527,8 +532,17 @@ const ReliefRequestScreen = ({ navigation, route }) => {
             data={formSections}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => item.render()}
-            contentContainerStyle={ReliefRequestStyles.contentContainer} // Fixed style reference
+            contentContainerStyle={ReliefRequestStyles.contentContainer}
             keyboardShouldPersistTaps="handled"
+            getItemLayout={(data, index) => ({
+              length: 400, // Approximate height per section, adjust as needed
+              offset: 400 * index,
+              index,
+            })}
+            onScrollToIndexFailed={(info) => {
+              // Fallback in case scrollToIndex fails
+              flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
+            }}
           />
         </KeyboardAvoidingView>
       </SafeAreaView>
