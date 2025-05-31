@@ -98,6 +98,7 @@ const DashboardScreen = ({ navigation }) => {
             Object.values(reports).forEach(report => {
               // For ABVN role, only include reports submitted by this user
               if (role === "ABVN" && report.userUid !== userId) {
+                console.log(`Skipping report for ABVN - userUid (${report.userUid}) does not match current user (${userId})`);
                 return;
               }
 
@@ -108,6 +109,10 @@ const DashboardScreen = ({ navigation }) => {
               totalMonetaryDonations += parseFloat(report.TotalMonetaryDonations || 0);
               totalInKindDonations += parseFloat(report.TotalValueOfInKindDonations || 0);
             });
+
+            console.log(`Totals for ${role} (UID: ${userId}) - Food Packs: ${totalFoodPacks}, Hot Meals: ${totalHotMeals}, Water Liters: ${totalWaterLiters}, Volunteers: ${totalVolunteers}, Monetary Donations: ${totalMonetaryDonations}, In-Kind Donations: ${totalInKindDonations}`);
+          } else {
+            console.log("No approved reports found for this user.");
           }
 
           setMetrics([

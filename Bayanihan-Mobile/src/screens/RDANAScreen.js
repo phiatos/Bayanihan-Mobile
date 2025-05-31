@@ -1,28 +1,27 @@
-import React, { useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  FlatList,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
-} from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import RDANAStyles from '../styles/RDANAStyles';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useRef, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import GlobalStyles from '../styles/GlobalStyles';
+import RDANAStyles from '../styles/RDANAStyles';
 
 const RDANAScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const [errors, setErrors] = useState({});
-  const scrollViewRef = useRef(null);
+  const flatListRef = useRef(null);
   const inputContainerRefs = useRef({}).current;
 
   // Helper functions for formatting
@@ -175,14 +174,9 @@ const RDANAScreen = () => {
 
   // Scroll to input
   const scrollToInput = (field) => {
-    if (inputContainerRefs[field] && scrollViewRef.current) {
-      inputContainerRefs[field].measureLayout(
-        scrollViewRef.current,
-        (x, y, width, height) => {
-          scrollViewRef.current.scrollTo({ y: y - 50, animated: true });
-        },
-        () => {}
-      );
+    const index = formSections.findIndex((section) => section.key === field);
+    if (index >= 0 && flatListRef.current) {
+      flatListRef.current.scrollToIndex({ index, animated: true });
     }
   };
 
@@ -419,6 +413,592 @@ const RDANAScreen = () => {
   const windowHeight = Dimensions.get('window').height;
   const maxDropdownHeight = windowHeight * 0.3;
 
+  // Form sections for FlatList
+  const formSections = [
+    {
+      key: 'profileSection',
+      title: 'Profile of the Disaster',
+      content: (
+        <>
+          {renderLabel('Barangay', true)}
+          <View ref={(ref) => (inputContainerRefs.barangay = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.barangay && RDANAStyles.requiredInput]}
+              placeholder="Enter Barangay"
+              onChangeText={(val) => handleChange('barangay', val)}
+              value={reportData.barangay}
+              onFocus={() => scrollToInput('barangay')}
+            />
+          </View>
+          {errors.barangay && <Text style={RDANAStyles.errorText}>{errors.barangay}</Text>}
+
+          {renderLabel('City/Municipality', true)}
+          <View ref={(ref) => (inputContainerRefs.cityMunicipality = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.cityMunicipality && RDANAStyles.requiredInput]}
+              placeholder="Enter City/Municipality"
+              onChangeText={(val) => handleChange('cityMunicipality', val)}
+              value={reportData.cityMunicipality}
+              onFocus={() => scrollToInput('cityMunicipality')}
+            />
+          </View>
+          {errors.cityMunicipality && <Text style={RDANAStyles.errorText}>{errors.cityMunicipality}</Text>}
+
+          {renderLabel('Province', true)}
+          <View ref={(ref) => (inputContainerRefs.province = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.province && RDANAStyles.requiredInput]}
+              placeholder="Enter Province"
+              onChangeText={(val) => handleChange('province', val)}
+              value={reportData.province}
+              onFocus={() => scrollToInput('province')}
+            />
+          </View>
+          {errors.province && <Text style={RDANAStyles.errorText}>{errors.province}</Text>}
+
+          {renderLabel('Local Authorities/Persons Contacted', true)}
+          <View ref={(ref) => (inputContainerRefs.localAuthoritiesPersonsContacted = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.localAuthoritiesPersonsContacted && RDANAStyles.requiredInput]}
+              placeholder="Enter Names"
+              onChangeText={(val) => handleChange('localAuthoritiesPersonsContacted', val)}
+              value={reportData.localAuthoritiesPersonsContacted}
+              onFocus={() => scrollToInput('localAuthoritiesPersonsContacted')}
+            />
+          </View>
+          {errors.localAuthoritiesPersonsContacted && <Text style={RDANAStyles.errorText}>{errors.localAuthoritiesPersonsContacted}</Text>}
+
+          {renderLabel('Date of Information Gathered', true)}
+          <View ref={(ref) => (inputContainerRefs.dateInformationGathered = ref)}>
+            <TouchableOpacity
+              style={[RDANAStyles.input, errors.dateInformationGathered && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+              onPress={() => setShowDatePicker((prev) => ({ ...prev, dateInformationGathered: true }))}
+            >
+              <Text style={{ flex: 1, color: reportData.dateInformationGathered ? '#000' : '#999' }}>
+                {reportData.dateInformationGathered || 'YYYY-MM-DD'}
+              </Text>
+              <Ionicons name="calendar" size={24} color="#00BCD4" />
+            </TouchableOpacity>
+            {showDatePicker.dateInformationGathered && (
+              <DateTimePicker
+                value={tempDate.dateInformationGathered}
+                mode="date"
+                display="default"
+                onChange={(event, date) => handleDateChange('dateInformationGathered', event, date)}
+              />
+            )}
+          </View>
+          {errors.dateInformationGathered && <Text style={RDANAStyles.errorText}>{errors.dateInformationGathered}</Text>}
+
+          {renderLabel('Time of Information Gathered', true)}
+          <View ref={(ref) => (inputContainerRefs.timeInformationGathered = ref)}>
+            <TouchableOpacity
+              style={[RDANAStyles.input, errors.timeInformationGathered && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+              onPress={() => setShowTimePicker((prev) => ({ ...prev, timeInformationGathered: true }))}
+            >
+              <Text style={{ flex: 1, color: reportData.timeInformationGathered ? '#000' : '#999' }}>
+                {reportData.timeInformationGathered || 'HH:MM'}
+              </Text>
+              <Ionicons name="time" size={24} color="#00BCD4" />
+            </TouchableOpacity>
+            {showTimePicker.timeInformationGathered && (
+              <DateTimePicker
+                value={tempDate.timeInformationGathered}
+                mode="time"
+                display="default"
+                is24Hour={true}
+                onChange={(event, time) => handleTimeChange('timeInformationGathered', event, time)}
+              />
+            )}
+          </View>
+          {errors.timeInformationGathered && <Text style={RDANAStyles.errorText}>{errors.timeInformationGathered}</Text>}
+
+          {renderLabel('Name of Organization Involved', true)}
+          <View ref={(ref) => (inputContainerRefs.nameOrganizationInvolved = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.nameOrganizationInvolved && RDANAStyles.requiredInput]}
+              placeholder="Enter Name of Organization"
+              onChangeText={(val) => handleChange('nameOrganizationInvolved', val)}
+              value={reportData.nameOrganizationInvolved}
+              onFocus={() => scrollToInput('nameOrganizationInvolved')}
+            />
+          </View>
+          {errors.nameOrganizationInvolved && <Text style={RDANAStyles.errorText}>{errors.nameOrganizationInvolved}</Text>}
+        </>
+      ),
+    },
+    {
+      key: 'modalitySection',
+      title: 'Modality',
+      content: (
+        <>
+          {renderLabel('Locations and Areas Affected (Barangay)', true)}
+          <View ref={(ref) => (inputContainerRefs.locationsAreasAffectedBarangay = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.locationsAreasAffectedBarangay && RDANAStyles.requiredInput]}
+              placeholder="Enter Barangay"
+              onChangeText={(val) => handleChange('locationsAreasAffectedBarangay', val)}
+              value={reportData.locationsAreasAffectedBarangay}
+              onFocus={() => scrollToInput('locationsAreasAffectedBarangay')}
+            />
+          </View>
+          {errors.locationsAreasAffectedBarangay && <Text style={RDANAStyles.errorText}>{errors.locationsAreasAffectedBarangay}</Text>}
+
+          {renderLabel('Locations and Areas Affected (City/Municipality)', true)}
+          <View ref={(ref) => (inputContainerRefs.locationsAreasAffectedCityMunicipality = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.locationsAreasAffectedCityMunicipality && RDANAStyles.requiredInput]}
+              placeholder="Enter City/Municipality"
+              onChangeText={(val) => handleChange('locationsAreasAffectedCityMunicipality', val)}
+              value={reportData.locationsAreasAffectedCityMunicipality}
+              onFocus={() => scrollToInput('locationsAreasAffectedCityMunicipality')}
+            />
+          </View>
+          {errors.locationsAreasAffectedCityMunicipality && <Text style={RDANAStyles.errorText}>{errors.locationsAreasAffectedCityMunicipality}</Text>}
+
+          {renderLabel('Locations and Areas Affected (Province)', true)}
+          <View ref={(ref) => (inputContainerRefs.locationsAreasAffectedProvince = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.locationsAreasAffectedProvince && RDANAStyles.requiredInput]}
+              placeholder="Enter Province"
+              onChangeText={(val) => handleChange('locationsAreasAffectedProvince', val)}
+              value={reportData.locationsAreasAffectedProvince}
+              onFocus={() => scrollToInput('locationsAreasAffectedProvince')}
+            />
+          </View>
+          {errors.locationsAreasAffectedProvince && <Text style={RDANAStyles.errorText}>{errors.locationsAreasAffectedProvince}</Text>}
+
+          {renderLabel('Type of Disaster', true)}
+          <View style={{ position: 'relative', zIndex: 2000 }} ref={(ref) => (inputContainerRefs.typeOfDisaster = ref)}>
+            <TextInput
+              ref={disasterInputRef}
+              style={[RDANAStyles.input, errors.typeOfDisaster && RDANAStyles.requiredInput]}
+              placeholder="Select Disaster Type"
+              onChangeText={(val) => handleChange('typeOfDisaster', val)}
+              value={reportData.typeOfDisaster}
+              onFocus={handleDisasterFocus}
+              onBlur={() => handleBlur(setIsDisasterDropdownVisible)}
+            />
+            {isDisasterDropdownVisible && filteredDisasterTypes.length > 0 && (
+              <View style={[RDANAStyles.dropdownContainer, { maxHeight: maxDropdownHeight, zIndex: 3000 }]}>
+                <FlatList
+                  data={filteredDisasterTypes}
+                  keyExtractor={(item) => item}
+                  nestedScrollEnabled
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={RDANAStyles.dropdownItem}
+                      onPress={() => handleDisasterSelect(item)}
+                    >
+                      <Text style={RDANAStyles.dropdownItemText}>{item}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            )}
+          </View>
+          {errors.typeOfDisaster && <Text style={RDANAStyles.errorText}>{errors.typeOfDisaster}</Text>}
+
+          {renderLabel('Date of Occurrence', true)}
+          <View ref={(ref) => (inputContainerRefs.dateOfOccurrence = ref)}>
+            <TouchableOpacity
+              style={[RDANAStyles.input, errors.dateOfOccurrence && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+              onPress={() => setShowDatePicker((prev) => ({ ...prev, dateOfOccurrence: true }))}
+            >
+              <Text style={{ flex: 1, color: reportData.dateOfOccurrence ? '#000' : '#999' }}>
+                {reportData.dateOfOccurrence || 'YYYY-MM-DD'}
+              </Text>
+              <Ionicons name="calendar" size={24} color="#00BCD4" />
+            </TouchableOpacity>
+            {showDatePicker.dateOfOccurrence && (
+              <DateTimePicker
+                value={tempDate.dateOfOccurrence}
+                mode="date"
+                display="default"
+                onChange={(event, date) => handleDateChange('dateOfOccurrence', event, date)}
+              />
+            )}
+          </View>
+          {errors.dateOfOccurrence && <Text style={RDANAStyles.errorText}>{errors.dateOfOccurrence}</Text>}
+
+          {renderLabel('Time of Occurrence', true)}
+          <View ref={(ref) => (inputContainerRefs.timeOfOccurrence = ref)}>
+            <TouchableOpacity
+              style={[RDANAStyles.input, errors.timeOfOccurrence && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+              onPress={() => setShowTimePicker((prev) => ({ ...prev, timeOfOccurrence: true }))}
+            >
+              <Text style={{ flex: 1, color: reportData.timeOfOccurrence ? '#000' : '#999' }}>
+                {reportData.timeOfOccurrence || 'HH:MM'}
+              </Text>
+              <Ionicons name="time" size={24} color="#00BCD4" />
+            </TouchableOpacity>
+            {showTimePicker.timeOfOccurrence && (
+              <DateTimePicker
+                value={tempDate.timeOfOccurrence}
+                mode="time"
+                display="default"
+                is24Hour={true}
+                onChange={(event, time) => handleTimeChange('timeOfOccurrence', event, time)}
+              />
+            )}
+          </View>
+          {errors.timeOfOccurrence && <Text style={RDANAStyles.errorText}>{errors.timeOfOccurrence}</Text>}
+
+          {renderLabel('Summary of Disaster/Incident', false)}
+          <View ref={(ref) => (inputContainerRefs.summaryOfDisasterIncident = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, { height: 100 }]}
+              placeholder="Enter Summary"
+              multiline
+              numberOfLines={4}
+              onChangeText={(val) => handleChange('summaryOfDisasterIncident', val)}
+              value={reportData.summaryOfDisasterIncident}
+              onFocus={() => scrollToInput('summaryOfDisasterIncident')}
+            />
+          </View>
+          {errors.summaryOfDisasterIncident && <Text style={RDANAStyles.errorText}>{errors.summaryOfDisasterIncident}</Text>}
+        </>
+      ),
+    },
+    {
+      key: 'initialEffectsSection',
+      title: 'Initial Effects',
+      content: (
+        <>
+          <View style={RDANAStyles.addButtonContainer}>
+            <TouchableOpacity style={RDANAStyles.addButton} onPress={handleAddMunicipality}>
+              <Text style={RDANAStyles.addbuttonText}>New City/Municipality</Text>
+            </TouchableOpacity>
+          </View>
+
+          {affectedMunicipalities.length > 0 && (
+            <View style={RDANAStyles.table}>
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={true}
+                data={[{ key: 'table' }]} // Single item to render table
+                renderItem={() => (
+                  <View>
+                    <View style={[RDANAStyles.tableRow, { minWidth: 600 }]}>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 280 }]}>Affected Municipalities/Communities</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 150 }]}>Total Population</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 160 }]}>Affected Population</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Deaths</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Injured</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Missing</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Children</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 80 }]}>Women</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 130 }]}>Senior Citizens</Text>
+                      <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>PWD</Text>
+                    </View>
+                    {affectedMunicipalities.map((item, index) => (
+                      <View key={index} style={[RDANAStyles.tableRow, { minWidth: 600 }]}>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 280 }]}>{item.affectedMunicipalitiesCommunities || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 150 }]}>{item.totalPopulation || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 160 }]}>{item.affectedPopulation || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.deaths || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.injured || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.missing || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.children || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 80 }]}>{item.women || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 130 }]}>{item.seniorCitizens || 'N/A'}</Text>
+                        <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.pwd || 'N/A'}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              />
+            </View>
+          )}
+
+          {renderLabel('Affected Municipalities/Communities', true)}
+          <View ref={(ref) => (inputContainerRefs.affectedMunicipalitiesCommunities = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.affectedMunicipalitiesCommunities && RDANAStyles.requiredInput]}
+              placeholder="Enter Municipalities/Communities"
+              onChangeText={(val) => handleChange('affectedMunicipalitiesCommunities', val)}
+              value={reportData.affectedMunicipalitiesCommunities}
+              onFocus={() => scrollToInput('affectedMunicipalitiesCommunities')}
+            />
+          </View>
+          {errors.affectedMunicipalitiesCommunities && <Text style={RDANAStyles.errorText}>{errors.affectedMunicipalitiesCommunities}</Text>}
+
+          {renderLabel('Total Population', true)}
+          <View ref={(ref) => (inputContainerRefs.totalPopulation = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.totalPopulation && RDANAStyles.requiredInput]}
+              placeholder="Enter Total Population"
+              onChangeText={(val) => handleChange('totalPopulation', val)}
+              value={reportData.totalPopulation}
+              keyboardType="numeric"
+              onFocus={() => scrollToInput('totalPopulation')}
+            />
+          </View>
+          {errors.totalPopulation && <Text style={RDANAStyles.errorText}>{errors.totalPopulation}</Text>}
+
+          {renderLabel('Affected Population', true)}
+          <View ref={(ref) => (inputContainerRefs.affectedPopulation = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.affectedPopulation && RDANAStyles.requiredInput]}
+              placeholder="Enter Affected Population"
+              onChangeText={(val) => handleChange('affectedPopulation', val)}
+              value={reportData.affectedPopulation}
+              keyboardType="numeric"
+              onFocus={() => scrollToInput('affectedPopulation')}
+            />
+          </View>
+          {errors.affectedPopulation && <Text style={RDANAStyles.errorText}>{errors.affectedPopulation}</Text>}
+
+          {renderLabel('Deaths', true)}
+          <View ref={(ref) => (inputContainerRefs.deaths = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.deaths && RDANAStyles.requiredInput]}
+              placeholder="Enter Number of Deaths"
+              onChangeText={(val) => handleChange('deaths', val)}
+              value={reportData.deaths}
+              keyboardType="numeric"
+              onFocus={() => scrollToInput('deaths')}
+            />
+          </View>
+          {errors.deaths && <Text style={RDANAStyles.errorText}>{errors.deaths}</Text>}
+
+          {renderLabel('Injured', true)}
+          <View ref={(ref) => (inputContainerRefs.injured = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.injured && RDANAStyles.requiredInput]}
+              placeholder="Enter Number of Injured"
+              onChangeText={(val) => handleChange('injured', val)}
+              value={reportData.injured}
+              keyboardType="numeric"
+              onFocus={() => scrollToInput('injured')}
+            />
+          </View>
+          {errors.injured && <Text style={RDANAStyles.errorText}>{errors.injured}</Text>}
+
+          {renderLabel('Missing', true)}
+          <View ref={(ref) => (inputContainerRefs.missing = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.missing && RDANAStyles.requiredInput]}
+              placeholder="Enter Number of Missing"
+              onChangeText={(val) => handleChange('missing', val)}
+              value={reportData.missing}
+              keyboardType="numeric"
+              onFocus={() => scrollToInput('missing')}
+            />
+          </View>
+          {errors.missing && <Text style={RDANAStyles.errorText}>{errors.missing}</Text>}
+
+          {renderLabel('Children', true)}
+          <View ref={(ref) => (inputContainerRefs.children = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.children && RDANAStyles.requiredInput]}
+              placeholder="Enter Number of Children"
+              onChangeText={(val) => handleChange('children', val)}
+              value={reportData.children}
+              keyboardType="numeric"
+              onFocus={() => scrollToInput('children')}
+            />
+          </View>
+          {errors.children && <Text style={RDANAStyles.errorText}>{errors.children}</Text>}
+
+          {renderLabel('Women', true)}
+          <View ref={(ref) => (inputContainerRefs.women = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.women && RDANAStyles.requiredInput]}
+              placeholder="Enter Number of Women"
+              onChangeText={(val) => handleChange('women', val)}
+              value={reportData.women}
+              keyboardType="numeric"
+              onFocus={() => scrollToInput('women')}
+            />
+          </View>
+          {errors.women && <Text style={RDANAStyles.errorText}>{errors.women}</Text>}
+
+          {renderLabel('Senior Citizens', true)}
+          <View ref={(ref) => (inputContainerRefs.seniorCitizens = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.seniorCitizens && RDANAStyles.requiredInput]}
+              placeholder="Enter Number of Senior Citizens"
+              onChangeText={(val) => handleChange('seniorCitizens', val)}
+              value={reportData.seniorCitizens}
+              keyboardType="numeric"
+              onFocus={() => scrollToInput('seniorCitizens')}
+            />
+          </View>
+          {errors.seniorCitizens && <Text style={RDANAStyles.errorText}>{errors.seniorCitizens}</Text>}
+
+          {renderLabel('PWD', true)}
+          <View ref={(ref) => (inputContainerRefs.pwd = ref)}>
+            <TextInput
+              style={[RDANAStyles.input, errors.pwd && RDANAStyles.requiredInput]}
+              placeholder="Enter Number of PWD"
+              onChangeText={(val) => handleChange('pwd', val)}
+              value={reportData.pwd}
+              keyboardType="numeric"
+              onFocus={() => scrollToInput('pwd')}
+            />
+          </View>
+          {errors.pwd && <Text style={RDANAStyles.errorText}>{errors.pwd}</Text>}
+        </>
+      ),
+    },
+    {
+      key: 'statusSection',
+      title: 'Status of Lifelines, Social Structure, and Critical Facilities',
+      content: (
+        <>
+          {['Bridges', 'Roads', 'Buildings', 'Hospitals', 'Schools'].map((item) => {
+            const field = `${item.toLowerCase()}Status`;
+            const refKey = item.toLowerCase();
+            return (
+              <View key={item}>
+                {renderLabel(item, false)}
+                <View style={{ position: 'relative', zIndex: 1500 }} ref={(ref) => (inputContainerRefs[field] = ref)}>
+                  <TextInput
+                    ref={statusInputRefs[refKey]}
+                    style={[RDANAStyles.input, errors[field] && RDANAStyles.requiredInput]}
+                    placeholder={`Select ${item} Status`}
+                    onChangeText={(val) => handleChange(field, val)}
+                    value={reportData[field]}
+                    onFocus={() => handleStatusFocus(refKey)}
+                    onBlur={() => handleBlur(setIsStatusDropdownVisible, refKey)}
+                  />
+                  {isStatusDropdownVisible[refKey] && filteredStatuses.length > 0 && (
+                    <View style={[RDANAStyles.dropdownContainer, { maxHeight: maxDropdownHeight, zIndex: 2000 }]}>
+                      <FlatList
+                        data={filteredStatuses}
+                        keyExtractor={(status) => status}
+                        nestedScrollEnabled
+                        renderItem={({ item: status }) => (
+                          <TouchableOpacity
+                            style={RDANAStyles.dropdownItem}
+                            onPress={() => handleStatusSelect(status, field)}
+                          >
+                            <Text style={RDANAStyles.dropdownItemText}>{status}</Text>
+                          </TouchableOpacity>
+                        )}
+                      />
+                    </View>
+                  )}
+                </View>
+                {errors[field] && <Text style={RDANAStyles.errorText}>{errors[field]}</Text>}
+              </View>
+            );
+          })}
+        </>
+      ),
+    },
+    {
+      key: 'needsSection',
+      title: 'Initial Needs Assessment Checklist',
+      content: (
+        <>
+          {['Relief Packs', 'Hot Meals', 'Hygiene Kits', 'Drinking Water', 'Rice Packs'].map((item) => {
+            const field = item.toLowerCase().replace(/\s/g, '');
+            return (
+              <View key={item} style={{ marginBottom: 10 }}>
+                {renderLabel(item, false)}
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-start' }}>
+                  {needsOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        RDANAStyles.addButton,
+                        {
+                          backgroundColor: reportData[field] === option ? '#00BCD4' : '#E0E0E0',
+                          marginRight: 10,
+                          paddingHorizontal: 15,
+                          paddingVertical: 8,
+                        },
+                      ]}
+                      onPress={() => handleNeedsSelect(field, option)}
+                    >
+                      <Text style={[RDANAStyles.addbuttonText, { color: reportData[field] === option ? 'white' : '#333' }]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            );
+          })}
+
+          {renderLabel('Other Immediate Needs', false)}
+          <View ref={(ref) => (inputContainerRefs.otherImmediateNeeds = ref)}>
+            <TextInput
+              style={RDANAStyles.input}
+              placeholder="Enter Items"
+              onChangeText={(val) => handleChange('otherImmediateNeeds', val)}
+              value={reportData.otherImmediateNeeds}
+              onFocus={() => scrollToInput('otherImmediateNeeds')}
+            />
+          </View>
+
+          {renderLabel('Estimated Quantity', false)}
+          <View ref={(ref) => (inputContainerRefs.estimatedQuantity = ref)}>
+            <TextInput
+              style={RDANAStyles.input}
+              placeholder="Estimated No. of Families to Benefit"
+              onChangeText={(val) => handleChange('estimatedQuantity', val)}
+              value={reportData.estimatedQuantity}
+              keyboardType="numeric"
+              onFocus={() => scrollToInput('estimatedQuantity')}
+            />
+          </View>
+        </>
+      ),
+    },
+    {
+      key: 'responseSection',
+      title: 'Initial Response Actions',
+      content: (
+        <>
+          {renderLabel('Response Groups Involved', false)}
+          <View ref={(ref) => (inputContainerRefs.responseGroupsInvolved = ref)}>
+            <TextInput
+              style={RDANAStyles.input}
+              placeholder="Enter Organization's Name"
+              onChangeText={(val) => handleChange('responseGroupsInvolved', val)}
+              value={reportData.responseGroupsInvolved}
+              onFocus={() => scrollToInput('responseGroupsInvolved')}
+            />
+          </View>
+
+          {renderLabel('Relief Assistance Deployed', false)}
+          <View ref={(ref) => (inputContainerRefs.reliefAssistanceDeployed = ref)}>
+            <TextInput
+              style={RDANAStyles.input}
+              placeholder="Enter Relief Assistance"
+              onChangeText={(val) => handleChange('reliefAssistanceDeployed', val)}
+              value={reportData.reliefAssistanceDeployed}
+              onFocus={() => scrollToInput('reliefAssistanceDeployed')}
+            />
+          </View>
+
+          {renderLabel('Number of Families Served', false)}
+          <View ref={(ref) => (inputContainerRefs.numberOfFamiliesServed = ref)}>
+            <TextInput
+              style={RDANAStyles.input}
+              placeholder="Enter Number of Families"
+              onChangeText={(val) => handleChange('numberOfFamiliesServed', val)}
+              value={reportData.numberOfFamiliesServed}
+              keyboardType="numeric"
+              onFocus={() => scrollToInput('numberOfFamiliesServed')}
+            />
+          </View>
+        </>
+      ),
+    },
+    {
+      key: 'submitButton',
+      content: (
+        <TouchableOpacity style={RDANAStyles.button} onPress={handleSubmit}>
+          <Text style={RDANAStyles.buttonText}>Proceed</Text>
+        </TouchableOpacity>
+      ),
+    },
+  ];
+
   return (
     <View style={RDANAStyles.container}>
       <View style={GlobalStyles.headerContainer}>
@@ -437,563 +1017,24 @@ const RDANAScreen = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 20}
         >
-          <ScrollView
-            ref={scrollViewRef}
+          <FlatList
+            ref={flatListRef}
+            data={formSections}
+            keyExtractor={(item) => item.key}
+            renderItem={({ item }) => (
+              <View style={RDANAStyles.section}>
+                {item.title && <Text style={RDANAStyles.sectionTitle}>{item.title}</Text>}
+                {item.content}
+              </View>
+            )}
             contentContainerStyle={RDANAStyles.scrollViewContent}
             keyboardShouldPersistTaps="handled"
-          >
-            <View style={RDANAStyles.form}>
-              <View style={RDANAStyles.section}>
-                <Text style={RDANAStyles.sectionTitle}>Profile of the Disaster</Text>
-                {renderLabel('Barangay', true)}
-                <View ref={(ref) => (inputContainerRefs.barangay = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.barangay && RDANAStyles.requiredInput]}
-                    placeholder="Enter Barangay"
-                    onChangeText={(val) => handleChange('barangay', val)}
-                    value={reportData.barangay}
-                    onFocus={() => scrollToInput('barangay')}
-                  />
-                </View>
-                {errors.barangay && <Text style={RDANAStyles.errorText}>{errors.barangay}</Text>}
-
-                {renderLabel('City/Municipality', true)}
-                <View ref={(ref) => (inputContainerRefs.cityMunicipality = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.cityMunicipality && RDANAStyles.requiredInput]}
-                    placeholder="Enter City/Municipality"
-                    onChangeText={(val) => handleChange('cityMunicipality', val)}
-                    value={reportData.cityMunicipality}
-                    onFocus={() => scrollToInput('cityMunicipality')}
-                  />
-                </View>
-                {errors.cityMunicipality && <Text style={RDANAStyles.errorText}>{errors.cityMunicipality}</Text>}
-
-                {renderLabel('Province', true)}
-                <View ref={(ref) => (inputContainerRefs.province = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.province && RDANAStyles.requiredInput]}
-                    placeholder="Enter Province"
-                    onChangeText={(val) => handleChange('province', val)}
-                    value={reportData.province}
-                    onFocus={() => scrollToInput('province')}
-                  />
-                </View>
-                {errors.province && <Text style={RDANAStyles.errorText}>{errors.province}</Text>}
-
-                {renderLabel('Local Authorities/Persons Contacted', true)}
-                <View ref={(ref) => (inputContainerRefs.localAuthoritiesPersonsContacted = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.localAuthoritiesPersonsContacted && RDANAStyles.requiredInput]}
-                    placeholder="Enter Names"
-                    onChangeText={(val) => handleChange('localAuthoritiesPersonsContacted', val)}
-                    value={reportData.localAuthoritiesPersonsContacted}
-                    onFocus={() => scrollToInput('localAuthoritiesPersonsContacted')}
-                  />
-                </View>
-                {errors.localAuthoritiesPersonsContacted && <Text style={RDANAStyles.errorText}>{errors.localAuthoritiesPersonsContacted}</Text>}
-
-                {renderLabel('Date of Information Gathered', true)}
-                <View ref={(ref) => (inputContainerRefs.dateInformationGathered = ref)}>
-                  <TouchableOpacity
-                    style={[RDANAStyles.input, errors.dateInformationGathered && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
-                    onPress={() => setShowDatePicker((prev) => ({ ...prev, dateInformationGathered: true }))}
-                  >
-                    <Text style={{ flex: 1, color: reportData.dateInformationGathered ? '#000' : '#999' }}>
-                      {reportData.dateInformationGathered || 'YYYY-MM-DD'}
-                    </Text>
-                    <Ionicons name="calendar" size={24} color="#00BCD4" />
-                  </TouchableOpacity>
-                  {showDatePicker.dateInformationGathered && (
-                    <DateTimePicker
-                      value={tempDate.dateInformationGathered}
-                      mode="date"
-                      display="default"
-                      is24Hour={false}
-                      onChange={(event, date) => handleDateChange('dateInformationGathered', event, date)}
-                    />
-                  )}
-                </View>
-                {errors.dateInformationGathered && <Text style={RDANAStyles.errorText}>{errors.dateInformationGathered}</Text>}
-
-                {renderLabel('Time of Information Gathered', true)}
-                <View ref={(ref) => (inputContainerRefs.timeInformationGathered = ref)}>
-                  <TouchableOpacity
-                    style={[RDANAStyles.input, errors.timeInformationGathered && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
-                    onPress={() => setShowTimePicker((prev) => ({ ...prev, timeInformationGathered: true }))}
-                  >
-                    <Text style={{ flex: 1, color: reportData.timeInformationGathered ? '#000' : '#999' }}>
-                      {reportData.timeInformationGathered || 'HH:MM'}
-                    </Text>
-                    <Ionicons name="time" size={24} color="#00BCD4" />
-                  </TouchableOpacity>
-                  {showTimePicker.timeInformationGathered && (
-                    <DateTimePicker
-                      value={tempDate.timeInformationGathered}
-                      mode="time"
-                      display="default"
-                      is24Hour={true}
-                      onChange={(event, time) => handleTimeChange('timeInformationGathered', event, time)}
-                    />
-                  )}
-                </View>
-                {errors.timeInformationGathered && <Text style={RDANAStyles.errorText}>{errors.timeInformationGathered}</Text>}
-
-                {renderLabel('Name of Organization Involved', true)}
-                <View ref={(ref) => (inputContainerRefs.nameOrganizationInvolved = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.nameOrganizationInvolved && RDANAStyles.requiredInput]}
-                    placeholder="Enter Name of Organization"
-                    onChangeText={(val) => handleChange('nameOrganizationInvolved', val)}
-                    value={reportData.nameOrganizationInvolved}
-                    onFocus={() => scrollToInput('nameOrganizationInvolved')}
-                  />
-                </View>
-                {errors.nameOrganizationInvolved && <Text style={RDANAStyles.errorText}>{errors.nameOrganizationInvolved}</Text>}
-              </View>
-
-              <View style={RDANAStyles.section}>
-                <Text style={RDANAStyles.sectionTitle}>Modality</Text>
-                {renderLabel('Locations and Areas Affected (Barangay)', true)}
-                <View ref={(ref) => (inputContainerRefs.locationsAreasAffectedBarangay = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.locationsAreasAffectedBarangay && RDANAStyles.requiredInput]}
-                    placeholder="Enter Barangay"
-                    onChangeText={(val) => handleChange('locationsAreasAffectedBarangay', val)}
-                    value={reportData.locationsAreasAffectedBarangay}
-                    onFocus={() => scrollToInput('locationsAreasAffectedBarangay')}
-                  />
-                </View>
-                {errors.locationsAreasAffectedBarangay && <Text style={RDANAStyles.errorText}>{errors.locationsAreasAffectedBarangay}</Text>}
-
-                {renderLabel('Locations and Areas Affected (City/Municipality)', true)}
-                <View ref={(ref) => (inputContainerRefs.locationsAreasAffectedCityMunicipality = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.locationsAreasAffectedCityMunicipality && RDANAStyles.requiredInput]}
-                    placeholder="Enter City/Municipality"
-                    onChangeText={(val) => handleChange('locationsAreasAffectedCityMunicipality', val)}
-                    value={reportData.locationsAreasAffectedCityMunicipality}
-                    onFocus={() => scrollToInput('locationsAreasAffectedCityMunicipality')}
-                  />
-                </View>
-                {errors.locationsAreasAffectedCityMunicipality && <Text style={RDANAStyles.errorText}>{errors.locationsAreasAffectedCityMunicipality}</Text>}
-
-                {renderLabel('Locations and Areas Affected (Province)', true)}
-                <View ref={(ref) => (inputContainerRefs.locationsAreasAffectedProvince = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.locationsAreasAffectedProvince && RDANAStyles.requiredInput]}
-                    placeholder="Enter Province"
-                    onChangeText={(val) => handleChange('locationsAreasAffectedProvince', val)}
-                    value={reportData.locationsAreasAffectedProvince}
-                    onFocus={() => scrollToInput('locationsAreasAffectedProvince')}
-                  />
-                </View>
-                {errors.locationsAreasAffectedProvince && <Text style={RDANAStyles.errorText}>{errors.locationsAreasAffectedProvince}</Text>}
-
-                {renderLabel('Type of Disaster', true)}
-                <View style={{ position: 'relative', zIndex: 2000 }} ref={(ref) => (inputContainerRefs.typeOfDisaster = ref)}>
-                  <TextInput
-                    ref={disasterInputRef}
-                    style={[RDANAStyles.input, errors.typeOfDisaster && RDANAStyles.requiredInput]}
-                    placeholder="Select Disaster Type"
-                    onChangeText={(val) => handleChange('typeOfDisaster', val)}
-                    value={reportData.typeOfDisaster}
-                    onFocus={handleDisasterFocus}
-                    onBlur={() => handleBlur(setIsDisasterDropdownVisible)}
-                  />
-                  {isDisasterDropdownVisible && filteredDisasterTypes.length > 0 && (
-                    <View style={[RDANAStyles.dropdownContainer, { maxHeight: maxDropdownHeight, zIndex: 3000 }]}>
-                      <FlatList
-                        data={filteredDisasterTypes}
-                        keyExtractor={(item) => item}
-                        nestedScrollEnabled
-                        renderItem={({ item }) => (
-                          <TouchableOpacity
-                            style={RDANAStyles.dropdownItem}
-                            onPress={() => handleDisasterSelect(item)}
-                          >
-                            <Text style={RDANAStyles.dropdownItemText}>{item}</Text>
-                          </TouchableOpacity>
-                        )}
-                      />
-                    </View>
-                  )}
-                </View>
-                {errors.typeOfDisaster && <Text style={RDANAStyles.errorText}>{errors.typeOfDisaster}</Text>}
-
-                {renderLabel('Date of Occurrence', true)}
-                <View ref={(ref) => (inputContainerRefs.dateOfOccurrence = ref)}>
-                  <TouchableOpacity
-                    style={[RDANAStyles.input, errors.dateOfOccurrence && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
-                    onPress={() => setShowDatePicker((prev) => ({ ...prev, dateOfOccurrence: true }))}
-                  >
-                    <Text style={{ flex: 1, color: reportData.dateOfOccurrence ? '#000' : '#999' }}>
-                      {reportData.dateOfOccurrence || 'YYYY-MM-DD'}
-                    </Text>
-                    <Ionicons name="calendar" size={24} color="#00BCD4" />
-                  </TouchableOpacity>
-                  {showDatePicker.dateOfOccurrence && (
-                    <DateTimePicker
-                      value={tempDate.dateOfOccurrence}
-                      mode="date"
-                      display="default"
-                      onChange={(event, date) => handleDateChange('dateOfOccurrence', event, date)}
-                    />
-                  )}
-                </View>
-                {errors.dateOfOccurrence && <Text style={RDANAStyles.errorText}>{errors.dateOfOccurrence}</Text>}
-
-                {renderLabel('Time of Occurrence', true)}
-                <View ref={(ref) => (inputContainerRefs.timeOfOccurrence = ref)}>
-                  <TouchableOpacity
-                    style={[RDANAStyles.input, errors.timeOfOccurrence && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
-                    onPress={() => setShowTimePicker((prev) => ({ ...prev, timeOfOccurrence: true }))}
-                  >
-                    <Text style={{ flex: 1, color: reportData.timeOfOccurrence ? '#000' : '#999' }}>
-                      {reportData.timeOfOccurrence || 'HH:MM'}
-                    </Text>
-                    <Ionicons name="time" size={24} color="#00BCD4" />
-                  </TouchableOpacity>
-                  {showTimePicker.timeOfOccurrence && (
-                    <DateTimePicker
-                      value={tempDate.timeOfOccurrence}
-                      mode="time"
-                      display="default"
-                      is24Hour={false}
-                      onChange={(event, time) => handleTimeChange('timeOfOccurrence', event, time)}
-                    />
-                  )}
-                </View>
-                {errors.timeOfOccurrence && <Text style={RDANAStyles.errorText}>{errors.timeOfOccurrence}</Text>}
-
-                {renderLabel('Summary of Disaster/Incident', false)}
-                <View ref={(ref) => (inputContainerRefs.summaryOfDisasterIncident = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, { height: 100 }]}
-                    placeholder="Enter Summary"
-                    multiline
-                    numberOfLines={4}
-                    onChangeText={(val) => handleChange('summaryOfDisasterIncident', val)}
-                    value={reportData.summaryOfDisasterIncident}
-                    onFocus={() => scrollToInput('summaryOfDisasterIncident')}
-                  />
-                </View>
-                {errors.summaryOfDisasterIncident && <Text style={RDANAStyles.errorText}>{errors.summaryOfDisasterIncident}</Text>}
-              </View>
-
-              <View style={RDANAStyles.section}>
-                <Text style={RDANAStyles.sectionTitle}>Initial Effects</Text>
-                <View style={RDANAStyles.addButtonContainer}>
-                  <TouchableOpacity style={RDANAStyles.addButton} onPress={handleAddMunicipality}>
-                    <Text style={RDANAStyles.addbuttonText}>New City/Municipality</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {affectedMunicipalities.length > 0 && (
-                  <View style={RDANAStyles.table}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                      <View>
-                        <View style={[RDANAStyles.tableRow, { minWidth: 600 }]}>
-                          <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 280 }]}>Affected Municipalities/Communities</Text>
-                          <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 150 }]}>Total Population</Text>
-                          <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 160 }]}>Affected Population</Text>
-                          <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Deaths</Text>
-                          <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Injured</Text>
-                          <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Missing</Text>
-                          <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Children</Text>
-                          <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 80 }]}>Women</Text>
-                          <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 130 }]}>Senior Citizens</Text>
-                          <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>PWD</Text>
-                        </View>
-                        {affectedMunicipalities.map((item, index) => (
-                          <View key={index} style={[RDANAStyles.tableRow, { minWidth: 600 }]}>
-                            <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 280 }]}>{item.affectedMunicipalitiesCommunities || 'N/A'}</Text>
-                            <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 150 }]}>{item.totalPopulation || 'N/A'}</Text>
-                            <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 160 }]}>{item.affectedPopulation || 'N/A'}</Text>
-                            <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.deaths || 'N/A'}</Text>
-                            <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.injured || 'N/A'}</Text>
-                            <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.missing || 'N/A'}</Text>
-                            <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.children || 'N/A'}</Text>
-                            <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 80 }]}>{item.women || 'N/A'}</Text>
-                            <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 130 }]}>{item.seniorCitizens || 'N/A'}</Text>
-                            <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.pwd || 'N/A'}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </ScrollView>
-                  </View>
-                )}
-
-                {renderLabel('Affected Municipalities/Communities', true)}
-                <View ref={(ref) => (inputContainerRefs.affectedMunicipalitiesCommunities = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.affectedMunicipalitiesCommunities && RDANAStyles.requiredInput]}
-                    placeholder="Enter Municipalities/Communities"
-                    onChangeText={(val) => handleChange('affectedMunicipalitiesCommunities', val)}
-                    value={reportData.affectedMunicipalitiesCommunities}
-                    onFocus={() => scrollToInput('affectedMunicipalitiesCommunities')}
-                  />
-                </View>
-                {errors.affectedMunicipalitiesCommunities && <Text style={RDANAStyles.errorText}>{errors.affectedMunicipalitiesCommunities}</Text>}
-
-                {renderLabel('Total Population', true)}
-                <View ref={(ref) => (inputContainerRefs.totalPopulation = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.totalPopulation && RDANAStyles.requiredInput]}
-                    placeholder="Enter Total Population"
-                    onChangeText={(val) => handleChange('totalPopulation', val)}
-                    value={reportData.totalPopulation}
-                    keyboardType="numeric"
-                    onFocus={() => scrollToInput('totalPopulation')}
-                  />
-                </View>
-                {errors.totalPopulation && <Text style={RDANAStyles.errorText}>{errors.totalPopulation}</Text>}
-
-                {renderLabel('Affected Population', true)}
-                <View ref={(ref) => (inputContainerRefs.affectedPopulation = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.affectedPopulation && RDANAStyles.requiredInput]}
-                    placeholder="Enter Affected Population"
-                    onChangeText={(val) => handleChange('affectedPopulation', val)}
-                    value={reportData.affectedPopulation}
-                    keyboardType="numeric"
-                    onFocus={() => scrollToInput('affectedPopulation')}
-                  />
-                </View>
-                {errors.affectedPopulation && <Text style={RDANAStyles.errorText}>{errors.affectedPopulation}</Text>}
-
-                {renderLabel('Deaths', true)}
-                <View ref={(ref) => (inputContainerRefs.deaths = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.deaths && RDANAStyles.requiredInput]}
-                    placeholder="Enter Number of Deaths"
-                    onChangeText={(val) => handleChange('deaths', val)}
-                    value={reportData.deaths}
-                    keyboardType="numeric"
-                    onFocus={() => scrollToInput('deaths')}
-                  />
-                </View>
-                {errors.deaths && <Text style={RDANAStyles.errorText}>{errors.deaths}</Text>}
-
-                {renderLabel('Injured', true)}
-                <View ref={(ref) => (inputContainerRefs.injured = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.injured && RDANAStyles.requiredInput]}
-                    placeholder="Enter Number of Injured"
-                    onChangeText={(val) => handleChange('injured', val)}
-                    value={reportData.injured}
-                    keyboardType="numeric"
-                    onFocus={() => scrollToInput('injured')}
-                  />
-                </View>
-                {errors.injured && <Text style={RDANAStyles.errorText}>{errors.injured}</Text>}
-
-                {renderLabel('Missing', true)}
-                <View ref={(ref) => (inputContainerRefs.missing = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.missing && RDANAStyles.requiredInput]}
-                    placeholder="Enter Number of Missing"
-                    onChangeText={(val) => handleChange('missing', val)}
-                    value={reportData.missing}
-                    keyboardType="numeric"
-                    onFocus={() => scrollToInput('missing')}
-                  />
-                </View>
-                {errors.missing && <Text style={RDANAStyles.errorText}>{errors.missing}</Text>}
-
-                {renderLabel('Children', true)}
-                <View ref={(ref) => (inputContainerRefs.children = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.children && RDANAStyles.requiredInput]}
-                    placeholder="Enter Number of Children"
-                    onChangeText={(val) => handleChange('children', val)}
-                    value={reportData.children}
-                    keyboardType="numeric"
-                    onFocus={() => scrollToInput('children')}
-                  />
-                </View>
-                {errors.children && <Text style={RDANAStyles.errorText}>{errors.children}</Text>}
-
-                {renderLabel('Women', true)}
-                <View ref={(ref) => (inputContainerRefs.women = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.women && RDANAStyles.requiredInput]}
-                    placeholder="Enter Number of Women"
-                    onChangeText={(val) => handleChange('women', val)}
-                    value={reportData.women}
-                    keyboardType="numeric"
-                    onFocus={() => scrollToInput('women')}
-                  />
-                </View>
-                {errors.women && <Text style={RDANAStyles.errorText}>{errors.women}</Text>}
-
-                {renderLabel('Senior Citizens', true)}
-                <View ref={(ref) => (inputContainerRefs.seniorCitizens = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.seniorCitizens && RDANAStyles.requiredInput]}
-                    placeholder="Enter Number of Senior Citizens"
-                    onChangeText={(val) => handleChange('seniorCitizens', val)}
-                    value={reportData.seniorCitizens}
-                    keyboardType="numeric"
-                    onFocus={() => scrollToInput('seniorCitizens')}
-                  />
-                </View>
-                {errors.seniorCitizens && <Text style={RDANAStyles.errorText}>{errors.seniorCitizens}</Text>}
-
-                {renderLabel('PWD', true)}
-                <View ref={(ref) => (inputContainerRefs.pwd = ref)}>
-                  <TextInput
-                    style={[RDANAStyles.input, errors.pwd && RDANAStyles.requiredInput]}
-                    placeholder="Enter Number of PWD"
-                    onChangeText={(val) => handleChange('pwd', val)}
-                    value={reportData.pwd}
-                    keyboardType="numeric"
-                    onFocus={() => scrollToInput('pwd')}
-                  />
-                </View>
-                {errors.pwd && <Text style={RDANAStyles.errorText}>{errors.pwd}</Text>}
-              </View>
-
-              <View style={[RDANAStyles.section, { zIndex: 1000 }]}>
-                <Text style={RDANAStyles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities</Text>
-                {['Bridges', 'Roads', 'Buildings', 'Hospitals', 'Schools'].map((item) => {
-                  const field = `${item.toLowerCase()}Status`;
-                  const refKey = item.toLowerCase();
-                  return (
-                    <View key={item}>
-                      {renderLabel(item, false)}
-                      <View style={{ position: 'relative', zIndex: 1500 }} ref={(ref) => (inputContainerRefs[field] = ref)}>
-                        <TextInput
-                          ref={statusInputRefs[refKey]}
-                          style={[RDANAStyles.input, errors[field] && RDANAStyles.requiredInput]}
-                          placeholder={`Select ${item} Status`}
-                          onChangeText={(val) => handleChange(field, val)}
-                          value={reportData[field]}
-                          onFocus={() => handleStatusFocus(refKey)}
-                          onBlur={() => handleBlur(setIsStatusDropdownVisible, refKey)}
-                        />
-                        {isStatusDropdownVisible[refKey] && filteredStatuses.length > 0 && (
-                          <View style={[RDANAStyles.dropdownContainer, { maxHeight: maxDropdownHeight, zIndex: 2000 }]}>
-                            <FlatList
-                              data={filteredStatuses}
-                              keyExtractor={(status) => status}
-                              nestedScrollEnabled
-                              renderItem={({ item: status }) => (
-                                <TouchableOpacity
-                                  style={RDANAStyles.dropdownItem}
-                                  onPress={() => handleStatusSelect(status, field)}
-                                >
-                                  <Text style={RDANAStyles.dropdownItemText}>{status}</Text>
-                                </TouchableOpacity>
-                              )}
-                            />
-                          </View>
-                        )}
-                      </View>
-                      {errors[field] && <Text style={RDANAStyles.errorText}>{errors[field]}</Text>}
-                    </View>
-                  );
-                })}
-              </View>
-
-              <View style={RDANAStyles.section}>
-                <Text style={RDANAStyles.sectionTitle}>Initial Needs Assessment Checklist</Text>
-                {['Relief Packs', 'Hot Meals', 'Hygiene Kits', 'Drinking Water', 'Rice Packs'].map((item) => {
-                  const field = item.toLowerCase().replace(/\s/g, '');
-                  return (
-                    <View key={item} style={{ marginBottom: 10 }}>
-                      {renderLabel(item, false)}
-                      <View style={{ flexDirection: 'row', justifyContent: 'flex-start' }}>
-                        {needsOptions.map((option) => (
-                          <TouchableOpacity
-                            key={option}
-                            style={[
-                              RDANAStyles.addButton,
-                              {
-                                backgroundColor: reportData[field] === option ? '#00BCD4' : '#E0E0E0',
-                                marginRight: 10,
-                                paddingHorizontal: 15,
-                                paddingVertical: 8,
-                              },
-                            ]}
-                            onPress={() => handleNeedsSelect(field, option)}
-                          >
-                            <Text style={[RDANAStyles.addbuttonText, { color: reportData[field] === option ? 'white' : '#333' }]}>
-                              {option}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                  );
-                })}
-
-                {renderLabel('Other Immediate Needs', false)}
-                <View ref={(ref) => (inputContainerRefs.otherImmediateNeeds = ref)}>
-                  <TextInput
-                    style={RDANAStyles.input}
-                    placeholder="Enter Items"
-                    onChangeText={(val) => handleChange('otherImmediateNeeds', val)}
-                    value={reportData.otherImmediateNeeds}
-                    onFocus={() => scrollToInput('otherImmediateNeeds')}
-                  />
-                </View>
-
-                {renderLabel('Estimated Quantity', false)}
-                <View ref={(ref) => (inputContainerRefs.estimatedQuantity = ref)}>
-                  <TextInput
-                    style={RDANAStyles.input}
-                    placeholder="Estimated No. of Families to Benefit"
-                    onChangeText={(val) => handleChange('estimatedQuantity', val)}
-                    value={reportData.estimatedQuantity}
-                    keyboardType="numeric"
-                    onFocus={() => scrollToInput('estimatedQuantity')}
-                  />
-                </View>
-              </View>
-
-              <View style={RDANAStyles.section}>
-                <Text style={RDANAStyles.sectionTitle}>Initial Response Actions</Text>
-                {renderLabel('Response Groups Involved', false)}
-                <View ref={(ref) => (inputContainerRefs.responseGroupsInvolved = ref)}>
-                  <TextInput
-                    style={RDANAStyles.input}
-                    placeholder="Enter Organization's Name"
-                    onChangeText={(val) => handleChange('responseGroupsInvolved', val)}
-                    value={reportData.responseGroupsInvolved}
-                    onFocus={() => scrollToInput('responseGroupsInvolved')}
-                  />
-                </View>
-
-                {renderLabel('Relief Assistance Deployed', false)}
-                <View ref={(ref) => (inputContainerRefs.reliefAssistanceDeployed = ref)}>
-                  <TextInput
-                    style={RDANAStyles.input}
-                    placeholder="Enter Relief Assistance"
-                    onChangeText={(val) => handleChange('reliefAssistanceDeployed', val)}
-                    value={reportData.reliefAssistanceDeployed}
-                    onFocus={() => scrollToInput('reliefAssistanceDeployed')}
-                  />
-                </View>
-
-                {renderLabel('Number of Families Served', false)}
-                <View ref={(ref) => (inputContainerRefs.numberOfFamiliesServed = ref)}>
-                  <TextInput
-                    style={RDANAStyles.input}
-                    placeholder="Enter Number of Families"
-                    onChangeText={(val) => handleChange('numberOfFamiliesServed', val)}
-                    value={reportData.numberOfFamiliesServed}
-                    keyboardType="numeric"
-                    onFocus={() => scrollToInput('numberOfFamiliesServed')}
-                  />
-                </View>
-              </View>
-
-              <TouchableOpacity style={RDANAStyles.button} onPress={handleSubmit}>
-                <Text style={RDANAStyles.buttonText}>Proceed</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+            getItemLayout={(data, index) => ({
+              length: 300, // Approximate height per section, adjust as needed
+              offset: 300 * index,
+              index,
+            })}
+          />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
