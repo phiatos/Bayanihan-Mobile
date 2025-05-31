@@ -206,4 +206,5 @@ export default StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+  
 });

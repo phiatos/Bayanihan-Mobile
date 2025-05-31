@@ -1,4 +1,4 @@
-import { StyleSheet} from 'react-native';
+import { StyleSheet } from 'react-native';
 import Theme from '../constants/theme';
 
 const spacing = {
@@ -29,7 +29,7 @@ export default StyleSheet.create({
   },
 
   scrollViewContent: {
-    paddingVertical: spacing.small, 
+    paddingVertical: spacing.small,
   },
 
   section: {
@@ -41,12 +41,13 @@ export default StyleSheet.create({
     padding: spacing.small,
     backgroundColor: Theme.colors.lightBg,
     shadowColor: Theme.colors.black,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  
+
   sectionTitle: {
     fontSize: 18,
     marginBottom: spacing.small,
@@ -73,9 +74,8 @@ export default StyleSheet.create({
     flex: 1,
     alignItems: 'flex-start',
     flexDirection: 'row',
-    flexWrap: 'wrap',
   },
-  
+
   output: {
     marginRight: spacing.xsmall,
     marginBottom: spacing.xsmall,
@@ -83,47 +83,9 @@ export default StyleSheet.create({
     color: Theme.colors.black,
     fontFamily: 'Poppins_Regular',
     fontSize: 13,
+    width: '100%',
   },
 
-  input: {
-    borderWidth: borderWidth.thin,
-    borderColor: '#605D67',
-    borderRadius: borderRadius.large,
-    padding: spacing.small,
-    marginBottom: spacing.small,
-    fontFamily: 'Poppins_Regular',
-    fontSize: 14,
-    color: Theme.colors.black,
-  },
-
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.small,
-  },
-  checkboxBox: {
-    width: 24,
-    height: 24,
-    borderRadius: borderRadius.small,
-    borderWidth: borderWidth.thin,
-    borderColor: Theme.colors.primary,
-    marginRight: spacing.small,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.white,
-  },
-  checkmark: {
-    fontSize: 24,
-    color: Theme.colors.white,
-    backgroundColor: Theme.colors.primary,
-    lineHeight: 24,
-  },
-  checkboxLabel: {
-    flex: 1,
-    fontSize: 14,
-    color: Theme.colors.black,
-    fontFamily: 'Poppins_Regular',
-  },
 
   submission: {
     marginHorizontal: spacing.large,
@@ -142,10 +104,127 @@ export default StyleSheet.create({
     elevation: 3,
     marginBottom: spacing.large,
   },
+
   buttonText: {
     color: Theme.colors.white,
     textAlign: 'center',
     fontFamily: 'Poppins_SemiBold',
     fontSize: 16,
+  },
+
+  strengthContainer: {
+    marginTop: spacing.small,
+    marginBottom: spacing.medium,
+  },
+
+  strengthText: {
+    fontSize: 14,
+    color: Theme.colors.primary,
+    marginBottom: spacing.xsmall,
+    fontFamily: 'Poppins_SemiBold',
+  },
+
+  strengthBarContainer: {
+    height: 6,
+    backgroundColor: '#E0E0E0',
+    borderRadius: borderRadius.small,
+    overflow: 'hidden',
+    marginBottom: spacing.small,
+  },
+
+  strengthBar: {
+    height: '100%',
+    borderRadius: borderRadius.small,
+  },
+
+  checkText: {
+    fontSize: 12,
+    color: Theme.colors.black,
+    marginBottom: spacing.xsmall,
+    fontFamily: 'Poppins_Regular',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  modalContainer: {
+    width: '90%',
+    backgroundColor: Theme.colors.white,
+    borderRadius: borderRadius.large,
+    padding: spacing.medium,
+    maxHeight: '80%',
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    color: Theme.colors.primary,
+    textAlign: 'center',
+    marginBottom: spacing.medium,
+    fontFamily: 'Poppins_Bold',
+  },
+
+  modalContent: {
+    maxHeight: '60%',
+    marginBottom: spacing.medium,
+  },
+
+  modalText: {
+    fontSize: 14,
+    color: Theme.colors.black,
+    fontFamily: 'Poppins_Regular',
+  },
+
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.medium,
+  },
+
+  checkbox: {
+    marginRight: spacing.xsmall,
+  },
+
+  checkboxLabel: {
+    fontSize: 14,
+    color: Theme.colors.black,
+    fontFamily: 'Poppins_Regular',
+  },
+
+  modalButton: {
+    backgroundColor: Theme.colors.primary,
+    padding: spacing.medium,
+    borderRadius: borderRadius.large,
+    alignItems: 'center',
+  },
+
+  modalButtonText: {
+    color: Theme.colors.white,
+    fontSize: 16,
+    fontFamily: 'Poppins_SemiBold',
+  },
+  passwordInputField: {
+    borderWidth: borderWidth.thin,
+    borderColor: '#605D67',
+    borderRadius: borderRadius.large,
+    marginBottom: spacing.small,
+    fontFamily: 'Poppins_Regular',
+    color: Theme.colors.black,
+  },
+  input: {
+    flex: 1,
+    height: 50,
+    color: '#000',
+    fontSize: 14,
+    paddingHorizontal: 15,
+  },
+
+  passwordEyeIcon: {
+    padding: 10, 
+    position: 'absolute', 
+    right: 5,
   },
 });

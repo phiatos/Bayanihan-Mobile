@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
   },
     userName: {
     color: Theme.colors.white,
-    fontSize: 18,
+    fontSize: 15,
     fontFamily: 'Poppins_Bold',
     marginBottom: 5,
   },

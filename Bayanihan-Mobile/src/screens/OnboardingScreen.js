@@ -39,6 +39,7 @@ const OnboardingScreen = ({navigation}) => {
             color: '#14AEBB',
             fontFamily: 'Poppins-Bold',
             textAlign: 'center',
+            marginTop: 20
           }}
         >
           Disaster Relief and Rehabilitation Management Portal
@@ -54,7 +55,6 @@ const OnboardingScreen = ({navigation}) => {
           style={{
             width: 150, 
             height: 150, 
-            marginVertical: 20, 
             resizeMode: 'contain',
           }} 
         />

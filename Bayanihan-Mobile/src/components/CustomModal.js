@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, Animated, Dimensions, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Theme from '../constants/theme';
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window'); // Keep using window for consistent layout inside
 
 const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText = 'OK', cancelText = 'Cancel', showCancel = true }) => {
   const [fadeAnim] = React.useState(new Animated.Value(0));
@@ -11,6 +11,7 @@ const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText
 
   React.useEffect(() => {
     if (visible) {
+      StatusBar.setHidden(true, 'fade'); // Hide status bar when modal is visible
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -25,6 +26,7 @@ const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText
         }),
       ]).start();
     } else {
+      StatusBar.setHidden(false, 'fade'); // Show status bar when modal is hidden
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -38,58 +40,69 @@ const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText
         }),
       ]).start();
     }
+    return () => {
+      // Ensure status bar is shown if component unmounts while modal is visible
+      StatusBar.setHidden(false, 'none');
+    };
   }, [visible]);
 
   return (
-    <Animated.View
-      style={[
-        styles.overlay,
-        {
-          opacity: fadeAnim,
-          display: visible ? 'flex' : 'none',
-        },
-      ]}
+    <Modal
+      transparent={true}
+      visible={visible}
+      onRequestClose={onCancel}
+      animationType="none"
+      // Added for Android to appear fullscreen over status bar
+      // This works on Android; iOS handles it differently, often requiring StatusBar.setHidden
+      hardwareAccelerated // Might help with rendering performance, especially for animations
     >
       <Animated.View
         style={[
-          styles.modal,
+          styles.overlay,
           {
-            transform: [{ translateY: slideAnim }],
+            opacity: fadeAnim,
+            // To ensure it covers the status bar area even if StatusBar.setHidden isn't perfect
+            // This is often not needed if StatusBar.setHidden works, but can be a fallback.
+            // However, rely on the Modal's inherent behavior and StatusBar.setHidden first.
           },
         ]}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
-        </View>
-        <View style={styles.body}>
-          {message}
-        </View>
-        <View style={styles.footer}>
-          {showCancel && (
-            <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-              <Text style={styles.cancelButtonText}>{cancelText}</Text>
+        <Animated.View
+          style={[
+            styles.modal,
+            {
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>{title}</Text>
+          </View>
+          <View style={styles.body}>
+            {message}
+          </View>
+          <View style={styles.footer}>
+            {showCancel && (
+              <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+                <Text style={styles.cancelButtonText}>{cancelText}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.confirmButton} onPress={onConfirm}>
+              <Text style={styles.confirmButtonText}>{confirmText}</Text>
             </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.confirmButton} onPress={onConfirm}>
-            <Text style={styles.confirmButtonText}>{confirmText}</Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </Animated.View>
       </Animated.View>
-    </Animated.View>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
   },
   modal: {
     backgroundColor: Theme.colors.white,
