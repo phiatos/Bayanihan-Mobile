@@ -52,6 +52,7 @@ const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText
       visible={visible}
       onRequestClose={onCancel}
       animationType="none"
+      statusBarTranslucent={true} // Required to draw under status bar
       // Added for Android to appear fullscreen over status bar
       // This works on Android; iOS handles it differently, often requiring StatusBar.setHidden
       hardwareAccelerated // Might help with rendering performance, especially for animations
@@ -99,10 +100,13 @@ const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText
 
 const styles = StyleSheet.create({
   overlay: {
+    ...StyleSheet.absoluteFillObject, // covers the entire screen
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 9999, // Optional but helps ensure it's above other content
+
   },
   modal: {
     backgroundColor: Theme.colors.white,

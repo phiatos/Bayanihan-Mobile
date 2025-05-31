@@ -509,6 +509,7 @@ const RDANAScreen = () => {
                       value={tempDate.dateInformationGathered}
                       mode="date"
                       display="default"
+                      is24Hour={false}
                       onChange={(event, date) => handleDateChange('dateInformationGathered', event, date)}
                     />
                   )}
@@ -658,7 +659,7 @@ const RDANAScreen = () => {
                       value={tempDate.timeOfOccurrence}
                       mode="time"
                       display="default"
-                      is24Hour={true}
+                      is24Hour={false}
                       onChange={(event, time) => handleTimeChange('timeOfOccurrence', event, time)}
                     />
                   )}

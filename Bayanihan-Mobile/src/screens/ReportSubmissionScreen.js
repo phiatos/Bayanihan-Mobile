@@ -9,6 +9,7 @@ import WebView from 'react-native-webview';
 import { auth, database } from '../configuration/firebaseConfig';
 import GlobalStyles from '../styles/GlobalStyles';
 import RDANAStyles from '../styles/RDANAStyles';
+import ReportSubmissionStyles from '../styles/ReportSubmissionStyles';
 
 const { height, width } = Dimensions.get('window');
 
@@ -713,25 +714,25 @@ const ReportSubmissionScreen = () => {
         animationType="slide"
         onRequestClose={() => setShowMapModal(false)}
       >
-        <View style={styles.mapModalContainer}>
+        <View style={ReportSubmissionStyles.mapModalContainer}>
           {mapError ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{mapError}</Text>
+            <View style={ReportSubmissionStyles.errorContainer}>
+              <Text style={ReportSubmissionStyles.errorText}>{mapError}</Text>
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: '#FF4444' }]}
+                style={[ReportSubmissionStyles.modalButton, { backgroundColor: '#FF4444' }]}
                 onPress={() => {
                   setMapError(null);
                   setShowMapModal(false);
                 }}
               >
-                <Text style={styles.modalButtonText}>Close</Text>
+                <Text style={ReportSubmissionStyles.modalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           ) : mapHtml ? (
             <>
               <WebView
                 ref={webViewRef}
-                style={styles.map}
+                style={ReportSubmissionStyles.map}
                 source={{ html: mapHtml }}
                 originWhitelist={['*']}
                 onMessage={(event) => {
@@ -754,24 +755,24 @@ const ReportSubmissionScreen = () => {
                   setMapError('Failed to load map. Please check your internet connection or API key.');
                 }}
               />
-              <View style={styles.modalButtonContainer}>
+              <View style={ReportSubmissionStyles.modalButtonContainer}>
                 <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: '#00BCD4', marginRight: 10 }]}
+                  style={[ReportSubmissionStyles.modalButton, { backgroundColor: '#00BCD4', marginRight: 10 }]}
                   onPress={handleMapConfirm}
                 >
-                  <Text style={styles.modalButtonText}>Confirm Location</Text>
+                  <Text style={ReportSubmissionStyles.modalButtonText}>Confirm Location</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: '#FF4444' }]}
+                  style={[ReportSubmissionStyles.modalButton, { backgroundColor: '#FF4444' }]}
                   onPress={() => setShowMapModal(false)}
                 >
-                  <Text style={styles.modalButtonText}>Cancel</Text>
+                  <Text style={ReportSubmissionStyles.modalButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             </>
           ) : (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>Initializing map...</Text>
+            <View style={ReportSubmissionStyles.errorContainer}>
+              <Text style={ReportSubmissionStyles.errorText}>Initializing map...</Text>
             </View>
           )}
         </View>
@@ -784,24 +785,24 @@ const ReportSubmissionScreen = () => {
         transparent={true}
         onRequestClose={() => setShowPermissionModal(false)}
       >
-        <View style={styles.permissionModalOverlay}>
-          <View style={styles.permissionModalContainer}>
+        <View style={ReportSubmissionStyles.permissionModalOverlay}>
+          <View style={ReportSubmissionStyles.permissionModalContainer}>
             <Ionicons name="location" size={60} color="#00BCD4" />
-            <Text style={styles.permissionModalTitle}>Location Access Required</Text>
-            <Text style={styles.permissionModalText}>
+            <Text style={ReportSubmissionStyles.permissionModalTitle}>Location Access Required</Text>
+            <Text style={ReportSubmissionStyles.permissionModalText}>
               Please allow location access to pin a location on the map.
             </Text>
             <TouchableOpacity
-              style={[styles.modalButton, { backgroundColor: '#00BCD4', marginBottom: 10 }]}
+              style={[ReportSubmissionStyles.modalButton, { backgroundColor: '#00BCD4', marginBottom: 10 }]}
               onPress={handleRetryPermission}
             >
-              <Text style={styles.modalButtonText}>Allow Location</Text>
+              <Text style={ReportSubmissionStyles.modalButtonText}>Allow Location</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.modalButton, { backgroundColor: '#FF4444' }]}
+              style={[ReportSubmissionStyles.modalButton, { backgroundColor: '#FF4444' }]}
               onPress={() => setShowPermissionModal(false)}
             >
-              <Text style={styles.modalButtonText}>No Thanks</Text>
+              <Text style={ReportSubmissionStyles.modalButtonText}>No Thanks</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -809,79 +810,5 @@ const ReportSubmissionScreen = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  mapModalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'white',
-  },
-  map: {
-    width: width * 1,
-    height: height * 0.9,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  modalButtonContainer: {
-    flexDirection: 'row',
-    marginVertical: 10,
-  },
-  modalButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 18,
-    color: 'red',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  permissionModalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-  },
-  permissionModalContainer: {
-    backgroundColor: 'white',
-    padding: 25,
-    borderRadius: 15,
-    alignItems: 'center',
-    width: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  permissionModalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-    textAlign: 'center',
-  },
-  permissionModalText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 25,
-  },
-});
 
 export default ReportSubmissionScreen;
