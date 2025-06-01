@@ -870,13 +870,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  userInfoContainer: {
+    userInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     position: 'absolute',
     top: 60,
-    left: 120,
-  },
+    right: -30,
+    textAlign:'right'
+    },
   userName: {
     fontSize: 11,
     fontFamily: 'Poppins-Medium',
