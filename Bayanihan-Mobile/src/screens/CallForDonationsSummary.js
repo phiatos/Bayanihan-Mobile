@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ref as databaseRef, push } from 'firebase/database';
+import { ref as databaseRef, push, get } from 'firebase/database';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
-import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, database, storage } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
@@ -11,74 +11,91 @@ import GlobalStyles from '../styles/GlobalStyles';
 
 const CallForDonationsSummary = () => {
   const route = useRoute();
-  const { formData = {}, donationImage = null } = route.params || {};
+  const { formData = {}, image = null } = route.params || {};
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [userUid, setUserUid] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [organizationName, setOrganizationName] = useState('[Organization Name]');
+  const [organizationName, setOrganizationName] = useState('Loading...');
 
   useEffect(() => {
-    console.log('Database instance in CallForDonationsSummary:', database);
-    console.log('Storage instance in CallForDonationsSummary:', storage);
-    console.log('Auth instance in CallForDonationsSummary:', auth);
-
-    const unsubscribe = auth.onAuthStateChanged(
-      (user) => {
-        if (user) {
-          setUserUid(user.uid);
-          console.log('Logged-in user UID:', user.uid);
-          if (database && typeof databaseRef === 'function') {
-            const userRef = databaseRef(database, `users/${user.uid}`);
-            databaseRef(userRef).once('value')
-              .then((snapshot) => {
-                const userData = snapshot.val();
-                if (userData && userData.organization) { // Changed 'group' to 'organization'
-                  setOrganizationName(userData.organization);
-                }
-              })
-              .catch((error) => {
-                console.error('Error fetching user data:', error.message);
-              });
+    console.log('Received params in CallForDonationsSummary:', { formData, image });
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        setUserUid(user.uid);
+        console.log('Logged-in user UID:', user.uid);
+        try {
+          const userRef = databaseRef(database, `users/${user.uid}`);
+          const snapshot = await get(userRef);
+          const userData = snapshot.val();
+          if (userData && userData.organization) {
+            setOrganizationName(userData.organization);
           } else {
-            console.warn('Database reference not available for fetching user data');
+            console.warn('No organization found for user:', user.uid);
+            setOrganizationName('Unknown Organization');
+            Alert.alert('Warning', 'No organization found in your profile. Using default name.');
           }
-        } else {
-          console.warn('No user is logged in');
-          setErrorMessage('Please log in to submit a donation.');
-          setModalVisible(true);
+        } catch (error) {
+          console.error('Error fetching organization name:', error.message);
+          setOrganizationName('Unknown Organization');
+          Alert.alert('Error', 'Failed to fetch organization name: ' + error.message);
         }
-      },
-      (error) => {
-        console.error('Auth state listener error:', error.message);
-        setErrorMessage('Authentication error: ' + error.message);
+      } else {
+        console.warn('No user is logged in');
+        setErrorMessage('Please log in to submit a donation.');
         setModalVisible(true);
       }
-    );
+    }, (error) => {
+      console.error('Auth state listener error:', error.message);
+      setErrorMessage('Authentication error: ' + error.message);
+      setModalVisible(true);
+    });
 
     return () => unsubscribe();
   }, []);
 
   const formatLabel = (key) => {
-    return key
-      .replace(/([A-Z])/g, ' $1')
-      .trim()
-      .replace(/^./, (str) => str.toUpperCase());
+    return (
+      (key === 'facebookLink' ? 'Facebook Link' : key)
+        .replace(/([A-Z])/g, ' $1')
+        .trim()
+        .replace(/^./, (str) => str.toUpperCase())
+    );
   };
 
   const uploadImageToFirebase = async (uri) => {
+    if (!uri) {
+      console.warn('No image URI provided for upload');
+      return '';
+    }
     try {
+      console.log('Attempting to upload image with URI:', uri);
+      // Validate URI format
+      if (!uri.startsWith('file://') && !uri.startsWith('http')) {
+        throw new Error('Invalid image URI format');
+      }
+      // Check if storage is initialized
+      if (!storage) {
+        throw new Error('Firebase Storage is not initialized');
+      }
+      // Verify authentication
+      if (!auth.currentUser) {
+        throw new Error('User is not authenticated');
+      }
       const response = await fetch(uri);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image from URI: ${response.statusText}`);
+      }
       const blob = await response.blob();
-      const imageRef = storageRef(storage, `donationImages/${Date.now()}.jpg`);
+      const imageRef = storageRef(storage, `images/${Date.now()}.jpg`);
       await uploadBytes(imageRef, blob);
       const url = await getDownloadURL(imageRef);
       console.log('Image uploaded successfully:', url);
       return url;
     } catch (error) {
-      console.error('Error uploading image:', error.message);
-      throw new Error('Failed to upload image: ' + error.message);
+      console.error('Detailed error uploading image:', error);
+      throw new Error(`Failed to upload image: ${error.message}`);
     }
   };
 
@@ -94,9 +111,12 @@ const CallForDonationsSummary = () => {
     setIsLoading(true);
 
     try {
+      console.log('Submitting donation with formData:', formData, 'and image:', image);
       let imageUrl = '';
-      if (donationImage) {
-        imageUrl = await uploadImageToFirebase(donationImage);
+      if (image) {
+        imageUrl = await uploadImageToFirebase(image);
+      } else {
+        console.log('No image provided, proceeding without image');
       }
 
       const newDonation = {
@@ -116,8 +136,8 @@ const CallForDonationsSummary = () => {
           province: formData.province || '',
           city: formData.city || '',
           barangay: formData.barangay || '',
-          street: formData.address || '',
-          fullAddress: `${formData.address}, ${formData.barangay}, ${formData.city}, ${formData.province}`,
+          street: formData.street || '',
+          fullAddress: `${formData.street || ''}, ${formData.barangay || ''}, ${formData.city || ''}, ${formData.province || ''}`.trim(),
         },
         facebookLink: formData.facebookLink || 'N/A',
         image: imageUrl || '',
@@ -132,12 +152,12 @@ const CallForDonationsSummary = () => {
 
       const donationRef = databaseRef(database, 'callfordonation');
       await push(donationRef, newDonation);
-      console.log('Donation saved successfully');
+      console.log('Donation saved successfully:', newDonation);
       setErrorMessage(null);
       setModalVisible(true);
     } catch (error) {
       console.error('Error saving donation:', error.message);
-      setErrorMessage('Failed to save donation: ' + error.message);
+      setErrorMessage(`Failed to save donation: ${error.message}`);
       setModalVisible(true);
     } finally {
       setIsLoading(false);
@@ -154,8 +174,8 @@ const CallForDonationsSummary = () => {
   };
 
   const handleBack = () => {
-    // Pass formData and donationImage back to the previous screen
-    navigation.navigate('CallForDonations', { formData, donationImage });
+    console.log('Navigating back to CallForDonations with formData:', formData, 'and image:', image);
+    navigation.navigate('CallForDonations', { formData, image });
   };
 
   return (
@@ -183,7 +203,7 @@ const CallForDonationsSummary = () => {
               'province',
               'city',
               'barangay',
-              'address',
+              'street',
               'facebookLink',
             ].map((field) => (
               <View key={field} style={styles.fieldContainer}>
@@ -195,11 +215,12 @@ const CallForDonationsSummary = () => {
             ))}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>Donation Image:</Text>
-              {donationImage ? (
+              {image ? (
                 <Image
-                  source={{ uri: donationImage }}
+                  source={{ uri: image }}
                   style={styles.image}
                   resizeMode="cover"
+                  onError={(e) => console.error('Image load error:', e.nativeEvent.error)}
                 />
               ) : (
                 <Text style={styles.value}>No image uploaded</Text>
@@ -256,7 +277,6 @@ const CallForDonationsSummary = () => {
   );
 };
 
-
 const spacing = {
   xsmall: 5,
   small: 10,
@@ -286,7 +306,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.small,
     paddingBottom: spacing.xlarge * 2,
   },
-
   menuIcon: {
     position: 'absolute',
     left: 30,

@@ -41,22 +41,27 @@ const DashboardScreen = ({ navigation }) => {
     { label: 'In-Kind Donations', value: '₱0', icon: 'gift' },
   ]);
   const [headerTitle, setHeaderTitle] = useState('Dashboard');
+  const [organizationName, setOrganizationName] = useState('Unknown Organization'); // New state for organization name
 
   useEffect(() => {
     (async () => {
-      await Font.loadAsync({
-        'Poppins-MediumItalic': require('../../assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
-        'Poppins-Bold': require('../../assets/fonts/Poppins/Poppins-Bold.ttf'),
-        'Poppins-Medium': require('../../assets/fonts/Poppins/Poppins-Medium.ttf'),
-        'Poppins_SemiBold': require('../../assets/fonts/Poppins/Poppins-SemiBold.ttf'),
-        'Poppins_Regular': require('../../assets/fonts/Poppins/Poppins-Regular.ttf'),
-      });
-      setFontsLoaded(true);
+      try {
+        await Font.loadAsync({
+          'Poppins-MediumItalic': require('../../assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
+          'Poppins-Bold': require('../../assets/fonts/Poppins/Poppins-Bold.ttf'),
+          'Poppins-Medium': require('../../assets/fonts/Poppins/Poppins-Medium.ttf'),
+          'Poppins_SemiBold': require('../../assets/fonts/Poppins/Poppins-SemiBold.ttf'),
+          'Poppins_Regular': require('../../assets/fonts/Poppins/Poppins-Regular.ttf'),
+        });
+        setFontsLoaded(true);
+      } catch (error) {
+        console.error('Font loading error:', error);
+        Alert.alert('Error', 'Failed to load fonts. Please restart the app.');
+      }
     })();
   }, []);
 
   useEffect(() => {
-    // Check authentication state
     const unsubscribe = auth.onAuthStateChanged(user => {
       if (!user) {
         Alert.alert(
@@ -69,7 +74,7 @@ const DashboardScreen = ({ navigation }) => {
 
       const userId = user.uid;
 
-      // Fetch user role
+      // Fetch user data (role and organization name)
       database.ref(`users/${userId}`).once('value', snapshot => {
         const userData = snapshot.val();
         if (!userData || !userData.role) {
@@ -82,6 +87,9 @@ const DashboardScreen = ({ navigation }) => {
         }
 
         const role = userData.role;
+        const orgName = userData.organization|| 'Unknown Organization'; // Fetch organization name
+
+        setOrganizationName(orgName); // Set organization name
         setHeaderTitle(role === "AB ADMIN" ? "Admin Dashboard" : "Volunteer Dashboard");
 
         // Fetch approved reports and aggregate data
@@ -96,7 +104,6 @@ const DashboardScreen = ({ navigation }) => {
           const reports = snapshot.val();
           if (reports) {
             Object.values(reports).forEach(report => {
-              // For ABVN role, only include reports submitted by this user
               if (role === "ABVN" && report.userUid !== userId) {
                 console.log(`Skipping report for ABVN - userUid (${report.userUid}) does not match current user (${userId})`);
                 return;
@@ -161,7 +168,6 @@ const DashboardScreen = ({ navigation }) => {
 
   return (
     <View style={DashboardStyles.container}>
-      {/* Header */}
       <View style={GlobalStyles.headerContainer}>
         <TouchableOpacity
           onPress={() => navigation.openDrawer()}
@@ -175,7 +181,7 @@ const DashboardScreen = ({ navigation }) => {
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
         <ScrollView contentContainerStyle={DashboardStyles.scrollViewContent}>
           <Text style={[DashboardStyles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>
-            Volunteer Group Metrics
+            {organizationName}
           </Text>
 
           {metrics.map(({ label, value, icon }, idx) => (

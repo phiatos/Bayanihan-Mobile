@@ -35,7 +35,7 @@ const CustomDrawer = (props) => {
           />
           <View style={styles.header}>
             <View style={styles.userRoleContainer}>
-              <Text style={styles.userRole}>{user?.role}</Text>
+              <Text style={styles.userRole}>{user?.organization}</Text>
             </View>
             <Text style={styles.userName}>{user?.contactPerson}</Text>
           </View>

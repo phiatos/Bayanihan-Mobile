@@ -9,13 +9,14 @@ import { get, getDatabase, ref, update } from 'firebase/database';
 import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  StyleSheet,
+  Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../configuration/firebaseConfig';
@@ -24,6 +25,7 @@ import { AuthContext } from '../context/AuthContext';
 import GlobalStyles from '../styles/GlobalStyles';
 import ProfileStyles from '../styles/ProfileStyles';
 import { KeyboardAvoidingView } from 'react-native';
+import CustomModal from '../components/CustomModal'; // Adjust the import path as needed
 
 const ProfileScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
@@ -57,20 +59,62 @@ const ProfileScreen = ({ navigation }) => {
   const [isNavigationBlocked, setIsNavigationBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { height, width } = Dimensions.get('window');
+  
+
+  // State for custom modal
+  const [customModal, setCustomModal] = useState({
+    visible: false,
+    title: '',
+    message: null,
+    onConfirm: () => {},
+    confirmText: 'OK',
+    showCancel: false,
+  });
 
   const currentTermsVersion = 1;
+
+  const closeModal = () => {
+    setCustomModal({ ...customModal, visible: false });
+  };
+
+  // Local styles for modal content to match CustomModal's message style
+  const localStyles = StyleSheet.create({
+    message: {
+      fontSize: 14,
+      color: '#444',
+      lineHeight: 24,
+      fontFamily: 'Poppins_Regular',
+      textAlign: 'center',
+    },
+    icon: {
+      marginBottom: 15,
+    },
+  });
 
   useEffect(() => {
     const initializeProfile = async () => {
       if (!user?.id) {
         setLoading(false);
-        Alert.alert('Error', 'No user logged in. Please log in again.', [
-          { text: 'OK', onPress: () => navigation.navigate('Login') },
-        ]);
+        setCustomModal({
+          visible: true,
+          title: 'Error',
+          message: (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+              <Text style={localStyles.message}>No user logged in. Please log in again.</Text>
+            </View>
+          ),
+          onConfirm: () => {
+            closeModal();
+            navigation.navigate('Login');
+          },
+          confirmText: 'OK',
+          showCancel: false,
+        });
         return;
       }
 
@@ -99,21 +143,55 @@ const ProfileScreen = ({ navigation }) => {
           } else if (needsPasswordReset) {
             setPasswordNeedsReset(true);
             setIsNavigationBlocked(true);
-            Alert.alert(
-              'Password Change Required',
-              'For security reasons, please change your password.',
-              [{ text: 'Understood' }]
-            );
+            setCustomModal({
+              visible: true,
+              title: 'Password Change Required',
+              message: (
+                <View style={{ alignItems: 'center' }}>
+                  <Ionicons name="lock-closed" size={60} color="#FFD700" style={localStyles.icon} />
+                  <Text style={localStyles.message}>
+                    For security reasons, please change your password.
+                  </Text>
+                </View>
+              ),
+              onConfirm: closeModal,
+              confirmText: 'Understood',
+              showCancel: false,
+            });
           } else {
             setIsNavigationBlocked(false);
           }
         } else {
           console.warn('No profile data found for user:', user.id);
-          Alert.alert('Warning', 'No profile data found. Please contact support.');
+          setCustomModal({
+            visible: true,
+            title: 'Warning',
+            message: (
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="warning" size={60} color="#FFD700" style={localStyles.icon} />
+                <Text style={localStyles.message}>No profile data found. Please contact support.</Text>
+              </View>
+            ),
+            onConfirm: closeModal,
+            confirmText: 'OK',
+            showCancel: false,
+          });
         }
       } catch (error) {
         console.error('Error fetching profile data:', error);
-        Alert.alert('Error', 'Failed to fetch profile data: ' + error.message);
+        setCustomModal({
+          visible: true,
+          title: 'Error',
+          message: (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+              <Text style={localStyles.message}>Failed to fetch profile data: {error.message}</Text>
+            </View>
+          ),
+          onConfirm: closeModal,
+          confirmText: 'OK',
+          showCancel: false,
+        });
       } finally {
         setLoading(false);
       }
@@ -123,9 +201,22 @@ const ProfileScreen = ({ navigation }) => {
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (!currentUser) {
-        Alert.alert('Not Logged In', 'Please log in to view your profile.', [
-          { text: 'OK', onPress: () => navigation.navigate('Login') },
-        ]);
+        setCustomModal({
+          visible: true,
+          title: 'Not Logged In',
+          message: (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+              <Text style={localStyles.message}>Please log in to view your profile.</Text>
+            </View>
+          ),
+          onConfirm: () => {
+            closeModal();
+            navigation.navigate('Login');
+          },
+          confirmText: 'OK',
+          showCancel: false,
+        });
       }
     });
 
@@ -200,28 +291,76 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleChangePassword = async () => {
     if (!user) {
-      Alert.alert('Not Logged In', 'Please log in to change your password.', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') },
-      ]);
+      setCustomModal({
+        visible: true,
+        title: 'Not Logged In',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+            <Text style={localStyles.message}>Please log in to change your password.</Text>
+          </View>
+        ),
+        onConfirm: () => {
+          closeModal();
+          navigation.navigate('Login');
+        },
+        confirmText: 'OK',
+        showCancel: false,
+      });
       return;
     }
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all password fields.');
+      setCustomModal({
+        visible: true,
+        title: 'Error',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+            <Text style={localStyles.message}>Please fill in all password fields.</Text>
+          </View>
+        ),
+        onConfirm: closeModal,
+        confirmText: 'OK',
+        showCancel: false,
+      });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'New password and confirmation do not match.');
+      setCustomModal({
+        visible: true,
+        title: 'Error',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+            <Text style={localStyles.message}>New password and confirmation do not match.</Text>
+          </View>
+        ),
+        onConfirm: closeModal,
+        confirmText: 'OK',
+        showCancel: false,
+      });
       return;
     }
 
     const { hasLength, hasUppercase, hasLowercase, hasNumber, hasSymbol } = passwordStrength.checks;
     if (!hasLength || !hasUppercase || !hasLowercase || !hasNumber || !hasSymbol) {
-      Alert.alert(
-        'Weak Password',
-        'Your new password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a symbol.'
-      );
+      setCustomModal({
+        visible: true,
+        title: 'Weak Password',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+            <Text style={localStyles.message}>
+              Your new password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a symbol.
+            </Text>
+          </View>
+        ),
+        onConfirm: closeModal,
+        confirmText: 'OK',
+        showCancel: false,
+      });
       return;
     }
 
@@ -243,19 +382,27 @@ const ProfileScreen = ({ navigation }) => {
         password_needs_reset: false,
       });
 
-      Alert.alert('Success', 'Your password has been updated successfully.', [
-        {
-          text: 'OK',
-          onPress: () => {
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
-            setShowPasswordStrength(false);
-            setPasswordNeedsReset(false);
-            setIsNavigationBlocked(false);
-          },
+      setCustomModal({
+        visible: true,
+        title: 'Success',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="checkmark-circle" size={60} color="#00BCD4" style={localStyles.icon} />
+            <Text style={localStyles.message}>Your password has been updated successfully.</Text>
+          </View>
+        ),
+        onConfirm: () => {
+          closeModal();
+          setCurrentPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+          setShowPasswordStrength(false);
+          setPasswordNeedsReset(false);
+          setIsNavigationBlocked(false);
         },
-      ]);
+        confirmText: 'OK',
+        showCancel: false,
+      });
     } catch (error) {
       console.error('Password change error:', error);
       let errorMessage = 'Failed to change password. Please ensure your current password is correct.';
@@ -264,7 +411,19 @@ const ProfileScreen = ({ navigation }) => {
       } else if (error.code === 'auth/requires-recent-login') {
         errorMessage = 'For security, please log in again before changing your password.';
       }
-      Alert.alert('Error', errorMessage);
+      setCustomModal({
+        visible: true,
+        title: 'Error',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+            <Text style={localStyles.message}>{errorMessage}</Text>
+          </View>
+        ),
+        onConfirm: closeModal,
+        confirmText: 'OK',
+        showCancel: false,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -272,7 +431,19 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleAgreeTerms = async () => {
     if (!agreedTerms) {
-      Alert.alert('Error', 'You must agree to the Terms and Conditions.');
+      setCustomModal({
+        visible: true,
+        title: 'Error',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+            <Text style={localStyles.message}>You must agree to the Terms and Conditions.</Text>
+          </View>
+        ),
+        onConfirm: closeModal,
+        confirmText: 'OK',
+        showCancel: false,
+      });
       return;
     }
 
@@ -295,28 +466,71 @@ const ProfileScreen = ({ navigation }) => {
       if (needsPasswordReset) {
         setPasswordNeedsReset(true);
         setIsNavigationBlocked(true);
-        Alert.alert(
-          'Password Change Required',
-          'Thank you for accepting the Terms and Conditions. For security reasons, please change your password now.',
-          [{ text: 'Understood' }]
-        );
+        setCustomModal({
+          visible: true,
+          title: 'Password Change Required',
+          message: (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name="lock-closed" size={60} color="#FFD700" style={localStyles.icon} />
+              <Text style={localStyles.message}>
+                Thank you for accepting the Terms and Conditions. For security reasons, please change your password now.
+              </Text>
+            </View>
+          ),
+          onConfirm: closeModal,
+          confirmText: 'Understood',
+          showCancel: false,
+        });
       } else {
-        Alert.alert('Success', 'Thank you for accepting the Terms and Conditions.', [
-          { text: 'OK' },
-        ]);
+        setCustomModal({
+          visible: true,
+          title: 'Success',
+          message: (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name="checkmark-circle" size={60} color="#00BCD4" style={localStyles.icon} />
+              <Text style={localStyles.message}>Thank you for accepting the Terms and Conditions.</Text>
+            </View>
+          ),
+          onConfirm: closeModal,
+          confirmText: 'OK',
+          showCancel: false,
+        });
       }
     } catch (error) {
       console.error('Error updating terms agreement:', error);
-      Alert.alert('Error', 'Failed to record your agreement. Please try again.');
+      setCustomModal({
+        visible: true,
+        title: 'Error',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+            <Text style={localStyles.message}>Failed to record your agreement. Please try again.</Text>
+          </View>
+        ),
+        onConfirm: closeModal,
+        confirmText: 'OK',
+        showCancel: false,
+      });
     }
   };
 
   const handleOpenDrawer = () => {
     if (isNavigationBlocked) {
-      Alert.alert(
-        'Action Required',
-        'You must complete the required actions (accept terms or change password) to navigate the application.'
-      );
+      setCustomModal({
+        visible: true,
+        title: 'Action Required',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+            <Text style={localStyles.message}>
+              You must complete the required actions (accept terms or change password) to navigate the application.
+            </Text>
+          </View>
+        ),
+        onConfirm: closeModal,
+        confirmText: 'OK',
+        showCancel: false,
+      });
       return;
     }
     navigation.openDrawer();
@@ -417,6 +631,17 @@ const ProfileScreen = ({ navigation }) => {
                 </View>
               </View>
             )}
+
+            {/* Custom Modal for Alerts */}
+            <CustomModal
+              visible={customModal.visible}
+              title={customModal.title}
+              message={customModal.message}
+              onConfirm={customModal.onConfirm}
+              onCancel={closeModal}
+              confirmText={customModal.confirmText}
+              showCancel={customModal.showCancel}
+            />
 
             {/* Change Password Section */}
             {(!termsModalVisible || passwordNeedsReset) && (

@@ -21,6 +21,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import WebView from 'react-native-webview';
 import Theme from '../constants/theme';
 import { AuthContext } from '../context/AuthContext';
+import GlobalStyles from '../styles/GlobalStyles';
 
 const { height, width } = Dimensions.get('window');
 
@@ -33,6 +34,7 @@ const HomeScreen = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [activations, setActivations] = useState([]);
+  const [mapType, setMapType] = useState('hybrid');
   const slideAnim = useRef(new Animated.Value(height)).current;
   const searchAnim = useRef(new Animated.Value(0)).current;
   const { user } = useContext(AuthContext);
@@ -41,14 +43,19 @@ const HomeScreen = ({ navigation }) => {
 
   useEffect(() => {
     (async () => {
-      await Font.loadAsync({
-        'Poppins-MediumItalic': require('../../assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
-        'Poppins-Bold': require('../../assets/fonts/Poppins/Poppins-Bold.ttf'),
-        'Poppins-Medium': require('../../assets/fonts/Poppins/Poppins-Medium.ttf'),
-        'Poppins-SemiBold': require('../../assets/fonts/Poppins/Poppins-SemiBold.ttf'),
-      });
-      setFontsLoaded(true);
-      setModalVisible(true);
+      try {
+        await Font.loadAsync({
+          'Poppins-MediumItalic': require('../../assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
+          'Poppins-Bold': require('../../assets/fonts/Poppins/Poppins-Bold.ttf'),
+          'Poppins-Medium': require('../../assets/fonts/Poppins/Poppins-Medium.ttf'),
+          'Poppins-SemiBold': require('../../assets/fonts/Poppins/Poppins-SemiBold.ttf'),
+        });
+        setFontsLoaded(true);
+        setModalVisible(true);
+      } catch (error) {
+        console.error('Font loading error:', error);
+        Alert.alert('Error', 'Failed to load fonts. Please restart the app.');
+      }
     })();
   }, []);
 
@@ -76,7 +83,18 @@ const HomeScreen = ({ navigation }) => {
     }).start();
   }, [searchBarVisible]);
 
-  // Fetch autocomplete suggestions restricted to the Philippines
+  const toggleMapType = (type) => {
+    setMapType(type);
+    const script = `
+      if (window.map) {
+        map.setMapTypeId("${type}");
+      } else {
+        console.error("Map not initialized");
+      }
+    `;
+    webViewRef.current?.injectJavaScript(script);
+  };
+
   const fetchSuggestions = async (query) => {
     if (!query.trim()) {
       setSuggestions([]);
@@ -98,12 +116,10 @@ const HomeScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Autocomplete Error:', error);
-      setSuggestions([]);
       Alert.alert('Error', 'Failed to fetch suggestions. Please check your internet connection.');
     }
   };
 
-  // Debounce search input
   const handleSearchInput = (text) => {
     setSearchQuery(text);
     if (searchTimeout.current) {
@@ -114,43 +130,51 @@ const HomeScreen = ({ navigation }) => {
     }, 300);
   };
 
-  // Handle permission request
   const handleRequestPermission = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    setPermissionStatus(status);
-    if (status === 'granted') {
-      let loc = await Location.getCurrentPositionAsync({});
-      if (loc.coords.accuracy > 50) {
-        Alert.alert('Low Accuracy', 'Your location accuracy is low. The pin might not be exact.');
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      setPermissionStatus(status);
+      if (status === 'granted') {
+        let loc = await Location.getCurrentPositionAsync({});
+        if (loc.coords.accuracy > 50) {
+          Alert.alert('Low Accuracy', 'Your location accuracy is low. The pin may not be precise.');
+        }
+        setLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+        setModalVisible(false);
+      } else {
+        setPermissionStatus('denied');
+        setModalVisible(false);
       }
-      setLocation({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      });
-      setModalVisible(false);
-    } else {
-      setPermissionStatus('denied');
-      setModalVisible(false);
+    } catch (error) {
+      console.error('Permission error:', error);
+      Alert.alert('Error', 'Failed to request location permission. Please try again.');
     }
   };
 
-  // Handle retry for denied permissions
   const handleRetryPermission = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    setPermissionStatus(status);
-    if (status === 'granted') {
-      let loc = await Location.getCurrentPositionAsync({});
-      if (loc.coords.accuracy > 50) {
-        Alert.alert('Low Accuracy', 'Your location accuracy is low. The pin might not be exact.');
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      setPermissionStatus(status);
+      if (status === 'granted') {
+        let loc = await Location.getCurrentPositionAsync({});
+        if (loc.coords.accuracy > 50) {
+          Alert.alert('Low Accuracy', 'Your location accuracy is low. The pin may not be precise.');
+        }
+        setLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+        setModalVisible(false);
+      } else {
+        setPermissionStatus('denied');
+        setModalVisible(false);
       }
-      setLocation({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      });
-      setModalVisible(false);
-    } else {
-      setPermissionStatus('denied');
-      setModalVisible(false);
+    } catch (error) {
+      console.error('Permission retry error:', error);
+      Alert.alert('Error', 'Failed to retry permission. Please try again.');
     }
   };
 
@@ -167,10 +191,9 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
-  // Handle search using Google Places API
   const handleSearch = async (placeId = null, query = searchQuery) => {
     if (!query.trim() && !placeId) {
-      Alert.alert('Search Error', 'Please enter a location to search.');
+      Alert.alert('Error', 'Please enter a location to search.');
       return;
     }
 
@@ -178,7 +201,6 @@ const HomeScreen = ({ navigation }) => {
       let location, placeName, formattedAddress;
 
       if (placeId) {
-        // Use Place Details API for suggestion selections
         const response = await fetch(
           `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU`
         );
@@ -188,12 +210,11 @@ const HomeScreen = ({ navigation }) => {
           placeName = data.result.name;
           formattedAddress = data.result.formatted_address;
         } else {
-          Alert.alert('Search Error', 'No results found for the selected location.');
+          Alert.alert('Error', 'No results found for the selected location.');
           console.warn('Place Details API failed:', data.status);
           return;
         }
       } else {
-        // Use Text Search API for manual input
         const response = await fetch(
           `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(
             query
@@ -206,32 +227,33 @@ const HomeScreen = ({ navigation }) => {
           placeName = place.name;
           formattedAddress = place.formatted_address;
         } else {
-          Alert.alert('Search Error', 'No results found for the search query.');
+          Alert.alert('Error', 'No results found for the search query.');
           console.warn('Text Search API failed:', data.status);
           return;
         }
       }
 
-      // Inject JavaScript to update the map
       const script = `
         if (window.map) {
           const location = { lat: ${location.lat}, lng: ${location.lng} };
           map.setCenter(location);
           map.setZoom(16);
-          if (window.clearNonActivationMarkers) clearNonActivationMarkers();
+          if (window.clearNonActivationMarkers) {
+            clearNonActivationMarkers();
+          }
           const marker = new google.maps.Marker({
             position: location,
             map: map,
             title: "${placeName.replace(/"/g, '\\"')}",
           });
           nonActivationMarkers.push(marker);
-          const infowindow = new google.maps.InfoWindow({
+          const infoWindow = new google.maps.InfoWindow({
             content: \`<strong>${placeName.replace(/"/g, '\\"')}</strong><br>${formattedAddress.replace(/"/g, '\\"')}\`,
           });
           marker.addListener("click", () => {
-            infowindow.open(map, marker);
+            infoWindow.open(map, marker);
           });
-          infowindow.open(map, marker);
+          infoWindow.open(map, marker);
         } else {
           console.error("Map not initialized");
         }
@@ -239,31 +261,26 @@ const HomeScreen = ({ navigation }) => {
       webViewRef.current?.injectJavaScript(script);
       setSuggestions([]);
     } catch (error) {
-      console.error('Search Error:', error);
-      Alert.alert(
-        'Search Error',
-        'Failed to search for the location. Please check your internet connection and try again.'
-      );
+      console.error('Search error:', error);
+      Alert.alert('Error', 'Failed to search for the location. Please check your internet connection and try again.');
     }
   };
 
-  // Handle suggestion selection
   const handleSuggestionSelect = (suggestion) => {
     setSearchQuery(suggestion.description);
     handleSearch(suggestion.place_id);
   };
 
-  // Return to user's current location
   const returnToUserLocation = async () => {
     if (permissionStatus !== 'granted') {
-      Alert.alert('Location Permission Denied', 'Please enable location access to return to your current location.');
+      Alert.alert('Error', 'Please enable location access to return to your current location.');
       return;
     }
 
     try {
       let loc = await Location.getCurrentPositionAsync({});
       if (loc.coords.accuracy > 50) {
-        Alert.alert('Low Accuracy', 'Your location accuracy is low. The pin might not be exact.');
+        Alert.alert('Low Accuracy', 'Your location accuracy is low. The pin may not be precise.');
       }
       setLocation({
         latitude: loc.coords.latitude,
@@ -275,7 +292,9 @@ const HomeScreen = ({ navigation }) => {
           const userLocation = { lat: ${loc.coords.latitude}, lng: ${loc.coords.longitude} };
           map.setCenter(userLocation);
           map.setZoom(16);
-          if (window.clearNonActivationMarkers) clearNonActivationMarkers();
+          if (window.clearNonActivationMarkers) {
+            clearNonActivationMarkers();
+          }
           const userMarker = new google.maps.Marker({
             position: userLocation,
             map: map,
@@ -285,28 +304,27 @@ const HomeScreen = ({ navigation }) => {
             },
           });
           nonActivationMarkers.push(userMarker);
-          geocoder.geocode({ location: userLocation }, (results, status) => {
-            let infoContent;
-            if (status === "OK" && results[0]) {
-              infoContent = results[0].formatted_address;
-            } else {
-              infoContent = \`Lat: ${loc.coords.latitude}, Lng: ${loc.coords.longitude}\`;
-            }
-            const userInfowindow = new google.maps.InfoWindow({
-              content: infoContent,
+          if (window.geocoder) {
+            geocoder.geocode({ location: userLocation }, (results, status) => {
+              let infoContent = status === "OK" && results[0] ? results[0].formatted_address : \`Lat: ${loc.coords.latitude}, Lng: ${loc.coords.longitude}\`;
+              const userInfoWindow = new google.maps.InfoWindow({
+                content: infoContent,
+              });
+              userMarker.addListener("click", () => {
+                userInfoWindow.open(map, userMarker);
+              });
+              userInfoWindow.open(map, userMarker);
             });
-            userMarker.addListener("click", () => {
-              userInfowindow.open(map, userMarker);
-            });
-            userInfowindow.open(map, userMarker);
-          });
+          } else {
+            console.error("Geocoder not initialized");
+          }
         } else {
           console.error("Map not initialized");
         }
       `;
       webViewRef.current?.injectJavaScript(script);
     } catch (error) {
-      console.error('Error returning to user location:', error);
+      console.error('Return to user location error:', error);
       Alert.alert('Error', 'Failed to return to your location. Please try again.');
     }
   };
@@ -315,7 +333,7 @@ const HomeScreen = ({ navigation }) => {
     return null;
   }
 
-  const mapHtml = permissionStatus === 'granted' && location
+  const mapHtml = permissionStatus === 'granted' && location?.latitude && location?.longitude
     ? `
       <!DOCTYPE html>
       <html>
@@ -325,6 +343,7 @@ const HomeScreen = ({ navigation }) => {
         <style>
           #map { height: 100%; width: 100%; }
           html, body { height: 100%; margin: 0; padding: 0; }
+          .gm-fullscreen-control { display: none !important; }
         </style>
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -357,133 +376,122 @@ const HomeScreen = ({ navigation }) => {
           let isInfoWindowClicked = false;
 
           function initMap() {
-            const userLocation = { lat: ${location.latitude}, lng: ${location.longitude} };
-            map = new google.maps.Map(document.getElementById("map"), {
-              center: userLocation,
-              zoom: 16,
-              mapTypeId: "roadmap",
-            });
-
-            geocoder = new google.maps.Geocoder();
-            singleInfoWindow = new google.maps.InfoWindow();
-
-            // Add user location marker
-            const userMarker = new google.maps.Marker({
-              position: userLocation,
-              map: map,
-              title: "Your Location",
-              icon: {
-                url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-              },
-            });
-            nonActivationMarkers.push(userMarker);
-
-            geocoder.geocode({ location: userLocation }, (results, status) => {
-              let infoContent;
-              if (status === "OK" && results[0]) {
-                infoContent = results[0].formatted_address;
-              } else {
-                infoContent = \`Lat: ${location.latitude}, Lng: ${location.longitude}\`;
-              }
-
-              const userInfowindow = new google.maps.InfoWindow({
-                content: infoContent,
+            try {
+              const userLocation = { lat: ${location.latitude}, lng: ${location.longitude} };
+              map = new google.maps.Map(document.getElementById("map"), {
+                center: userLocation,
+                zoom: 16,
+                mapTypeId: "${mapType}",
+                mapTypeControl: false,
+                streetViewControl: true,
+                zoomControl: false,
+                fullscreenControl: false,
               });
 
-              userMarker.addListener("click", () => {
-                userInfowindow.open(map, userMarker);
+              geocoder = new google.maps.Geocoder();
+              singleInfoWindow = new google.maps.InfoWindow();
+
+              const userMarker = new google.maps.Marker({
+                position: userLocation,
+                map: map,
+                title: "Your Location",
+                icon: {
+                  url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                },
               });
-              userInfowindow.open(map, userMarker);
-            });
+              nonActivationMarkers.push(userMarker);
 
-            // Fetch active activations from Firebase
-            const activationsRef = database.ref("activations").orderByChild("status").equalTo("active");
-            activationsRef.on("value", (snapshot) => {
-              // Clear existing activation markers
-              activationMarkers.forEach(marker => marker.setMap(null));
-              activationMarkers = [];
+              geocoder.geocode({ location: userLocation }, (results, status) => {
+                let infoContent = status === "OK" && results[0] ? results[0].formatted_address : \`Lat: ${location.latitude}, Lng: ${location.longitude}\`;
+                const userInfoWindow = new google.maps.InfoWindow({
+                  content: infoContent,
+                });
+                userMarker.addListener("click", () => {
+                  userInfoWindow.open(map, userMarker);
+                });
+                userInfoWindow.open(map, userMarker);
+              });
 
-              const activations = snapshot.val();
-              if (!activations) {
-                console.log("No active activations found in Firebase.");
-                return;
-              }
+              const activationsRef = database.ref("activations").orderByChild("status").equalTo("active");
+              activationsRef.on("value", (snapshot) => {
+                activationMarkers.forEach(marker => marker.setMap(null));
+                activationMarkers = [];
 
-              console.log("Active activations:", activations);
-
-              Object.entries(activations).forEach(([key, activation]) => {
-                if (!activation.latitude || !activation.longitude) {
-                  console.warn(\`Activation \${key} is missing latitude or longitude:\`, activation);
+                const activations = snapshot.val();
+                if (!activations) {
+                  console.log("No active activations found in Firebase.");
                   return;
                 }
 
-                const position = { lat: parseFloat(activation.latitude), lng: parseFloat(activation.longitude) };
-                console.log(\`Creating marker for \${activation.organization} at position:\`, position);
+                console.log("Active activations:", activations);
 
-                const logoPath = "https://firebasestorage.googleapis.com/v0/b/bayanihan-5ce7e.appspot.com/o/AB_logo.png?alt=media"; // Use a hosted URL for the logo
-                console.log("Attempting to load logo for InfoWindow from:", logoPath);
+                Object.entries(activations).forEach(([key, activation]) => {
+                  if (!activation.latitude || !activation.longitude) {
+                    console.warn(\`Activation \${key} is missing latitude or longitude:\`, activation);
+                    return;
+                  }
 
-                // Create marker for activation
+                  const position = { lat: parseFloat(activation.latitude), lng: parseFloat(activation.longitude) };
+                  console.log(\`Creating marker for \${activation.organization} at position:\`, position);
+
+                  const logoPath = "https://firebasestorage.googleapis.com/v0/b/bayanihan-5ce7e.appspot.com/o/AB_logo.png?alt=media";
+                  console.log("Attempting to load logo for InfoWindow from:", logoPath);
+
+                  const marker = new google.maps.Marker({
+                    position: position,
+                    map: map,
+                    title: activation.organization,
+                    icon: {
+                      url: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
+                    },
+                  });
+
+                  activationMarkers.push(marker);
+                  console.log(\`Marker created for \${activation.organization}\`);
+
+                  const img = new Image();
+                  img.src = logoPath;
+                  img.onload = () => {
+                    console.log("Logo loaded successfully for InfoWindow:", logoPath);
+                    createInfoWindow(marker, activation, logoPath);
+                  };
+                  img.onerror = () => {
+                    console.error("Failed to load logo for InfoWindow:", logoPath);
+                    createInfoWindow(marker, activation, null);
+                  };
+                });
+              }, (error) => {
+                console.error("Error fetching activations for map:", error);
+              });
+
+              map.addListener("click", (event) => {
+                clearNonActivationMarkers();
                 const marker = new google.maps.Marker({
-                  position: position,
+                  position: event.latLng,
                   map: map,
-                  title: activation.organization,
-                  icon: {
-                    url: "https://maps.google.com/mapfiles/ms/icons/red-dot.png", // Default red pin
-                  },
+                  title: "Pinned Location",
+                });
+                nonActivationMarkers.push(marker);
+
+                geocoder.geocode({ location: event.latLng }, (results, status) => {
+                  let infoContent = status === "OK" && results[0] ? results[0].formatted_address : \`Lat: \${event.latLng.lat()}, Lng: \${event.latLng.lng()}\`;
+                  const infoWindow = new google.maps.InfoWindow({
+                    content: infoContent,
+                  });
+                  marker.addListener("click", () => {
+                    infoWindow.open(map, marker);
+                  });
+                  infoWindow.open(map, marker);
                 });
 
-                activationMarkers.push(marker);
-                console.log(\`Marker created for \${activation.organization}\`);
-
-                // Load logo for InfoWindow
-                const img = new Image();
-                img.src = logoPath;
-                img.onload = () => {
-                  console.log("Logo loaded successfully for InfoWindow:", logoPath);
-                  createInfoWindow(marker, activation, logoPath);
-                };
-                img.onerror = () => {
-                  console.error("Failed to load logo for InfoWindow:", logoPath);
-                  createInfoWindow(marker, activation, null);
-                };
+                map.setCenter(event.latLng);
+                map.setZoom(16);
               });
-            }, (error) => {
-              console.error("Error fetching activations for map:", error);
-            });
-
-            // Handle map click to add a custom marker
-            map.addListener("click", (event) => {
-              clearNonActivationMarkers();
-              const marker = new google.maps.Marker({
-                position: event.latLng,
-                map: map,
-                title: "Pinned Location",
-              });
-              nonActivationMarkers.push(marker);
-
-              geocoder.geocode({ location: event.latLng }, (results, status) => {
-                let infoContent;
-                if (status === "OK" && results[0]) {
-                  infoContent = results[0].formatted_address;
-                } else {
-                  infoContent = \`Lat: \${event.latLng.lat()}, Lng: \${event.latLng.lng()}\`;
-                }
-                const infowindow = new google.maps.InfoWindow({
-                  content: infoContent,
-                });
-                marker.addListener("click", () => {
-                  infowindow.open(map, marker);
-                });
-                infowindow.open(map, marker);
-              });
-
-              map.setCenter(event.latLng);
-              map.setZoom(16);
-            });
+            } catch (error) {
+              console.error("Map initialization error:", error);
+            }
           }
 
-          // Function to create and manage the InfoWindow
           function createInfoWindow(marker, activation, logoUrl) {
             const content = \`
               <div class="bayanihan-infowindow" style="
@@ -532,20 +540,16 @@ const HomeScreen = ({ navigation }) => {
               </style>
             \`;
 
-            // Simulate "hover" with mousedown/mouseup (on mobile, this will be press in/out)
             marker.addListener("mousedown", () => {
-              // If an InfoWindow is already open due to a long press, do not open a new one on press
               if (isInfoWindowClicked) {
                 console.log(\`Press ignored for \${activation.organization} because an InfoWindow is already long-pressed open\`);
                 return;
               }
 
-              // Close any existing InfoWindow (from a previous press)
               if (currentInfoWindowMarker && currentInfoWindowMarker !== marker) {
                 singleInfoWindow.close();
               }
 
-              // Open the InfoWindow on press
               singleInfoWindow.setContent(content);
               singleInfoWindow.open(map, marker);
               currentInfoWindowMarker = marker;
@@ -553,13 +557,11 @@ const HomeScreen = ({ navigation }) => {
             });
 
             marker.addListener("mouseup", () => {
-              // If an InfoWindow is open due to a long press, do not close it
               if (isInfoWindowClicked) {
                 console.log(\`Press out ignored for \${activation.organization} because InfoWindow is long-pressed open\`);
                 return;
               }
 
-              // Close the InfoWindow if it was opened by a press
               if (currentInfoWindowMarker === marker) {
                 singleInfoWindow.close();
                 currentInfoWindowMarker = null;
@@ -567,22 +569,18 @@ const HomeScreen = ({ navigation }) => {
               }
             });
 
-            // Simulate "click" with a long press
             marker.addListener("click", () => {
-              // Close any existing InfoWindow
               if (currentInfoWindowMarker && currentInfoWindowMarker !== marker) {
                 singleInfoWindow.close();
               }
 
-              // Open the InfoWindow on long press
               singleInfoWindow.setContent(content);
               singleInfoWindow.open(map, marker);
               currentInfoWindowMarker = marker;
-              isInfoWindowClicked = true; // Set the long-pressed state
+              isInfoWindowClicked = true;
               console.log(\`InfoWindow opened on long press for \${activation.organization}\`);
             });
 
-            // Add a closeclick listener to reset the long-pressed state
             singleInfoWindow.addListener("closeclick", () => {
               isInfoWindowClicked = false;
               currentInfoWindowMarker = null;
@@ -596,230 +594,261 @@ const HomeScreen = ({ navigation }) => {
           }
 
           window.initMap = initMap;
+          initMap();
         </script>
-        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU&callback=initMap" async defer></script>
       </body>
       </html>
     `
     : null;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
-      {permissionStatus === 'granted' && location && mapHtml ? (
-        <View style={styles.fullScreenContainer}>
-          <WebView
-            ref={webViewRef}
-            style={styles.map}
-            source={{ html: mapHtml }}
-            originWhitelist={['*']}
-            onError={(syntheticEvent) => {
-              const { nativeEvent } = syntheticEvent;
-              console.error('WebView error:', nativeEvent);
-              Alert.alert('Map Error', 'Failed to load the map. Please check your API key and internet connection.');
-            }}
+    <View style={styles.container}>
+      <View style={GlobalStyles.headerContainer}>
+        <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+          <Ionicons name="menu" size={32} color="white" />
+        </TouchableOpacity>
+        <View style={styles.userInfoContainer}>
+          <Text style={styles.userName}>{user?.contactPerson}</Text>
+          <ImageBackground
+            source={{ uri: 'https://via.placeholder.com/35' }}
+            style={{ width: 35, height: 35 }}
+            imageStyle={{ borderRadius: 25 }}
           />
-          <View style={styles.overlayContainer}>
-            <View style={styles.headerContainer}>
-              <TouchableOpacity onPress={() => navigation.openDrawer()}>
-                <Ionicons
-                  name="menu"
-                  size={32}
-                  style={{
-                    color: 'black',
-                    backgroundColor: 'white',
-                    padding: 5,
-                    borderRadius: 30,
-                  }}
-                />
+        </View>
+      </View>
+
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
+        {permissionStatus === 'granted' && location && mapHtml ? (
+          <View style={styles.fullScreenContainer}>
+            <WebView
+              ref={webViewRef}
+              style={styles.map}
+              source={{ html: mapHtml }}
+              originWhitelist={['*']}
+              onError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.error('WebView error:', nativeEvent);
+                Alert.alert('Map Error', 'Failed to load the map. Please check your API key and internet connection.');
+              }}
+              onMessage={(event) => {
+                console.log('WebView message:', event.nativeEvent.data);
+              }}
+            />
+            <View style={styles.overlayContainer}>
+              <View style={styles.searchWrapper}>
+                <Animated.View
+                  style={[
+                    styles.searchContainer,
+                    {
+                      width: searchBarVisible ? '100%' : 40,
+                      borderRadius: searchAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 20],
+                      }),
+                    },
+                  ]}
+                >
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (searchBarVisible) {
+                        handleSearch();
+                      } else {
+                        toggleSearchBar();
+                      }
+                    }}
+                  >
+                    <Feather
+                      name="search"
+                      size={20}
+                      style={[
+                        styles.searchIcon,
+                        {
+                          color: 'black',
+                          paddingLeft: searchBarVisible ? 15 : 8,
+                          paddingRight: searchBarVisible ? 5 : 0,
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                  <Animated.View
+                    style={{
+                      flex: searchBarVisible ? 1 : 0,
+                      opacity: searchAnim,
+                      transform: [
+                        {
+                          translateX: searchAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [20, 0],
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    {searchBarVisible && (
+                      <TextInput
+                        placeholder="Search"
+                        style={{ flex: 1, fontFamily: 'Poppins-Medium' }}
+                        placeholderTextColor="black"
+                        value={searchQuery}
+                        onChangeText={handleSearchInput}
+                        onSubmitEditing={() => handleSearch()}
+                        returnKeyType="search"
+                        autoFocus={true}
+                      />
+                    )}
+                  </Animated.View>
+                </Animated.View>
+                {searchBarVisible && suggestions.length > 0 && (
+                  <FlatList
+                    data={suggestions}
+                    keyExtractor={(item) => item.place_id}
+                    style={styles.suggestionsContainer}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.suggestionItem}
+                        onPress={() => handleSuggestionSelect(item)}
+                      >
+                        <Text style={styles.suggestionText}>{item.description}</Text>
+                      </TouchableOpacity>
+                    )}
+                    keyboardShouldPersistTaps="handled"
+                  />
+                )}
+              </View>
+              <View style={styles.mapTypeButtonsContainer}>
+                <TouchableOpacity
+                  style={[styles.mapTypeButton, mapType === 'roadmap' && styles.mapTypeButtonActive]}
+                  onPress={() => toggleMapType('roadmap')}
+                >
+                  <MaterialIcons
+                    name="map"
+                    size={24}
+                    color={mapType === 'roadmap' ? Theme.colors.primary : '#FFFFFF'}
+                  />
+                  <Text
+                    style={[
+                      styles.mapTypeButtonText,
+                      mapType === 'roadmap' && styles.mapTypeButtonTextActive,
+                    ]}
+                  >
+                    Map
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.mapTypeButton, mapType === 'hybrid' && styles.mapTypeButtonActive]}
+                  onPress={() => toggleMapType('hybrid')}
+                >
+                  <MaterialIcons
+                    name="satellite"
+                    size={24}
+                    color={mapType === 'hybrid' ? Theme.colors.primary : '#FFFFFF'}
+                  />
+                  <Text
+                    style={[
+                      styles.mapTypeButtonText,
+                      mapType === 'hybrid' && styles.mapTypeButtonTextActive,
+                    ]}
+                  >
+                    Satellite
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation}>
+                <MaterialIcons name="my-location" size={24} color="white" />
               </TouchableOpacity>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={styles.userName}>{user?.contactPerson}</Text>
-                <ImageBackground
-                  source={require('../../assets/images/user.jpg')}
-                  style={{ width: 35, height: 35 }}
-                  imageStyle={{ borderRadius: 25 }}
+            </View>
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={{ padding: 0 }}>
+            <View style={{ paddingHorizontal: 20, paddingTop: 30 }}>
+              <View style={styles.searchContainer}>
+                <Feather name="search" size={20} style={{ marginHorizontal: 10 }} />
+                <TextInput
+                  placeholder="Search"
+                  style={{ flex: 1, fontFamily: 'Poppins-Medium' }}
+                  placeholderTextColor="black"
                 />
               </View>
+              {permissionStatus === 'denied' && (
+                <View style={styles.permissionDeniedContainer}>
+                  <MaterialIcons name="location-off" size={48} style={{ color: '#EE5757', marginBottom: 10 }} />
+                  <Text style={styles.permissionDeniedContainerHeader}>Location Access Denied</Text>
+                  <Text style={styles.permissionDeniedContainerText}>
+                    Please enable location access to view the map and experience our services.
+                  </Text>
+                  <TouchableOpacity style={styles.retryButton} onPress={handleRetryPermission}>
+                    <Text style={styles.retryButtonText}>Enable Location</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-            <View style={styles.searchWrapper}>
+          </ScrollView>
+        )}
+
+        <Modal
+          animationType="none"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={closeModal}
+        >
+          <SafeAreaView style={{ flex: 1, margin: 0 }}>
+            <View style={styles.modalOverlay}>
               <Animated.View
                 style={[
-                  styles.searchContainer,
+                  styles.modalContainer,
                   {
-                    width: searchBarVisible ? '100%' : 40,
-                    borderRadius: searchAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [30, 20],
-                    }),
+                    transform: [{ translateY: slideAnim }],
                   },
                 ]}
               >
-                <TouchableOpacity
-                  onPress={() => {
-                    if (searchBarVisible) {
-                      handleSearch();
-                    } else {
-                      toggleSearchBar();
-                    }
-                  }}
-                >
-                  <Feather
-                    name="search"
-                    size={20}
-                    style={[
-                      styles.searchIcon,
-                      {
-                        color: 'black',
-                        paddingLeft: searchBarVisible ? 15 : 8,
-                        paddingRight: searchBarVisible ? 5 : 0,
-                      },
-                    ]}
-                  />
-                </TouchableOpacity>
-                <Animated.View
-                  style={{
-                    flex: searchBarVisible ? 1 : 0,
-                    opacity: searchAnim,
-                    transform: [
-                      {
-                        translateX: searchAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [20, 0],
-                        }),
-                      },
-                    ],
-                  }}
-                >
-                  {searchBarVisible && (
-                    <TextInput
-                      placeholder="Search"
-                      style={{ flex: 1, fontFamily: 'Poppins-Medium' }}
-                      placeholderTextColor="black"
-                      value={searchQuery}
-                      onChangeText={handleSearchInput}
-                      onSubmitEditing={() => handleSearch()}
-                      returnKeyType="search"
-                      autoFocus={true}
-                    />
-                  )}
-                </Animated.View>
+                <MaterialIcons name="location-pin" size={84} style={{ color: '#EE5757' }} />
+                <Text style={styles.permissionDeniedHeader}>Where Are You?</Text>
+                <Text style={styles.permissionDeniedText}>
+                  Let Bayanihan access your location to show position on the map.
+                </Text>
+                <View style={styles.permissionButtons}>
+                  <TouchableOpacity style={styles.retryButton} onPress={handleRequestPermission}>
+                    <Text style={styles.retryButtonText}>Allow Location Access</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
+                    <Text style={styles.closeButtonText}>Not Now</Text>
+                  </TouchableOpacity>
+                </View>
               </Animated.View>
-              {searchBarVisible && suggestions.length > 0 && (
-                <FlatList
-                  data={suggestions}
-                  keyExtractor={(item) => item.place_id}
-                  style={styles.suggestionsContainer}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={styles.suggestionItem}
-                      onPress={() => handleSuggestionSelect(item)}
-                    >
-                      <Text style={styles.suggestionText}>{item.description}</Text>
-                    </TouchableOpacity>
-                  )}
-                  keyboardShouldPersistTaps="handled"
-                />
-              )}
             </View>
-            <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation}>
-              <MaterialIcons name="my-location" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={{ padding: 0 }}>
-          <View style={{ paddingHorizontal: 20, paddingTop: 30 }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 20,
-              }}
-            >
-              <TouchableOpacity onPress={() => navigation.openDrawer()}>
-                <Ionicons name="menu" size={32} style={{ color: Theme.colors.primary }} />
-              </TouchableOpacity>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontFamily: 'Poppins-Medium',
-                    marginRight: 10,
-                    marginTop: 10,
-                  }}
-                >
-                  {user?.contactPerson}
-                </Text>
-                <ImageBackground
-                  source={require('../../assets/images/user.jpg')}
-                  style={{ width: 35, height: 35 }}
-                  imageStyle={{ borderRadius: 25 }}
-                />
-              </View>
-            </View>
-            <View style={styles.searchContainer}>
-              <Feather name="search" size={20} style={{ marginHorizontal: 10 }} />
-              <TextInput
-                placeholder="Search"
-                style={{ flex: 1, fontFamily: 'Poppins-Medium' }}
-                placeholderTextColor="black"
-              />
-            </View>
-            {permissionStatus === 'denied' && (
-              <View style={styles.permissionDeniedContainer}>
-                <MaterialIcons name="location-off" size={48} style={{ color: '#EE5757', marginBottom: 10 }} />
-                <Text style={styles.permissionDeniedContainerHeader}>Location Access Denied</Text>
-                <Text style={styles.permissionDeniedContainerText}>
-                  Please enable location access to view the map and experience our services.
-                </Text>
-                <TouchableOpacity style={styles.retryButton} onPress={handleRetryPermission}>
-                  <Text style={styles.retryButtonText}>Enable Location</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      )}
-
-      <Modal
-        animationType="none"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={closeModal}
-      >
-        <SafeAreaView style={{ flex: 1, margin: 0 }}>
-          <View style={styles.modalOverlay}>
-            <Animated.View
-              style={[
-                styles.modalContainer,
-                {
-                  transform: [{ translateY: slideAnim }],
-                },
-              ]}
-            >
-              <MaterialIcons name="location-pin" size={84} style={{ color: '#EE5757' }} />
-              <Text style={styles.permissionDeniedHeader}>Where Are You?</Text>
-              <Text style={styles.permissionDeniedText}>
-                Let Bayanihan access your location to show position on the map.
-              </Text>
-              <View style={styles.permissionButtons}>
-                <TouchableOpacity style={styles.retryButton} onPress={handleRequestPermission}>
-                  <Text style={styles.retryButtonText}>Allow Location Access</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
-                  <Text style={styles.closeButtonText}>Not Now</Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          </View>
-        </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+          </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </View>
   );
 };
 
+const spacing = {
+  xsmall: 5,
+  small: 10,
+  medium: 15,
+  large: 20,
+  xlarge: 30,
+};
+
+const borderRadius = {
+  small: 4,
+  medium: 8,
+  large: 10,
+  xlarge: 20,
+};
+
+const borderWidth = {
+  thin: 1,
+  medium: 2,
+  thick: 3,
+};
+
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Theme.colors.lightBg,
+  },
   fullScreenContainer: {
     flex: 1,
     position: 'relative',
@@ -831,7 +860,7 @@ const styles = StyleSheet.create({
   },
   overlayContainer: {
     position: 'absolute',
-    top: 30,
+    top: 10,
     left: 20,
     right: 20,
   },
@@ -841,12 +870,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  userInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    top: 60,
+    left: 120,
+  },
   userName: {
     fontSize: 11,
     fontFamily: 'Poppins-Medium',
     marginRight: 10,
     marginTop: 10,
-    color: 'black',
+    color: 'white',
   },
   searchWrapper: {
     position: 'relative',
@@ -885,14 +921,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'black',
   },
+  mapTypeButtonsContainer: {
+    position: 'absolute',
+    top: 570,
+    right: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 2000,
+  },
+  mapTypeButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  mapTypeButtonActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: Theme.colors.primary,
+  },
+  mapTypeButtonText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    color: '#FFFFFF',
+    marginLeft: 6,
+  },
+  mapTypeButtonTextActive: {
+    color: Theme.colors.primary,
+  },
   returnButton: {
     position: 'absolute',
     bottom: 20,
-    right: 0,
+    right: 10,
     backgroundColor: Theme.colors.primary,
     padding: 10,
-    borderRadius: 30,
-    elevation: 5,
+    borderRadius: 50,
+    elevation: 10,
+    zIndex: 1000,
   },
   modalOverlay: {
     flex: 1,
@@ -900,13 +969,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: Theme.colors.white,
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
     alignItems: 'center',
-    width: width,
-    elevation: 10,
+    width: '100%',
+    elevation: 20,
   },
   permissionDeniedHeader: {
     fontFamily: 'Poppins-Bold',
@@ -916,17 +985,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   permissionDeniedText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: 'black',
+    fontFamily: 'Poppins',
+    color: '#333333',
     textAlign: 'center',
     marginBottom: 20,
-    paddingHorizontal: 20,
   },
   permissionButtons: {
     flexDirection: 'column',
     width: '100%',
-    paddingHorizontal: 20,
   },
   permissionDeniedContainer: {
     backgroundColor: 'white',
@@ -934,7 +1000,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     elevation: 5,
-    marginTop: 10,
+    marginTop: 20,
   },
   permissionDeniedContainerHeader: {
     fontFamily: 'Poppins-Bold',
@@ -946,7 +1012,7 @@ const styles = StyleSheet.create({
   permissionDeniedContainerText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
-    color: 'black',
+    color: '#333333',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -956,14 +1022,14 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     borderWidth: 1,
     borderColor: 'white',
-    width: '100%',
     backgroundColor: Theme.colors.primary,
+    width: '100%',
     marginBottom: 10,
   },
   retryButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: '#FFF',
+    color: '#FFFFFF',
     textAlign: 'center',
   },
   closeButton: {
