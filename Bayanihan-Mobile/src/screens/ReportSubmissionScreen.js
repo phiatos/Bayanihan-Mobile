@@ -30,7 +30,6 @@ const ReportSubmissionScreen = () => {
   const route = useRoute();
   const webViewRef = useRef(null);
 
-  // Helper functions at the top
   const formatDate = (date) => {
     if (!date) return '';
     return date.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -46,7 +45,6 @@ const ReportSubmissionScreen = () => {
     return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`; // HH:MM AM/PM
   };
 
-  // Initialize current date and time
   const currentDate = new Date();
 
   const [reportData, setReportData] = useState({
@@ -72,21 +70,24 @@ const ReportSubmissionScreen = () => {
     startingDateOfOperation: false,
     endingDateOfOperation: false,
   });
+
   const [showTimePicker, setShowTimePicker] = useState({
     completionTimeOfIntervention: false,
   });
+
   const [tempDate, setTempDate] = useState({
     dateOfReport: currentDate,
     startingDateOfOperation: new Date(),
     endingDateOfOperation: new Date(),
     completionTimeOfIntervention: currentDate,
   });
+
   const [errors, setErrors] = useState({});
   const [userUid, setUserUid] = useState(null);
   const [organizationName, setOrganizationName] = useState('Organization Name');
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState({
-    latitude: 14.5995, // Default to Manila, Philippines
+    latitude: 14.5995,
     longitude: 120.9842,
   });
   const [mapError, setMapError] = useState(null);
@@ -330,9 +331,26 @@ const ReportSubmissionScreen = () => {
     }
 
     const serializedReportData = {
-      ...reportData,
       reportID: reportData.reportID || `REPORTS-${Math.floor(100000 + Math.random() * 900000)}`,
+      AreaOfOperation: reportData.areaOfOperation,
+      CalamityAndArea: reportData.calamityAndArea,
+      DateOfReport: reportData.dateOfReport,
+      TimeOfIntervention: reportData.completionTimeOfIntervention,
+      StartDate: reportData.startingDateOfOperation,
+      EndDate: reportData.endingDateOfOperation,
+      NoOfIndividualsOrFamilies: reportData.individualsOrFamilies,
+      NoOfFoodPacks: reportData.reliefPacks,
+      NoOfHotMeals: reportData.hotMeals,
+      LitersOfWater: reportData.water,
+      NoOfVolunteersMobilized: reportData.volunteers,
+      NoOfOrganizationsActivated: reportData.organizationsActivated,
+      TotalValueOfInKindDonations: reportData.inKindValue,
+      TotalMonetaryDonations: reportData.monetaryDonations,
       locationName,
+      userUid,
+      organization: organizationName,
+      submittedBy: auth.currentUser?.email || 'Unknown',
+      status: 'submitted',
     };
 
     navigation.navigate('ReportSummary', { reportData: serializedReportData, userUid, organizationName });
@@ -347,24 +365,41 @@ const ReportSubmissionScreen = () => {
 
   useEffect(() => {
     if (route.params?.reportData) {
-      setReportData(route.params.reportData);
-      if (route.params.reportData.dateOfReport) {
-        setTempDate((prev) => ({ ...prev, dateOfReport: new Date(route.params.reportData.dateOfReport) }));
+      setReportData({
+        reportID: route.params.reportData.reportID || '',
+        areaOfOperation: route.params.reportData.AreaOfOperation || '',
+        calamityAndArea: route.params.reportData.CalamityAndArea || '',
+        dateOfReport: route.params.reportData.DateOfReport || formatDate(currentDate),
+        completionTimeOfIntervention: route.params.reportData.TimeOfIntervention || formatTime(currentDate),
+        startingDateOfOperation: route.params.reportData.StartDate || '',
+        endingDateOfOperation: route.params.reportData.EndDate || '',
+        individualsOrFamilies: route.params.reportData.NoOfIndividualsOrFamilies || '',
+        reliefPacks: route.params.reportData.NoOfFoodPacks || '',
+        hotMeals: route.params.reportData.NoOfHotMeals || '',
+        water: route.params.reportData.LitersOfWater || '',
+        volunteers: route.params.reportData.NoOfVolunteersMobilized || '',
+        organizationsActivated: route.params.reportData.NoOfOrganizationsActivated || '',
+        inKindValue: route.params.reportData.TotalValueOfInKindDonations || '',
+        monetaryDonations: route.params.reportData.TotalMonetaryDonations || '',
+      });
+
+      if (route.params.reportData.DateOfReport) {
+        setTempDate((prev) => ({ ...prev, dateOfReport: new Date(route.params.reportData.DateOfReport) }));
       }
-      if (route.params.reportData.startingDateOfOperation) {
+      if (route.params.reportData.StartDate) {
         setTempDate((prev) => ({
           ...prev,
-          startingDateOfOperation: new Date(route.params.reportData.startingDateOfOperation),
+          startingDateOfOperation: new Date(route.params.reportData.StartDate),
         }));
       }
-      if (route.params.reportData.endingDateOfOperation) {
+      if (route.params.reportData.EndDate) {
         setTempDate((prev) => ({
           ...prev,
-          endingDateOfOperation: new Date(route.params.reportData.endingDateOfOperation),
+          endingDateOfOperation: new Date(route.params.reportData.EndDate),
         }));
       }
-      if (route.params.reportData.completionTimeOfIntervention) {
-        const [timePart, ampmPart] = route.params.reportData.completionTimeOfIntervention.split(' ');
+      if (route.params.reportData.TimeOfIntervention) {
+        const [timePart, ampmPart] = route.params.reportData.TimeOfIntervention.split(' ');
         let [hours, minutes] = timePart.split(':').map(Number);
         if (ampmPart === 'PM' && hours !== 12) hours += 12;
         if (ampmPart === 'AM' && hours === 12) hours = 0;
@@ -372,8 +407,8 @@ const ReportSubmissionScreen = () => {
         dummyDateForTime.setHours(hours, minutes, 0, 0);
         setTempDate((prev) => ({ ...prev, completionTimeOfIntervention: dummyDateForTime }));
       }
-      if (route.params.reportData.areaOfOperation) {
-        const [lat, lng] = route.params.reportData.areaOfOperation.split(',').map(Number);
+      if (route.params.reportData.AreaOfOperation) {
+        const [lat, lng] = route.params.reportData.AreaOfOperation.split(',').map(Number);
         if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
           setSelectedLocation({
             latitude: lat,
@@ -431,8 +466,9 @@ const ReportSubmissionScreen = () => {
     return () => unsubscribe();
   }, [navigation, route.params]);
 
-  const mapHtml = permissionStatus === 'granted' && selectedLocation
-    ? `
+  const mapHtml =
+    permissionStatus === 'granted' && selectedLocation
+      ? `
       <!DOCTYPE html>
       <html>
       <head>
@@ -455,167 +491,166 @@ const ReportSubmissionScreen = () => {
           let autocompleteService;
           let placeService;
 
-          function initMap() {
-            const userLocation = { lat: ${selectedLocation.latitude}, lng: ${selectedLocation.longitude} };
-            map = new google.maps.Map(document.getElementById("map"), {
-              center: userLocation,
-              zoom: 16,
-              mapTypeId: "roadmap",
+      function initMap() {
+        const userLocation = { lat: ${selectedLocation.latitude}, lng: ${selectedLocation.longitude} };
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: userLocation,
+          zoom: 16,
+          mapTypeId: "roadmap",
+        });
+
+        geocoder = new google.maps.Geocoder();
+        autocompleteService = new google.maps.places.AutocompleteService();
+        placeService = new google.maps.places.PlacesService(map);
+
+        const userMarker = new google.maps.Marker({
+          position: userLocation,
+          map: map,
+          title: "Current Location",
+          icon: {
+            url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+          },
+        });
+        markers.push(userMarker);
+
+        geocoder.geocode({ location: userLocation }, (results, status) => {
+          let infoContent = status === "OK" && results[0] ? results[0].formatted_address : \`Lat: \${userLocation.lat}, Lng: \${userLocation.lng}\`;
+          const userInfowindow = new google.maps.InfoWindow({
+            content: infoContent,
+          });
+          userMarker.addListener("click", () => {
+            userInfowindow.open(map, userMarker);
+          });
+          userInfowindow.open(map, userMarker);
+        });
+
+        map.addListener("click", (event) => {
+          clearMarkers();
+
+          const clickedLocation = { lat: event.latLng.lat(), lng: event.latLng.lng() };
+
+          const marker = new google.maps.Marker({
+            position: clickedLocation,
+            map: map,
+            title: "Pinned Location",
+          });
+          markers.push(marker);
+
+          geocoder.geocode({ location: clickedLocation }, (results, status) => {
+            let formattedAddress = "";
+            let infoContent = \`Lat: \${clickedLocation.lat.toFixed(6)}, Lng: \${clickedLocation.lng.toFixed(6)}\`;
+
+            if (status === "OK" && results[0]) {
+              formattedAddress = results[0].formatted_address;
+              infoContent = formattedAddress;
+            }
+
+            const infowindow = new google.maps.InfoWindow({
+              content: infoContent,
             });
-
-            geocoder = new google.maps.Geocoder();
-            autocompleteService = new google.maps.places.AutocompleteService();
-            placeService = new google.maps.places.PlacesService(map);
-
-            // Initial marker for current location
-            const userMarker = new google.maps.Marker({
-              position: userLocation,
-              map: map,
-              title: "Current Location",
-              icon: {
-                url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-              },
+            marker.addListener("click", () => {
+              infowindow.open(map, marker);
             });
-            markers.push(userMarker);
+            infowindow.open(map, marker);
 
-            geocoder.geocode({ location: userLocation }, (results, status) => {
-              let infoContent = status === "OK" && results[0] ? results[0].formatted_address : \`Lat: \${userLocation.lat}, Lng: \${userLocation.lng}\`;
-              const userInfowindow = new google.maps.InfoWindow({
-                content: infoContent,
-              });
-              userMarker.addListener("click", () => {
-                userInfowindow.open(map, userMarker);
-              });
-              userInfowindow.open(map, userMarker);
-            });
+            try {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                latitude: clickedLocation.lat,
+                longitude: clickedLocation.lng,
+                formattedAddress: formattedAddress
+              }));
+            } catch (error) {
+              console.error("postMessage error:", error);
+            }
+          });
 
-            map.addListener("click", (event) => {
-              clearMarkers();
+          map.setCenter(event.latLng);
+          map.setZoom(16);
+        });
 
-              const clickedLocation = { lat: event.latLng.lat(), lng: event.latLng.lng() };
-
-              const marker = new google.maps.Marker({
-                position: clickedLocation,
-                map: map,
-                title: "Pinned Location",
-              });
-              markers.push(marker);
-
-              geocoder.geocode({ location: clickedLocation }, (results, status) => {
-                let formattedAddress = "";
-                let infoContent = \`Lat: \${clickedLocation.lat.toFixed(6)}, Lng: \${clickedLocation.lng.toFixed(6)}\`;
-
-                if (status === "OK" && results[0]) {
-                  formattedAddress = results[0].formatted_address;
-                  infoContent = formattedAddress;
-                }
-
-                const infowindow = new google.maps.InfoWindow({
-                  content: infoContent,
-                });
-                marker.addListener("click", () => {
-                  infowindow.open(map, marker);
-                });
-                infowindow.open(map, marker);
-
-                try {
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    latitude: clickedLocation.lat,
-                    longitude: clickedLocation.lng,
-                    formattedAddress: formattedAddress
-                  }));
-                } catch (error) {
-                  console.error("postMessage error:", error);
-                }
-              });
-
-              map.setCenter(event.latLng);
-              map.setZoom(16);
-            });
-
-            window.searchPlaces = function(query) {
-              if (!query) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ suggestions: [] }));
+        window.searchPlaces = function(query) {
+          if (!query) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ suggestions: [] }));
+            return;
+          }
+          autocompleteService.getPlacePredictions(
+            { 
+              input: query, 
+              types: ['geocode'],
+              componentRestrictions: { country: 'ph' }
+            },
+            (predictions, status) => {
+              if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ suggestions: [], error: "No results found" }));
                 return;
               }
-              autocompleteService.getPlacePredictions(
-                { 
-                  input: query, 
-                  types: ['geocode'],
-                  componentRestrictions: { country: 'ph' }
-                },
-                (predictions, status) => {
-                  if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions) {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({ suggestions: [], error: "No results found" }));
-                    return;
-                  }
-                  const suggestions = predictions.map(prediction => ({
-                    placeId: prediction.place_id,
-                    description: prediction.description
-                  }));
-                  try {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({ suggestions }));
-                  } catch (error) {
-                    console.error("postMessage error:", error);
-                  }
-                }
-              );
-            };
+              const suggestions = predictions.map(prediction => ({
+                placeId: prediction.place_id,
+                description: prediction.description
+              }));
+              try {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ suggestions }));
+              } catch (error) {
+                console.error("postMessage error:", error);
+              }
+            }
+          );
+        };
 
-            window.selectPlace = function(placeId) {
-              placeService.getDetails(
-                { placeId: placeId, fields: ['geometry', 'formatted_address'] },
-                (place, detailStatus) => {
-                  if (detailStatus !== google.maps.places.PlacesServiceStatus.OK || !place.geometry) {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({ error: "Failed to fetch place details" }));
-                    return;
-                  }
-                  clearMarkers();
-                  const location = {
-                    lat: place.geometry.location.lat(),
-                    lng: place.geometry.location.lng(),
-                  };
-                  const marker = new google.maps.Marker({
-                    position: location,
-                    map: map,
-                    title: place.formatted_address || "Selected Location",
-                  });
-                  markers.push(marker);
-                  const infowindow = new google.maps.InfoWindow({
-                    content: place.formatted_address || \`Lat: \${location.lat.toFixed(6)}, Lng: \${location.lng.toFixed(6)}\`,
-                  });
-                  marker.addListener("click", () => {
-                    infowindow.open(map, marker);
-                  });
-                  infowindow.open(map, marker);
-                  map.setCenter(location);
-                  map.setZoom(16);
-                  try {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({
-                      latitude: location.lat,
-                      longitude: location.lng,
-                      formattedAddress: place.formatted_address || ""
-                    }));
-                  } catch (error) {
-                    console.error("postMessage error:", error);
-                  }
-                }
-              );
-            };
-          }
+        window.selectPlace = function(placeId) {
+          placeService.getDetails(
+            { placeId: placeId, fields: ['geometry', 'formatted_address'] },
+            (place, detailStatus) => {
+              if (detailStatus !== google.maps.places.PlacesServiceStatus.OK || !place.geometry) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ error: "Failed to fetch place details" }));
+                return;
+              }
+              clearMarkers();
+              const location = {
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng(),
+              };
+              const marker = new google.maps.Marker({
+                position: location,
+                map: map,
+                title: place.formatted_address || "Selected Location",
+              });
+              markers.push(marker);
+              const infowindow = new google.maps.InfoWindow({
+                content: place.formatted_address || \`Lat: \${location.lat.toFixed(6)}, Lng: \${location.lng.toFixed(6)}\`,
+              });
+              marker.addListener("click", () => {
+                infowindow.open(map, marker);
+              });
+              infowindow.open(map, marker);
+              map.setCenter(location);
+              map.setZoom(16);
+              try {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  latitude: location.lat,
+                  longitude: location.lng,
+                  formattedAddress: place.formatted_address || ""
+                }));
+              } catch (error) {
+                console.error("postMessage error:", error);
+              }
+            }
+          );
+        };
+      }
 
-          function clearMarkers() {
-            markers.forEach(marker => marker.setMap(null));
-            markers = [];
-          }
+      function clearMarkers() {
+        markers.forEach(marker => marker.setMap(null));
+        markers = [];
+      }
 
-          window.initMap = initMap;
-        </script>
-        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU&callback=initMap&libraries=places" async defer></script>
-      </body>
-      </html>
-    `
-    : null;
+      window.initMap = initMap;
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU&callback=initMap&libraries=places" async defer></script>
+  </body>
+  </html>
+`
+      : null;
 
   return (
     <View style={RDANAStyles.container}>
@@ -703,9 +738,7 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, time) => handleTimeChange('completionTimeOfIntervention', event, time)}
                 />
               )}
-              {errors.completionTimeOfIntervention && (
-                <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.completionTimeOfIntervention}</Text>
-              )}
+              {errors.completionTimeOfIntervention && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.completionTimeOfIntervention}</Text>}
               {renderLabel('Starting Date of Operation', true)}
               <TouchableOpacity
                 style={[RDANAStyles.input, errors.startingDateOfOperation && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
@@ -724,9 +757,7 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, date) => handleDateChange('startingDateOfOperation', event, date)}
                 />
               )}
-              {errors.startingDateOfOperation && (
-                <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.startingDateOfOperation}</Text>
-              )}
+              {errors.startingDateOfOperation && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.startingDateOfOperation}</Text>}
               {renderLabel('Ending Date of Operation', true)}
               <TouchableOpacity
                 style={[RDANAStyles.input, errors.endingDateOfOperation && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
@@ -745,9 +776,7 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, date) => handleDateChange('endingDateOfOperation', event, date)}
                 />
               )}
-              {errors.endingDateOfOperation && (
-                <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.endingDateOfOperation}</Text>
-              )}
+              {errors.endingDateOfOperation && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.endingDateOfOperation}</Text>}
               {renderLabel('No. of Individuals or Families', true)}
               <TextInput
                 style={[RDANAStyles.input, errors.individualsOrFamilies && RDANAStyles.requiredInput]}
@@ -756,9 +785,7 @@ const ReportSubmissionScreen = () => {
                 value={reportData.individualsOrFamilies}
                 keyboardType="numeric"
               />
-              {errors.individualsOrFamilies && (
-                <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.individualsOrFamilies}</Text>
-              )}
+              {errors.individualsOrFamilies && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.individualsOrFamilies}</Text>}
               {renderLabel('No. of Relief Packs', true)}
               <TextInput
                 style={[RDANAStyles.input, errors.reliefPacks && RDANAStyles.requiredInput]}
@@ -803,9 +830,7 @@ const ReportSubmissionScreen = () => {
                 value={reportData.organizationsActivated}
                 keyboardType="numeric"
               />
-              {errors.organizationsActivated && (
-                <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.organizationsActivated}</Text>
-              )}
+              {errors.organizationsActivated && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.organizationsActivated}</Text>}
               {renderLabel('Total Value of In-Kind Donations', true)}
               <TextInput
                 style={[RDANAStyles.input, errors.inKindValue && RDANAStyles.requiredInput]}
@@ -823,9 +848,7 @@ const ReportSubmissionScreen = () => {
                 value={reportData.monetaryDonations}
                 keyboardType="numeric"
               />
-              {errors.monetaryDonations && (
-                <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.monetaryDonations}</Text>
-              )}
+              {errors.monetaryDonations && <Text style={[RDANAStyles.errorText, { marginTop: 2 }]}>{errors.monetaryDonations}</Text>}
             </View>
             <TouchableOpacity style={RDANAStyles.button} onPress={handleSubmit}>
               <Text style={RDANAStyles.buttonText}>Submit</Text>

@@ -1,15 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, CommonActions } from '@react-navigation/native'; // Import CommonActions
+import { CommonActions, useNavigation, useRoute } from '@react-navigation/native';
 import { ref as databaseRef, push } from 'firebase/database';
 import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import CustomModal from '../components/CustomModal';
 import { database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
-import CustomModal from '../components/CustomModal';
 
 const ReportSummary = () => {
   const route = useRoute();
-  // Use state to manage reportData so it can be passed back if needed
   const [reportData, setReportData] = useState(route.params?.reportData || {});
   const { userUid, organizationName = '[Organization Name]' } = route.params || {};
   const navigation = useNavigation();
@@ -35,31 +34,32 @@ const ReportSummary = () => {
       }
 
       const newReport = {
-        reportID: reportData.reportID || `RPT-${Date.now()}`,
-        timeOfIntervention: reportData.timeOfIntervention || '',
+        reportID: reportData.reportID || `REPORTS-${Math.floor(100000 + Math.random() * 900000)}`,
+        TimeOfIntervention: reportData.TimeOfIntervention || '',
         submittedBy: reportData.submittedBy || '',
-        dateOfReport: reportData.dateOfReport || '',
-        operationDate: reportData.operationDate || '',
-        families: parseInt(reportData.families) || 0,
-        foodPacks: parseInt(reportData.foodPacks) || 0,
-        hotMeals: parseInt(reportData.hotMeals) || 0,
-        water: parseInt(reportData.water) || 0,
-        volunteers: parseInt(reportData.volunteers) || 0,
-        amountRaised: parseInt(reportData.amountRaised) || 0,
-        inKindValue: parseInt(reportData.inKindValue) || 0,
-        urgentNeeds: reportData.urgentNeeds || '',
-        remarks: reportData.remarks || '',
+        DateOfReport: reportData.DateOfReport || '',
+        StartDate: reportData.StartDate || '',
+        EndDate: reportData.EndDate || '', // Add EndDate
+        NoOfIndividualsOrFamilies: parseInt(reportData.NoOfIndividualsOrFamilies) || 0,
+        NoOfFoodPacks: parseInt(reportData.NoOfFoodPacks) || 0,
+        NoOfHotMeals: parseInt(reportData.NoOfHotMeals) || 0,
+        LitersOfWater: parseInt(reportData.LitersOfWater) || 0,
+        NoOfVolunteersMobilized: parseInt(reportData.NoOfVolunteersMobilized) || 0,
+        TotalMonetaryDonations: parseInt(reportData.TotalMonetaryDonations) || 0,
+        TotalValueOfInKindDonations: parseInt(reportData.TotalValueOfInKindDonations) || 0,
+        CalamityAndArea: reportData.CalamityAndArea || '',
+        NotesAdditionalInformation: reportData.NotesAdditionalInformation || '',
         status: 'Pending',
         userUid: userUid,
         timestamp: Date.now(),
         organization: organizationName,
+        AreaOfOperation: reportData.AreaOfOperation || '',
       };
 
-      // Save to reports/submitted subnode
       const reportRef = databaseRef(database, 'reports/submitted');
       await push(reportRef, newReport);
       console.log('Report saved successfully to reports/submitted');
-      setErrorMessage(null); // Clear any previous error
+      setErrorMessage(null);
       setModalVisible(true);
     } catch (error) {
       console.error('Error saving report:', error.message);
@@ -73,34 +73,25 @@ const ReportSummary = () => {
   const handleConfirm = () => {
     setModalVisible(false);
     if (!errorMessage) {
-      // SUCCESS: Reset the navigation stack and go to the Home screen
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [
-            { name: 'Home' }, // Assuming 'Home' is the name of your dashboard/main screen
-          ],
+          routes: [{ name: 'Home' }],
         })
       );
     } else {
-      // ERROR: Navigate to Login or stay on current screen
-      // For now, we'll navigate back to ReportSubmission to allow retry if error
       navigation.navigate('ReportSubmission', { reportData });
     }
   };
 
   const handleCancel = () => {
     setModalVisible(false);
-    // If there was an error and user cancels, they might want to correct it.
-    // So, we navigate back to ReportSubmission.
     if (errorMessage) {
       navigation.navigate('ReportSubmission', { reportData });
     }
-    // If no error, just close modal and stay on summary.
   };
 
   const handleBack = () => {
-    // Navigate back to ReportSubmission and pass the current reportData
     navigation.navigate('ReportSubmission', { reportData });
   };
 
@@ -110,33 +101,28 @@ const ReportSummary = () => {
 
   const formatDateDisplay = (dateStr) => {
     if (!dateStr) return 'N/A';
-    // If the format is YYYY-MM-DD, just return it.
-    if(/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        return dateStr;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr;
     }
-    // Otherwise, try to parse it
     const date = new Date(dateStr);
     return !isNaN(date) ? date.toLocaleDateString('en-GB') : 'N/A';
   };
 
   const formatTimeDisplay = (timeStr) => {
     if (!timeStr) return 'N/A';
-    // If the format is already HH:MM AM/PM, just return it.
     if (/(^([0-9]{1,2}):([0-9]{2})\s(AM|PM)$)/i.test(timeStr)) {
-        return timeStr;
+      return timeStr;
     }
-    // Otherwise, try to parse it (assuming it's a parsable date string with time)
-    const date = new Date(`2000-01-01T${timeStr}`); // Create a dummy date for parsing time
+    const date = new Date(`2000-01-01T${timeStr}`);
     if (!isNaN(date.getTime())) {
-        return date.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true,
-        });
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
     }
-    // As a fallback, return the original string if it looks like a time but parsing failed
     if (timeStr.includes(':')) {
-        return timeStr;
+      return timeStr;
     }
     return 'N/A';
   };
@@ -162,22 +148,26 @@ const ReportSummary = () => {
               </View>
             ))}
             <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Time of Intervention</Text>
-              <Text style={styles.value}>{formatTimeDisplay(reportData.timeOfIntervention)}</Text>
+              <Text style={styles.label}>Time of intervention</Text>
+              <Text style={styles.value}>{formatTimeDisplay(reportData.TimeOfIntervention)}</Text>
             </View>
             <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Date of Report</Text>
-              <Text style={styles.value}>{formatDateDisplay(reportData.dateOfReport)}</Text>
+              <Text style={styles.label}>Date of report</Text>
+              <Text style={styles.value}>{formatDateDisplay(reportData.DateOfReport)}</Text>
+            </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Area of operation</Text>
+              <Text style={styles.value}>{reportData.AreaOfOperation || 'N/A'}</Text>
             </View>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Relief Operations</Text>
-            {['operationDate', 'families', 'foodPacks', 'hotMeals', 'water', 'volunteers', 'amountRaised', 'inKindValue'].map((field) => (
+            {['StartDate', 'EndDate', 'NoOfIndividualsOrFamilies', 'NoOfFoodPacks', 'NoOfHotMeals', 'LitersOfWater', 'NoOfVolunteersMobilized', 'TotalMonetaryDonations', 'TotalValueOfInKindDonations'].map((field) => (
               <View key={field} style={styles.fieldContainer}>
                 <Text style={styles.label}>{formatLabel(field)}</Text>
                 <Text style={styles.value}>
-                  {field === 'operationDate' ? formatDateDisplay(reportData[field]) : reportData[field] || 'N/A'}
+                  {(field === 'StartDate' || field === 'EndDate') ? formatDateDisplay(reportData[field]) : reportData[field] || 'N/A'}
                 </Text>
               </View>
             ))}
@@ -185,7 +175,7 @@ const ReportSummary = () => {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Additional Updates</Text>
-            {['urgentNeeds', 'remarks'].map((field) => (
+            {['CalamityAndArea', 'NotesAdditionalInformation'].map((field) => (
               <View key={field} style={styles.fieldContainer}>
                 <Text style={styles.label}>{formatLabel(field)}</Text>
                 <Text style={styles.value}>{reportData[field] || 'None'}</Text>
