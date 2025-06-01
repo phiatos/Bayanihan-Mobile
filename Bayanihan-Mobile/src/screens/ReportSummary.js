@@ -1,21 +1,53 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, CommonActions } from '@react-navigation/native'; // Import CommonActions
-import { ref as databaseRef, push } from 'firebase/database';
-import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { database } from '../configuration/firebaseConfig';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
+import { ref as databaseRef, push, get } from 'firebase/database';
+import React, { useState, useEffect } from 'react';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
+import GlobalStyles from '../styles/GlobalStyles';
+import RDANAStyles from '../styles/RDANAStyles';
 
 const ReportSummary = () => {
   const route = useRoute();
-  // Use state to manage reportData so it can be passed back if needed
   const [reportData, setReportData] = useState(route.params?.reportData || {});
-  const { userUid, organizationName = '[Organization Name]' } = route.params || {};
+  const { userUid } = route.params || {};
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [organizationName, setOrganizationName] = useState('Loading...'); // Initialize with loading state
+
+  // Fetch organization name from Firebase
+  useEffect(() => {
+    const fetchOrganizationName = async () => {
+      if (!userUid) {
+        console.warn('No user UID provided');
+        setOrganizationName('Unknown Organization');
+        return;
+      }
+
+      try {
+        const userRef = databaseRef(database, `users/${userUid}`);
+        const snapshot = await get(userRef);
+        const userData = snapshot.val();
+        if (userData && userData.organization) {
+          setOrganizationName(userData.organization);
+        } else {
+          console.warn('No organization found for user:', userUid);
+          setOrganizationName('Unknown Organization');
+          Alert.alert('Warning', 'No organization found in your profile. Using default name.');
+        }
+      } catch (error) {
+        console.error('Error fetching organization name:', error.message);
+        setOrganizationName('Unknown Organization');
+        Alert.alert('Error', 'Failed to fetch organization name: ' + error.message);
+      }
+    };
+
+    fetchOrganizationName();
+  }, [userUid]);
 
   const handleSubmit = async () => {
     if (!userUid) {
@@ -36,30 +68,33 @@ const ReportSummary = () => {
 
       const newReport = {
         reportID: reportData.reportID || `RPT-${Date.now()}`,
-        timeOfIntervention: reportData.timeOfIntervention || '',
-        submittedBy: reportData.submittedBy || '',
-        dateOfReport: reportData.dateOfReport || '',
-        operationDate: reportData.operationDate || '',
-        families: parseInt(reportData.families) || 0,
-        foodPacks: parseInt(reportData.foodPacks) || 0,
-        hotMeals: parseInt(reportData.hotMeals) || 0,
-        water: parseInt(reportData.water) || 0,
-        volunteers: parseInt(reportData.volunteers) || 0,
-        amountRaised: parseInt(reportData.amountRaised) || 0,
-        inKindValue: parseInt(reportData.inKindValue) || 0,
-        urgentNeeds: reportData.urgentNeeds || '',
-        remarks: reportData.remarks || '',
+        AreaOfOperation: reportData.AreaOfOperation || '',
+        DateOfReport: reportData.DateOfReport || '',
+        calamityAreaDropdown: reportData.calamityAreaDropdown || '',  
+        completionTimeOfIntervention: reportData.completionTimeOfIntervention || '',
+        startingDateOfOperation: reportData.startingDateOfOperation || '',
+        EndDate: reportData.EndDate || '',
+        NoOfIndividualsOrFamilies: parseInt(reportData.NoOfIndividualsOrFamilies) || 0,
+        reliefPacks: parseInt(reportData.reliefPacks) || 0,
+        NoOfHotMeals: parseInt(reportData.hotMeals) || 0,
+        LitersOfWater: parseInt(reportData.LitersOfWater) || 0,
+        NoOfVolunteersMobilized: parseInt(reportData.NoOfVolunteersMobilized) || 0,
+        NoOfOrganizationsActivated: parseInt(reportData.NoOfOrganizationsActivated) || 0,
+        TotalValueOfInKindDonations: parseInt(reportData.TotalValueOfInKindDonations) || 0,
+        TotalMonetaryDonations: parseInt(reportData.TotalMonetaryDonations) || 0,
+        notes: reportData.notes || '',
         status: 'Pending',
         userUid: userUid,
         timestamp: Date.now(),
-        organization: organizationName,
+        organization: organizationName, // Use fetched organizationName
+        
       };
 
       // Save to reports/submitted subnode
       const reportRef = databaseRef(database, 'reports/submitted');
       await push(reportRef, newReport);
       console.log('Report saved successfully to reports/submitted');
-      setErrorMessage(null); // Clear any previous error
+      setErrorMessage(null);
       setModalVisible(true);
     } catch (error) {
       console.error('Error saving report:', error.message);
@@ -77,30 +112,23 @@ const ReportSummary = () => {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [
-            { name: 'Home' }, // Assuming 'Home' is the name of your dashboard/main screen
-          ],
+          routes: [{ name: 'Home' }],
         })
       );
     } else {
-      // ERROR: Navigate to Login or stay on current screen
-      // For now, we'll navigate back to ReportSubmission to allow retry if error
+      // ERROR: Navigate to ReportSubmission to allow retry
       navigation.navigate('ReportSubmission', { reportData });
     }
   };
 
   const handleCancel = () => {
     setModalVisible(false);
-    // If there was an error and user cancels, they might want to correct it.
-    // So, we navigate back to ReportSubmission.
     if (errorMessage) {
       navigation.navigate('ReportSubmission', { reportData });
     }
-    // If no error, just close modal and stay on summary.
   };
 
   const handleBack = () => {
-    // Navigate back to ReportSubmission and pass the current reportData
     navigation.navigate('ReportSubmission', { reportData });
   };
 
@@ -110,87 +138,72 @@ const ReportSummary = () => {
 
   const formatDateDisplay = (dateStr) => {
     if (!dateStr) return 'N/A';
-    // If the format is YYYY-MM-DD, just return it.
-    if(/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        return dateStr;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr;
     }
-    // Otherwise, try to parse it
     const date = new Date(dateStr);
     return !isNaN(date) ? date.toLocaleDateString('en-GB') : 'N/A';
   };
 
   const formatTimeDisplay = (timeStr) => {
     if (!timeStr) return 'N/A';
-    // If the format is already HH:MM AM/PM, just return it.
     if (/(^([0-9]{1,2}):([0-9]{2})\s(AM|PM)$)/i.test(timeStr)) {
-        return timeStr;
+      return timeStr;
     }
-    // Otherwise, try to parse it (assuming it's a parsable date string with time)
-    const date = new Date(`2000-01-01T${timeStr}`); // Create a dummy date for parsing time
+    const date = new Date(`2000-01-01T${timeStr}`);
     if (!isNaN(date.getTime())) {
-        return date.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true,
-        });
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
     }
-    // As a fallback, return the original string if it looks like a time but parsing failed
     if (timeStr.includes(':')) {
-        return timeStr;
+      return timeStr;
     }
     return 'N/A';
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.menuIcon} onPress={() => navigation.openDrawer()}>
-            <Ionicons name="menu" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerText}>Reports Summary</Text>
-        </View>
+    <View style={styles.container}>
+          <View style={GlobalStyles.headerContainer}>
+            <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+              <Ionicons name="menu" size={32} color="white" />
+            </TouchableOpacity>
+            <Text style={GlobalStyles.headerTitle}>Reports Submission</Text>
+          </View>
+    
         <Text style={styles.subheader}>{organizationName}</Text>
-
+        <ScrollView contentContainerStyle={RDANAStyles.scrollViewContent}>
         <View style={styles.formContainer}>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Basic Information</Text>
-            {['reportID', 'submittedBy'].map((field) => (
+            {['reportID', 'AreaOfOperation', 'DateOfReport'].map((field) => (
               <View key={field} style={styles.fieldContainer}>
                 <Text style={styles.label}>{formatLabel(field)}</Text>
                 <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
               </View>
             ))}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Time of Intervention</Text>
-              <Text style={styles.value}>{formatTimeDisplay(reportData.timeOfIntervention)}</Text>
-            </View>
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Date of Report</Text>
-              <Text style={styles.value}>{formatDateDisplay(reportData.dateOfReport)}</Text>
-            </View>
+            
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Relief Operations</Text>
-            {['operationDate', 'families', 'foodPacks', 'hotMeals', 'water', 'volunteers', 'amountRaised', 'inKindValue'].map((field) => (
-              <View key={field} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(field)}</Text>
-                <Text style={styles.value}>
-                  {field === 'operationDate' ? formatDateDisplay(reportData[field]) : reportData[field] || 'N/A'}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Additional Updates</Text>
-            {['urgentNeeds', 'remarks'].map((field) => (
+            {['calamityAreaDropdown','completionTimeOfIntervention', 'startingDateOfOperation', 'EndDate', 'NoOfIndividualsOrFamilies', 'LitersOfWater', 'NoOfVolunteersMobilized', 'NoOfOrganizationsActivated', 'TotalValueOfInKindDonations', 'TotalMonetaryDonations'].map((field) => (
               <View key={field} style={styles.fieldContainer}>
                 <Text style={styles.label}>{formatLabel(field)}</Text>
                 <Text style={styles.value}>{reportData[field] || 'None'}</Text>
               </View>
             ))}
+          </View>
+            
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Additional Updates</Text>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Notes/Additional Information</Text>
+                <Text style={styles.value}>{reportData.notes || 'None'}</Text>
+              </View>
+           
           </View>
         </View>
 
@@ -238,21 +251,45 @@ const ReportSummary = () => {
                 </>
               )}
             </View>
+            
           }
           onConfirm={handleConfirm}
           onCancel={handleCancel}
           confirmText={errorMessage ? 'Retry' : 'Proceed'}
           showCancel={false}
         />
-      </ScrollView>
-    </SafeAreaView>
+                </ScrollView>
+
+    </View>
   );
+};
+
+
+const spacing = {
+  xsmall: 5,
+  small: 10,
+  medium: 15,
+  large: 20,
+  xlarge: 30,
+};
+
+const borderRadius = {
+  small: 4,
+  medium: 8,
+  large: 10,
+  xlarge: 20,
+};
+
+const borderWidth = {
+  thin: 1,
+  medium: 2,
+  thick: 3,
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
     flex: 1,
+    backgroundColor: Theme.colors.lightBg,
   },
   header: {
     flexDirection: 'row',

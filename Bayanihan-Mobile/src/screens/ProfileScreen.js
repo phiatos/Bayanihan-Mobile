@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
   StyleSheet,
+  Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../configuration/firebaseConfig';
@@ -61,6 +62,8 @@ const ProfileScreen = ({ navigation }) => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { height, width } = Dimensions.get('window');
+  
 
   // State for custom modal
   const [customModal, setCustomModal] = useState({

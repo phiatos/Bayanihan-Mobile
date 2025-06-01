@@ -1,6 +1,5 @@
 import { StyleSheet } from 'react-native';
 import Theme from '../constants/theme';
-const { width, height } = Dimensions.get('window');
 
 
 const spacing = {

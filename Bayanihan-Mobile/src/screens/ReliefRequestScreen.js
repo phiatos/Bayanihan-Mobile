@@ -21,7 +21,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     contactPerson: '',
     contactNumber: '',
     email: '',
-    barangay: '',
+    address: '',
     city: '',
     donationCategory: '',
     itemName: '',
@@ -54,7 +54,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     'contactPerson',
     'contactNumber',
     'email',
-    'barangay',
+    'address',
     'city',
     'donationCategory',
   ];
@@ -184,7 +184,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
       contactPerson: 0,
       contactNumber: 0,
       email: 0,
-      barangay: 0,
+      address: 0,
       city: 0,
       donationCategory: 0,
       itemName: 1,
@@ -332,14 +332,14 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           {renderLabel('Exact Drop-off Address', true)}
           <View>
             <TextInput
-              style={[ReliefRequestStyles.input, errors.barangay && ReliefRequestStyles.requiredInput]}
-              placeholder="Enter Barangay"
-              onChangeText={(val) => handleChange('barangay', val)}
-              value={reportData.barangay}
-              onFocus={() => scrollToInput('barangay')}
+              style={[ReliefRequestStyles.input, errors.address && ReliefRequestStyles.requiredInput]}
+              placeholder="Enter Drop-Off Address"
+              onChangeText={(val) => handleChange('address', val)}
+              value={reportData.address}
+              onFocus={() => scrollToInput('address')}
             />
           </View>
-          {errors.barangay && <Text style={ReliefRequestStyles.errorText}>{errors.barangay}</Text>}
+          {errors.address && <Text style={ReliefRequestStyles.errorText}>{errors.address}</Text>}
 
           {renderLabel('City', true)}
           <View>
@@ -451,8 +451,8 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 errors.notes && ReliefRequestStyles.requiredInput,
               ]}
               placeholder="Enter Notes/Concerns (Optional)"
-              multiline
-              numberOfLines={4}
+              // multiline
+              // numberOfLines={4}
               onChangeText={(val) => handleChange('notes', val)}
               value={reportData.notes}
               onFocus={() => scrollToInput('notes')}
