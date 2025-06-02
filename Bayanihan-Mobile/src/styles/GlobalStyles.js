@@ -33,11 +33,11 @@ export default StyleSheet.create({
     borderBottomLeftRadius: borderRadius.xlarge,
     borderBottomRightRadius: borderRadius.xlarge,
     position: 'relative', // For absolute positioning of internal elements like menu icon
-    elevation: 10, // Android shadow
-    shadowColor: Theme.colors.black, // iOS shadow
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    // elevation: 10, // Android shadow
+    // shadowColor: Theme.colors.black, // iOS shadow
+    // shadowOffset: { width: 0, height: 5 },
+    // shadowOpacity: 0.3,
+    // shadowRadius: 5,
   },
   headerMenuIcon: {
     position: 'absolute',

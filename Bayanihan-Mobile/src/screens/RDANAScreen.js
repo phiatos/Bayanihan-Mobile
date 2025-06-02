@@ -853,7 +853,7 @@ const RDANAScreen = () => {
             return (
               <View key={item}>
                 {renderLabel(item, false)}
-                <View style={{ position: 'relative', zIndex: 1500 }} ref={(ref) => (inputContainerRefs[field] = ref)}>
+                <View style={{ position: 'relative', zIndex: 5500 }} ref={(ref) => (inputContainerRefs[field] = ref)}>
                   <TextInput
                     ref={statusInputRefs[refKey]}
                     style={[RDANAStyles.input, errors[field] && RDANAStyles.requiredInput]}

@@ -603,6 +603,8 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <View style={{backgroundColor: Theme.colors.primary, }}>
       <View style={GlobalStyles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
           <Ionicons name="menu" size={32} color="white" />
@@ -615,6 +617,7 @@ const HomeScreen = ({ navigation }) => {
             imageStyle={{ borderRadius: 25 }}
           />
         </View>
+      </View>
       </View>
 
       <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
@@ -856,7 +859,8 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
     width: width,
-    height: height,
+    height: '100%',
+    zIndex: 1
   },
   overlayContainer: {
     position: 'absolute',
@@ -869,6 +873,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+    backgroundColor: Theme.colors.primary
   },
     userInfoContainer: {
     flexDirection: 'row',
@@ -876,7 +881,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     right: -30,
-    textAlign:'right'
+    textAlign:'right' 
     },
   userName: {
     fontSize: 11,

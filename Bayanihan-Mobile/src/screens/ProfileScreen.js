@@ -580,18 +580,7 @@ const ProfileScreen = ({ navigation }) => {
                     </View>
                   </View>
                 ))}
-                <View style={ProfileStyles.infoRow}>
-                  <Text style={ProfileStyles.label}>Area of Operation:</Text>
-                  <View style={ProfileStyles.outputContainer}>
-                    {profileData.areaOfOperation.length > 0 ? (
-                      profileData.areaOfOperation.map((area, i) => (
-                        <Text key={i} style={ProfileStyles.output}>{`${i + 1}. ${area}`}</Text>
-                      ))
-                    ) : (
-                      <Text style={ProfileStyles.output}>N/A</Text>
-                    )}
-                  </View>
-                </View>
+               
               </View>
             )}
 
