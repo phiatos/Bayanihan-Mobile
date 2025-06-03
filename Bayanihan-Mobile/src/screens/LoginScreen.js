@@ -19,7 +19,7 @@ const LoginScreen = ({ navigation }) => {
   const handleLogin = useCallback(
     debounce(async () => {
       if (!email || !password) {
-        ToastAndroid.show('Please enter email and password', ToastAndroid.BOTTOM);
+        ToastAndroid.show('Please enter email and password', ToastAndroid.SHORT);
         return;
       }
 

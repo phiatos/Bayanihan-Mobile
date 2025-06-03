@@ -1,19 +1,103 @@
+
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
+  Animated,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import GlobalStyles from '../styles/GlobalStyles';
 import ReliefRequestStyles from '../styles/ReliefRequestStyles';
+import RDANAStyles from '../styles/RDANAStyles';
+import Theme from '../constants/theme';
+
+const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText, showCancel }) => {
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onCancel || onConfirm}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <View style={styles.modalContent}>
+            {typeof message === 'string' ? (
+              <>
+                <Ionicons
+                  name={title.includes('Success') || title.includes('Saved') ? 'checkmark-circle' : 'warning'}
+                  size={60}
+                  color={title.includes('Success') || title.includes('Saved') ? '#00BCD4' : '#FF0000'}
+                  style={styles.modalIcon}
+                />
+                <Text style={styles.modalMessage}>{message}</Text>
+              </>
+            ) : (
+              message
+            )}
+          </View>
+          <View style={styles.modalButtonContainer}>
+            {showCancel && (
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={onCancel}>
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={onConfirm}>
+              <Text style={styles.modalButtonText}>{confirmText}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const CustomToast = ({ visible, title, message, onDismiss }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+
+      const timer = setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => onDismiss());
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [visible, fadeAnim, onDismiss]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[styles.toastContainer, { opacity: fadeAnim }]}>
+      <Ionicons name="checkmark-circle" size={40} color="#00BCD4" style={styles.toastIcon} />
+      <View style={styles.toastContent}>
+        <Text style={styles.toastTitle}>{title}</Text>
+        <Text style={styles.toastMessage}>{message}</Text>
+      </View>
+    </Animated.View>
+  );
+};
 
 const ReliefRequestScreen = ({ navigation, route }) => {
   const [errors, setErrors] = useState({});
@@ -29,11 +113,22 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     notes: '',
   });
   const [items, setItems] = useState([]);
-  const [isCategoryDropdownVisible, setIsCategoryDropdownVisible] = useState(false);
-  const [filteredCategories, setFilteredCategories] = useState(categories);
   const [isItemDropdownVisible, setIsItemDropdownVisible] = useState(false);
   const [filteredItems, setFilteredItems] = useState([]);
-  const categoryInputRef = useRef(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    onCancel: null,
+    confirmText: 'OK',
+    showCancel: false,
+  });
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastConfig, setToastConfig] = useState({
+    title: '',
+    message: '',
+  });
   const itemInputRef = useRef(null);
   const flatListRef = useRef(null);
 
@@ -47,7 +142,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     if (route.params?.reportData?.donationCategory) {
       setFilteredItems(itemSuggestions[route.params.reportData.donationCategory] || []);
     }
-    setFilteredCategories(categories);
   }, [route.params]);
 
   const contactRequiredFields = [
@@ -108,16 +202,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     }
 
     if (field === 'donationCategory') {
-      if (value.trim() === '') {
-        setFilteredCategories(categories);
-        setIsCategoryDropdownVisible(true);
-      } else {
-        const filtered = categories.filter((category) =>
-          category.toLowerCase().includes(value.toLowerCase())
-        );
-        setFilteredCategories(filtered);
-        setIsCategoryDropdownVisible(true);
-      }
       setReportData((prevData) => ({ ...prevData, itemName: '' }));
       setFilteredItems(itemSuggestions[value] || []);
     }
@@ -137,18 +221,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleCategorySelect = (category) => {
-    setReportData((prevData) => ({ ...prevData, donationCategory: category, itemName: '' }));
-    setIsCategoryDropdownVisible(false);
-    setErrors((prev) => {
-      const newErrors = { ...prev };
-      delete newErrors.donationCategory;
-      return newErrors;
-    });
-    setFilteredItems(itemSuggestions[category] || []);
-    categoryInputRef.current?.blur();
-  };
-
   const handleItemSelect = (item) => {
     setReportData((prevData) => ({ ...prevData, itemName: item }));
     setIsItemDropdownVisible(false);
@@ -160,12 +232,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     itemInputRef.current?.blur();
   };
 
-  const handleCategoryFocus = () => {
-    setIsCategoryDropdownVisible(true);
-    setFilteredCategories(categories);
-    scrollToInput('donationCategory');
-  };
-
   const handleItemFocus = () => {
     if (reportData.donationCategory) {
       setIsItemDropdownVisible(true);
@@ -174,11 +240,10 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     scrollToInput('itemName');
   };
 
-  const handleBlur = (setDropdownVisible) => {
-    setTimeout(() => setDropdownVisible(false), 200);
+  const handleBlur = () => {
+    setTimeout(() => setIsItemDropdownVisible(false), 200);
   };
 
-  // Updated scrollToInput to use scrollToIndex
   const scrollToInput = (field) => {
     const sectionMap = {
       contactPerson: 0,
@@ -209,7 +274,14 @@ const ReliefRequestScreen = ({ navigation, route }) => {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      Alert.alert('Incomplete Fields', 'Please fill out all required item fields before adding.');
+      setModalConfig({
+        title: 'Incomplete Fields',
+        message: 'Please fill out all required item fields before adding.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+        showCancel: false,
+      });
+      setModalVisible(true);
       return;
     }
 
@@ -220,10 +292,14 @@ const ReliefRequestScreen = ({ navigation, route }) => {
       notes: reportData.notes || '',
     };
     setItems([...items, newItem]);
-    Alert.alert(
-      'Item Saved',
-      `Saved:\nCategory: ${newItem.donationCategory}\nItem: ${newItem.itemName}\nQty: ${newItem.quantity}\nNotes: ${newItem.notes || 'None'}`
-    );
+    setModalConfig({
+      title: 'Item Saved',
+      message: `Saved:\nCategory: ${newItem.donationCategory}\nItem: ${newItem.itemName}\nQuantity: ${newItem.quantity}\nNotes: ${newItem.notes || 'None'}`,
+      onConfirm: () => setModalVisible(false),
+      confirmText: 'OK',
+      showCancel: false,
+    });
+    setModalVisible(true);
 
     setReportData((prev) => ({
       ...prev,
@@ -236,8 +312,23 @@ const ReliefRequestScreen = ({ navigation, route }) => {
   };
 
   const handleDeleteItem = (index) => {
-    setItems(items.filter((_, i) => i !== index));
-    Alert.alert('Item Deleted', 'The item has been removed from the list.');
+    setModalConfig({
+      title: 'Confirm Deletion',
+      message: 'Are you sure you want to delete this item?',
+      onConfirm: () => {
+        setItems(items.filter((_, i) => i !== index));
+        setModalVisible(false);
+        setToastConfig({
+          title: 'Item Deleted',
+          message: 'The item has been removed from the list.',
+        });
+        setToastVisible(true);
+      },
+      onCancel: () => setModalVisible(false),
+      confirmText: 'Delete',
+      showCancel: true,
+    });
+    setModalVisible(true);
   };
 
   const handleSubmit = () => {
@@ -258,12 +349,26 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      Alert.alert('Incomplete Data', `Please fill in required contact fields:\n${Object.values(newErrors).join('\n')}`);
+      setModalConfig({
+        title: 'Incomplete Data',
+        message: `Please fill in required contact fields:\n${Object.values(newErrors).join('\n')}`,
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+        showCancel: false,
+      });
+      setModalVisible(true);
       return;
     }
 
     if (items.length === 0) {
-      Alert.alert('No Items Added', 'Please add at least one item to the request.');
+      setModalConfig({
+        title: 'No Items Added',
+        message: 'Please add at least one item to the request.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+        showCancel: false,
+      });
+      setModalVisible(true);
       return;
     }
 
@@ -354,36 +459,33 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           {errors.city && <Text style={ReliefRequestStyles.errorText}>{errors.city}</Text>}
 
           {renderLabel('Donation Category', true)}
-          <View style={{ position: 'relative', zIndex: 2000 }}>
-            <TextInput
-              ref={categoryInputRef}
-              style={[ReliefRequestStyles.input, errors.donationCategory && ReliefRequestStyles.requiredInput]}
-              placeholder="Enter or Select Donation Category"
-              onChangeText={(val) => handleChange('donationCategory', val)}
-              value={reportData.donationCategory}
-              onFocus={handleCategoryFocus}
-              onBlur={() => handleBlur(setIsCategoryDropdownVisible)}
-            />
-            {isCategoryDropdownVisible && filteredCategories.length > 0 && (
-              <View style={[ReliefRequestStyles.dropdownContainer, { maxHeight: maxDropdownHeight, zIndex: 2000 }]}>
-                <FlatList
-                  data={filteredCategories}
-                  keyExtractor={(item) => item}
-                  nestedScrollEnabled
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={ReliefRequestStyles.dropdownItem}
-                      onPress={() => handleCategorySelect(item)}
-                    >
-                      <Text style={ReliefRequestStyles.dropdownItemText}>{item}</Text>
-                    </TouchableOpacity>
-                  )}
+          <View style={[RDANAStyles.input, RDANAStyles.pickerContainer, { zIndex: 2000 }]}>
+            <Picker
+              selectedValue={reportData.donationCategory}
+              onValueChange={(value) => handleChange('donationCategory', value)}
+              style={{
+                fontFamily: 'Poppins_Regular',
+                fontSize: 14,
+                color: reportData.donationCategory ? '#000' : '#999',
+                height: 68,
+                width: '100%',
+                textAlign: 'center',
+              }}
+              dropdownIconColor="#00BCD4"
+            >
+              <Picker.Item label="Select Donation Category" value="" style={{ fontFamily: 'Poppins_Regular', fontSize: 14 }} />
+              {categories.map((category) => (
+                <Picker.Item
+                  key={category}
+                  label={category}
+                  value={category}
+                  style={{ fontFamily: 'Poppins_Regular', fontSize: 14 }}
                 />
-              </View>
-            )}
+              ))}
+            </Picker>
           </View>
           {errors.donationCategory && (
-            <Text style={ReliefRequestStyles.errorText}>{errors.donationCategory}</Text>
+            <Text style={RDANAStyles.errorText}>{errors.donationCategory}</Text>
           )}
         </View>
       ),
@@ -403,7 +505,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               onChangeText={(val) => handleChange('itemName', val)}
               value={reportData.itemName}
               onFocus={handleItemFocus}
-              onBlur={() => handleBlur(setIsItemDropdownVisible)}
+              onBlur={handleBlur}
               editable={!!reportData.donationCategory}
             />
             {!reportData.donationCategory && (reportData.itemName || errors.itemName) && (
@@ -438,7 +540,11 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               value={reportData.quantity}
               keyboardType="numeric"
               onFocus={() => scrollToInput('quantity')}
+              editable={!!reportData.donationCategory}
             />
+            {!reportData.donationCategory && (reportData.quantity || errors.quantity) && (
+              <Text style={ReliefRequestStyles.errorText}>Please select a Donation Category first.</Text>
+            )}
           </View>
           {errors.quantity && <Text style={ReliefRequestStyles.errorText}>{errors.quantity}</Text>}
 
@@ -451,12 +557,14 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 errors.notes && ReliefRequestStyles.requiredInput,
               ]}
               placeholder="Enter Notes/Concerns (Optional)"
-              // multiline
-              // numberOfLines={4}
               onChangeText={(val) => handleChange('notes', val)}
               value={reportData.notes}
               onFocus={() => scrollToInput('notes')}
+              editable={!!reportData.donationCategory}
             />
+            {!reportData.donationCategory && reportData.notes && (
+              <Text style={ReliefRequestStyles.errorText}>Please select a Donation Category first.</Text>
+            )}
           </View>
           {errors.notes && <Text style={ReliefRequestStyles.errorText}>{errors.notes}</Text>}
 
@@ -512,10 +620,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
   return (
     <View style={ReliefRequestStyles.container}>
       <View style={GlobalStyles.headerContainer}>
-        <TouchableOpacity
-          onPress={() => navigation.openDrawer()}
-          style={GlobalStyles.headerMenuIcon}
-        >
+        <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
           <Ionicons name="menu" size={32} color="white" />
         </TouchableOpacity>
         <Text style={GlobalStyles.headerTitle}>Relief Request</Text>
@@ -535,19 +640,126 @@ const ReliefRequestScreen = ({ navigation, route }) => {
             contentContainerStyle={ReliefRequestStyles.contentContainer}
             keyboardShouldPersistTaps="handled"
             getItemLayout={(data, index) => ({
-              length: 400, // Approximate height per section, adjust as needed
+              length: 400,
               offset: 400 * index,
               index,
             })}
             onScrollToIndexFailed={(info) => {
-              // Fallback in case scrollToIndex fails
-              flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
+              flatListRef.current?.scrollToOffset({ offset: info.averageItemLength || 0, animated: true });
             }}
           />
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      <CustomModal
+        visible={modalVisible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel}
+        confirmText={modalConfig.confirmText}
+        showCancel={modalConfig.showCancel}
+      />
+
+      <CustomToast
+        visible={toastVisible}
+        title={toastConfig.title}
+        message={toastConfig.message}
+        onDismiss={() => setToastVisible(false)}
+      />
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 20,
+    width: '80%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontFamily: 'Poppins_SemiBold',
+    fontSize: 20,
+    color: '#333',
+    marginBottom: 10,
+  },
+  modalContent: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalIcon: {
+    marginBottom: 10,
+  },
+  modalMessage: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  confirmButton: {
+    backgroundColor: '#00BCD4',
+  },
+  cancelButton: {
+    backgroundColor: '#FF0000',
+  },
+  modalButtonText: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 16,
+    color: '#fff',
+  },
+  toastContainer: {
+    position: 'absolute',
+    bottom: 50,
+    left: 20,
+    right: 20,
+    backgroundColor: Theme.colors.lightBg,
+    borderRadius: 10,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  toastIcon: {
+    marginRight: 10,
+  },
+  toastContent: {
+    flex: 1,
+  },
+  toastTitle: {
+    fontFamily: 'Poppins_SemiBold',
+    fontSize: 16,
+    color: Theme.colors.black,
+  },
+  toastMessage: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 12,
+    color: Theme.colors.black,
+  },
+});
 
 export default ReliefRequestScreen;

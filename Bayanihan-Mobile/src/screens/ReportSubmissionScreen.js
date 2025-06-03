@@ -701,14 +701,22 @@ useEffect(() => {
               <View style={RDANAStyles.section}>
                 <Text style={RDANAStyles.sectionTitle}>Relief Operations</Text>
                 {renderLabel('Select Calamity & Area of Operation', true)}
-                <View style={[RDANAStyles.input, errors.calamityAreaDropdown && RDANAStyles.requiredInput, {height:45, paddingVertical: 0, alignContent: 'center', justifyContent: 'center', paddingHorizontal: 0, }]}>
+                <View style={[RDANAStyles.input, errors.calamityAreaDropdown && RDANAStyles.requiredInput, RDANAStyles.pickerContainer,{height:45, paddingVertical: 0, alignContent: 'center', justifyContent: 'center', paddingHorizontal: 0, }]}>
                   <Picker
                     selectedValue={reportData.CalamityAreaId}
                     onValueChange={(value) => handleCalamityChange(value)}
-                    style={{ flex: 1,fontFamily: 'Poppins_Regular' , color: reportData.CalamityAreaId ? '#000' : '#999'}}
-                    dropdownIconColor="#00BCD4"
+                    style={{ 
+                            // flex: 1,
+                            fontFamily: 'Poppins_Regular',
+                            fontSize: 14,
+                            height: 68, 
+                            width: '100%', 
+                            textAlign: 'center', 
+                            color: reportData.CalamityAreaId ? '#000' : '#999'}}
+                            dropdownIconColor="#00BCD4"
                   >
-                    <Picker.Item label="-- Select an Active Operation --" value=""  />
+                    <Picker.Item label="Select an Active Operation" value=""  
+                    style={{ fontFamily: 'Poppins_Regular', textAlign: 'center', fontSize: 14 }}/>
                     {activeActivations.map((activation) => {
                       let displayCalamity = activation.calamityType;
                       if (activation.calamityType === 'Typhoon' && activation.typhoonName) {
@@ -720,7 +728,7 @@ useEffect(() => {
 
                       return (
                         <Picker.Item
-                          style={{fontFamily: 'Poppins_Regular' }}
+                          style={{fontFamily: 'Poppins_Regular', textAlign: 'center', fontSize: 14}}
                           key={activation.id}
                           label={`${displayCalamity} (by ${organizationName})`} // Use the new variable here
                           value={activation.id}

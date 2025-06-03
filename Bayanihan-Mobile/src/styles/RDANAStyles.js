@@ -27,11 +27,9 @@ export default StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.lightBg,
   },
-
   scrollViewContent: {
-    paddingVertical: spacing.small, 
+    paddingVertical: spacing.small,
   },
-
   section: {
     marginVertical: spacing.small,
     marginHorizontal: spacing.medium,
@@ -46,7 +44,6 @@ export default StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-
   sectionTitle: {
     fontSize: 18,
     marginBottom: spacing.small,
@@ -54,18 +51,15 @@ export default StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Poppins_SemiBold',
   },
-
   form: {
     marginHorizontal: 10,
   },
-
   formTitle: {
     fontSize: 13,
     color: Theme.colors.primary,
     marginBottom: 5,
     fontFamily: 'Poppins_Bold',
   },
-
   input: {
     borderWidth: borderWidth.thin,
     borderColor: '#605D67',
@@ -76,17 +70,13 @@ export default StyleSheet.create({
     fontSize: 14,
     color: Theme.colors.black,
   },
-
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-  
   requiredInput: {
     borderColor: '#D32F2F',
-    fontWeight: '400',
   },
-
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -130,10 +120,10 @@ export default StyleSheet.create({
     fontSize: 18,
     color: '#14AEBB',
   },
-  table:{
+  table: {
     borderWidth: 1,
     borderColor: Theme.colors.primary,
-    marginVertical: 20
+    marginVertical: 20,
   },
   tableRow: {
     flexDirection: 'row',
@@ -147,7 +137,6 @@ export default StyleSheet.create({
     paddingVertical: 15,
     color: Theme.colors.white,
     backgroundColor: '#00b3c3c2',
-    
   },
   tableCell: {
     textAlign: 'left',
@@ -156,7 +145,6 @@ export default StyleSheet.create({
     paddingVertical: 5,
     borderWidth: 1,
     borderColor: Theme.colors.primary,
-
   },
   icon: {
     padding: 10,
@@ -206,5 +194,47 @@ export default StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  
+  pickerContainer: {
+    borderWidth: borderWidth.thin, // Match input
+    borderColor: '#605D67', // Match input
+    borderRadius: borderRadius.large, // Match input
+    paddingHorizontal: 0, // Match input
+    paddingVertical:0, // Reduced vertical padding to keep compact but prevent cutoff
+    marginBottom: spacing.small, // Match input
+    height: 48, // Increased height to prevent text cutoff
+    justifyContent: 'center', // Center content vertically
+    alignItems: 'center', // Center content horizontally
+    textAlign:'center'
+  },
+  pickerRequiredInput: {
+    borderColor: '#D32F2F', // Match requiredInput
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.small,
+  },
+  checkboxBox: {
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.small,
+    borderWidth: borderWidth.thin,
+    borderColor: Theme.colors.primary,
+    marginRight: spacing.small,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Theme.colors.white,
+  },
+  checkmark: {
+    fontSize: 24,
+    color: Theme.colors.white,
+    backgroundColor: Theme.colors.primary,
+    lineHeight: 24,
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 14,
+    color: Theme.colors.black,
+    fontFamily: 'Poppins_Regular',
+  },
 });

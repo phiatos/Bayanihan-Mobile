@@ -140,6 +140,7 @@ const styles = StyleSheet.create({
   body: {
     marginBottom: 20,
     alignItems: 'center',
+    fontSize: 14
   },
   message: {
     fontSize: 14,
