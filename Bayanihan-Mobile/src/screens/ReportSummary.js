@@ -24,7 +24,7 @@ const ReportSummary = () => {
     const fetchOrganizationName = async () => {
       if (!userUid) {
         console.warn('No user UID provided');
-        setOrganizationName('Unknown Organization');
+        setOrganizationName('');
         return;
       }
 
@@ -36,12 +36,12 @@ const ReportSummary = () => {
           setOrganizationName(userData.organization);
         } else {
           console.warn('No organization found for user:', userUid);
-          setOrganizationName('Unknown Organization');
+          setOrganizationName('');
           Alert.alert('Warning', 'No organization found in your profile. Using default name.');
         }
       } catch (error) {
         console.error('Error fetching organization name:', error.message);
-        setOrganizationName('Unknown Organization');
+        setOrganizationName('');
         Alert.alert('Error', 'Failed to fetch organization name: ' + error.message);
       }
     };

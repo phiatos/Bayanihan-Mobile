@@ -121,14 +121,10 @@ export default StyleSheet.create({
     color: '#14AEBB',
   },
   table: {
-    borderWidth: 1,
-    borderColor: Theme.colors.primary,
     marginVertical: 20,
   },
   tableRow: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.primary,
   },
   tableHeader: {
     textAlign: 'left',
@@ -136,7 +132,7 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_SemiBold',
     paddingVertical: 15,
     color: Theme.colors.white,
-    backgroundColor: '#00b3c3c2',
+    backgroundColor: Theme.colors.primary,
   },
   tableCell: {
     textAlign: 'left',

@@ -6,12 +6,34 @@ import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
 import CustomModal from '../components/CustomModal';
+import GlobalStyles from '../styles/GlobalStyles';
+import Theme from '../constants/theme';
 
 const RDANASummary = () => {
   const { reportData = {}, affectedMunicipalities = [] } = useRoute().params || {};
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Validate incoming data
+  if (!reportData || typeof reportData !== 'object') {
+    console.warn('Invalid reportData received:', reportData);
+    Alert.alert('Error', 'Invalid report data. Please return and fill the form again.');
+    return null;
+  }
+
+  if (!Array.isArray(affectedMunicipalities)) {
+    console.warn('Invalid affectedMunicipalities received:', affectedMunicipalities);
+    Alert.alert('Error', 'Invalid municipalities data.');
+    return null;
+  }
+
+  // Log data for debugging
+  useEffect(() => {
+    console.log('reportData:', reportData);
+    console.log('affectedMunicipalities:', affectedMunicipalities);
+    console.log('Organization Name:', reportData.Name_of_the_Organizations_Involved);
+  }, [reportData, affectedMunicipalities]);
 
   // Automatically sign in anonymously if no user is authenticated
   useEffect(() => {
@@ -24,6 +46,8 @@ const RDANASummary = () => {
           console.error('Anonymous login failed:', error.message);
           Alert.alert('Authentication Failed', `Failed to sign in: ${error.message}`);
         });
+    } else {
+      console.log('Already authenticated:', auth.currentUser.uid);
     }
   }, []);
 
@@ -46,7 +70,7 @@ const RDANASummary = () => {
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
-    // Step 1: Verify authenticated user
+    // Verify authenticated user
     const user = auth.currentUser;
     if (!user) {
       console.log('No authenticated user found');
@@ -57,8 +81,8 @@ const RDANASummary = () => {
     }
     console.log('Authenticated user UID:', user.uid);
 
-    // Step 2: Validate form data
-    if (!reportData || Object.keys(reportData).length === 0 || !affectedMunicipalities || affectedMunicipalities.length === 0) {
+    // Validate form data
+    if (Object.keys(reportData).length === 0 || affectedMunicipalities.length === 0) {
       console.log('Validation failed: Incomplete form data', { reportData, affectedMunicipalities });
       Alert.alert('Submission Failed', 'Form data is incomplete. Please ensure all fields are filled correctly.');
       setIsSubmitting(false);
@@ -66,7 +90,7 @@ const RDANASummary = () => {
     }
     console.log('Form data validated successfully');
 
-    // Step 3: Prepare report data
+    // Prepare report data
     const sanitizedProfileData = {};
     Object.keys(reportData).forEach((key) => {
       sanitizedProfileData[sanitizeKey(formatLabel(key))] = reportData[key] || 'N/A';
@@ -90,44 +114,46 @@ const RDANASummary = () => {
     const reportDataForFirebase = {
       rdanaId: `RDANA-${Math.floor(100 + Math.random() * 900)}`,
       dateTime: new Date().toISOString(),
-      siteLocation: reportData.barangay || 'N/A',
-      disasterType: reportData.typeOfDisaster || 'N/A',
-      effects: { affectedPopulation: affectedMunicipalities.reduce((sum, c) => sum + (parseInt(c.affectedPopulation) || 0), 0) },
+      Site_Location_Address_Barangay: reportData.Site_Location_Address_Barangay || 'N/A',
+      disasterType: reportData.Type_of_Disaster || 'N/A',
+      effects: { affectedPopulation: affectedMunicipalities.reduce((sum, c) => sum + (parseInt(c.affected) || 0), 0) },
       needs: {
         priority: priorityNeeds,
       },
       profile: sanitizedProfileData,
       modality: {
-        Locations_and_Areas_Affected: reportData.locationsAreasAffectedBarangay || 'N/A',
-        Type_of_Disaster: reportData.typeOfDisaster || 'N/A',
-        Date_and_Time_of_Occurrence: `${reportData.dateOfOccurrence || ''} ${reportData.timeOfOccurrence || ''}`,
+        Locations_and_Areas_Affected: reportData.Locations_and_Areas_Affected_Barangay || 'N/A',
+        Type_of_Disaster: reportData.Type_of_Disaster || 'N/A',
+        Date_and_Time_of_Occurrence: `${reportData.Date_of_Occurrence || ''} ${reportData.Time_of_Occurrence || ''}`,
       },
-      summary: reportData.summaryOfDisasterIncident || '',
+      summary: reportData.summary || 'N/A',
       affectedCommunities: affectedMunicipalities.map((community) => ({
-        community: community.affectedMunicipalitiesCommunities || '',
-        totalPop: community.totalPopulation || '0',
-        affected: community.affectedPopulation || '0',
+        community: community.community || 'N/A',
+        totalPop: community.totalPop || '0',
+        affected: community.affected || '0',
         deaths: community.deaths || '0',
         injured: community.injured || '0',
         missing: community.missing || '0',
         children: community.children || '0',
         women: community.women || '0',
-        seniors: community.seniorCitizens || '0',
+        seniors: community.seniors || '0',
         pwd: community.pwd || '0',
       })),
       structureStatus: [
-        { structure: 'Bridges', status: reportData.bridgesStatus || 'N/A' },
-        { structure: 'Roads', status: reportData.roadsStatus || 'N/A' },
-        { structure: 'Buildings', status: reportData.buildingsStatus || 'N/A' },
-        { structure: 'Hospitals', status: reportData.hospitalsStatus || 'N/A' },
-        { structure: 'Schools', status: reportData.schoolsStatus || 'N/A' },
+        { structure: 'Residential Houses', status: reportData.residentialHousesStatus || 'N/A' },
+        { structure: 'Transportation and Mobility', status: reportData.transportationAndMobilityStatus || 'N/A' },
+        { structure: 'Electricity, Power Grid', status: reportData.electricityPowerGridStatus || 'N/A' },
+        { structure: 'Communication Networks, Internet', status: reportData.communicationNetworksInternetStatus || 'N/A' },
+        { structure: 'Hospitals, Rural Health Units', status: reportData.hospitalsRuralHealthUnitsStatus || 'N/A' },
+        { structure: 'Water Supply System', status: reportData.waterSupplySystemStatus || 'N/A' },
+        { structure: 'Market, Business, Commercial Establishments', status: reportData.marketBusinessAndCommercialEstablishmentsStatus || 'N/A' },
       ],
       needsChecklist: needsChecklist,
-      otherNeeds: reportData.otherImmediateNeeds || 'N/A',
-      estQty: reportData.estimatedQuantity || 'N/A',
-      responseGroup: reportData.responseGroupsInvolved || 'N/A',
-      reliefDeployed: reportData.reliefAssistanceDeployed || 'N/A',
-      familiesServed: reportData.numberOfFamiliesServed || 'N/A',
+      otherNeeds: reportData.otherNeeds || 'N/A',
+      estQty: reportData.estQty || 'N/A',
+      responseGroup: reportData.responseGroup || 'N/A',
+      reliefDeployed: reportData.reliefDeployed || 'N/A',
+      familiesServed: reportData.familiesServed || 'N/A',
       userUid: user.uid,
       status: 'Submitted',
       timestamp: serverTimestamp(),
@@ -135,7 +161,7 @@ const RDANASummary = () => {
 
     console.log('Prepared report data:', JSON.stringify(reportDataForFirebase, null, 2));
 
-    // Step 4: Attempt to write to Firebase
+    // Attempt to write to Firebase
     try {
       const submittedRef = ref(database, 'rdana/submitted');
       console.log('Writing to Firebase at path:', submittedRef.toString());
@@ -177,48 +203,50 @@ const RDANASummary = () => {
   const renderMunicipalityItem = (item, index) => (
     <View key={index.toString()} style={[styles.tableRow, { minWidth: 1150 }]}>
       <Text style={[styles.tableCell, { minWidth: 50 }]}>{index + 1}</Text>
-      <Text style={[styles.tableCell, { minWidth: 200 }]}>{item.affectedMunicipalitiesCommunities || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 120 }]}>{item.totalPopulation || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 120 }]}>{item.affectedPopulation || 'N/A'}</Text>
+      <Text style={[styles.tableCell, { minWidth: 240 }]}>{item.community || 'N/A'}</Text>
+      <Text style={[styles.tableCell, { minWidth: 120 }]}>{item.totalPop || 'N/A'}</Text>
+      <Text style={[styles.tableCell, { minWidth: 120 }]}>{item.affected || 'N/A'}</Text>
       <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.deaths || 'N/A'}</Text>
       <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.injured || 'N/A'}</Text>
       <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.missing || 'N/A'}</Text>
       <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.children || 'N/A'}</Text>
       <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.women || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 120 }]}>{item.seniorCitizens || 'N/A'}</Text>
+      <Text style={[styles.tableCell, { minWidth: 130 }]}>{item.seniors || 'N/A'}</Text>
       <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.pwd || 'N/A'}</Text>
     </View>
   );
 
-  // Determine the organization name to display
-  const organizationName = reportData.nameOrganizationInvolved || 'Unknown Organization';
+  const organizationName = reportData.Name_of_the_Organizations_Involved || 'Unknown Organization';
 
   return (
     <View style={{ flex: 1 }}>
+      <View style={GlobalStyles.headerContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.openDrawer()}
+          style={GlobalStyles.headerMenuIcon}
+        >
+          <Ionicons name="menu" size={32} color="white" />
+        </TouchableOpacity>
+        <Text style={GlobalStyles.headerTitle}>RDANA Summary</Text>
+      </View>
       <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.menuIcon} onPress={() => navigation.openDrawer()}>
-            <Ionicons name="menu" size={32} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerText}>RDANA Summary</Text>
-        </View>
         <Text style={styles.subheader}>{organizationName}</Text>
         <View style={styles.formContainer}>
           {/* Profile of the Disaster */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Profile of the Disaster</Text>
             {[
-              'barangay',
-              'cityMunicipality',
-              'province',
-              'localAuthoritiesPersonsContacted',
-              'dateInformationGathered',
-              'timeInformationGathered',
-              'nameOrganizationInvolved',
-            ].map((field) => (
-              <View key={field} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(field)}:</Text>
-                <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+              { key: 'Site_Location_Address_Barangay', label: 'barangay' },
+              { key: 'Site_Location_Address_City_Municipality', label: 'cityMunicipality' },
+              { key: 'Site_Location_Address_Province', label: 'province' },
+              { key: 'Local_Authorities_Persons_Contacted_for_Information', label: 'localAuthoritiesPersonsContacted' },
+              { key: 'Date_of_Information_Gathered', label: 'dateInformationGathered' },
+              { key: 'Time_of_Information_Gathered', label: 'timeInformationGathered' },
+              { key: 'Name_of_the_Organizations_Involved', label: 'nameOrganizationInvolved' },
+            ].map(({ key, label }) => (
+              <View key={label} style={styles.fieldContainer}>
+                <Text style={styles.label}>{formatLabel(label)}:</Text>
+                <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
               </View>
             ))}
           </View>
@@ -227,17 +255,17 @@ const RDANASummary = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Modality</Text>
             {[
-              'locationsAreasAffectedBarangay',
-              'locationsAreasAffectedCityMunicipality',
-              'locationsAreasAffectedProvince',
-              'typeOfDisaster',
-              'dateOfOccurrence',
-              'timeOfOccurrence',
-              'summaryOfDisasterIncident',
-            ].map((field) => (
-              <View key={field} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(field)}:</Text>
-                <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+              { key: 'Locations_and_Areas_Affected_Barangay', label: 'locationsAreasAffectedBarangay' },
+              { key: 'Locations_and_Areas_Affected_City_Municipality', label: 'locationsAreasAffectedCityMunicipality' },
+              { key: 'Locations_and_Areas_Affected_Province', label: 'locationsAreasAffectedProvince' },
+              { key: 'Type_of_Disaster', label: 'typeOfDisaster' },
+              { key: 'Date_of_Occurrence', label: 'dateOfOccurrence' },
+              { key: 'Time_of_Occurrence', label: 'timeOfOccurrence' },
+              { key: 'summary', label: 'summaryOfDisasterIncident' },
+            ].map(({ key, label }) => (
+              <View key={label} style={styles.fieldContainer}>
+                <Text style={styles.label}>{formatLabel(label)}:</Text>
+                <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
               </View>
             ))}
           </View>
@@ -250,7 +278,8 @@ const RDANASummary = () => {
               <ScrollView horizontal showsHorizontalScrollIndicator={true}>
                 <View style={styles.table}>
                   <View style={[styles.tableHeader, { minWidth: 1150 }]}>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 200 }]}>Affected Municipalities/Communities</Text>
+                    <Text style={[styles.tableHeaderCell, { minWidth: 50 }]}>#</Text>
+                    <Text style={[styles.tableHeaderCell, { minWidth: 20 }]}>Affected Municipalities/Communities</Text>
                     <Text style={[styles.tableHeaderCell, { minWidth: 120 }]}>Total Population</Text>
                     <Text style={[styles.tableHeaderCell, { minWidth: 120 }]}>Affected Population</Text>
                     <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>Deaths</Text>
@@ -273,15 +302,17 @@ const RDANASummary = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities</Text>
             {[
-              'bridgesStatus',
-              'roadsStatus',
-              'buildingsStatus',
-              'hospitalsStatus',
-              'schoolsStatus',
-            ].map((field) => (
-              <View key={field} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(field)}:</Text>
-                <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+              { key: 'residentialHousesStatus', label: 'Residential Houses' },
+              { key: 'transportationAndMobilityStatus', label: 'Transportation and Mobility' },
+              { key: 'electricityPowerGridStatus', label: 'Electricity, Power Grid' },
+              { key: 'communicationNetworksInternetStatus', label: 'Communication Networks, Internet' },
+              { key: 'hospitalsRuralHealthUnitsStatus', label: 'Hospitals, Rural Health Units' },
+              { key: 'waterSupplySystemStatus', label: 'Water Supply System' },
+              { key: 'marketBusinessAndCommercialEstablishmentsStatus', label: 'Market, Business, Commercial Establishments' },
+            ].map(({ key, label }) => (
+              <View key={key} style={styles.fieldContainer}>
+                <Text style={styles.label}>{label}:</Text>
+                <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
               </View>
             ))}
           </View>
@@ -290,17 +321,17 @@ const RDANASummary = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Initial Needs Assessment Checklist</Text>
             {[
-              'reliefPacks',
-              'hotMeals',
-              'hygieneKits',
-              'drinkingWater',
-              'ricePacks',
-              'otherImmediateNeeds',
-              'estimatedQuantity',
-            ].map((field) => (
-              <View key={field} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(field)}:</Text>
-                <Text style={styles.value}>{reportData[field] || 'No'}</Text>
+              { key: 'reliefPacks', label: 'reliefPacks' },
+              { key: 'hotMeals', label: 'hotMeals' },
+              { key: 'hygieneKits', label: 'hygieneKits' },
+              { key: 'drinkingWater', label: 'drinkingWater' },
+              { key: 'ricePacks', label: 'ricePacks' },
+              { key: 'otherNeeds', label: 'otherImmediateNeeds' },
+              { key: 'estQty', label: 'estimatedQuantity' },
+            ].map(({ key, label }) => (
+              <View key={label} style={styles.fieldContainer}>
+                <Text style={styles.label}>{formatLabel(label)}:</Text>
+                <Text style={styles.value}>{reportData[key] || 'No'}</Text>
               </View>
             ))}
           </View>
@@ -309,13 +340,13 @@ const RDANASummary = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Initial Response Actions</Text>
             {[
-              'responseGroupsInvolved',
-              'reliefAssistanceDeployed',
-              'numberOfFamiliesServed',
-            ].map((field) => (
-              <View key={field} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(field)}:</Text>
-                <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+              { key: 'responseGroup', label: 'responseGroupsInvolved' },
+              { key: 'reliefDeployed', label: 'reliefAssistanceDeployed' },
+              { key: 'familiesServed', label: 'numberOfFamiliesServed' },
+            ].map(({ key, label }) => (
+              <View key={label} style={styles.fieldContainer}>
+                <Text style={styles.label}>{formatLabel(label)}:</Text>
+                <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
               </View>
             ))}
           </View>
@@ -468,31 +499,30 @@ const styles = StyleSheet.create({
   },
   table: {
     borderWidth: 1,
-    borderColor: '#4059A5',
+    borderColor: Theme.colors.primary,
     borderRadius: 5,
     overflow: 'hidden',
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(64, 89, 165, 0.23)',
+    backgroundColor: Theme.colors.primary,
     borderBottomWidth: 1,
-    borderColor: '#4059A5',
+    borderColor: Theme.colors.primary,
     paddingVertical: 8,
     paddingHorizontal: 5,
+    
   },
   tableHeaderCell: {
     textAlign: 'center',
-    color: '#000000',
+    color:Theme.colors.white,
     fontFamily: 'Poppins_SemiBold',
     fontSize: 12,
     paddingHorizontal: 5,
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 10,
+    // paddingVertical: 10,
     paddingHorizontal: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
   },
   tableCell: {
     textAlign: 'center',
@@ -500,6 +530,7 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontFamily: 'Poppins_Regular',
     paddingHorizontal: 5,
+    paddingVertical: 6
   },
   modalContent: {
     alignItems: 'center',

@@ -232,13 +232,13 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     itemInputRef.current?.blur();
   };
 
-  const handleItemFocus = () => {
-    if (reportData.donationCategory) {
-      setIsItemDropdownVisible(true);
-      setFilteredItems(itemSuggestions[reportData.donationCategory] || []);
-    }
-    scrollToInput('itemName');
-  };
+  // const handleItemFocus = () => {
+  //   if (reportData.donationCategory) {
+  //     setIsItemDropdownVisible(true);
+  //     setFilteredItems(itemSuggestions[reportData.donationCategory] || []);
+  //   }
+  //   scrollToInput('itemName');
+  // };
 
   const handleBlur = () => {
     setTimeout(() => setIsItemDropdownVisible(false), 200);
@@ -399,7 +399,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               placeholder="Enter Name of the Contact Person"
               onChangeText={(val) => handleChange('contactPerson', val)}
               value={reportData.contactPerson}
-              onFocus={() => scrollToInput('contactPerson')}
             />
           </View>
           {errors.contactPerson && (
@@ -414,7 +413,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               onChangeText={(val) => handleChange('contactNumber', val)}
               value={reportData.contactNumber}
               keyboardType="numeric"
-              onFocus={() => scrollToInput('contactNumber')}
             />
           </View>
           {errors.contactNumber && (
@@ -429,7 +427,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               onChangeText={(val) => handleChange('email', val)}
               value={reportData.email}
               keyboardType="email-address"
-              onFocus={() => scrollToInput('email')}
             />
           </View>
           {errors.email && <Text style={ReliefRequestStyles.errorText}>{errors.email}</Text>}
@@ -441,7 +438,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               placeholder="Enter Drop-Off Address"
               onChangeText={(val) => handleChange('address', val)}
               value={reportData.address}
-              onFocus={() => scrollToInput('address')}
             />
           </View>
           {errors.address && <Text style={ReliefRequestStyles.errorText}>{errors.address}</Text>}
@@ -453,7 +449,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               placeholder="Enter City"
               onChangeText={(val) => handleChange('city', val)}
               value={reportData.city}
-              onFocus={() => scrollToInput('city')}
+              // onFocus={() => scrollToInput('city')}
             />
           </View>
           {errors.city && <Text style={ReliefRequestStyles.errorText}>{errors.city}</Text>}
@@ -504,7 +500,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               placeholder="Enter or Select Item Name"
               onChangeText={(val) => handleChange('itemName', val)}
               value={reportData.itemName}
-              onFocus={handleItemFocus}
               onBlur={handleBlur}
               editable={!!reportData.donationCategory}
             />
@@ -539,7 +534,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               onChangeText={(val) => handleChange('quantity', val)}
               value={reportData.quantity}
               keyboardType="numeric"
-              onFocus={() => scrollToInput('quantity')}
               editable={!!reportData.donationCategory}
             />
             {!reportData.donationCategory && (reportData.quantity || errors.quantity) && (
@@ -559,7 +553,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               placeholder="Enter Notes/Concerns (Optional)"
               onChangeText={(val) => handleChange('notes', val)}
               value={reportData.notes}
-              onFocus={() => scrollToInput('notes')}
               editable={!!reportData.donationCategory}
             />
             {!reportData.donationCategory && reportData.notes && (

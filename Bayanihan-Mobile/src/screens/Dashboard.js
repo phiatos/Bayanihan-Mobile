@@ -41,7 +41,7 @@ const DashboardScreen = ({ navigation }) => {
     { label: 'In-Kind Donations', value: '₱0', icon: 'gift' },
   ]);
   const [headerTitle, setHeaderTitle] = useState('Dashboard');
-  const [organizationName, setOrganizationName] = useState('Unknown Organization'); // New state for organization name
+  const [organizationName, setOrganizationName] = useState(''); // New state for organization name
 
   useEffect(() => {
     (async () => {
@@ -87,7 +87,7 @@ const DashboardScreen = ({ navigation }) => {
         }
 
         const role = userData.role;
-        const orgName = userData.organization|| 'Unknown Organization'; // Fetch organization name
+        const orgName = userData.organization|| ''; // Fetch organization name
 
         setOrganizationName(orgName); // Set organization name
         setHeaderTitle(role === "AB ADMIN" ? "Admin Dashboard" : "Volunteer Dashboard");
