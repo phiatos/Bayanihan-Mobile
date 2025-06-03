@@ -1,38 +1,147 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { signInAnonymously } from 'firebase/auth';
-import { push, ref, serverTimestamp } from 'firebase/database';
+import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
 import CustomModal from '../components/CustomModal';
 
 const RDANASummary = () => {
-  const { reportData = {}, affectedMunicipalities = [] } = useRoute().params || {};
   const navigation = useNavigation();
+  const route = useRoute();
+  const [reportData, setReportData] = useState(route.params?.reportData || {});
+  const [affectedMunicipalities, setAffectedMunicipalities] = useState(route.params?.affectedMunicipalities || []);
   const [modalVisible, setModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userUid, setUserUid] = useState(null);
+  const [organizationName, setOrganizationName] = useState('[Unknown Organization]');
+  const [errorMessage, setErrorMessage] = useState(null);
 
-  // Automatically sign in anonymously if no user is authenticated
+  // Validate incoming data
+  if (!reportData || typeof reportData !== 'object') {
+    console.warn('Invalid reportData received:', reportData);
+    Alert.alert('Error', 'Invalid report data. Please return and fill the form again.');
+    return null;
+  }
+
+  if (!Array.isArray(affectedMunicipalities)) {
+    console.warn('Invalid affectedMunicipalities received:', affected);
+    Alert.alert('Error', 'Invalid municipalities data.');
+    return null;
+  }
+
+  // Organization name fetching
+  useEffect(() => {
+    const fetchOrganizationName = async () => {
+      try {
+        const storedOrg = await AsyncStorage.getItem('organizationName');
+        if (storedOrg) {
+          setOrganizationName(storedOrg);
+          console.log('Organization name loaded from storage:', storedOrg);
+        }
+
+        console.log('Setting up auth state listener...');
+        const unsubscribe = auth.onAuthStateChanged(
+          (user) => {
+            if (user) {
+              setUserUid(user.uid);
+              console.log('Logged-in user UID:', user.uid);
+              const userRef = databaseRef(database, `users/${user.uid}`);
+              get(userRef)
+                .then((snapshot) => {
+                  if (snapshot.exists()) {
+                    const userData = snapshot.val();
+                    if (userData && userData.organization) {
+                      setOrganizationName(userData.organization);
+                      AsyncStorage.setItem('organizationName', userData.organization);
+                      console.log('Organization name fetched:', userData.organization);
+                    } else {
+                      console.warn('User data or organization not found for UID:', user.uid);
+                      setOrganizationName('[Unknown Organization]');
+                      setErrorMessage('Organization name not found. Please contact support.');
+                      setModalVisible(true);
+                    }
+                  } else {
+                    console.warn('No user data found for UID:', user.uid);
+                    setOrganizationName('[Unknown Organization]');
+                    setErrorMessage('No user data found. Using default organization name.');
+                    setModalVisible(true);
+                  }
+                })
+                .catch((error) => {
+                  console.error('Error fetching user data:', error.message);
+                  setOrganizationName('[Unknown Organization]');
+                  setErrorMessage('Failed to fetch organization name: ' + error.message);
+                  setModalVisible(true);
+                });
+            } else {
+              console.warn('No user is logged in');
+              setErrorMessage('User not authenticated. Please log in.');
+              setModalVisible(true);
+            }
+          },
+          (error) => {
+            console.error('Auth state listener error: ' + error.message);
+            setErrorMessage('Authentication error: ' + error.message);
+            setModalVisible(true);
+          }
+        );
+
+        return () => unsubscribe();
+      } catch (error) {
+        console.error('Error in fetchOrganizationName:', error.message);
+        setErrorMessage('Failed to initialize organization name: ' + error.message);
+        setModalVisible(true);
+      }
+    };
+
+    fetchOrganizationName();
+  }, []);
+
+  // Debug organization name rendering
+  useEffect(() => {
+    console.log('Rendering with organizationName:', organizationName);
+  }, [organizationName]);
+
+  // Anonymous sign-in
   useEffect(() => {
     if (!auth.currentUser) {
       signInAnonymously(auth)
-        .then(userCredential => {
+        .then((userCredential) => {
           console.log('User signed in anonymously:', userCredential.user.uid);
         })
-        .catch(error => {
+        .catch((error) => {
           console.error('Anonymous login failed:', error.message);
-          Alert.alert('Authentication Failed', `Failed to sign in: ${error.message}`);
+          setErrorMessage(error.message);
+          setModalVisible(true);
         });
-    }
-  }, []);
+      } else {
+        console.log('Already authenticated:', auth.currentUser?.uid);
+      }
+    }, []);
+
+  // Debug lifeline data in reportData
+  useEffect(() => {
+    console.log('Received reportData:', reportData);
+    console.log('Lifeline data:', {
+      residentialHousesStatus: reportData.residentialHousesStatus,
+      transportationAndMobilityStatus: reportData.transportationAndMobilityStatus,
+      electricityPowerGridStatus: reportData.electricityPowerGridStatus,
+      communicationNetworksInternetStatus: reportData.communicationNetworksInternetStatus,
+      hospitalsRuralHealthUnitsStatus: reportData.hospitalsRuralHealthUnitsStatus,
+      waterSupplySystemStatus: reportData.waterSupplySystemStatus,
+      marketBusinessAndCommercialEstablishmentsStatus: reportData.marketBusinessAndCommercialEstablishmentsStatus,
+    });
+  }, [reportData]);
 
   const formatLabel = (key) => {
     return key
       .replace(/([A-Z])/g, ' $1')
       .trim()
       .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
   };
 
@@ -46,27 +155,25 @@ const RDANASummary = () => {
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
-    // Step 1: Verify authenticated user
     const user = auth.currentUser;
     if (!user) {
-      console.log('No authenticated user found');
-      Alert.alert('Authentication Required', 'Please sign in to submit a report.');
-      navigation.navigate('Login');
+      console.error('No authenticated user found');
+      setErrorMessage('User not authenticated. Please log in.');
+      setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
     console.log('Authenticated user UID:', user.uid);
 
-    // Step 2: Validate form data
-    if (!reportData || Object.keys(reportData).length === 0 || !affectedMunicipalities || affectedMunicipalities.length === 0) {
+    if (Object.keys(reportData).length === 0 || affectedMunicipalities.length === 0) {
       console.log('Validation failed: Incomplete form data', { reportData, affectedMunicipalities });
-      Alert.alert('Submission Failed', 'Form data is incomplete. Please ensure all fields are filled correctly.');
+      setErrorMessage('Form data is incomplete. Please ensure all fields are filled correctly.');
+      setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
     console.log('Form data validated successfully');
 
-    // Step 3: Prepare report data
     const sanitizedProfileData = {};
     Object.keys(reportData).forEach((key) => {
       sanitizedProfileData[sanitizeKey(formatLabel(key))] = reportData[key] || 'N/A';
@@ -85,6 +192,17 @@ const RDANASummary = () => {
       { item: 'Hygiene Kits', needed: reportData.hygieneKits === 'Yes' },
       { item: 'Drinking Water', needed: reportData.drinkingWater === 'Yes' },
       { item: 'Rice Packs', needed: reportData.ricePacks === 'Yes' },
+    ];
+
+    // Structure status array for Firebase, mirroring JavaScript code
+    const structureStatus = [
+      { structure: 'Residential Houses', status: reportData.residentialHousesStatus || 'N/A' },
+      { structure: 'Transportation and Mobility', status: reportData.transportationAndMobilityStatus || 'N/A' },
+      { structure: 'Electricity, Power Grid', status: reportData.electricityPowerGridStatus || 'N/A' },
+      { structure: 'Communication Networks, Internet', status: reportData.communicationNetworksInternetStatus || 'N/A' },
+      { structure: 'Hospitals, Rural Health Units', status: reportData.hospitalsRuralHealthUnitsStatus || 'N/A' },
+      { structure: 'Water Supply System', status: reportData.waterSupplySystemStatus || 'N/A' },
+      { structure: 'Market, Business, Commercial Establishments', status: reportData.marketBusinessAndCommercialEstablishmentsStatus || 'N/A' },
     ];
 
     const reportDataForFirebase = {
@@ -115,13 +233,7 @@ const RDANASummary = () => {
         seniors: community.seniorCitizens || '0',
         pwd: community.pwd || '0',
       })),
-      structureStatus: [
-        { structure: 'Bridges', status: reportData.bridgesStatus || 'N/A' },
-        { structure: 'Roads', status: reportData.roadsStatus || 'N/A' },
-        { structure: 'Buildings', status: reportData.buildingsStatus || 'N/A' },
-        { structure: 'Hospitals', status: reportData.hospitalsStatus || 'N/A' },
-        { structure: 'Schools', status: reportData.schoolsStatus || 'N/A' },
-      ],
+      structureStatus: structureStatus,
       needsChecklist: needsChecklist,
       otherNeeds: reportData.otherImmediateNeeds || 'N/A',
       estQty: reportData.estimatedQuantity || 'N/A',
@@ -131,13 +243,13 @@ const RDANASummary = () => {
       userUid: user.uid,
       status: 'Submitted',
       timestamp: serverTimestamp(),
+      organization: organizationName,
     };
 
     console.log('Prepared report data:', JSON.stringify(reportDataForFirebase, null, 2));
 
-    // Step 4: Attempt to write to Firebase
     try {
-      const submittedRef = ref(database, 'rdana/submitted');
+      const submittedRef = databaseRef(database, 'rdana/submitted');
       console.log('Writing to Firebase at path:', submittedRef.toString());
 
       const pushPromise = push(submittedRef, reportDataForFirebase);
@@ -147,27 +259,41 @@ const RDANASummary = () => {
 
       const newReportRef = await Promise.race([pushPromise, timeoutPromise]);
       console.log('Report successfully saved with key:', newReportRef.key);
+      setErrorMessage(null);
       setModalVisible(true);
     } catch (error) {
       console.error('Error saving RDANA report to Firebase:', error);
       console.error('Error code:', error.code || 'N/A');
       console.error('Error message:', error.message);
-      Alert.alert('Submission Failed', `Failed to submit RDANA report: ${error.message}`);
+      setErrorMessage(`Failed to submit RDANA report: ${error.message}`);
+      setModalVisible(true);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleConfirm = () => {
-    console.log('Confirm button pressed, closing modal and navigating to Home');
+    console.log('Confirm button pressed, closing modal');
     setModalVisible(false);
-    navigation.navigate('Home');
-    console.log('Navigation to Home initiated');
+    if (!errorMessage) {
+      // Reset navigation stack to Volunteer Dashboard
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Volunteer Dashboard' }],
+        })
+      );
+    } else {
+      navigation.navigate('Login');
+    }
   };
 
   const handleCancel = () => {
-    console.log('Cancel button pressed (should not appear due to showCancel=false)');
+    console.log('Cancel button pressed');
     setModalVisible(false);
+    if (errorMessage) {
+      navigation.navigate('Login');
+    }
   };
 
   const handleBack = () => {
@@ -189,9 +315,6 @@ const RDANASummary = () => {
       <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.pwd || 'N/A'}</Text>
     </View>
   );
-
-  // Determine the organization name to display
-  const organizationName = reportData.nameOrganizationInvolved || 'Unknown Organization';
 
   return (
     <View style={{ flex: 1 }}>
@@ -250,7 +373,8 @@ const RDANASummary = () => {
               <ScrollView horizontal showsHorizontalScrollIndicator={true}>
                 <View style={styles.table}>
                   <View style={[styles.tableHeader, { minWidth: 1150 }]}>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 200 }]}>Affected Municipalities/Communities</Text>
+                    <Text style={[styles.tableHeaderCell, { minWidth: 50 }]}>#</Text>
+                    <Text style={[styles.tableHeaderCell, { minWidth: 240 }]}>Affected Municipalities/Communities</Text>
                     <Text style={[styles.tableHeaderCell, { minWidth: 120 }]}>Total Population</Text>
                     <Text style={[styles.tableHeaderCell, { minWidth: 120 }]}>Affected Population</Text>
                     <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>Deaths</Text>
@@ -258,7 +382,7 @@ const RDANASummary = () => {
                     <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>Missing</Text>
                     <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>Children</Text>
                     <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>Women</Text>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 120 }]}>Senior Citizens</Text>
+                    <Text style={[styles.tableHeaderCell, { minWidth: 130 }]}>Senior Citizens</Text>
                     <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>PWD</Text>
                   </View>
                   {affectedMunicipalities.map((item, index) => renderMunicipalityItem(item, index))}
@@ -290,17 +414,17 @@ const RDANASummary = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Initial Needs Assessment Checklist</Text>
             {[
-              'reliefPacks',
-              'hotMeals',
-              'hygieneKits',
-              'drinkingWater',
-              'ricePacks',
-              'otherImmediateNeeds',
-              'estimatedQuantity',
-            ].map((field) => (
-              <View key={field} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(field)}:</Text>
-                <Text style={styles.value}>{reportData[field] || 'No'}</Text>
+              { key: 'reliefPacks', label: 'reliefPacks' },
+              { key: 'hotMeals', label: 'hotMeals' },
+              { key: 'hygieneKits', label: 'hygieneKits' },
+              { key: 'drinkingWater', label: 'drinkingWater' },
+              { key: 'ricePacks', label: 'ricePacks' },
+              { key: 'otherNeeds', label: 'otherImmediateNeeds' },
+              { key: 'estQty', label: 'estimatedQuantity' },
+            ].map(({ key, label }) => (
+              <View key={label} style={styles.fieldContainer}>
+                <Text style={styles.label}>{formatLabel(label)}:</Text>
+                <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
               </View>
             ))}
           </View>
@@ -336,17 +460,26 @@ const RDANASummary = () => {
       </ScrollView>
       <CustomModal
         visible={modalVisible}
-        title="Success!"
+        title={errorMessage ? 'Error' : 'Success!'}
         message={
           <View style={styles.modalContent}>
-            <Ionicons name="checkmark-circle" size={60} color="#00BCD4" style={styles.modalIcon} />
-            <Text style={styles.modalMessage}>Report submitted successfully!</Text>
+            {errorMessage ? (
+              <>
+                <Ionicons name="warning-outline" size={60} color="#FF0000" style={styles.modalIcon} />
+                <Text style={styles.modalMessage}>{errorMessage}</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={60} color="#00BCD4" style={styles.modalIcon} />
+                <Text style={styles.modalMessage}>Report submitted successfully!</Text>
+              </>
+            )}
           </View>
         }
         onConfirm={handleConfirm}
         onCancel={handleCancel}
-        confirmText="Proceed"
-        showCancel={false}
+        confirmText={errorMessage ? 'Retry' : 'Proceed'}
+        showCancel={errorMessage ? true : false}
       />
     </View>
   );
@@ -355,38 +488,6 @@ const RDANASummary = () => {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFF9F0',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#00BCD4',
-    paddingHorizontal: 10,
-    width: '100%',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    height: 92,
-    paddingTop: 40,
-    position: 'relative',
-    elevation: 10,
-  },
-  menuIcon: {
-    position: 'absolute',
-    left: 30,
-    top: 50,
-  },
-  headerText: {
-    color: 'white',
-    fontSize: 20,
-    fontFamily: 'Poppins_Regular',
-    textAlign: 'center',
-  },
-  subheader: {
-    fontSize: 16,
-    color: '#3D52A0',
-    textAlign: 'center',
-    marginVertical: 10,
-    fontFamily: 'Poppins_Regular',
   },
   formContainer: {
     marginBottom: 20,
@@ -482,14 +583,13 @@ const styles = StyleSheet.create({
   },
   tableHeaderCell: {
     textAlign: 'center',
-    color: '#000000',
+    color: Theme.colors.white,
     fontFamily: 'Poppins_SemiBold',
     fontSize: 12,
     paddingHorizontal: 5,
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 10,
     paddingHorizontal: 5,
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
@@ -500,6 +600,7 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontFamily: 'Poppins_Regular',
     paddingHorizontal: 5,
+    paddingVertical: 6,
   },
   modalContent: {
     alignItems: 'center',
@@ -515,6 +616,13 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontFamily: 'Poppins_Regular',
     textAlign: 'center',
+  },
+  subheader: {
+    fontSize: 16,
+    color: '#3D52A0',
+    textAlign: 'center',
+    marginVertical: 10,
+    fontFamily: 'Poppins_Regular' || 'sans-serif',
   },
 });
 
