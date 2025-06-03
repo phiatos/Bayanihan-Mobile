@@ -72,6 +72,18 @@ const styles = StyleSheet.create({
     color: Theme.colors.white
 
   },
+    modalContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  icon: {
+    marginBottom: 10,
+  },
+  modalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#333',
+  },
 });
 
 export default styles;

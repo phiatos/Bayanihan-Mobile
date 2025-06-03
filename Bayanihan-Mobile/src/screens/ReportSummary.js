@@ -67,22 +67,22 @@ const ReportSummary = () => {
       }
 
       const newReport = {
-        reportID: reportData.reportID || `RPT-${Date.now()}`,
+        reportID: reportData.reportID ||  s`REPORTS-${Math.floor(100000 + Math.random() * 900000)}`,
         AreaOfOperation: reportData.AreaOfOperation || '',
         DateOfReport: reportData.DateOfReport || '',
         calamityAreaDropdown: reportData.calamityAreaDropdown || '',  
-        completionTimeOfIntervention: reportData.completionTimeOfIntervention || '',
-        startingDateOfOperation: reportData.startingDateOfOperation || '',
+        TimeOfIntervention: reportData.completionTimeOfIntervention || '',
+        StartDate: reportData.StartDate || '',
         EndDate: reportData.EndDate || '',
         NoOfIndividualsOrFamilies: parseInt(reportData.NoOfIndividualsOrFamilies) || 0,
-        reliefPacks: parseInt(reportData.reliefPacks) || 0,
+        NoOfFoodPacks: parseInt(reportData.NoOfFoodPacks) || 0,
         NoOfHotMeals: parseInt(reportData.hotMeals) || 0,
         LitersOfWater: parseInt(reportData.LitersOfWater) || 0,
         NoOfVolunteersMobilized: parseInt(reportData.NoOfVolunteersMobilized) || 0,
         NoOfOrganizationsActivated: parseInt(reportData.NoOfOrganizationsActivated) || 0,
         TotalValueOfInKindDonations: parseInt(reportData.TotalValueOfInKindDonations) || 0,
         TotalMonetaryDonations: parseInt(reportData.TotalMonetaryDonations) || 0,
-        notes: reportData.notes || '',
+        NotesAdditionalInformation: reportData.NotesAdditionalInformation || '',
         status: 'Pending',
         userUid: userUid,
         timestamp: Date.now(),
@@ -112,7 +112,7 @@ const ReportSummary = () => {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [{ name: 'Home' }],
+          routes: [{ name: 'Volunteer Dashboard' }],
         })
       );
     } else {
@@ -201,7 +201,7 @@ const ReportSummary = () => {
             <Text style={styles.sectionTitle}>Additional Updates</Text>
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Notes/Additional Information</Text>
-                <Text style={styles.value}>{reportData.notes || 'None'}</Text>
+                <Text style={styles.value}>{reportData.NotesAdditionalInformation || 'None'}</Text>
               </View>
            
           </View>

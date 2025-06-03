@@ -9,25 +9,23 @@ import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 
-
 const ReliefSummary = ({ route, navigation }) => {
   const { reportData: initialReportData = {}, addedItems: initialItems = [] } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [addedItems, setAddedItems] = useState(initialItems);
-
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [userUid, setUserUid] = useState(null);
-  const [volunteerOrganization, setVolunteerOrganization] = useState('[Unknown Org]');
+  const [organizationName, setOrganizationName] = useState('[Unknown Org]'); // Changed to organizationName
   const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
-    const fetchVolunteerGroup = async () => {
-      const storedGroup = await AsyncStorage.getItem('volunteerOrganization');
-      if (storedGroup) {
-        setVolunteerOrganization(storedGroup);
-        console.log('Volunteer group loaded from storage:', storedGroup);
+    const fetchOrganizationName = async () => {
+      const storedOrg = await AsyncStorage.getItem('organizationName'); // Changed to organizationName
+      if (storedOrg) {
+        setOrganizationName(storedOrg);
+        console.log('Organization name loaded from storage:', storedOrg);
       }
 
       console.log('Setting up auth state listener...');
@@ -40,13 +38,13 @@ const ReliefSummary = ({ route, navigation }) => {
             get(userRef)
               .then((snapshot) => {
                 const userData = snapshot.val();
-                if (userData && userData.group) {
-                  setVolunteerOrganization(userData.group);
-                  AsyncStorage.setItem('volunteerOrganization', userData.group);
-                  console.log('Volunteer group fetched:', userData.group);
+                if (userData && userData.organization) { // Changed to organization
+                  setOrganizationName(userData.organization);
+                  AsyncStorage.setItem('organizationName', userData.organization); // Changed to organizationName
+                  console.log('Organization name fetched:', userData.organization);
                 } else {
-                  console.warn('User data or group not found for UID:', user.uid);
-                  setErrorMessage('Volunteer group not found. Please contact support.');
+                  console.warn('User data or organization not found for UID:', user.uid);
+                  setErrorMessage('Organization name not found. Please contact support.');
                   setModalVisible(true);
                 }
               })
@@ -71,7 +69,7 @@ const ReliefSummary = ({ route, navigation }) => {
       return () => unsubscribe();
     };
 
-    fetchVolunteerGroup();
+    fetchOrganizationName(); // Changed function name
   }, []);
 
   const handleSubmit = () => {
@@ -88,10 +86,10 @@ const ReliefSummary = ({ route, navigation }) => {
         contactPerson: reportData.contactPerson,
         contactNumber: reportData.contactNumber,
         email: reportData.email,
-        address: reportData.barangay,
+        address: reportData.address,
         city: reportData.city,
         category: reportData.donationCategory,
-        volunteerOrganization,
+        organizationName, // Changed to organizationName
         userUid,
         items: addedItems.map((item) => ({
           name: item.itemName,
@@ -187,67 +185,68 @@ const ReliefSummary = ({ route, navigation }) => {
   const formatLabel = (key) => key.replace(/([A-Z])/g, ' $1').toLowerCase();
 
   return (
-     <View style={styles.container}>
-          {/* Header */}
-          <View style={GlobalStyles.headerContainer}>
-            <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
-              <Ionicons name="menu" size={32} color="white" />
-            </TouchableOpacity>
-            <Text style={GlobalStyles.headerTitle}>Profile</Text>
-          </View>
-      <Text style={styles.subheader}>{volunteerOrganization}</Text>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={GlobalStyles.headerContainer}>
+        <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+          <Ionicons name="menu" size={32} color="white" />
+        </TouchableOpacity>
+        <Text style={GlobalStyles.headerTitle}>Relief Request Summary</Text> {/* Updated header title for clarity */}
+      </View>
+      <Text style={styles.subheader}>{organizationName}</Text> {/* Changed to organizationName */}
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          <ScrollView contentContainerStyle={styles.scrollViewContent}></ScrollView>
-      <View style={styles.formContainer}>
-        <View style={styles.section}>
-          {['contactPerson', 'contactNumber', 'email', 'barangay', 'city', 'donationCategory'].map(
-            (field) => (
-              <View key={field} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(field)}:</Text>
-                <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+          <ScrollView contentContainerStyle={styles.scrollViewContent}>
+            <View style={styles.formContainer}>
+              <View style={styles.section}>
+                {['contactPerson', 'contactNumber', 'email', 'address', 'city', 'donationCategory'].map(
+                  (field) => (
+                    <View key={field} style={styles.fieldContainer}>
+                      <Text style={styles.label}>{formatLabel(field)}:</Text>
+                      <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+                    </View>
+                  )
+                )}
               </View>
-            )
-          )}
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Requested Items</Text>
-          {addedItems.length === 0 ? (
-            <Text style={styles.value}>No items added yet.</Text>
-          ) : (
-            <View style={styles.table}>
-              {/* Table Header */}
-              <View style={styles.tableHeader}>
-                <Text style={styles.tableHeaderCell}>Item Name</Text>
-                <Text style={styles.tableHeaderCell}>Quantity</Text>
-                <Text style={styles.tableHeaderCell}>Notes</Text>
-                <Text style={styles.tableHeaderCell}>Actions</Text>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Requested Items</Text>
+                {addedItems.length === 0 ? (
+                  <Text style={styles.value}>No items added yet.</Text>
+                ) : (
+                  <View style={styles.table}>
+                    <View style={styles.tableHeader}>
+                      <Text style={styles.tableHeaderCell}>Item Name</Text>
+                      <Text style={styles.tableHeaderCell}>Quantity</Text>
+                      <Text style={styles.tableHeaderCell}>Notes</Text>
+                      <Text style={styles.tableHeaderCell}>Actions</Text>
+                    </View>
+                    <FlatList
+                      data={addedItems}
+                      renderItem={renderItem}
+                      keyExtractor={(item, index) => index.toString()}
+                      scrollEnabled={false}
+                    />
+                  </View>
+                )}
               </View>
-              {/* FlatList for Table Rows */}
-              <FlatList
-                data={addedItems}
-                renderItem={renderItem}
-                keyExtractor={(item, index) => index.toString()}
-                scrollEnabled={false} // Disable FlatList's own scrolling as it's inside a ScrollView (or other scrollable parent)
-              />
             </View>
-          )}
-        </View>
-      </View>
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Submit</Text>
-        </TouchableOpacity>
-      </View>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+                <Text style={styles.backButtonText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+                <Text style={styles.submitButtonText}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
 
       <CustomModal
         visible={modalVisible}
@@ -307,12 +306,9 @@ const ReliefSummary = ({ route, navigation }) => {
         cancelText="Cancel"
         showCancel={true}
       />
-      </KeyboardAvoidingView>
-      </SafeAreaView>
     </View>
   );
 };
-
 
 const spacing = {
   xsmall: 5,
@@ -430,7 +426,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Poppins_Medium',
   },
-    scrollViewContent: {
+  scrollViewContent: {
     paddingVertical: spacing.small,
   },
   submitButton: {

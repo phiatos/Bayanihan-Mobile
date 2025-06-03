@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { ref as databaseRef, push, get } from 'firebase/database';
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import { Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { auth, database, storage } from '../configuration/firebaseConfig';
+import * as FileSystem from 'expo-file-system';
+import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
@@ -64,59 +64,50 @@ const CallForDonationsSummary = () => {
     );
   };
 
-  const uploadImageToFirebase = async (uri) => {
+  const getBase64Image = async (uri) => {
     if (!uri) {
-      console.warn('No image URI provided for upload');
+      console.warn('No image URI provided');
+      Alert.alert('Warning', 'No image selected. Proceeding without an image.');
       return '';
     }
     try {
-      console.log('Attempting to upload image with URI:', uri);
-      // Validate URI format
-      if (!uri.startsWith('file://') && !uri.startsWith('http')) {
-        throw new Error('Invalid image URI format');
-      }
-      // Check if storage is initialized
-      if (!storage) {
-        throw new Error('Firebase Storage is not initialized');
-      }
-      // Verify authentication
-      if (!auth.currentUser) {
-        throw new Error('User is not authenticated');
-      }
-      const response = await fetch(uri);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image from URI: ${response.statusText}`);
-      }
-      const blob = await response.blob();
-      const imageRef = storageRef(storage, `images/${Date.now()}.jpg`);
-      await uploadBytes(imageRef, blob);
-      const url = await getDownloadURL(imageRef);
-      console.log('Image uploaded successfully:', url);
-      return url;
+      console.log('Converting image to Base64:', uri);
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const mimeType = uri.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      return `data:${mimeType};base64,${base64}`;
     } catch (error) {
-      console.error('Detailed error uploading image:', error);
-      throw new Error(`Failed to upload image: ${error.message}`);
+      console.error('Failed to convert image to Base64:', error, error.message, error.stack);
+      setErrorMessage(`Failed to process image: ${error.message}`);
+      setModalVisible(true);
+      throw error;
     }
   };
 
   const handleSubmit = async () => {
+    if (!auth.currentUser) {
+      console.error('No authenticated user found');
+      setErrorMessage('Please log in to submit a donation.');
+      setModalVisible(true);
+      return;
+    }
     if (!userUid) {
       console.error('No user UID available. Cannot submit donation.');
       setErrorMessage('User not authenticated. Please log in again.');
       setModalVisible(true);
       return;
     }
-
     if (isLoading) return;
     setIsLoading(true);
 
     try {
-      console.log('Submitting donation with formData:', formData, 'and image:', image);
-      let imageUrl = '';
+      console.log('Submitting donation with formData:', formData, 'and image URI:', image);
+      let imageBase64 = '';
       if (image) {
-        imageUrl = await uploadImageToFirebase(image);
+        imageBase64 = await getBase64Image(image);
       } else {
-        console.log('No image provided, proceeding without image');
+        console.log('No image URI provided, proceeding without image');
       }
 
       const newDonation = {
@@ -140,7 +131,7 @@ const CallForDonationsSummary = () => {
           fullAddress: `${formData.street || ''}, ${formData.barangay || ''}, ${formData.city || ''}, ${formData.province || ''}`.trim(),
         },
         facebookLink: formData.facebookLink || 'N/A',
-        image: imageUrl || '',
+        image: imageBase64 || '',
         status: 'Pending',
         userUid: userUid,
         timestamp: Date.now(),
@@ -156,8 +147,8 @@ const CallForDonationsSummary = () => {
       setErrorMessage(null);
       setModalVisible(true);
     } catch (error) {
-      console.error('Error saving donation:', error.message);
-      setErrorMessage(`Failed to save donation: ${error.message}`);
+      console.error('Error saving donation:', error.message, error.code, error.stack);
+      setErrorMessage(`Failed to save donation: ${error.message} (${error.code || 'N/A'})`);
       setModalVisible(true);
     } finally {
       setIsLoading(false);
@@ -166,7 +157,18 @@ const CallForDonationsSummary = () => {
 
   const handleConfirm = () => {
     setModalVisible(false);
-    navigation.navigate('Home');
+    if (!errorMessage) {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            { name: 'Volunteer Dashboard' },
+          ],
+        })
+      );
+    } else {
+      navigation.navigate('Login');
+    }
   };
 
   const handleCancel = () => {

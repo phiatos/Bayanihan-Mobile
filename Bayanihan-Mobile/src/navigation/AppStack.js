@@ -68,7 +68,7 @@ const AppStack = () => {
         drawerInactiveTintColor: 'white',
         drawerLabelStyle: {
           marginLeft: 15,
-          fontFamily: 'Poppins-Medium',
+          fontFamily: 'Poppins_Medium',
           fontSize: 13,
         },
         drawerStyle: {
