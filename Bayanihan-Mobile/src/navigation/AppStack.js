@@ -90,7 +90,7 @@ const AppStack = () => {
         component={DashboardScreen}
         options={{
           drawerIcon: ({ color }) => (
-            <Ionicons name="person" size={22} color={color} />
+            <Ionicons name="people" size={22} color={color} />
           ),
         }}
       />
