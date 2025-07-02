@@ -17,6 +17,7 @@ import CallForDonationsSummary from '../screens/CallForDonationsSummary';
 import { AuthContext } from '../context/AuthContext';
 import CustomDrawer from '../components/CustomDrawer';
 import CallforDonations from '../screens/CallforDonations';
+import CommunityBoard from '../screens/CommunityBoard';
 
 
 const Drawer = createDrawerNavigator();
@@ -100,6 +101,15 @@ const AppStack = () => {
         options={{
           drawerIcon: ({ color }) => (
             <Ionicons name="person" size={22} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Community Board"
+        component={CommunityBoard}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="newspaper" size={22} color={color} />
           ),
         }}
       />
