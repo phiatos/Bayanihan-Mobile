@@ -3,6 +3,7 @@
     "name": "Bayanihan-Mobile",
     "slug": "Bayanihan-Mobile",
     "version": "1.0.0",
+    "platforms": ["android", "ios"],
     "orientation": "portrait",
     "icon": "./assets/images/ab_logo.png",
     "userInterfaceStyle": "light",
@@ -23,6 +24,7 @@
     },
     "android": {
       "adaptiveIcon": {
+        "package": "com.bayanihan.mobile",
         "foregroundImage": "./assets/images/ab_logo.png",
         "backgroundColor": "#ffffff",
         "permissions": [
@@ -59,7 +61,8 @@
         {
           "photosPermission": "The app needs access to your photos to upload donation images."
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
     "jsEngine": "jsc",
     "extra": {

@@ -1,8 +1,17 @@
 const { getDefaultConfig } = require('expo/metro-config');
 
-const defaultConfig = getDefaultConfig(__dirname);
-
-defaultConfig.resolver.sourceExts.push('cjs');
-defaultConfig.resolver.unstable_enablePackageExports = false;
-
-module.exports = defaultConfig;
+module.exports = (async () => {
+  const config = await getDefaultConfig(__dirname);
+  return {
+    ...config,
+    transformer: {
+      ...config.transformer,
+      getTransformOptions: async () => ({
+        transform: {
+          experimentalImportSupport: false,
+          inlineRequires: true,
+        },
+      }),
+    },
+  };
+})();
