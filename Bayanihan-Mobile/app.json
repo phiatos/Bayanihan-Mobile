@@ -11,7 +11,6 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff",
       "backgroundColor": "#FFF7EC",
       "permissions": [
         "location"
@@ -22,12 +21,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "package": "com.louihv.bayanihanmobile"
-        "package": "com.bayanihan.mobile",
+        "package": "com.firebase.bayanihan",
         "foregroundImage": "./assets/images/ab_logo.png",
         "backgroundColor": "#ffffff",
         "permissions": [
@@ -45,18 +39,12 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO"
-      ],
-      "package": "com.louihv.BayanihanMobile"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-build-properties"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "b2922363-ee56-45ca-b956-cc0ba90e8b25"
       "expo-font",
       [
         "expo-location",
