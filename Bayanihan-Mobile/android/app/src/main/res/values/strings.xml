@@ -1,5 +1,9 @@
 <resources>
+<<<<<<< HEAD
   <string name="app_name">bayanihan-mobile</string>
+=======
+  <string name="app_name">Bayanihan-Mobile</string>
+>>>>>>> 7bcc5de4bdce3602de9fb3fc8a0d1809644f626e
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
   <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
 </resources>
