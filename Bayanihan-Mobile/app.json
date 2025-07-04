@@ -21,18 +21,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "package": "com.firebase.bayanihan",
         "foregroundImage": "./assets/images/ab_logo.png",
-        "backgroundColor": "#ffffff",
-        "permissions": [
-          "android.permission.ACCESS_FINE_LOCATION",
-          "android.permission.ACCESS_COARSE_LOCATION"
-        ],
-        "config": {
-          "googleMaps": {
-            "apiKey": "AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU"
-          }
-        }
+        "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
