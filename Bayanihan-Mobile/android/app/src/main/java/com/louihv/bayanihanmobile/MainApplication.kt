@@ -1,4 +1,4 @@
-package com.louihv.bayanihanmobile
+package com.louihv.BayanihanMobile
 
 import android.app.Application
 import android.content.res.Configuration

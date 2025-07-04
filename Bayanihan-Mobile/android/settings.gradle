@@ -31,7 +31,11 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 expoAutolinking.useExpoModules()
 
+<<<<<<< HEAD
 rootProject.name = 'bayanihan-mobile'
+=======
+rootProject.name = 'Bayanihan-Mobile'
+>>>>>>> 7bcc5de4bdce3602de9fb3fc8a0d1809644f626e
 
 expoAutolinking.useExpoVersionCatalog()
 

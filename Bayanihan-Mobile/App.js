@@ -1,20 +1,37 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import AuthStack from './src/navigation/AuthStack';
+import AppStack from './src/navigation/AppStack';
+import { useFonts } from 'expo-font';
+import { AuthContext } from './src/context/AuthContext';
 
-export default function App() {
+/**
+ * @typedef {Object} USER
+ * @property {string} id
+ * @property {string} name
+ * @property {string} email
+ * @property {string} role
+ */
+function App() {
+  const [user, setUser] = useState(undefined);
+  const [fontsLoaded] = useFonts({
+    Poppins_Regular: require('./assets/fonts/Poppins/Poppins-Regular.ttf'),
+    Poppins_SemiBold: require('./assets/fonts/Poppins/Poppins-SemiBold.ttf'),
+    Poppins_Bold: require('./assets/fonts/Poppins/Poppins-Bold.ttf'),
+    Poppins_Medium: require('./assets/fonts/Poppins/Poppins-Medium.ttf'),
+  });
+
+  if (!fontsLoaded) return null;
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <NavigationContainer>
+      {isLoggedIn ? (
+        <AppStack onSignOut={() => setIsLoggedIn(false)} />
+      ) : (
+        <AuthStack onLogin={() => setIsLoggedIn(true)} />
+      )}
+    </NavigationContainer>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default App;
