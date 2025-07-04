@@ -11,27 +11,22 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-<<<<<<< HEAD
       "backgroundColor": "#ffffff"
-=======
       "backgroundColor": "#FFF7EC",
       "permissions": [
         "location"
       ]
->>>>>>> 7bcc5de4bdce3602de9fb3fc8a0d1809644f626e
     },
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-<<<<<<< HEAD
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.louihv.bayanihanmobile"
-=======
         "package": "com.bayanihan.mobile",
         "foregroundImage": "./assets/images/ab_logo.png",
         "backgroundColor": "#ffffff",
@@ -52,19 +47,16 @@
         "android.permission.RECORD_AUDIO"
       ],
       "package": "com.louihv.BayanihanMobile"
->>>>>>> 7bcc5de4bdce3602de9fb3fc8a0d1809644f626e
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-<<<<<<< HEAD
       "expo-build-properties"
     ],
     "extra": {
       "eas": {
         "projectId": "b2922363-ee56-45ca-b956-cc0ba90e8b25"
-=======
       "expo-font",
       [
         "expo-location",
@@ -84,7 +76,6 @@
     "extra": {
       "eas": {
         "projectId": "ad4bfadc-bdef-4cb4-9d6e-d1bff4a618a6"
->>>>>>> 7bcc5de4bdce3602de9fb3fc8a0d1809644f626e
       }
     }
   }
