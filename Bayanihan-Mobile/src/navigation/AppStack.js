@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { signOut } from 'firebase/auth';
+import { auth } from '../configuration/firebaseConfig';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ReliefRequestScreen from '../screens/ReliefRequestScreen';
@@ -14,11 +16,10 @@ import RDANAScreen from '../screens/RDANAScreen';
 import RDANASummary from '../screens/RDANASummary';
 import DashboardScreen from '../screens/Dashboard';
 import CallForDonationsSummary from '../screens/CallForDonationsSummary';
-import { AuthContext } from '../context/AuthContext';
-import CustomDrawer from '../components/CustomDrawer';
 import CallforDonations from '../screens/CallforDonations';
 import CommunityBoard from '../screens/CommunityBoard';
-
+import { AuthContext } from '../context/AuthContext';
+import CustomDrawer from '../components/CustomDrawer';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -44,7 +45,6 @@ const RequestStack = () => (
   </Stack.Navigator>
 );
 
-
 const ReportStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="ReportSubmission" component={ReportSubmissionScreen} />
@@ -53,10 +53,15 @@ const ReportStack = () => (
 );
 
 const AppStack = () => {
-  const { setUser } = React.useContext(AuthContext);
+  const { setUser } = useContext(AuthContext);
 
-  const handleSignOut = () => {
-    setUser(null); // Clear user to navigate to AuthStack
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth); // Sign out from Firebase
+      setUser(null); // Clear user state to navigate to AuthStack
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
 
   return (
@@ -76,6 +81,7 @@ const AppStack = () => {
           width: 270,
         },
       }}
+      initialRouteName="Home"
     >
       <Drawer.Screen
         name="Home"

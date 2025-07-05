@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
+import { getFirestore } from 'firebase/firestore'; // Add Firestore import
 
 const firebaseConfig = {
   apiKey: "AIzaSyDJxMv8GCaMvQT2QBW3CdzA3dV5X_T2KqQ",
@@ -25,19 +26,20 @@ try {
   throw error;
 }
 
-let auth, database, storage;
+let auth, database, storage, db;
 try {
   auth = getAuth(app);
   database = getDatabase(app);
   storage = getStorage(app);
-  console.log('Firebase Auth:', auth);
-  console.log('Firebase Database:', database);
-  console.log('Firebase Storage:', storage);
-  console.log('Firebase Auth, Database, and Storage initialized successfully');
+  db = getFirestore(app);
+  console.log('Firebase Auth:', !!auth);
+  console.log('Firebase Database:', !!database);
+  console.log('Firebase Storage:', !!storage);
+  console.log('Firebase Firestore:', !!db);
+  console.log('Firebase Auth, Database, Storage, and Firestore initialized successfully');
 } catch (error) {
   console.error('Failed to initialize Firebase services:', error.message);
   throw error;
 }
 
-export { app, auth, database, storage };
-
+export { app, auth, database, storage, db };

@@ -1,75 +1,80 @@
 import React, { useEffect, useState } from 'react';
-import * as Font from 'expo-font';
-
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { View, Text, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, Image, Animated, TouchableWithoutFeedback } from 'react-native';
+import Theme from '../constants/theme';
 
 const OnboardingScreen = ({navigation}) => {
-  const [fontsLoaded, setFontsLoaded] = useState(false);
+const imageScale = new Animated.Value(0.1); // For scaling the image
 
-  useEffect(() => {
-    (async () => {
-      await Font.loadAsync({
-        'Poppins-MediumItalic': require('../../assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
-        'Poppins-Bold': require('../../assets/fonts/Poppins/Poppins-Bold.ttf'),
-        'Poppins-Medium': require('../../assets/fonts/Poppins/Poppins-Medium.ttf'),
-      });
-      setFontsLoaded(true);
-    })();
-  }, []);
+  Animated.parallel([
+    Animated.timing(imageScale, {
+      toValue: 1, // from 0.1 to 1 (scale)
+      duration: 900,
+      useNativeDriver: true,
+  }),
+  // Animated.timing(imagePosition, {
+  // toValue: 0, // Move from -200 (offscreen top) to 0 (centered)
+  // duration: 1500,
+  // useNativeDriver: true,
+  // }),
+  ]).start();
 
-  if (!fontsLoaded) {
-    return null; 
-  }
+    const handleScreenPress = () => {
+    navigation.navigate('Login');
+  };
 
   return (
+    // <TouchableWithoutFeedback onPress={handleScreenPress}>
     <SafeAreaView
       style={{
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FFF9F0',
+        backgroundColor: Theme.colors.lightBg,
+        
       }}
     >
-      <View style={{marginTop: 20}}>
+    <View 
+        style={{
+          justifyContent:'center', 
+          alignItems: 'center',
+          }}>
+        <Animated.Image 
+          source={require('../../assets/images/ab_logo.png')}
+          style={{
+            width: 200,
+            height: 200,
+            resizeMode: 'contain',
+            transform: [{scale:imageScale}],
+          }} 
+        />
+      <View>
         <Text
           style={{
-            fontSize: 20,
-            fontWeight: 'bold',
+            fontSize: 18,
             color: '#14AEBB',
-            fontFamily: 'Poppins-Bold',
             textAlign: 'center',
-            marginTop: 20
+            fontFamily: 'Poppins_Medium',
           }}
         >
           Disaster Relief and Rehabilitation Management Portal
         </Text>
       </View>
-      <View 
-        style={{
-          flex:1, 
-          justifyContent:'center', 
-          alignItems: 'center'}}>
-        <Image 
-          source={require('../../assets/images/ab_logo.png')}
-          style={{
-            width: 150, 
-            height: 150, 
-            resizeMode: 'contain',
-          }} 
-        />
       </View>
+
       
       <TouchableOpacity
         onPress={() => navigation.navigate('Login')}
         style={{
           backgroundColor: '#14AEBB',
-          padding: 20,
-          width: '90%',
-          borderRadius: 20,
+          paddingVertical: 10,
+          width: '60%',
+          borderRadius: 15,
           flexDirection: 'row',
           justifyContent: 'space-between',
-          marginBottom: 50
+          textAlign: 'center',
+          marginTop: 50,
+          justifyContent: 'center'
         }}
       >
         <Text
@@ -77,14 +82,16 @@ const OnboardingScreen = ({navigation}) => {
             fontWeight: 'bold',
             fontSize: 18,
             color: '#FFF9F0',
+            textAlign:'center',
             fontFamily: 'Poppins-MediumItalic',
           }}
         >
           Let's Begin
         </Text>
-        <MaterialIcons name="arrow-forward-ios" size={22} color="#FFF9F0" />
+        {/* <MaterialIcons name="arrow-forward-ios" size={22} color="#FFF9F0" /> */}
       </TouchableOpacity>
     </SafeAreaView>
+    // </TouchableWithoutFeedback>
   );
 }
 

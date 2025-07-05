@@ -63,7 +63,8 @@
     "react-native-web": "^0.20.0",
     "react-native-webview": "13.13.5",
     "rimraf": "^6.0.1",
-    "expo-updates": "~0.28.16"
+    "expo-updates": "~0.28.16",
+    "expo-linear-gradient": "~14.1.5"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

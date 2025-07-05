@@ -18,7 +18,7 @@ const borderRadius = {
 
 // Calculate header top padding for iOS and Android
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
-const HEADER_HEIGHT = 92; // The base height of your header content area
+const HEADER_HEIGHT = 60; // The base height of your header content area
 
 export default StyleSheet.create({
   // Global Header Styles
@@ -26,13 +26,13 @@ export default StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Theme.colors.primary,
-    height: HEADER_HEIGHT + STATUS_BAR_HEIGHT, // Total height including status bar
+    backgroundColor: 'transparent',
+    height: HEADER_HEIGHT + STATUS_BAR_HEIGHT,
     paddingHorizontal: spacing.small,
-    paddingTop: STATUS_BAR_HEIGHT, // Padding for content below the status bar
+    paddingTop: STATUS_BAR_HEIGHT, 
     borderBottomLeftRadius: borderRadius.xlarge,
     borderBottomRightRadius: borderRadius.xlarge,
-    position: 'relative', // For absolute positioning of internal elements like menu icon
+    position: 'relative', 
     // elevation: 10, // Android shadow
     // shadowColor: Theme.colors.black, // iOS shadow
     // shadowOffset: { width: 0, height: 5 },
@@ -42,16 +42,16 @@ export default StyleSheet.create({
   headerMenuIcon: {
     position: 'absolute',
     left: spacing.small,
-    // Calculate top to center the icon vertically relative to the content area of the header
     top: STATUS_BAR_HEIGHT + (HEADER_HEIGHT - 32) / 2, // 32 is icon size
     zIndex: 1,
+    color: Theme.colors.primary
   },
   headerTitle: {
-    color: Theme.colors.white,
+    color:  Theme.colors.primary,
     fontSize: 20,
-    fontFamily: 'Poppins_SemiBold', // Ensure this font is loaded globally or in each screen
+    fontFamily: 'Poppins_SemiBold', 
     textAlign: 'center',
-    flex: 1, // Allows text to take up available space and center
+    flex: 1, 
   },
 
   // You can add other global styles here, e.g., for common buttons, input fields, etc.

@@ -8,13 +8,13 @@
       "ios"
     ],
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/ab_logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/images/ab_logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFF7EC",
+      "backgroundColor": "#FFF9F0",
       "permissions": [
         "location"
       ]

@@ -24,14 +24,11 @@ function App() {
   if (!fontsLoaded) return null;
 
   return (
-    <NavigationContainer>
-      {isLoggedIn ? (
-        <AppStack onSignOut={() => setIsLoggedIn(false)} />
-      ) : (
-        <AuthStack onLogin={() => setIsLoggedIn(true)} />
-      )}
-    </NavigationContainer>
+    <AuthContext.Provider value={{ user, setUser }}>
+      <NavigationContainer>
+        {user ? <AppStack onSignOut={() => setUser(undefined)} /> : <AuthStack />}
+      </NavigationContainer>
+    </AuthContext.Provider>
   );
 }
-
 export default App;

@@ -1,5 +1,4 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import * as Font from 'expo-font';
 import * as Location from 'expo-location';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
@@ -14,6 +13,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -26,7 +26,6 @@ import GlobalStyles from '../styles/GlobalStyles';
 const { height, width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
-  const [fontsLoaded, setFontsLoaded] = useState(false);
   const [location, setLocation] = useState(null);
   const [permissionStatus, setPermissionStatus] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -42,21 +41,7 @@ const HomeScreen = ({ navigation }) => {
   const searchTimeout = useRef(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        await Font.loadAsync({
-          'Poppins-MediumItalic': require('../../assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
-          'Poppins-Bold': require('../../assets/fonts/Poppins/Poppins-Bold.ttf'),
-          'Poppins-Medium': require('../../assets/fonts/Poppins/Poppins-Medium.ttf'),
-          'Poppins-SemiBold': require('../../assets/fonts/Poppins/Poppins-SemiBold.ttf'),
-        });
-        setFontsLoaded(true);
-        setModalVisible(true);
-      } catch (error) {
-        console.error('Font loading error:', error);
-        Alert.alert('Error', 'Failed to load fonts. Please restart the app.');
-      }
-    })();
+    setModalVisible(true);
   }, []);
 
   useEffect(() => {
@@ -137,7 +122,7 @@ const HomeScreen = ({ navigation }) => {
       if (status === 'granted') {
         let loc = await Location.getCurrentPositionAsync({});
         if (loc.coords.accuracy > 50) {
-          Alert.alert('Low Accuracy', 'Your location accuracy is low. The pin may not be precise.');
+          ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
         }
         setLocation({
           latitude: loc.coords.latitude,
@@ -161,7 +146,7 @@ const HomeScreen = ({ navigation }) => {
       if (status === 'granted') {
         let loc = await Location.getCurrentPositionAsync({});
         if (loc.coords.accuracy > 50) {
-          Alert.alert('Low Accuracy', 'Your location accuracy is low. The pin may not be precise.');
+          ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
         }
         setLocation({
           latitude: loc.coords.latitude,
@@ -174,7 +159,7 @@ const HomeScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Permission retry error:', error);
-      Alert.alert('Error', 'Failed to retry permission. Please try again.');
+      ToastAndroid.show('Failed to retry permission. Please try again.', ToastAndroid.BOTTOM);
     }
   };
 
@@ -256,6 +241,7 @@ const HomeScreen = ({ navigation }) => {
           infoWindow.open(map, marker);
         } else {
           console.error("Map not initialized");
+ DLL_INFO_WINDOW
         }
       `;
       webViewRef.current?.injectJavaScript(script);
@@ -328,10 +314,6 @@ const HomeScreen = ({ navigation }) => {
       Alert.alert('Error', 'Failed to return to your location. Please try again.');
     }
   };
-
-  if (!fontsLoaded) {
-    return null;
-  }
 
   const mapHtml = permissionStatus === 'granted' && location?.latitude && location?.longitude
     ? `
@@ -603,21 +585,22 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={{backgroundColor: Theme.colors.primary, }}>
-      <View style={GlobalStyles.headerContainer}>
-        <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
-          <Ionicons name="menu" size={32} color="white" />
-        </TouchableOpacity>
-        <View style={styles.userInfoContainer}>
-          <Text style={styles.userName}>{user?.contactPerson}</Text>
-          <ImageBackground
-            source={{ uri: 'https://via.placeholder.com/35' }}
-            style={{ width: 35, height: 35 }}
-            imageStyle={{ borderRadius: 25 }}
-          />
+      <View style={{ backgroundColor: Theme.colors.primary }}>
+        <View style={GlobalStyles.headerContainer}>
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+            <Ionicons name="menu" size={32} color="white" />
+          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Text style={{ color: 'white', fontSize: 14, fontWeight: 'bold', display: 'flex', textAlign: 'right' }}>
+              {user?.contactPerson}
+            </Text>
+            <ImageBackground
+              source={{ uri: 'https://via.placeholder.com/35' }}
+              style={{ width: 35, height: 35 }}
+              imageStyle={{ borderRadius: 25 }}
+            />
+          </View>
         </View>
-      </View>
       </View>
 
       <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
@@ -690,7 +673,7 @@ const HomeScreen = ({ navigation }) => {
                     {searchBarVisible && (
                       <TextInput
                         placeholder="Search"
-                        style={{ flex: 1, fontFamily: 'Poppins-Medium' }}
+                        style={{ flex: 1 }}
                         placeholderTextColor="black"
                         value={searchQuery}
                         onChangeText={handleSearchInput}
@@ -768,7 +751,7 @@ const HomeScreen = ({ navigation }) => {
                 <Feather name="search" size={20} style={{ marginHorizontal: 10 }} />
                 <TextInput
                   placeholder="Search"
-                  style={{ flex: 1, fontFamily: 'Poppins-Medium' }}
+                  style={{ flex: 1 }}
                   placeholderTextColor="black"
                 />
               </View>
@@ -860,7 +843,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: width,
     height: '100%',
-    zIndex: 1
+    zIndex: 1,
   },
   overlayContainer: {
     position: 'absolute',
@@ -868,27 +851,13 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
   },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    backgroundColor: Theme.colors.primary
-  },
-    userInfoContainer: {
+  userInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     position: 'absolute',
     top: 60,
     right: -30,
-    textAlign:'right' 
-    },
-  userName: {
-    fontSize: 11,
-    fontFamily: 'Poppins-Medium',
-    marginRight: 10,
-    marginTop: 10,
-    color: 'white',
+    textAlign: 'right',
   },
   searchWrapper: {
     position: 'relative',
@@ -923,7 +892,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   suggestionText: {
-    fontFamily: 'Poppins-Medium',
     fontSize: 14,
     color: 'black',
   },
@@ -951,7 +919,6 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.primary,
   },
   mapTypeButtonText: {
-    fontFamily: 'Poppins-Medium',
     fontSize: 14,
     color: '#FFFFFF',
     marginLeft: 6,
@@ -984,14 +951,13 @@ const styles = StyleSheet.create({
     elevation: 20,
   },
   permissionDeniedHeader: {
-    fontFamily: 'Poppins-Bold',
     fontSize: 20,
     color: Theme.colors.primary,
     textAlign: 'center',
     marginBottom: 10,
+    fontFamily: 'Poppins_Bold'
   },
   permissionDeniedText: {
-    fontFamily: 'Poppins',
     color: '#333333',
     textAlign: 'center',
     marginBottom: 20,
@@ -1009,14 +975,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   permissionDeniedContainerHeader: {
-    fontFamily: 'Poppins-Bold',
     fontSize: 18,
     color: Theme.colors.primary,
     textAlign: 'center',
     marginBottom: 10,
   },
   permissionDeniedContainerText: {
-    fontFamily: 'Poppins-Medium',
     fontSize: 14,
     color: '#333333',
     textAlign: 'center',
@@ -1033,7 +997,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   retryButtonText: {
-    fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
     color: '#FFFFFF',
     textAlign: 'center',
@@ -1047,7 +1010,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   closeButtonText: {
-    fontFamily: 'Poppins-Medium',
     fontSize: 14,
     color: Theme.colors.primary,
     textAlign: 'center',

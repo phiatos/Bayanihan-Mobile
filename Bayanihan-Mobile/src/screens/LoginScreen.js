@@ -2,8 +2,10 @@ import { sendEmailVerification, signInWithEmailAndPassword, signOut } from 'fire
 import { get, ref } from 'firebase/database';
 import { debounce } from 'lodash';
 import React, { useCallback, useContext, useState } from 'react';
-import { Modal, Pressable, SafeAreaView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, SafeAreaView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from 'react-native-vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { auth, database } from '../configuration/firebaseConfig';
 import { AuthContext } from '../context/AuthContext';
 import Theme from '../constants/theme';
@@ -17,7 +19,8 @@ const LoginScreen = ({ navigation }) => {
   const { setUser } = useContext(AuthContext);
 
   const handleLogin = useCallback(
-    debounce(async () => {
+  debounce(
+    async () => {
       if (!email || !password) {
         ToastAndroid.show('Please enter email and password', ToastAndroid.SHORT);
         return;
@@ -36,8 +39,8 @@ const LoginScreen = ({ navigation }) => {
         const userData = userSnapshot.val();
 
         if (!userData) {
-          ToastAndroid.show('Contact Support: No account registered in the system.', ToastAndroid.BOTTOM);
-          setIsLoading(false);
+          await signOut(auth); // Sign out if no user data exists
+          ToastAndroid.show('Contact Support: No account registered in the system.', ToastAndroid.LONG);
           return;
         }
 
@@ -51,37 +54,45 @@ const LoginScreen = ({ navigation }) => {
           await sendEmailVerification(user, actionCodeSettings);
           await signOut(auth);
           setModalVisible(true);
-          setIsLoading(false);
+          ToastAndroid.show('Please verify your email to log in.', ToastAndroid.LONG);
           return;
         }
 
-        // Proceed with login if email is verified
+        // Set user in AuthContext to trigger navigation to AppStack
         setUser({
           id: user.uid,
-          contactPerson: userData.contactPerson || user.displayName,
+          contactPerson: userData.contactPerson || user.displayName || 'Unknown',
           email: user.email,
           role: userData.role,
         });
 
-        // ToastAndroid.show('Login successful.', ToastAndroid.BOTTOM);
-        navigation.navigate('Home');
+        ToastAndroid.show('Login successful.', ToastAndroid.SHORT);
       } catch (error) {
-        setIsLoading(false);
         if (error.code === 'auth/invalid-credential') {
-          ToastAndroid.show('Invalid email or password', ToastAndroid.BOTTOM);
+          ToastAndroid.show('Invalid email or password', ToastAndroid.SHORT);
         } else {
-          ToastAndroid.show(`Error: ${error.message}`, ToastAndroid.BOTTOM);
+          ToastAndroid.show(`Error: ${error.message}`, ToastAndroid.LONG);
           console.error('Login error:', error);
         }
       } finally {
         setIsLoading(false);
       }
-    }, 1000, { leading: true, trailing: false }),
-    [email, password, isLoading, auth, database, setUser]
-  );
+    },
+    1000,
+    { leading: true, trailing: false }
+  ),
+  [email, password, isLoading, auth, database, setUser]
+);
 
   return (
-    <SafeAreaView style={styles.container}>
+     <LinearGradient
+      colors={['rgba(250, 59, 154, 0.5)', '#FFF9F0']}
+      start={{ x: 0.5, y: 1 }} 
+      end={{ x: 0.5, y: 0 }}   
+      style={styles.gradientContainer}
+    >
+    <SafeAreaView  style={styles.container}>
+      <KeyboardAvoidingView style={styles.subContainer}>
       <Modal
         animationType="slide"
         transparent={true}
@@ -109,9 +120,10 @@ const LoginScreen = ({ navigation }) => {
       >
         <Ionicons name="arrow-back" size={28} color="#14AFBC" />
       </TouchableOpacity>
-      <View style={styles.header}>
-        <Text style={styles.title}>Welcome Back!</Text>
-      </View>
+      
+      <View blurType="light" blurAmount={40} borderRadius={15} style={styles.formContainer}>
+      <View style={styles.contentContainer}>
+        <Text style={styles.welcomeText}>Welcome Back!</Text>
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Email:</Text>
         <TextInput
@@ -159,28 +171,32 @@ const LoginScreen = ({ navigation }) => {
       >
         <Text style={styles.buttonText}>{isLoading ? 'Loading...' : 'Log in'}</Text>
       </TouchableOpacity>
+      </View>
+      {/* </LinearGradient> */}
+      </View>
+      </KeyboardAvoidingView>
+      <View style={styles.termsContainer}>
       <Text style={styles.termsText}>
         By continuing, you agree to the Terms and Conditions and Privacy Policy.
       </Text>
+      </View>
     </SafeAreaView>
+    
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+  flex: 1,
+},
   container: {
     flex: 1,
-    justifyContent: 'flex-start',
     alignItems: 'center',
-    backgroundColor: '#FFF9F0',
-    padding: 26,
+    borderWidth:1,
+    borderColor: 'black'
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 60,
-    width: '100%',
-    position: 'relative',
-  },
+
   backButton: {
     position: 'absolute',
     zIndex: 1,
@@ -197,27 +213,66 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     fontFamily: 'Poppins_Medium',
   },
+  subContainer:{
+    display: 'flex',
+    flex: 1,
+    alignItems:'center',
+  },
+  formContainer: {
+  width: 320,
+  height: 450,
+  marginVertical: 'auto',
+  alignItems:'center',
+  justifyContent:'center',
+  borderWidth: 1,
+  borderColor: 'rgba(255, 255, 255, 0.3)',
+  borderRadius: 15,
+  backgroundColor: 'rgba(148, 163, 208, 0.06)', 
+}, 
+  formCard:{
+    width: '100%',
+    height:'100%',
+    // borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 1,
+    borderRadius: 15,
+},
+  contentContainer:{
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+},
+  welcomeText:{
+    fontSize: 25,
+    textAlign:'center',
+   fontFamily: 'Poppins_SemiBold',
+    color: Theme.colors.primary,
+    // paddingTop: 20,
+    paddingBottom:40,
+  },
   inputContainer: {
     width: 300,
     marginBottom: 15,
   },
+
   label: {
     fontSize: 14,
     fontFamily: 'Poppins_Bold',
-    color: '#333',
+    color: Theme.colors.black,
     marginBottom: 5,
     alignSelf: 'flex-start',
   },
   input: {
-    height: 50,
     borderColor: '#ccc',
     borderWidth: 2,
     borderRadius: 10,
     paddingLeft: 10,
     fontSize: 15,
     color: '#444',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.73)',
     fontFamily: 'Poppins_Regular',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.24)',
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -226,7 +281,7 @@ const styles = StyleSheet.create({
   },
   passwordInput: {
     flex: 1,
-    paddingRight: 40, // Space for the eye icon
+    paddingRight: 40, 
   },
   eyeIcon: {
     position: 'absolute',
@@ -236,10 +291,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   button: {
-    backgroundColor: '#14AFBC',
-    paddingVertical: 20,
-    width: 300,
-    paddingHorizontal: 30,
+    backgroundColor: Theme.colors.primary,
+    paddingVertical: 10,
     borderRadius: 15,
     marginBottom: 20,
     shadowColor: '#000',
@@ -268,12 +321,20 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     fontFamily: 'Poppins_Regular',
   },
+  termsContainer:{
+    width: '100%',
+    position: 'absolute',
+    bottom: 30,
+    display:'flex',
+    justifyContent:'center',
+    alignItems:'center',
+  },
   termsText: {
     textAlign: 'center',
-    width: '100%',
+    width: '80%',
     lineHeight: 22,
     fontSize: 12,
-    color: '#444',
+    color: Theme.colors.black,
     fontFamily: 'Poppins_Regular',
     marginTop: 250,
   },
