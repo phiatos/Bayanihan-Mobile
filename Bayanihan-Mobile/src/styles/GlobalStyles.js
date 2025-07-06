@@ -18,7 +18,7 @@ const borderRadius = {
 
 // Calculate header top padding for iOS and Android
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
-const HEADER_HEIGHT = 60; // The base height of your header content area
+const HEADER_HEIGHT = 80; // The base height of your header content area
 
 export default StyleSheet.create({
   // Global Header Styles
@@ -26,7 +26,7 @@ export default StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: Theme.colors.primary,
     height: HEADER_HEIGHT + STATUS_BAR_HEIGHT,
     paddingHorizontal: spacing.small,
     paddingTop: STATUS_BAR_HEIGHT, 
@@ -47,17 +47,14 @@ export default StyleSheet.create({
     color: Theme.colors.primary
   },
   headerTitle: {
-    color:  Theme.colors.primary,
+    color:  Theme.colors.white,
     fontSize: 20,
     fontFamily: 'Poppins_SemiBold', 
     textAlign: 'center',
     flex: 1, 
   },
-
-  // You can add other global styles here, e.g., for common buttons, input fields, etc.
-  // Example:
-  // screenBackground: {
-  //   flex: 1,
-  //   backgroundColor: Theme.colors.lightBg,
-  // },
+  container:{
+  flex: 1,
+    backgroundColor: Theme.colors.lightBg,
+  },
 });

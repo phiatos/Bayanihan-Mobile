@@ -251,7 +251,7 @@ const CallForDonations = () => {
             onPress={() => navigation.openDrawer()}
             style={GlobalStyles.headerMenuIcon}
           >
-            <Ionicons name="menu" size={32} color={Theme.colors.primary}/>
+            <Ionicons name="menu" size={32} color={Theme.colors.white}/>
           </TouchableOpacity>
           <Text style={GlobalStyles.headerTitle}>Call for Donations</Text>
         </View>

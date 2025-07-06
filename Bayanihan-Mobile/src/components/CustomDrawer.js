@@ -18,14 +18,14 @@ const CustomDrawer = (props) => {
   const [organizationName, setOrganizationName] = useState('Loading...');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Redirect to login if no user
-  useEffect(() => {
-    if (!user && !isLoading) {
-      console.warn('No authenticated user, redirecting to login');
-      Alert.alert('Authentication Required', 'Please log in to continue.');
-      navigation.navigate('Login'); // Use props.navigation
-    }
-  }, [user, isLoading, navigation]);
+  // // Redirect to login if no user
+  // useEffect(() => {
+  //   if (!user && !isLoading) {
+  //     console.warn('No authenticated user, redirecting to login');
+  //     Alert.alert('Authentication Required', 'Please log in to continue.');
+  //     navigation.navigate('Login'); // Use props.navigation
+  //   }
+  // }, [user, isLoading, navigation]);
 
   // Fetch organization name from Firestore
   useEffect(() => {
