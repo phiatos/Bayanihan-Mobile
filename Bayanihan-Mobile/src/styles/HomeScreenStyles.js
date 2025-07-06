@@ -113,15 +113,15 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 25,
     paddingHorizontal: 2,
-    paddingVertical: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-//   searchIcon: {
-//     padding: 10,
-//   },
+  searchIcon: {
+    paddingVertical: 10,
+    paddingHorizontal: 17
+  },
   suggestionsContainer: {
     position: 'absolute',
     left: 0,

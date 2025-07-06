@@ -6,12 +6,11 @@ import 'firebase/compat/database';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import DashboardStyles from '../styles/DashboardStyles';
+import styles from '../styles/DashboardStyles';
 import GlobalStyles from '../styles/GlobalStyles';
+import Theme from '../constants/theme';
 
 
-// Initialize Firebase if not already initialized
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
@@ -45,7 +44,7 @@ const DashboardScreen = ({ navigation }) => {
         setFontsLoaded(true);
       } catch (error) {
         console.error('Font loading error:', error);
-        Alert.alert('Error', 'Failed to load fonts. Please restart the app.');
+        ToastAndroid.show('Failed to load fonts. Please restart the app.',ToastAndroid.BOTTOM);
       }
     })();
   }, []);
@@ -53,14 +52,9 @@ const DashboardScreen = ({ navigation }) => {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(user => {
       if (!user) {
-        Alert.alert(
-          "Authentication Required",
-          "Please sign in to access the dashboard.",
-          [{ text: "OK", onPress: () => navigation.navigate('Login') }]
-        );
+        ToastAndroid.show('Please sign in to access the dashboard.',ToastAndroid.BOTTOM);
         return;
       }
-
       const userId = user.uid;
 
       // Fetch user data (role and organization name)
@@ -156,33 +150,35 @@ const DashboardScreen = ({ navigation }) => {
   }
 
   return (
-    <View style={DashboardStyles.container}>
-      <View style={GlobalStyles.headerContainer}>
+    <View style={GlobalStyles.container}>
+      <View style={styles.headerContainer}>
+         <View style={styles.headerContent}>
         <TouchableOpacity
           onPress={() => navigation.openDrawer()}
-          style={GlobalStyles.headerMenuIcon}
+          style={styles.headerMenuIcon}
         >
-          <Ionicons name="menu" size={32} color="white" />
+          <Ionicons name="menu" size={32} color={Theme.colors.primary} />
         </TouchableOpacity>
-        <Text style={GlobalStyles.headerTitle}>{headerTitle}</Text>
+        <Text style={[GlobalStyles.headerTitle, {color:Theme.colors.primary}]}>{headerTitle}</Text>
+        </View>
       </View>
 
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
-        <ScrollView contentContainerStyle={DashboardStyles.scrollViewContent}>
-          <Text style={[DashboardStyles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>
+        <ScrollView style={styles.scrollViewContent}>
+          <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>
             {organizationName}
           </Text>
 
           {metrics.map(({ label, value, icon }, idx) => (
-            <View key={idx} style={DashboardStyles.metricCard}>
-              <View style={DashboardStyles.iconContainer}>
+            <View key={idx} style={styles.metricCard}>
+              <View style={styles.iconContainer}>
                 <MaterialCommunityIcons name={icon} size={28} color="#4A90E2" />
               </View>
-              <View style={DashboardStyles.metricInfo}>
-                <Text style={[DashboardStyles.metricLabel, { fontFamily: 'Poppins-MediumItalic' }]}>
+              <View style={styles.metricInfo}>
+                <Text style={[styles.metricLabel, { fontFamily: 'Poppins-MediumItalic' }]}>
                   {label}
                 </Text>
-                <Text style={[DashboardStyles.metricValue, { fontFamily: 'Poppins-Bold' }]}>
+                <Text style={[styles.metricValue, { fontFamily: 'Poppins-Bold' }]}>
                   {value}
                 </Text>
               </View>

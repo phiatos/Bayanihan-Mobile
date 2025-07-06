@@ -18,7 +18,7 @@ const borderRadius = {
 
 // Calculate header top padding for iOS and Android
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
-const HEADER_HEIGHT = 80; // The base height of your header content area
+const HEADER_HEIGHT = 80; 
 
 export default StyleSheet.create({
   // Global Header Styles
@@ -58,3 +58,5 @@ export default StyleSheet.create({
     backgroundColor: Theme.colors.lightBg,
   },
 });
+
+// ToastAndroid.show('Failed to load the map. Please check your API key and internet connection.',ToastAndroid.BOTTOM);

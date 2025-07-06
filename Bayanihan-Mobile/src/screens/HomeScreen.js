@@ -793,7 +793,7 @@ const HomeScreen = ({ navigation }) => {
           </BlurView>
           <View style={{ paddingHorizontal: 20, marginTop: 100 }}>
             <View style={styles.searchContainer}>
-              <Feather name="search" size={20} style={{ marginHorizontal: 10 }} color={Theme.colors.primary} />
+              <Feather name="search" size={24} style={{ marginHorizontal: 10 }} color={Theme.colors.primary} />
               <TextInput
                 placeholder="Search"
                 style={{ flex: 1 }}
