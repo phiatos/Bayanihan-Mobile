@@ -18,7 +18,7 @@ const borderRadius = {
 
 // Calculate header top padding for iOS and Android
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
-const HEADER_HEIGHT = 80; 
+const HEADER_HEIGHT = 60; 
 
 export default StyleSheet.create({
   // Global Header Styles
@@ -30,8 +30,8 @@ export default StyleSheet.create({
     height: HEADER_HEIGHT + STATUS_BAR_HEIGHT,
     paddingHorizontal: spacing.small,
     paddingTop: STATUS_BAR_HEIGHT, 
-    borderBottomLeftRadius: borderRadius.xlarge,
-    borderBottomRightRadius: borderRadius.xlarge,
+    // borderBottomLeftRadius: borderRadius.xlarge,
+    // borderBottomRightRadius: borderRadius.xlarge,
     position: 'relative', 
     // elevation: 10, // Android shadow
     // shadowColor: Theme.colors.black, // iOS shadow
@@ -58,7 +58,7 @@ export default StyleSheet.create({
     color: Theme.colors.primary
   },
   headerTitle: {
-    color:  Theme.colors.primary,
+    color:  Theme.colors.white,
     fontSize: 20,
     fontFamily: 'Poppins_SemiBold', 
     textAlign: 'center',

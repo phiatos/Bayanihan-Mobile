@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TextInput, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image, TextInput, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, StatusBar } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref, onValue, query, orderByChild } from 'firebase/database';
 import { Video } from 'expo-av';
@@ -8,6 +8,8 @@ import { auth, database } from '../configuration/firebaseConfig';
 import GlobalStyles from '../styles/GlobalStyles';
 import RDANAStyles from '../styles/RDANAStyles';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import Theme from '../constants/theme';
 
 
 const CommunityBoard = ({ navigation }) => {
@@ -105,7 +107,20 @@ const CommunityBoard = ({ navigation }) => {
 
   return (
     <View style={RDANAStyles.container}>
-      <View style={GlobalStyles.headerContainer}>
+      <LinearGradient
+        colors={[
+        'rgb(147, 233, 239)',   
+        'rgba(238, 174, 215, 1)',  
+        'rgba(241, 211, 237, 1)' 
+      ]}
+        //  start={{ x: 0.05, y: 1 }}
+        // end={{ x: 0.95, y: 0 }}
+        locations={[0.09, 0.5, 0.87]} 
+        start={{ x: 0.15, y: 1 }}     
+        end={{ x: 1, y: 0 }}        
+        style={styles.gradientContainer}
+      >
+      <View style={styles.headerContainer}>
         <TouchableOpacity
           onPress={() => navigation.openDrawer()}
           style={GlobalStyles.headerMenuIcon}
@@ -114,6 +129,7 @@ const CommunityBoard = ({ navigation }) => {
         </TouchableOpacity>
         <Text style={GlobalStyles.headerTitle}>Community Board</Text>
       </View>
+      </LinearGradient>
 
       <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
         <KeyboardAvoidingView
@@ -171,7 +187,7 @@ const fetchUserData = async (uid) => {
 
 const resetInactivityTimer = (navigation) => {
   let timeout;
-  const INACTIVITY_TIME = 1800000; // 30 minutes
+  const INACTIVITY_TIME = 1000 * 60 * 60 * 24;
   const checkInactivity = () => {
     Alert.alert(
       'Are you still there?',
@@ -202,11 +218,43 @@ const resetInactivityTimer = (navigation) => {
   }
 };
 
+const spacing = {
+  xsmall: 5,
+  small: 10,
+  medium: 15,
+  large: 20,
+  xlarge: 30,
+};
+
+const borderRadius = {
+  small: 4,
+  medium: 8,
+  large: 10,
+  xlarge: 20,
+};
+
+// Calculate header top padding for iOS and Android
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
+const HEADER_HEIGHT = 60; 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
     backgroundColor: '#f5f5f5',
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: HEADER_HEIGHT + STATUS_BAR_HEIGHT,
+    paddingHorizontal: spacing.small,
+    paddingTop: STATUS_BAR_HEIGHT,
+    elevation: 10, // Android shadow
+    shadowColor: Theme.colors.black, // iOS shadow
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
   filterContainer: {
     flexDirection: 'row',

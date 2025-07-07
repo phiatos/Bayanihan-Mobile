@@ -564,7 +564,7 @@ const ProfileScreen = ({ navigation }) => {
           >
             <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={GlobalStyles.headerTitle}>Profile</Text>
+          <Text style={[GlobalStyles.headerTitle, {color: Theme.colors.primary}]}>Profile</Text>
         </View>
       </View>
 
