@@ -25,33 +25,44 @@ const borderWidth = {
 };
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
-const HEADER_HEIGHT = 50; 
+const HEADER_HEIGHT = 50;
+const NAVIGATION_BAR_HEIGHT = 45; // This can be adjusted based on your navigation bar height
 
 export const styles = StyleSheet.create({
-  headerContainer:{
+  subContainer: {
+    display: 'flex',
+    flex: 1,
+  },
+  fullScreenContainer: {
+    flex: 1,
+  },
+  map: {
+    flex: 1,
+  },
+  headerContainer: {
     position: 'absolute',
     top: STATUS_BAR_HEIGHT,
-    left:0,
+    left: 0,
     right: 0,
-    height: HEADER_HEIGHT ,
+    height: HEADER_HEIGHT,
     width: '93%',
-    marginHorizontal: '3.5%', 
+    marginHorizontal: '3.5%',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    display:'flex',
+    display: 'flex',
     zIndex: 1000,
-    backgroundColor: 'rgba(0, 0, 0, 0.38)',
-    borderRadius: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
     overflow: 'hidden',
   },
-  formCard:{
+  formCard: {
     width: '100%',
     height: '100%',
     borderColor: 'rgba(255, 255, 255, 0.3)',
     borderWidth: 1,
-    borderRadius: 15,
-    display:'flex',
+    borderRadius: 20,
+    display: 'flex',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
@@ -66,24 +77,14 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  headerMenuIcon:{
+  headerMenuIcon: {
     paddingLeft: 10,
   },
-  userName:{
-    color: Theme.colors.white, 
-    fontSize: 14, 
+  userName: {
+    color: Theme.colors.white,
+    fontSize: 14,
     fontFamily: 'Poppins_Medium',
     right: -30,
-},
-  fullScreenContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  map: {
-    flex: 1,
-    width: width,
-    height: '100%',
-    zIndex: 1,
   },
   overlayContainer: {
     position: 'absolute',
@@ -111,8 +112,7 @@ export const styles = StyleSheet.create({
     elevation: 10,
     backgroundColor: Theme.colors.white,
     borderWidth: 1,
-    borderRadius: 25,
-    paddingHorizontal: 2,
+    borderRadius: 30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -120,7 +120,7 @@ export const styles = StyleSheet.create({
   },
   searchIcon: {
     paddingVertical: 10,
-    paddingHorizontal: 17
+    marginLeft: 2, 
   },
   suggestionsContainer: {
     position: 'absolute',
@@ -136,16 +136,17 @@ export const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    overflow: 'hidden'
+    overflow: 'hidden',
   },
   suggestionItem: {
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: Theme.colors.lightBlack,
   },
   suggestionText: {
     fontSize: 14,
     color: Theme.colors.black,
+    fontFamily: 'Poppins_Regular',
   },
   returnButton: {
     position: 'absolute',
@@ -158,27 +159,26 @@ export const styles = StyleSheet.create({
     zIndex: 1000,
     borderWidth: 1,
     borderColor: Theme.colors.primary,
-    hadowColor: '#000',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   mapTypeButtonsContainer: {
     position: 'absolute',
-    top: 650,
-    marginHorizontal: '15%', 
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent:'center',
-    gap: 10,
-    zIndex: 950,
+  left: 20,
+  right: 20,
+  flexDirection: 'row',
+  justifyContent: 'center',
+  padding: 10,
+  borderRadius: 15,
+  zIndex: 1000,
   },
   mapTypeButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 20,
-    paddingVertical: 8,
     paddingHorizontal: 12,
+    paddingVertical: 10,
     marginHorizontal: 5,
     flexDirection: 'row',
     alignItems: 'center',
@@ -193,22 +193,28 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: Theme.colors.white,
     marginLeft: 6,
+    fontFamily: 'Poppins_Regular',
   },
   mapTypeButtonTextActive: {
     color: Theme.colors.primary,
+    fontFamily: 'Poppins_Regular',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   modalContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.lightBg,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
     alignItems: 'center',
-    width: '100%',
     elevation: 20,
   },
   permissionDeniedHeader: {
@@ -216,12 +222,13 @@ export const styles = StyleSheet.create({
     color: Theme.colors.black,
     textAlign: 'center',
     marginVertical: 10,
-    fontFamily: 'Poppins_Bold'
+    fontFamily: 'Poppins_Bold',
   },
   permissionDeniedText: {
     color: Theme.colors.lightBlack,
     textAlign: 'center',
     marginBottom: 20,
+    fontFamily: 'Poppins_Regular',
   },
   permissionButtons: {
     flexDirection: 'column',
@@ -240,12 +247,14 @@ export const styles = StyleSheet.create({
     color: Theme.colors.primary,
     textAlign: 'center',
     marginBottom: 10,
+    fontFamily: 'Poppins_SemiBold',
   },
   permissionDeniedContainerText: {
     fontSize: 14,
-    color: '#333333',
+    color: Theme.colors.black,
     textAlign: 'center',
     marginBottom: 20,
+    fontFamily: 'Poppins_Regular',
   },
   retryButton: {
     paddingVertical: 10,
@@ -259,8 +268,9 @@ export const styles = StyleSheet.create({
   },
   retryButtonText: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: Theme.colors.white,
     textAlign: 'center',
+    fontFamily: 'Poppins_Regular',
   },
   closeButton: {
     paddingVertical: 10,
@@ -274,5 +284,6 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: Theme.colors.primary,
     textAlign: 'center',
+    fontFamily: 'Poppins_Regular',
   },
 });

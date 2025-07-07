@@ -8,8 +8,11 @@ export const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'black',
+  },
+  subContainer: {
+    display: 'flex',
+    flex: 1,
+    alignItems: 'center',
   },
   backButton: {
     position: 'absolute',
@@ -27,11 +30,6 @@ export const styles = StyleSheet.create({
     paddingTop: 20,
     fontFamily: 'Poppins_Medium',
   },
-  subContainer: {
-    display: 'flex',
-    flex: 1,
-    alignItems: 'center',
-  },
   formContainer: {
     width: 320,
     height: 450,
@@ -42,12 +40,9 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 15,
     backgroundColor: 'rgba(148, 163, 208, 0.06)',
-  },
-  formCard: {
-    width: '100%',
-    height: '100%',
-    borderWidth: 1,
-    borderRadius: 15,
+    shadowColor: Theme.colors.black, // iOS shadow
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
   },
   contentContainer: {
     paddingHorizontal: 10,

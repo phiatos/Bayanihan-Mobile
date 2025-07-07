@@ -86,11 +86,11 @@ const LoginScreen = ({ navigation }) => {
 
   return (
      <LinearGradient
-      colors={['rgba(250, 59, 154, 0.5)', '#FFF9F0']}
+      colors={['rgba(250, 59, 154, 0.43)', '#FFF9F0']}
       start={{ x: 0.5, y: 1 }} 
       end={{ x: 0.5, y: 0 }}   
       style={styles.gradientContainer}
-    >
+    >-
     <SafeAreaView  style={styles.container}>
       <KeyboardAvoidingView style={styles.subContainer}>
       <Modal
@@ -121,7 +121,7 @@ const LoginScreen = ({ navigation }) => {
         <Ionicons name="arrow-back" size={28} color="#14AFBC" />
       </TouchableOpacity>
       
-      <View blurType="light" blurAmount={40} borderRadius={15} style={styles.formContainer}>
+      <View blurType="light" blurAmount={80} intensity={50} borderRadius={15} style={styles.formContainer}>
       <View style={styles.contentContainer}>
         <Text style={styles.welcomeText}>Welcome Back!</Text>
       <View style={styles.inputContainer}>

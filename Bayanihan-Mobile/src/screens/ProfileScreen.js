@@ -23,7 +23,7 @@ import { auth } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import { AuthContext } from '../context/AuthContext';
 import GlobalStyles from '../styles/GlobalStyles';
-import ProfileStyles from '../styles/ProfileStyles';
+import styles from '../styles/ProfileStyles';
 import { KeyboardAvoidingView } from 'react-native';
 import CustomModal from '../components/CustomModal'; // Adjust the import path as needed
 
@@ -35,7 +35,7 @@ const ProfileScreen = ({ navigation }) => {
     contactPerson: '',
     email: '',
     mobile: '',
-    areaOfOperation: [],
+    role: '',
   });
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -64,7 +64,6 @@ const ProfileScreen = ({ navigation }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { height, width } = Dimensions.get('window');
   
-
   // State for custom modal
   const [customModal, setCustomModal] = useState({
     visible: false,
@@ -124,13 +123,22 @@ const ProfileScreen = ({ navigation }) => {
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
           const data = snapshot.val();
+          // Combine address fields into a single hq string
+          const addressFields = [
+            data.address?.barangay,
+            data.address?.city,
+            data.address?.province,
+            data.address?.region,
+          ].filter(field => field && field !== 'N/A'); // Remove undefined or 'N/A' fields
+          const hq = addressFields.length > 0 ? addressFields.join(', ') : 'N/A';
+
           setProfileData({
             organization: data.organization || 'N/A',
-            hq: data.hq || 'N/A',
+            hq: hq,
             contactPerson: data.contactPerson || user.contactPerson || 'N/A',
             email: data.email || user.email || 'N/A',
             mobile: data.mobile || 'N/A',
-            areaOfOperation: data.areaOfOperation || [],
+            role: data.role || 'N/A',
           });
 
           const userAgreedVersion = data.terms_agreed_version || 0;
@@ -538,67 +546,72 @@ const ProfileScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={ProfileStyles.container}>
+      <View style={GlobalStyles.container}>
         <ActivityIndicator size="large" color={Theme.colors.primary} />
-        <Text style={ProfileStyles.sectionTitle}>Loading Profile...</Text>
+        <Text style={styles.sectionTitle}>Loading Profile...</Text>
       </View>
     );
   }
 
   return (
-    <View style={ProfileStyles.container}>
+    <SafeAreaView style={GlobalStyles.container}>
       {/* Header */}
-      <View style={GlobalStyles.headerContainer}>
-        <TouchableOpacity onPress={handleOpenDrawer} style={GlobalStyles.headerMenuIcon}>
-          <Ionicons name="menu" size={32} color="white" />
-        </TouchableOpacity>
-        <Text style={GlobalStyles.headerTitle}>Profile</Text>
+      <View style={GlobalStyles.newheaderContainer}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            onPress={() => navigation.openDrawer()}
+            style={styles.headerMenuIcon}
+          >
+            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+          </TouchableOpacity>
+          <Text style={GlobalStyles.headerTitle}>Profile</Text>
+        </View>
       </View>
 
-      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+      <ScrollView style={styles.scrollViewContent}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          <ScrollView contentContainerStyle={ProfileStyles.scrollViewContent}>
+          <ScrollView contentContainerStyle={styles.scrollViewContent}>
             {/* Volunteer Info */}
             {!termsModalVisible && !passwordNeedsReset && (
-              <View style={ProfileStyles.section}>
-                <Text style={ProfileStyles.sectionTitle}>Volunteer Group Information</Text>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Volunteer Group Information</Text>
                 {[
+                  ['Role:', profileData.role],
                   ['Organization Name:', profileData.organization],
-                  ['HQ:', profileData.hq],
+                  ['Headquarters:', profileData.hq],
                   ['Contact Person:', profileData.contactPerson],
                   ['Email Address:', profileData.email],
                   ['Mobile Number:', profileData.mobile],
                 ].map(([label, value], idx) => (
-                  <View key={idx} style={ProfileStyles.infoRow}>
-                    <Text style={ProfileStyles.label}>{label}</Text>
-                    <View style={ProfileStyles.outputContainer}>
-                      <Text style={ProfileStyles.output}>{value}</Text>
+                  <View key={idx} style={styles.infoRow}>
+                    <Text style={styles.label}>{label}</Text>
+                    <View style={styles.outputContainer}>
+                      <Text style={styles.output}>{value}</Text>
                     </View>
                   </View>
                 ))}
-               
               </View>
             )}
 
             {/* Terms and Conditions Modal */}
             {termsModalVisible && (
-              <View style={ProfileStyles.modalOverlay}>
-                <View style={ProfileStyles.modalContainer}>
-                  <Text style={ProfileStyles.modalTitle}>Terms and Conditions</Text>
-                  <ScrollView style={ProfileStyles.modalContent}>
-                    <Text style={ProfileStyles.modalText}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalContainer}>
+                  <Text style={styles.modalTitle}>Terms and Conditions</Text>
+                  <ScrollView style={styles.modalContent}>
+                    <Text style={styles.modalText}>
                       Please read and accept the Terms and Conditions to continue using the app.
                       Lorem ipsum dolor sit amet, consectetur adipiscing elit...
                     </Text>
                   </ScrollView>
-                  <View style={ProfileStyles.checkboxContainer}>
+                  <View style={styles.checkboxContainer}>
                     <TouchableOpacity
                       onPress={() => setAgreedTerms(!agreedTerms)}
-                      style={ProfileStyles.checkbox}
+                      style={styles.checkbox}
                     >
                       {agreedTerms ? (
                         <Ionicons name="checkbox" size={24} color={Theme.colors.primary} />
@@ -606,16 +619,16 @@ const ProfileScreen = ({ navigation }) => {
                         <Ionicons name="checkbox-outline" size={24} color={Theme.colors.primary} />
                       )}
                     </TouchableOpacity>
-                    <Text style={ProfileStyles.checkboxLabel}>
+                    <Text style={styles.checkboxLabel}>
                       I agree to the Terms and Conditions
                     </Text>
                   </View>
                   <TouchableOpacity
-                    style={[ProfileStyles.modalButton, !agreedTerms && { opacity: 0.5 }]}
+                    style={[styles.modalButton, !agreedTerms && { opacity: 0.5 }]}
                     onPress={handleAgreeTerms}
                     disabled={!agreedTerms}
                   >
-                    <Text style={ProfileStyles.modalButtonText}>Agree and Continue</Text>
+                    <Text style={styles.modalButtonText}> Agree and Continue</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -634,15 +647,15 @@ const ProfileScreen = ({ navigation }) => {
 
             {/* Change Password Section */}
             {(!termsModalVisible || passwordNeedsReset) && (
-              <View style={ProfileStyles.section}>
-                <Text style={[ProfileStyles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
                   Change Password
                 </Text>
 
                 {/* Current Password Input Field */}
-                <View style={ProfileStyles.passwordInputField}>
+                <View style={styles.passwordInputField}>
                   <TextInput
-                    style={[ProfileStyles.input, { fontFamily: 'Poppins-Medium' }]}
+                    style={styles.input}
                     placeholder="Current Password"
                     value={currentPassword}
                     onChangeText={setCurrentPassword}
@@ -650,7 +663,7 @@ const ProfileScreen = ({ navigation }) => {
                   />
                   <TouchableOpacity
                     onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-                    style={ProfileStyles.passwordEyeIcon}
+                    style={styles.passwordEyeIcon}
                   >
                     <Ionicons
                       name={showCurrentPassword ? 'eye-off' : 'eye'}
@@ -661,9 +674,9 @@ const ProfileScreen = ({ navigation }) => {
                 </View>
 
                 {/* New Password Input Field */}
-                <View style={ProfileStyles.passwordInputField}>
+                <View style={styles.passwordInputField}>
                   <TextInput
-                    style={[ProfileStyles.input, { fontFamily: 'Poppins-Medium' }]}
+                    style={styles.input}
                     placeholder="New Password"
                     value={newPassword}
                     onChangeText={handlePasswordInput}
@@ -671,7 +684,7 @@ const ProfileScreen = ({ navigation }) => {
                   />
                   <TouchableOpacity
                     onPress={() => setShowNewPassword(!showNewPassword)}
-                    style={ProfileStyles.passwordEyeIcon}
+                    style={styles.passwordEyeIcon}
                   >
                     <Ionicons
                       name={showNewPassword ? 'eye-off' : 'eye'}
@@ -682,9 +695,9 @@ const ProfileScreen = ({ navigation }) => {
                 </View>
 
                 {/* Confirm Password Input Field */}
-                <View style={ProfileStyles.passwordInputField}>
+                <View style={styles.passwordInputField}>
                   <TextInput
-                    style={[ProfileStyles.input, { fontFamily: 'Poppins-Medium' }]}
+                    style={styles.input}
                     placeholder="Confirm Password"
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
@@ -692,7 +705,7 @@ const ProfileScreen = ({ navigation }) => {
                   />
                   <TouchableOpacity
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={ProfileStyles.passwordEyeIcon}
+                    style={styles.passwordEyeIcon}
                   >
                     <Ionicons
                       name={showConfirmPassword ? 'eye-off' : 'eye'}
@@ -704,14 +717,14 @@ const ProfileScreen = ({ navigation }) => {
 
                 {/* Password Strength Indicator */}
                 {showPasswordStrength && (
-                  <View style={ProfileStyles.strengthContainer}>
-                    <Text style={[ProfileStyles.strengthText, { fontFamily: 'Poppins-SemiBold' }]}>
+                  <View style={styles.strengthContainer}>
+                    <Text style={[styles.strengthText, { fontFamily: 'Poppins-SemiBold' }]}>
                       Password Strength: {passwordStrength.strength}
                     </Text>
-                    <View style={ProfileStyles.strengthBarContainer}>
+                    <View style={styles.strengthBarContainer}>
                       <View
                         style={[
-                          ProfileStyles.strengthBar,
+                          styles.strengthBar,
                           {
                             width: passwordStrength.barWidth,
                             backgroundColor: passwordStrength.barColor,
@@ -729,7 +742,7 @@ const ProfileScreen = ({ navigation }) => {
                       <Text
                         key={idx}
                         style={[
-                          ProfileStyles.checkText,
+                          styles.checkText,
                           { fontFamily: 'Poppins-Regular', color: passed ? '#008000' : '#FF4D4D' },
                         ]}
                       >
@@ -743,16 +756,16 @@ const ProfileScreen = ({ navigation }) => {
 
             {/* Submit Button */}
             {(!termsModalVisible || passwordNeedsReset) && (
-              <View style={ProfileStyles.submission}>
+              <View style={styles.submission}>
                 <TouchableOpacity
-                  style={[ProfileStyles.button, submitting && { opacity: 0.5 }]}
+                  style={[styles.button, submitting && { opacity: 0.5 }]}
                   onPress={handleChangePassword}
                   disabled={submitting}
                 >
                   {submitting ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text style={[ProfileStyles.buttonText, { fontFamily: 'Poppins-Bold' }]}>
+                    <Text style={styles.buttonText}>
                       Submit
                     </Text>
                   )}
@@ -761,8 +774,8 @@ const ProfileScreen = ({ navigation }) => {
             )}
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

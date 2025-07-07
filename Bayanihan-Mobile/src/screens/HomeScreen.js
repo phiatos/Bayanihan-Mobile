@@ -3,7 +3,6 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   Dimensions,
   FlatList,
@@ -16,6 +15,7 @@ import {
   ToastAndroid,
   TouchableOpacity,
   View,
+  StatusBar
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import WebView from 'react-native-webview';
@@ -25,6 +25,8 @@ import GlobalStyles from '../styles/GlobalStyles';
 import { styles } from '../styles/HomeScreenStyles';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { KeyboardAvoidingView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { height, width } = Dimensions.get('window');
 
@@ -43,6 +45,7 @@ const HomeScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
   const webViewRef = useRef(null);
   const searchTimeout = useRef(null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!hasShownModal && !permissionStatus) {
@@ -108,7 +111,8 @@ const HomeScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Autocomplete Error:', error);
-      Alert.alert('Error', 'Failed to fetch suggestions. Please check your internet connection.');
+      ToastAndroid.show('Failed to fetch suggestions. Please check your internet connection.', ToastAndroid.SHORT);
+
     }
   };
 
@@ -219,7 +223,7 @@ const HomeScreen = ({ navigation }) => {
           placeName = place.name;
           formattedAddress = place.formatted_address;
         } else {
-          Alert.alert('Error', 'No results found for the search query.');
+          ToastAndroid.show('No results found for the search query.',ToastAndroid.BOTTOM);
           console.warn('Text Search API failed:', data.status);
           return;
         }
@@ -254,7 +258,7 @@ const HomeScreen = ({ navigation }) => {
       setSuggestions([]);
     } catch (error) {
       console.error('Search error:', error);
-      Alert.alert('Error', 'Failed to search for the location. Please check your internet connection and try again.');
+      ToastAndroid.show('Failed to search for the location. Please check your internet connection and try again.',ToastAndroid.BOTTOM);
     }
   };
 
@@ -265,7 +269,7 @@ const HomeScreen = ({ navigation }) => {
 
   const returnToUserLocation = async () => {
     if (permissionStatus !== 'granted') {
-      Alert.alert('Error', 'Please enable location access to return to your current location.');
+      ToastAndroid.show('Please enable location access to return to your current location.',ToastAndroid.BOTTOM);
       return;
     }
 
@@ -317,7 +321,7 @@ const HomeScreen = ({ navigation }) => {
       webViewRef.current?.injectJavaScript(script);
     } catch (error) {
       console.error('Return to user location error:', error);
-      Alert.alert('Error', 'Failed to return to your location. Please try again.');
+      ToastAndroid.show('Failed to return to your location. Please try again.',ToastAndroid.BOTTOM);
     }
   };
 
@@ -592,10 +596,20 @@ const HomeScreen = ({ navigation }) => {
     `
       : null;
 
+useEffect(() => {
+    StatusBar.setBarStyle('light-content');
+
+    // Cleanup: Reset to default style when component unmounts (optional, depending on app needs)
+    return () => {
+      StatusBar.setBarStyle('dark-content');
+    };
+  }, []);
+      
   return (
     <SafeAreaView style={GlobalStyles.container}>
       {/* Map Container */}
       {permissionStatus === 'granted' && location && mapHtml ? (
+          <KeyboardAvoidingView style={styles.subContainer}>
         <View style={styles.fullScreenContainer}>
           <WebView
             ref={webViewRef}
@@ -612,7 +626,7 @@ const HomeScreen = ({ navigation }) => {
             }}
           />
           {/* Header */}
-          <BlurView blurAmount={20} tint="light" style={styles.headerContainer}>
+          <View blurAmount={20} tint="light" style={styles.headerContainer} >
             <LinearGradient
               colors={['rgba(185, 185, 185, 0.12)', 'rgba(77, 77, 77, 0.2)']}
               start={{ x: 0, y: 0 }}
@@ -636,7 +650,8 @@ const HomeScreen = ({ navigation }) => {
                 </View>
               </View>
             </LinearGradient>
-          </BlurView>
+          </View>
+         
           {/* Other Overlays */}
           <View style={styles.overlayContainer}>
             <View style={styles.searchWrapper}>
@@ -644,7 +659,7 @@ const HomeScreen = ({ navigation }) => {
                 style={[
                   styles.searchContainer,
                   {
-                    width: searchBarVisible ? '100%' : 40,
+                    width: searchBarVisible ? '100%' : 43,
                     borderRadius: searchAnim.interpolate({
                       inputRange: [0, 1],
                       outputRange: [20, 20],
@@ -691,7 +706,7 @@ const HomeScreen = ({ navigation }) => {
                   {searchBarVisible && (
                     <TextInput
                       placeholder="Search"
-                      style={{ flex: 1 }}
+                      style={{ flex: 1, fontFamily: 'Poppins_Regular' }}
                       placeholderTextColor="black"
                       value={searchQuery}
                       onChangeText={handleSearchInput}
@@ -718,8 +733,13 @@ const HomeScreen = ({ navigation }) => {
                   keyboardShouldPersistTaps="handled"
                 />
               )}
+              <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation}>
+              <MaterialIcons name="my-location" size={24} color={Theme.colors.white} />
+            </TouchableOpacity>
             </View>
-            <View style={styles.mapTypeButtonsContainer}>
+            
+        </View>
+        <View style={[styles.mapTypeButtonsContainer, { bottom: insets.bottom + 8 }]}>
               <TouchableOpacity
                 style={[styles.mapTypeButton, mapType === 'roadmap' && styles.mapTypeButtonActive]}
                 onPress={() => toggleMapType('roadmap')}
@@ -757,14 +777,10 @@ const HomeScreen = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation}>
-              <MaterialIcons name="my-location" size={24} color={Theme.colors.white} />
-            </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       ) : (
         <ScrollView style={GlobalStyles.container}>
-          
             {/* Header */}
           <BlurView intensity={50} tint="light" style={styles.headerContainer}>
             <LinearGradient
@@ -796,8 +812,8 @@ const HomeScreen = ({ navigation }) => {
               <Feather name="search" size={24} style={{ marginHorizontal: 10 }} color={Theme.colors.primary} />
               <TextInput
                 placeholder="Search"
-                style={{ flex: 1 }}
-                placeholderTextColor="black"
+                style={{ flex: 1,     fontFamily: 'Poppins_Regular', }}
+                placeholderTextColor= {Theme.colors.lightBlack}
               />
             </View>
             {permissionStatus === 'denied' && (
@@ -826,7 +842,6 @@ const HomeScreen = ({ navigation }) => {
         visible={modalVisible}
         onRequestClose={closeModal}
       >
-        <SafeAreaView style={{ flex: 1, margin: 0 }}>
           <View style={styles.modalOverlay}>
             <Animated.View
               style={[
@@ -851,7 +866,6 @@ const HomeScreen = ({ navigation }) => {
               </View>
             </Animated.View>
           </View>
-        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );

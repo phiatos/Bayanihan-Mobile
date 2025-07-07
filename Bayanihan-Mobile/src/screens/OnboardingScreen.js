@@ -79,11 +79,10 @@ const imageScale = new Animated.Value(0.1); // For scaling the image
       >
         <Text
           style={{
-            fontWeight: 'bold',
             fontSize: 18,
             color: '#FFF9F0',
             textAlign:'center',
-            fontFamily: 'Poppins-MediumItalic',
+            fontFamily: 'Poppins_Regular',
           }}
         >
           Let's Begin

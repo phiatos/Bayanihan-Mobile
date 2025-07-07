@@ -39,6 +39,17 @@ export default StyleSheet.create({
     // shadowOpacity: 0.3,
     // shadowRadius: 5,
   },
+    newheaderContainer: {
+    position: 'absolute',
+    top: STATUS_BAR_HEIGHT,
+    left: 0,
+    right: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    display: 'flex',
+    zIndex: 1000,
+    overflow: 'hidden',
+  },
   headerMenuIcon: {
     position: 'absolute',
     left: spacing.small,
@@ -47,7 +58,7 @@ export default StyleSheet.create({
     color: Theme.colors.primary
   },
   headerTitle: {
-    color:  Theme.colors.white,
+    color:  Theme.colors.primary,
     fontSize: 20,
     fontFamily: 'Poppins_SemiBold', 
     textAlign: 'center',

@@ -23,15 +23,16 @@ const borderWidth = {
 };
 
 export default StyleSheet.create({
-  container: {
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingLeft: 10,
     flex: 1,
-    backgroundColor: Theme.colors.lightBg,
   },
-
   scrollViewContent: {
-    paddingVertical: spacing.small,
+    marginTop: 20,
   },
-
   section: {
     marginVertical: spacing.small,
     marginHorizontal: spacing.medium,
@@ -102,7 +103,6 @@ export default StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    marginBottom: spacing.large,
   },
 
   buttonText: {
@@ -220,6 +220,7 @@ export default StyleSheet.create({
     color: '#000',
     fontSize: 14,
     paddingHorizontal: 15,
+    fontFamily: 'Poppins_Regular'
   },
 
   passwordEyeIcon: {

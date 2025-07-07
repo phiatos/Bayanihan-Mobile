@@ -20,21 +20,13 @@ const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
 const HEADER_HEIGHT = 80; 
 
 const DashboardStyles = StyleSheet.create({
-
-  headerContainer:{
-    position: 'absolute',
-    top: STATUS_BAR_HEIGHT,
-    left:0,
-    right: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    display:'flex',
-    zIndex: 1000,
-    overflow: 'hidden',
-    marginBottom: 10,
-    // backgroundColor: Theme.colors.primary
+  gradientContainer:{
+    flex: 1,
   },
-  headerContent:{
+ container: {
+      flex: 1,
+ },
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -42,51 +34,65 @@ const DashboardStyles = StyleSheet.create({
     flex: 1,
   },
   scrollViewContent: {
-      padding: 20,
-      marginTop: 50,
-      overflow: 'hidden'
+    paddingHorizontal: 20,
+    marginTop: 30,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
   },
   sectionTitle: {
-    textAlign: 'center',
-    fontSize: 24,
-    marginBottom: 10,
+    textAlign: 'left',
+    paddingLeft: 20,
+    marginTop: 20,
+    fontSize: 18,
     fontFamily: 'Poppins_SemiBold',
-    color: Theme.colors.primary,
+    color: Theme.colors.black,
+    position:'relative'
   },
-  metricCard: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: '#fff',
-  marginVertical: 10,
-  marginHorizontal: 16,
-  padding: 16,
-  borderRadius: 12,
-  borderColor: '#0fbaba',  
-  borderWidth: 1,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 6,
-  elevation: 3,
-},
-iconContainer: {
-  marginRight: 16,
-  backgroundColor: '#e8f0fe',
-  padding: 10,
-  borderRadius: 50,
-},
-metricInfo: {
-  flex: 1,
-},
-metricLabel: {
-  fontSize: 14,
-  color: '#7f8c8d',
-},
-metricValue: {
-  fontSize: 20,
-  color: '#2980b9',
-  marginTop: 4,
-},
+  noSectionTitle:{
+    height: spacing.large
+  },
+  metricGradientCard:{
+    display:'flex',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginVertical: 10,
+    marginHorizontal: 16,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+  },
+    metricCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+    marginHorizontal: 16,
+    borderRadius: 12,
+  },
+  formCard:{
+    borderRadius: 15,
+    paddingVertical: 10,
+  },
+  iconContainer: {
+    backgroundColor: '#e8f0fe',
+    padding: 10,
+    borderRadius: 50,
+    width: 50,
+  },
+  metricInfo: {
+    flex: 1,
+    marginHorizontal: 15,
+  },
+  metricLabel: {
+    fontSize: 15,
+    color: Theme.colors.primary,
+    fontFamily: 'Poppins_SemiBold' 
+  },
+  metricValue: {
+    fontSize: 20,
+    color: Theme.colors.blue,
+    marginTop: 4,
+    fontFamily: 'Poppins_Regular' 
+  },
 });
 
 export default DashboardStyles;

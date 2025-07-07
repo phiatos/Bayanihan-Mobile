@@ -39,7 +39,7 @@
       "package": "com.firebase.bayanihan"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/images/ab_logo.png"
     },
     "plugins": [
       "expo-font",

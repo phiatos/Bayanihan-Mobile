@@ -1,15 +1,16 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Font from 'expo-font';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/database';
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TouchableOpacity, View, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+
 import styles from '../styles/DashboardStyles';
 import GlobalStyles from '../styles/GlobalStyles';
 import Theme from '../constants/theme';
-
+import { BlurView } from 'expo-blur';
 
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
@@ -19,7 +20,6 @@ const auth = firebase.auth();
 const database = firebase.database();
 
 const DashboardScreen = ({ navigation }) => {
-  const [fontsLoaded, setFontsLoaded] = useState(false);
   const [metrics, setMetrics] = useState([
     { label: 'No. of Food Packs', value: '0', icon: 'food-variant' },
     { label: 'No. of Hot Meals', value: '0', icon: 'silverware-fork-knife' },
@@ -29,35 +29,25 @@ const DashboardScreen = ({ navigation }) => {
     { label: 'In-Kind Donations', value: '₱0', icon: 'gift' },
   ]);
   const [headerTitle, setHeaderTitle] = useState('Dashboard');
-  const [organizationName, setOrganizationName] = useState(''); // New state for organization name
+  const [organizationName, setOrganizationName] = useState('');
 
   useEffect(() => {
-    (async () => {
-      try {
-        await Font.loadAsync({
-          'Poppins-MediumItalic': require('../../assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
-          'Poppins-Bold': require('../../assets/fonts/Poppins/Poppins-Bold.ttf'),
-          'Poppins-Medium': require('../../assets/fonts/Poppins/Poppins-Medium.ttf'),
-          'Poppins_SemiBold': require('../../assets/fonts/Poppins/Poppins-SemiBold.ttf'),
-          'Poppins_Regular': require('../../assets/fonts/Poppins/Poppins-Regular.ttf'),
-        });
-        setFontsLoaded(true);
-      } catch (error) {
-        console.error('Font loading error:', error);
-        ToastAndroid.show('Failed to load fonts. Please restart the app.',ToastAndroid.BOTTOM);
-      }
-    })();
+    StatusBar.setBarStyle('dark-content');
+
+    // Cleanup: Reset to default style when component unmounts (optional, depending on app needs)
+    return () => {
+      StatusBar.setBarStyle('light-content');
+    };
   }, []);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(user => {
       if (!user) {
-        ToastAndroid.show('Please sign in to access the dashboard.',ToastAndroid.BOTTOM);
+        ToastAndroid.show('Please sign in to access the dashboard.', ToastAndroid.BOTTOM);
         return;
       }
       const userId = user.uid;
 
-      // Fetch user data (role and organization name)
       database.ref(`users/${userId}`).once('value', snapshot => {
         const userData = snapshot.val();
         if (!userData || !userData.role) {
@@ -70,12 +60,11 @@ const DashboardScreen = ({ navigation }) => {
         }
 
         const role = userData.role;
-        const orgName = userData.organization|| ''; // Fetch organization name
+        const orgName = userData.organization || '';
 
-        setOrganizationName(orgName); // Set organization name
+        setOrganizationName(orgName);
         setHeaderTitle(role === "AB ADMIN" ? "Admin Dashboard" : "Volunteer Dashboard");
 
-        // Fetch approved reports and aggregate data
         database.ref("reports/approved").on('value', snapshot => {
           let totalFoodPacks = 0;
           let totalHotMeals = 0;
@@ -111,7 +100,7 @@ const DashboardScreen = ({ navigation }) => {
             { label: 'Liters of Water', value: totalWaterLiters.toLocaleString(), icon: 'water' },
             { label: 'Volunteers Mobilized', value: totalVolunteers.toLocaleString(), icon: 'account-group' },
             {
-              label: 'Total Amount Raised',
+              label: 'Monetary Donations',
               value: `₱${totalMonetaryDonations.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
               icon: 'cash',
             },
@@ -145,48 +134,63 @@ const DashboardScreen = ({ navigation }) => {
     };
   }, [navigation]);
 
-  if (!fontsLoaded) {
-    return null;
-  }
-
   return (
-    <View style={GlobalStyles.container}>
-      <View style={styles.headerContainer}>
-         <View style={styles.headerContent}>
-        <TouchableOpacity
-          onPress={() => navigation.openDrawer()}
-          style={styles.headerMenuIcon}
-        >
-          <Ionicons name="menu" size={32} color={Theme.colors.primary} />
-        </TouchableOpacity>
-        <Text style={[GlobalStyles.headerTitle, {color:Theme.colors.primary}]}>{headerTitle}</Text>
+    <LinearGradient
+             colors={['rgba(250, 59, 154, 0.43)', '#FFF9F0']}
+             start={{ x: 0.5, y: 1 }} 
+             end={{ x: 0.5, y: 0 }}   
+             style={styles.gradientContainer}
+           >
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={GlobalStyles.newheaderContainer}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            onPress={() => navigation.openDrawer()}
+            style={styles.headerMenuIcon}
+          >
+            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+          </TouchableOpacity>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>{headerTitle}</Text>
         </View>
       </View>
 
-      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+        {/* Main Content */}
         <ScrollView style={styles.scrollViewContent}>
-          <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>
-            {organizationName}
-          </Text>
+          {organizationName ? (
+            <Text style={styles.sectionTitle}>{organizationName}</Text>
+          ) : (
+            <View style={styles.noSectionTitle} /> 
+          )}
 
           {metrics.map(({ label, value, icon }, idx) => (
+            <BlurView blurAmount={20} tint="light" style={styles.metricGradientCard } >
+             <LinearGradient
+                colors= {['rgba(251, 255, 255, 0.04)', 'rgba(192, 249, 254, 0.05)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                useAngle
+                angle={110}
+                style={styles.formCard} >
             <View key={idx} style={styles.metricCard}>
               <View style={styles.iconContainer}>
                 <MaterialCommunityIcons name={icon} size={28} color="#4A90E2" />
               </View>
               <View style={styles.metricInfo}>
-                <Text style={[styles.metricLabel, { fontFamily: 'Poppins-MediumItalic' }]}>
+                <Text style={styles.metricLabel}>
                   {label}
                 </Text>
                 <Text style={[styles.metricValue, { fontFamily: 'Poppins-Bold' }]}>
                   {value}
                 </Text>
               </View>
-            </View>
+               </View>
+              </LinearGradient> 
+              </BlurView>
           ))}
         </ScrollView>
-      </SafeAreaView>
-    </View>
+     </SafeAreaView>
+      </LinearGradient>
   );
 };
 

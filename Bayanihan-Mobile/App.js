@@ -19,6 +19,9 @@ function App() {
     Poppins_SemiBold: require('./assets/fonts/Poppins/Poppins-SemiBold.ttf'),
     Poppins_Bold: require('./assets/fonts/Poppins/Poppins-Bold.ttf'),
     Poppins_Medium: require('./assets/fonts/Poppins/Poppins-Medium.ttf'),
+    Poppins_MediumItalic: require('./assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
+    Poppins_Italic: require('./assets/fonts/Poppins/Poppins-Italic.ttf'),
+
   });
 
   if (!fontsLoaded) return null;
