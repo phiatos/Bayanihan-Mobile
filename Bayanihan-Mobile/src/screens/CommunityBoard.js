@@ -106,20 +106,14 @@ const CommunityBoard = ({ navigation }) => {
   );
 
   return (
-    <View style={RDANAStyles.container}>
-      <LinearGradient
-        colors={[
-        'rgb(147, 233, 239)',   
-        'rgba(238, 174, 215, 1)',  
-        'rgba(241, 211, 237, 1)' 
-      ]}
-        //  start={{ x: 0.05, y: 1 }}
-        // end={{ x: 0.95, y: 0 }}
-        locations={[0.09, 0.5, 0.87]} 
-        start={{ x: 0.15, y: 1 }}     
-        end={{ x: 1, y: 0 }}        
-        style={styles.gradientContainer}
-      >
+    <SafeAreaView style={GlobalStyles.container}>
+      {/* Header */}
+     <LinearGradient
+      colors={['	rgba(20, 174, 187,0.4)', '#FFF9F0']}
+      start={{ x: 1, y: 0.5 }}
+      end={{ x: 1, y: 1}}
+      style={styles.gradientContainer}
+    >
       <View style={styles.headerContainer}>
         <TouchableOpacity
           onPress={() => navigation.openDrawer()}
@@ -156,7 +150,7 @@ const CommunityBoard = ({ navigation }) => {
       />
     </KeyboardAvoidingView>
     </SafeAreaView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -238,11 +232,6 @@ const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
 const HEADER_HEIGHT = 60; 
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: '#f5f5f5',
-  },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',

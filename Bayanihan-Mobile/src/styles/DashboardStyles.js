@@ -45,13 +45,13 @@ const DashboardStyles = StyleSheet.create({
     marginTop: 20,
     fontSize: 18,
     fontFamily: 'Poppins_SemiBold',
-    color: Theme.colors.black,
+    color: Theme.colors.blue,
     position:'relative'
   },
   noSectionTitle:{
     height: spacing.large
   },
-  metricGradientCard:{
+    formCard:{
     display:'flex',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -60,6 +60,16 @@ const DashboardStyles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     borderColor: Theme.colors.primary,
+    elevation: 13,
+    shadowColor: Theme.colors.black, // iOS shadow
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
+    metricGradientCard:{
+    borderRadius: 15,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(31, 31, 31, 0.16)',
   },
     metricCard: {
     flexDirection: 'row',
@@ -68,15 +78,45 @@ const DashboardStyles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: 12,
   },
-  formCard:{
-    borderRadius: 15,
-    paddingVertical: 10,
-  },
+    innerShadowCommon: {
+      position: 'absolute',
+      zIndex: 2,
+      borderRadius: 15,
+    },
+    topShadow: {
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 15,
+    },
+    bottomShadow: {
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 15,
+    },
+    leftShadow: {
+      top: 0,
+      bottom: 0,
+      left: 0,
+      width: 15,
+    },
+    rightShadow: {
+      top: 0,
+      bottom: 0,
+      right: 0,
+      width: 15,
+    },
   iconContainer: {
     backgroundColor: '#e8f0fe',
     padding: 10,
     borderRadius: 50,
     width: 50,
+    elevation: 8,
+    shadowColor: Theme.colors.black, // iOS shadow
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
   metricInfo: {
     flex: 1,
@@ -85,11 +125,13 @@ const DashboardStyles = StyleSheet.create({
   metricLabel: {
     fontSize: 15,
     color: Theme.colors.primary,
-    fontFamily: 'Poppins_SemiBold' 
+    fontFamily: 'Poppins_SemiBold',
+    color: Theme.colors.white
+
   },
   metricValue: {
     fontSize: 20,
-    color: Theme.colors.blue,
+    color: Theme.colors.lightBlue,
     marginTop: 4,
     fontFamily: 'Poppins_Regular' 
   },

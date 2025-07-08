@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StatusBar, StyleSheet } from 'react-native';
 import Theme from '../constants/theme';
 
 const spacing = {
@@ -22,7 +22,24 @@ const borderWidth = {
   thick: 3,
 };
 
+// Calculate header top padding for iOS and Android
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
+const HEADER_HEIGHT = 60; 
+
 export default StyleSheet.create({
+  headerContainer: {
+   flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: HEADER_HEIGHT + STATUS_BAR_HEIGHT,
+    paddingHorizontal: spacing.small,
+    paddingTop: STATUS_BAR_HEIGHT,
+    elevation: 10, // Android shadow
+    shadowColor: Theme.colors.black, // iOS shadow
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -31,7 +48,7 @@ export default StyleSheet.create({
     flex: 1,
   },
   scrollViewContent: {
-    marginTop: 20,
+    flex: 1,
   },
   section: {
     marginVertical: spacing.small,
@@ -206,26 +223,31 @@ export default StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Poppins_SemiBold',
   },
-  passwordInputField: {
+passwordInputField: {
+    flexDirection: 'row',
+    display:'flex',
+    alignItems: 'center',
     borderWidth: borderWidth.thin,
     borderColor: '#605D67',
     borderRadius: borderRadius.large,
     marginBottom: spacing.small,
-    fontFamily: 'Poppins_Regular',
-    color: Theme.colors.black,
+    paddingVertical: 0,
+    overflow: 'hidden'
   },
   input: {
     flex: 1,
-    height: 50,
-    color: '#000',
-    fontSize: 14,
+    height: 40,
+    color: Theme.colors.black,
+    fontSize: 13,
     paddingHorizontal: 15,
-    fontFamily: 'Poppins_Regular'
+    paddingRight: 45, 
+    fontFamily: 'Poppins_Regular',
   },
-
   passwordEyeIcon: {
-    padding: 10, 
-    position: 'absolute', 
+    position: 'absolute',
     right: 5,
+    padding: 10,
+    // top: '50%',
+    // transform: [{ translateY: -22 }], // Center vertically (24px icon / 2)
   },
 });

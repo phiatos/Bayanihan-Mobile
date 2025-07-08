@@ -16,7 +16,8 @@ import {
   TouchableOpacity,
   View,
   StyleSheet,
-  Dimensions
+  Dimensions,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../configuration/firebaseConfig';
@@ -25,7 +26,8 @@ import { AuthContext } from '../context/AuthContext';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ProfileStyles';
 import { KeyboardAvoidingView } from 'react-native';
-import CustomModal from '../components/CustomModal'; // Adjust the import path as needed
+import CustomModal from '../components/CustomModal';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const ProfileScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
@@ -63,16 +65,6 @@ const ProfileScreen = ({ navigation }) => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { height, width } = Dimensions.get('window');
-  
-  // State for custom modal
-  const [customModal, setCustomModal] = useState({
-    visible: false,
-    title: '',
-    message: null,
-    onConfirm: () => {},
-    confirmText: 'OK',
-    showCancel: false,
-  });
 
   const currentTermsVersion = 1;
 
@@ -80,7 +72,6 @@ const ProfileScreen = ({ navigation }) => {
     setCustomModal({ ...customModal, visible: false });
   };
 
-  // Local styles for modal content to match CustomModal's message style
   const localStyles = StyleSheet.create({
     message: {
       fontSize: 14,
@@ -92,6 +83,15 @@ const ProfileScreen = ({ navigation }) => {
     icon: {
       marginBottom: 15,
     },
+  });
+
+  const [customModal, setCustomModal] = useState({
+    visible: false,
+    title: '',
+    message: null,
+    onConfirm: () => {},
+    confirmText: 'OK',
+    showCancel: false,
   });
 
   useEffect(() => {
@@ -123,13 +123,12 @@ const ProfileScreen = ({ navigation }) => {
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
           const data = snapshot.val();
-          // Combine address fields into a single hq string
           const addressFields = [
             data.address?.barangay,
             data.address?.city,
             data.address?.province,
             data.address?.region,
-          ].filter(field => field && field !== 'N/A'); // Remove undefined or 'N/A' fields
+          ].filter(field => field && field !== 'N/A');
           const hq = addressFields.length > 0 ? addressFields.join(', ') : 'N/A';
 
           setProfileData({
@@ -547,6 +546,7 @@ const ProfileScreen = ({ navigation }) => {
   if (loading) {
     return (
       <View style={GlobalStyles.container}>
+        <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
         <ActivityIndicator size="large" color={Theme.colors.primary} />
         <Text style={styles.sectionTitle}>Loading Profile...</Text>
       </View>
@@ -554,28 +554,32 @@ const ProfileScreen = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={GlobalStyles.container}>
-      {/* Header */}
-      <View style={GlobalStyles.newheaderContainer}>
-        <View style={styles.headerContent}>
+    <View style={GlobalStyles.container}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <LinearGradient
+        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+        start={{ x: 1, y: 0.5 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
+      >
+        <View style={styles.headerContainer}>
           <TouchableOpacity
-            onPress={() => navigation.openDrawer()}
+            onPress={handleOpenDrawer}
             style={styles.headerMenuIcon}
           >
             <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={[GlobalStyles.headerTitle, {color: Theme.colors.primary}]}>Profile</Text>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Profile</Text>
         </View>
-      </View>
+      </LinearGradient>
 
-      <ScrollView style={styles.scrollViewContent}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+              <KeyboardAvoidingView
+                style={{ flex: 1, paddingTop: 20 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 20}
+              >
           <ScrollView contentContainerStyle={styles.scrollViewContent}>
-            {/* Volunteer Info */}
             {!termsModalVisible && !passwordNeedsReset && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Volunteer Group Information</Text>
@@ -586,18 +590,22 @@ const ProfileScreen = ({ navigation }) => {
                   ['Contact Person:', profileData.contactPerson],
                   ['Email Address:', profileData.email],
                   ['Mobile Number:', profileData.mobile],
-                ].map(([label, value], idx) => (
-                  <View key={idx} style={styles.infoRow}>
-                    <Text style={styles.label}>{label}</Text>
-                    <View style={styles.outputContainer}>
-                      <Text style={styles.output}>{value}</Text>
+                ]
+                  .filter(([label, value]) =>
+                    label !== 'Organization Name:' && label !== 'Headquarters:' ||
+                    (value && value !== 'N/A')
+                  )
+                  .map(([label, value], idx) => (
+                    <View key={idx} style={styles.infoRow}>
+                      <Text style={styles.label}>{label}</Text>
+                      <View style={styles.outputContainer}>
+                        <Text style={styles.output}>{value}</Text>
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  ))}
               </View>
             )}
 
-            {/* Terms and Conditions Modal */}
             {termsModalVisible && (
               <View style={styles.modalOverlay}>
                 <View style={styles.modalContainer}>
@@ -634,7 +642,6 @@ const ProfileScreen = ({ navigation }) => {
               </View>
             )}
 
-            {/* Custom Modal for Alerts */}
             <CustomModal
               visible={customModal.visible}
               title={customModal.title}
@@ -645,14 +652,9 @@ const ProfileScreen = ({ navigation }) => {
               showCancel={customModal.showCancel}
             />
 
-            {/* Change Password Section */}
             {(!termsModalVisible || passwordNeedsReset) && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  Change Password
-                </Text>
-
-                {/* Current Password Input Field */}
+                <Text style={styles.sectionTitle}>Change Password</Text>
                 <View style={styles.passwordInputField}>
                   <TextInput
                     style={styles.input}
@@ -673,7 +675,6 @@ const ProfileScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 </View>
 
-                {/* New Password Input Field */}
                 <View style={styles.passwordInputField}>
                   <TextInput
                     style={styles.input}
@@ -694,7 +695,6 @@ const ProfileScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 </View>
 
-                {/* Confirm Password Input Field */}
                 <View style={styles.passwordInputField}>
                   <TextInput
                     style={styles.input}
@@ -715,7 +715,6 @@ const ProfileScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 </View>
 
-                {/* Password Strength Indicator */}
                 {showPasswordStrength && (
                   <View style={styles.strengthContainer}>
                     <Text style={[styles.strengthText, { fontFamily: 'Poppins-SemiBold' }]}>
@@ -754,7 +753,6 @@ const ProfileScreen = ({ navigation }) => {
               </View>
             )}
 
-            {/* Submit Button */}
             {(!termsModalVisible || passwordNeedsReset) && (
               <View style={styles.submission}>
                 <TouchableOpacity
@@ -765,17 +763,15 @@ const ProfileScreen = ({ navigation }) => {
                   {submitting ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text style={styles.buttonText}>
-                      Submit
-                    </Text>
+                    <Text style={styles.buttonText}>Submit</Text>
                   )}
                 </TouchableOpacity>
               </View>
             )}
           </ScrollView>
         </KeyboardAvoidingView>
-      </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 };
 

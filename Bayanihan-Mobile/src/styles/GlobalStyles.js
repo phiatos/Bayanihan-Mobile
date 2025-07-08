@@ -49,6 +49,7 @@ export default StyleSheet.create({
     display: 'flex',
     zIndex: 1000,
     overflow: 'hidden',
+    marginBottom: 20
   },
   headerMenuIcon: {
     position: 'absolute',
@@ -58,7 +59,7 @@ export default StyleSheet.create({
     color: Theme.colors.primary
   },
   headerTitle: {
-    color:  Theme.colors.white,
+    color:  Theme.colors.primary,
     fontSize: 20,
     fontFamily: 'Poppins_SemiBold', 
     textAlign: 'center',
@@ -66,7 +67,7 @@ export default StyleSheet.create({
   },
   container:{
   flex: 1,
-    backgroundColor: Theme.colors.lightBg,
+  backgroundColor: Theme.colors.lightBg,
   },
 });
 

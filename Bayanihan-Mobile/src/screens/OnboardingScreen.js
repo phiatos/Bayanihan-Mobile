@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { View, Text, TouchableOpacity, SafeAreaView, Image, Animated, TouchableWithoutFeedback } from 'react-native';
 import Theme from '../constants/theme';
@@ -22,6 +22,7 @@ const imageScale = new Animated.Value(0.1); // For scaling the image
     const handleScreenPress = () => {
     navigation.navigate('Login');
   };
+
 
   return (
     // <TouchableWithoutFeedback onPress={handleScreenPress}>
