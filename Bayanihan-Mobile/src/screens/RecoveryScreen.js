@@ -4,7 +4,7 @@ import 'firebase/compat/auth';
 import 'firebase/compat/database';
 import { useState } from "react";
 import { Alert, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { Ionicons } from "react-native-vector-icons";
+import { Ionicons } from '@expo/vector-icons';
 
 // Firebase configuration (same as web)
 const firebaseConfig = {

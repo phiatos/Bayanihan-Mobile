@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "bayanihan-mobile",
+    "name": "Bayanihan",
     "slug": "bayanihan-mobile",
     "version": "1.0.0",
     "platforms": [
@@ -8,7 +8,7 @@
       "ios"
     ],
     "orientation": "portrait",
-    "icon": "./assets/images/ab_logo.png",
+    "icon": "./assets/images/app_logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -55,7 +55,8 @@
           "photosPermission": "The app needs access to your photos to upload donation images."
         }
       ],
-      "expo-build-properties"
+      "expo-build-properties",
+      "expo-video"
     ],
     "jsEngine": "jsc",
     "extra": {

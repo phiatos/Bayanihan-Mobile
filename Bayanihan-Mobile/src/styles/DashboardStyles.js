@@ -26,23 +26,14 @@ const DashboardStyles = StyleSheet.create({
  container: {
       flex: 1,
  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingLeft: 10,
-    flex: 1,
-  },
   scrollViewContent: {
     paddingHorizontal: 20,
-    marginTop: 30,
     overflow: 'hidden',
     backgroundColor: 'transparent',
   },
   sectionTitle: {
     textAlign: 'left',
     paddingLeft: 20,
-    marginTop: 20,
     fontSize: 18,
     fontFamily: 'Poppins_SemiBold',
     color: Theme.colors.blue,
@@ -108,11 +99,14 @@ const DashboardStyles = StyleSheet.create({
       width: 15,
     },
   iconContainer: {
-    backgroundColor: '#e8f0fe',
+    backgroundColor: Theme.colors.lightBlue,
     padding: 10,
     borderRadius: 50,
     width: 50,
     elevation: 8,
+    display:'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: Theme.colors.black, // iOS shadow
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.3,

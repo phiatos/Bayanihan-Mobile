@@ -32,9 +32,7 @@ export const styles = StyleSheet.create({
   subContainer: {
     display: 'flex',
     flex: 1,
-  },
-  fullScreenContainer: {
-    flex: 1,
+    marginBottom: 40
   },
   map: {
     flex: 1,
@@ -112,7 +110,6 @@ export const styles = StyleSheet.create({
     elevation: 10,
     backgroundColor: Theme.colors.white,
     borderWidth: 1,
-    borderRadius: 30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -168,6 +165,7 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     right: 20,
+    bottom: 10,
     flexDirection: 'row',
     justifyContent: 'center',
     padding: 10,

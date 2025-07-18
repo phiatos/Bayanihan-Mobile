@@ -23,15 +23,6 @@ const borderWidth = {
 };
 
 export default StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.lightBg,
-  },
-
-  scrollViewContent: {
-    paddingVertical: spacing.small, 
-  },
-
   section: {
     marginVertical: spacing.small,
     marginHorizontal: spacing.medium,
@@ -57,6 +48,7 @@ export default StyleSheet.create({
 
   form: {
     marginHorizontal: 10,
+    marginTop: 20
   },
 
   formTitle: {
@@ -130,38 +122,8 @@ export default StyleSheet.create({
     fontSize: 18,
     color: '#14AEBB',
   },
- imageUpload: {
-    borderWidth: 1,
-    borderColor: '#AAA',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: 50,
-  },
   icon: {
     padding: 10,
-  },
-  button: {
-    backgroundColor: '#00BCD4',
-    padding: 13,
-    borderRadius: 10,
-    marginTop: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 30,
-    marginHorizontal: 10,
-  },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 15,
-    fontFamily: 'Poppins_Bold',
   },
   dropdownContainer: {
     position: 'absolute',
@@ -188,5 +150,37 @@ export default StyleSheet.create({
   dropdownItemText: {
     fontSize: 16,
     color: '#333',
+  },
+  
+  // Summary
+  fieldContainer: {
+    marginBottom: 10,
+  },
+  label: {
+    fontSize: 14,
+    color: Theme.colors.primary,
+    textTransform: 'capitalize',
+    fontFamily: 'Poppins_SemiBold',
+  },
+  value: {
+    fontSize: 14,
+    color: '#000000',
+    marginTop: 2,
+    fontFamily: 'Poppins_Regular',
+  },
+  modalContent: {
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'center',
+  },
+  modalIcon: {
+    marginBottom: 15,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 24,
+    fontFamily: 'Poppins_Regular',
+    textAlign: 'center',
   },
 });

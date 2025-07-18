@@ -1,9 +1,9 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 import { signOut } from 'firebase/auth';
+import { Alert, Platform } from 'react-native';
 import { auth } from '../configuration/firebaseConfig';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -20,10 +20,12 @@ import CallforDonations from '../screens/CallforDonations';
 import CommunityBoard from '../screens/CommunityBoard';
 import { AuthContext } from '../context/AuthContext';
 import CustomDrawer from '../components/CustomDrawer';
+import CreatePost from '../screens/Create Post';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 
+// RDANA Stack
 const RDANAStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="RDANAScreen" component={RDANAScreen} />
@@ -31,6 +33,7 @@ const RDANAStack = () => (
   </Stack.Navigator>
 );
 
+// Call for Donations Stack
 const CallforDonationsStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="CallforDonations" component={CallforDonations} />
@@ -38,6 +41,7 @@ const CallforDonationsStack = () => (
   </Stack.Navigator>
 );
 
+// Relief Request Stack
 const RequestStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="ReliefRequest" component={ReliefRequestScreen} />
@@ -45,10 +49,19 @@ const RequestStack = () => (
   </Stack.Navigator>
 );
 
+// Report Submission Stack
 const ReportStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="ReportSubmission" component={ReportSubmissionScreen} />
     <Stack.Screen name="ReportSummary" component={ReportSummary} />
+  </Stack.Navigator>
+);
+
+// Community Board Stack 
+const CommunityBoardStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="CommunityBoard" component={CommunityBoard} />
+    <Stack.Screen name="CreatePost" component={CreatePost} />
   </Stack.Navigator>
 );
 
@@ -57,12 +70,53 @@ const AppStack = () => {
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth); // Sign out from Firebase
-      setUser(null); // Clear user state to navigate to AuthStack
+      await signOut(auth);
+      setUser(null);
     } catch (error) {
       console.error('Sign out error:', error);
     }
   };
+
+  const resetInactivityTimer = (navigation) => {
+    let timeout;
+    const INACTIVITY_TIME = 1000 * 60 * 60 * 24; // 24 hours
+    const checkInactivity = () => {
+      Alert.alert(
+        'Are you still there?',
+        "You've been inactive for a while. Do you want to continue?",
+        [
+          {
+            text: 'Stay Logged In',
+            onPress: () => resetInactivityTimer(navigation),
+          },
+          {
+            text: 'Log Out',
+            onPress: async () => {
+              try {
+                await signOut(auth);
+                setUser(null);
+                navigation.navigate('Login');
+              } catch (error) {
+                console.error(`[${new Date().toISOString()}] Error signing out:`, error);
+              }
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    };
+
+    if (Platform.OS !== 'web') {
+      clearTimeout(timeout);
+      timeout = setTimeout(checkInactivity, INACTIVITY_TIME);
+    }
+
+    return () => clearTimeout(timeout);
+  };
+
+  useEffect(() => {
+    return resetInactivityTimer({ navigate: () => {} }); // Initial call, placeholder navigation
+  }, []);
 
   return (
     <Drawer.Navigator
@@ -112,7 +166,7 @@ const AppStack = () => {
       />
       <Drawer.Screen
         name="Community Board"
-        component={CommunityBoard}
+        component={CommunityBoardStack}
         options={{
           drawerIcon: ({ color }) => (
             <Ionicons name="newspaper" size={22} color={color} />

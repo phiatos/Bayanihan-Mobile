@@ -181,7 +181,7 @@ const DashboardScreen = ({ navigation }) => {
   }, [navigation]);
 
   return (
-    <LinearGradient
+            <LinearGradient
       colors={['rgba(250, 59, 154, 0.43)', '#FFF9F0']}
       start={{ x: 0.5, y: 1 }}
       end={{ x: 0.5, y: 0 }}
@@ -190,12 +190,10 @@ const DashboardScreen = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         {/* Header */}
         <View style={GlobalStyles.newheaderContainer}>
-          <View style={styles.headerContent}>
             <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.headerMenuIcon}>
               <Ionicons name="menu" size={32} color={Theme.colors.primary} />
             </TouchableOpacity>
             <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>{headerTitle}</Text>
-          </View>
         </View>
 
         {/* Main Content */}
@@ -252,7 +250,7 @@ const DashboardScreen = ({ navigation }) => {
               
               <View style={styles.metricCard}>
                 <View style={styles.iconContainer}>
-                  <MaterialCommunityIcons name={icon} size={28} color="#4A90E2" />
+                  <MaterialCommunityIcons name={icon} size={28} color={Theme.colors.accentBlue} />
                 </View>
                 <View style={styles.metricInfo}>
                   <Text style={styles.metricLabel}>{label}</Text>
@@ -265,8 +263,9 @@ const DashboardScreen = ({ navigation }) => {
         ))}
 
         </ScrollView>
-      </SafeAreaView>
+          </SafeAreaView>
     </LinearGradient>
+
   );
 };
 

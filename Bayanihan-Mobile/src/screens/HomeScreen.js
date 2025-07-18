@@ -596,21 +596,16 @@ const HomeScreen = ({ navigation }) => {
     `
       : null;
 
-useEffect(() => {
-    StatusBar.setBarStyle('light-content');
 
-    // Cleanup: Reset to default style when component unmounts (optional, depending on app needs)
-    return () => {
-      StatusBar.setBarStyle('dark-content');
-    };
-  }, []);
       
   return (
     <SafeAreaView style={GlobalStyles.container}>
       {/* Map Container */}
+         <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      
       {permissionStatus === 'granted' && location && mapHtml ? (
           <KeyboardAvoidingView style={styles.subContainer}>
-        <View style={styles.fullScreenContainer}>
+        <View style={{ flex: 1,}}>
           <WebView
             ref={webViewRef}
             style={styles.map}
@@ -659,11 +654,10 @@ useEffect(() => {
                 style={[
                   styles.searchContainer,
                   {
-                    width: searchBarVisible ? '100%' : 43,
-                    borderRadius: searchAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 20],
-                    }),
+                    borderRadius: searchBarVisible ? 30 : '100%',
+                    width: searchBarVisible ? '100%' : 45 ,
+                    height: searchBarVisible ? '100%' : 45,
+                    paddingLeft: searchBarVisible ? 0 : 1
                   },
                 ]}
               >
@@ -739,7 +733,7 @@ useEffect(() => {
             </View>
             
         </View>
-        <View style={[styles.mapTypeButtonsContainer, { bottom: insets.bottom + 8 }]}>
+        <View style={styles.mapTypeButtonsContainer}>
               <TouchableOpacity
                 style={[styles.mapTypeButton, mapType === 'roadmap' && styles.mapTypeButtonActive]}
                 onPress={() => toggleMapType('roadmap')}
@@ -808,14 +802,14 @@ useEffect(() => {
             </LinearGradient>
           </BlurView>
           <View style={{ paddingHorizontal: 20, marginTop: 100 }}>
-            <View style={styles.searchContainer}>
+            {/* <View style={styles.searchContainer}>
               <Feather name="search" size={24} style={{ marginHorizontal: 10 }} color={Theme.colors.primary} />
               <TextInput
                 placeholder="Search"
                 style={{ flex: 1,     fontFamily: 'Poppins_Regular', }}
                 placeholderTextColor= {Theme.colors.lightBlack}
               />
-            </View>
+            </View> */}
             {permissionStatus === 'denied' && (
               <View style={styles.permissionDeniedContainer}>
                 <MaterialIcons

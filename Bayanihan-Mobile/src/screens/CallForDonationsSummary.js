@@ -2,12 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { ref as databaseRef, push, get } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
+import styles from '../styles/CallForDonationsStyles';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const CallForDonationsSummary = () => {
   const route = useRoute();
@@ -65,7 +67,7 @@ const CallForDonationsSummary = () => {
   };
 
   const getBase64Image = async (uri) => {
-    if (!uri) {
+    if (!uri) { 
       console.warn('No image URI provided');
       Alert.alert('Warning', 'No image selected. Proceeding without an image.');
       return '';
@@ -177,25 +179,42 @@ const CallForDonationsSummary = () => {
 
   const handleBack = () => {
     console.log('Navigating back to CallForDonations with formData:', formData, 'and image:', image);
-    navigation.navigate('CallForDonations', { formData, image });
+    navigation.navigate('CallforDonations', { formData, image });
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF9F0' }}>
-      <View style={GlobalStyles.headerContainer}>
-        <TouchableOpacity
-          onPress={() => navigation.openDrawer()}
-          style={GlobalStyles.headerMenuIcon}
+     <SafeAreaView style={GlobalStyles.container}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      {/* Header */}
+      <LinearGradient
+        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+        start={{ x: 1, y: 0.5 }}
+        end={{ x: 1, y: 1 }}
+        style={GlobalStyles.gradientContainer}
+      >
+        <View style={GlobalStyles.newheaderContainer}>
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+          </TouchableOpacity>
+          <Text style={[GlobalStyles.headerTitle]}>Call for Donations </Text>
+        </View>
+      </LinearGradient>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1, marginTop: 80 }}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.scrollViewContent]}
+          scrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
         >
-          <Ionicons name="menu" size={32} color="white" />
-        </TouchableOpacity>
-        <Text style={GlobalStyles.headerTitle}>Call for Donations</Text>
-      </View>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.subheader}>{organizationName}</Text>
-        <View style={styles.formContainer}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Donation Details</Text>
+        <View style={GlobalStyles.form}>
+          <Text style={GlobalStyles.subheader}>Summary</Text>
+          <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
+          <View style={GlobalStyles.summarySection}>
+            <Text style={GlobalStyles.summarySectionTitle}>Donation Details</Text>
             {[
               'donationDrive',
               'contactPerson',
@@ -229,15 +248,17 @@ const CallForDonationsSummary = () => {
               )}
             </View>
           </View>
-        </View>
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBack} disabled={isLoading}>
-            <Text style={styles.backButtonText}>Back</Text>
+           <View style={GlobalStyles.finalButtonContainer}>
+          <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack} disabled={isLoading}>
+            <Text style={GlobalStyles.backButtonText}>Back</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={isLoading}>
-            <Text style={styles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
+          <TouchableOpacity style={GlobalStyles.submitButton} onPress={handleSubmit} disabled={isLoading}>
+            <Text style={GlobalStyles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
           </TouchableOpacity>
         </View>
+        </View>
+        </ScrollView>
+        </KeyboardAvoidingView>
 
         <CustomModal
           visible={modalVisible}
@@ -274,7 +295,6 @@ const CallForDonationsSummary = () => {
           confirmText={errorMessage ? 'Retry' : 'Proceed'}
           showCancel={false}
         />
-      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -299,128 +319,5 @@ const borderWidth = {
   medium: 2,
   thick: 3,
 };
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#FFF9F0',
-  },
-  contentContainer: {
-    paddingVertical: spacing.small,
-    paddingBottom: spacing.xlarge * 2,
-  },
-  menuIcon: {
-    position: 'absolute',
-    left: 30,
-    top: 50,
-  },
-  headerText: {
-    color: Theme.colors.white,
-    fontSize: 20,
-    fontFamily: 'Poppins_Regular',
-    textAlign: 'center',
-  },
-  subheader: {
-    fontSize: 16,
-    color: '#3D52A0',
-    textAlign: 'center',
-    marginVertical: 10,
-    fontFamily: 'Poppins_Regular',
-  },
-  formContainer: {
-    marginBottom: 20,
-  },
-  section: {
-    marginVertical: 10,
-    marginHorizontal: 15,
-    borderWidth: 3,
-    backgroundColor: '#FFF9F0',
-    borderColor: Theme.colors.primary,
-    borderRadius: 10,
-    padding: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    marginBottom: 10,
-    color: '#14AEBB',
-    fontFamily: 'Poppins_Bold',
-  },
-  fieldContainer: {
-    marginBottom: 10,
-  },
-  label: {
-    fontSize: 14,
-    color: Theme.colors.primary,
-    textTransform: 'capitalize',
-    fontFamily: 'Poppins_SemiBold',
-  },
-  value: {
-    fontSize: 14,
-    color: '#000000',
-    marginTop: 2,
-    fontFamily: 'Poppins_Regular',
-  },
-  image: {
-    width: 200,
-    height: 150,
-    borderRadius: 10,
-    marginTop: 5,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 10,
-    marginBottom: 20,
-    height: 45,
-  },
-  backButton: {
-    borderWidth: 1.5,
-    borderColor: '#4059A5',
-    borderRadius: 12,
-    justifyContent: 'center',
-    paddingHorizontal: 25,
-    paddingVertical: 0,
-    alignItems: 'center',
-    marginRight: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  backButtonText: {
-    color: '#4059A5',
-    fontSize: 16,
-    fontFamily: 'Poppins_Medium',
-  },
-  submitButton: {
-    flex: 1,
-    backgroundColor: '#14AEBB',
-    borderRadius: 12,
-    justifyContent: 'center',
-  },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    paddingTop: 5,
-    fontFamily: 'Poppins_SemiBold',
-    textAlign: 'center',
-  },
-  modalContent: {
-    alignItems: 'center',
-    width: '100%',
-    justifyContent: 'center',
-  },
-  modalIcon: {
-    marginBottom: 15,
-  },
-  modalMessage: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 24,
-    fontFamily: 'Poppins_Regular',
-    textAlign: 'center',
-  },
-});
 
 export default CallForDonationsSummary;

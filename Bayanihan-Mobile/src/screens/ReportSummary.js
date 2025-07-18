@@ -2,12 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { ref as databaseRef, push, get } from 'firebase/database';
 import React, { useState, useEffect } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
-import RDANAStyles from '../styles/RDANAStyles';
+import styles from '../styles/ReportSubmissionStyles';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const ReportSummary = () => {
   const route = useRoute();
@@ -17,7 +18,7 @@ const ReportSummary = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [organizationName, setOrganizationName] = useState('Loading...'); // Initialize with loading state
+  const [organizationName, setOrganizationName] = useState('Loading...');
 
   // Fetch organization name from Firebase
   useEffect(() => {
@@ -70,7 +71,7 @@ const ReportSummary = () => {
         reportID: reportData.reportID ||  s`REPORTS-${Math.floor(100000 + Math.random() * 900000)}`,
         AreaOfOperation: reportData.AreaOfOperation || '',
         DateOfReport: reportData.DateOfReport || '',
-        calamityAreaDropdown: reportData.calamityAreaDropdown || '',  
+        calamityArea: reportData.calamityArea || '',  
         TimeOfIntervention: reportData.completionTimeOfIntervention || '',
         StartDate: reportData.StartDate || '',
         EndDate: reportData.EndDate || '',
@@ -165,19 +166,39 @@ const ReportSummary = () => {
   };
 
   return (
-    <View style={styles.container}>
-          <View style={GlobalStyles.headerContainer}>
-            <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
-              <Ionicons name="menu" size={32} color="white" />
-            </TouchableOpacity>
-            <Text style={GlobalStyles.headerTitle}>Reports Submission</Text>
-          </View>
-    
-        <Text style={styles.subheader}>{organizationName}</Text>
-        <ScrollView contentContainerStyle={RDANAStyles.scrollViewContent}>
-        <View style={styles.formContainer}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Basic Information</Text>
+ <SafeAreaView style={GlobalStyles.container}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      {/* Header */}
+      <LinearGradient
+        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+        start={{ x: 1, y: 0.5 }}
+        end={{ x: 1, y: 1 }}
+        style={GlobalStyles.gradientContainer}
+      >
+        <View style={GlobalStyles.newheaderContainer}>
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+          </TouchableOpacity>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Reports Submission</Text>
+        </View>
+      </LinearGradient>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1, marginTop: 80 }}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.scrollViewContent]}
+          scrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
+        >
+      
+        <View style={GlobalStyles.form}>
+             <Text style={GlobalStyles.subheader}>Summary</Text>
+                    <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
+          <View style={GlobalStyles.summarySection}>
+            <Text style={GlobalStyles.summarySectionTitle}>Basic Information</Text>
             {['reportID', 'AreaOfOperation', 'DateOfReport'].map((field) => (
               <View key={field} style={styles.fieldContainer}>
                 <Text style={styles.label}>{formatLabel(field)}</Text>
@@ -187,9 +208,9 @@ const ReportSummary = () => {
             
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Relief Operations</Text>
-            {['calamityAreaDropdown','completionTimeOfIntervention', 'startingDateOfOperation', 'EndDate', 'NoOfIndividualsOrFamilies', 'LitersOfWater', 'NoOfVolunteersMobilized', 'NoOfOrganizationsActivated', 'TotalValueOfInKindDonations', 'TotalMonetaryDonations'].map((field) => (
+          <View style={GlobalStyles.summarySection}>
+            <Text style={GlobalStyles.summarySectionTitle}>Relief Operations</Text>
+            {['calamityArea','completionTimeOfIntervention', 'startingDateOfOperation', 'EndDate', 'NoOfIndividualsOrFamilies', 'LitersOfWater', 'NoOfVolunteersMobilized', 'NoOfOrganizationsActivated', 'TotalValueOfInKindDonations', 'TotalMonetaryDonations'].map((field) => (
               <View key={field} style={styles.fieldContainer}>
                 <Text style={styles.label}>{formatLabel(field)}</Text>
                 <Text style={styles.value}>{reportData[field] || 'None'}</Text>
@@ -197,15 +218,14 @@ const ReportSummary = () => {
             ))}
           </View>
             
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Additional Updates</Text>
+          <View style={GlobalStyles.summarySection}>
+            <Text style={GlobalStyles.summarySectionTitle}>Additional Updates</Text>
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Notes/Additional Information</Text>
                 <Text style={styles.value}>{reportData.NotesAdditionalInformation || 'None'}</Text>
               </View>
            
           </View>
-        </View>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -223,6 +243,9 @@ const ReportSummary = () => {
             <Text style={styles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
           </TouchableOpacity>
         </View>
+        </View>
+        </ScrollView>
+        </KeyboardAvoidingView>
 
         <CustomModal
           visible={modalVisible}
@@ -258,161 +281,9 @@ const ReportSummary = () => {
           confirmText={errorMessage ? 'Retry' : 'Proceed'}
           showCancel={false}
         />
-                </ScrollView>
 
-    </View>
+    </SafeAreaView>
   );
 };
-
-
-const spacing = {
-  xsmall: 5,
-  small: 10,
-  medium: 15,
-  large: 20,
-  xlarge: 30,
-};
-
-const borderRadius = {
-  small: 4,
-  medium: 8,
-  large: 10,
-  xlarge: 20,
-};
-
-const borderWidth = {
-  thin: 1,
-  medium: 2,
-  thick: 3,
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.lightBg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.primary,
-    paddingHorizontal: 10,
-    width: '100%',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    height: 92,
-    paddingTop: 40,
-    position: 'relative',
-    elevation: 10,
-  },
-  menuIcon: {
-    position: 'absolute',
-    left: 30,
-    top: 50,
-  },
-  headerText: {
-    color: 'white',
-    fontSize: 20,
-    fontFamily: 'Poppins_Regular',
-    textAlign: 'center',
-  },
-  subheader: {
-    fontSize: 16,
-    color: '#3D52A0',
-    textAlign: 'center',
-    marginVertical: 10,
-    fontFamily: 'Poppins_Regular',
-  },
-  formContainer: {
-    marginBottom: 10,
-  },
-  section: {
-    marginVertical: 10,
-    marginHorizontal: 15,
-    borderWidth: 3,
-    backgroundColor: '#FFF9F0',
-    borderColor: '#4059A5',
-    borderRadius: 10,
-    padding: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    color: '#14AEBB',
-    marginBottom: 10,
-    fontFamily: 'Poppins_SemiBold',
-  },
-  fieldContainer: {
-    marginBottom: 5,
-  },
-  label: {
-    fontSize: 16,
-    color: Theme.colors.primary,
-    textTransform: 'capitalize',
-    fontFamily: 'Poppins_Medium',
-  },
-  value: {
-    fontSize: 14,
-    color: Theme.colors.black,
-    marginTop: 2,
-    fontFamily: 'Poppins_Regular',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 10,
-    marginBottom: 40,
-    height: 45,
-  },
-  backButton: {
-    borderWidth: 1.5,
-    borderColor: '#4059A5',
-    borderRadius: 12,
-    justifyContent: 'center',
-    paddingHorizontal: 25,
-    paddingVertical: 0,
-    alignItems: 'center',
-    marginRight: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  backButtonText: {
-    color: '#4059A5',
-    fontSize: 16,
-    fontFamily: 'Poppins_Medium',
-  },
-  submitButton: {
-    flex: 1,
-    backgroundColor: '#14AEBB',
-    borderRadius: 12,
-    justifyContent: 'center',
-  },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    paddingTop: 5,
-    fontFamily: 'Poppins_SemiBold',
-    textAlign: 'center',
-  },
-  modalContent: {
-    alignItems: 'center',
-    width: '100%',
-    justifyContent: 'center',
-  },
-  modalIcon: {
-    marginBottom: 15,
-  },
-  modalMessage: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 24,
-    fontFamily: 'Poppins_Regular',
-    textAlign: 'center',
-  },
-});
 
 export default ReportSummary;

@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import AuthStack from './src/navigation/AuthStack';
 import AppStack from './src/navigation/AppStack';
 import { useFonts } from 'expo-font';
 import { AuthContext } from './src/context/AuthContext';
+import 'react-native-reanimated'
+import 'react-native-gesture-handler'
+import * as NavigationBar from 'expo-navigation-bar';
 
 /**
  * @typedef {Object} USER
@@ -25,6 +28,7 @@ function App() {
   });
 
   if (!fontsLoaded) return null;
+  
 
   return (
     <AuthContext.Provider value={{ user, setUser }}>

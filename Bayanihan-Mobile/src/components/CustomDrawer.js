@@ -121,7 +121,7 @@ const CustomDrawer = (props) => {
           />
           <View style={styles.header}>
             <View style={styles.userRoleContainer}>
-              <Text style={styles.userRole}>{user?.role || 'Unknown Role'}</Text>
+              <Text style={styles.userRole}>{user?.organization || ''}</Text>
             </View>
             <Text style={styles.userName}>{user?.contactPerson || 'Unknown User'}</Text>
             {/* <View style={combinedStyles.organizationContainer}>

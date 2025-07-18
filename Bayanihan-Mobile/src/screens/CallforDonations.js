@@ -8,15 +8,20 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import CallForDonationsStyles from '../styles/CallForDonationsStyles';
+import styles from '../styles/CallForDonationsStyles';
 import GlobalStyles from '../styles/GlobalStyles';
 import Theme from '../constants/theme';
-import regions from '../json/region.json';
+import regions from '../data/region.json';
+import provinces from '../data/province.json';
+import cities from '../data/city.json';
+import barangays from '../data/barangay.json';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const CallForDonations = () => {
   const navigation = useNavigation();
@@ -36,30 +41,18 @@ const CallForDonations = () => {
   });
   const [image, setImage] = useState(null);
   const [errors, setErrors] = useState({});
-  const [isProvinceDropdownVisible, setIsProvinceDropdownVisible] = useState(false);
-  const [filteredProvinces, setFilteredProvinces] = useState([]);
-  const provinceInputRef = useRef(null);
   const [isRegionDropdownVisible, setIsRegionDropdownVisible] = useState(false);
   const [filteredRegions, setFilteredRegions] = useState(regions || []);
   const regionInputRef = useRef(null);
-
-  const provinces = [
-    'Abra', 'Agusan del Norte', 'Agusan del Sur', 'Aklan', 'Albay', 'Antique',
-    'Apayao', 'Aurora', 'Basilan', 'Bataan', 'Batanes', 'Batangas', 'Benguet',
-    'Biliran', 'Bohol', 'Bukidnon', 'Bulacan', 'Cagayan', 'Camarines Norte',
-    'Camarines Sur', 'Camiguin', 'Capiz', 'Catanduanes', 'Cavite', 'Cebu',
-    'Cotabato', 'Davao de Oro', 'Davao del Norte', 'Davao del Sur', 'Davao Occidental',
-    'Davao Oriental', 'Dinagat Islands', 'Eastern Samar', 'Guimaras', 'Ifugao',
-    'Ilocos Norte', 'Ilocos Sur', 'Iloilo', 'Isabela', 'Kalinga', 'La Union',
-    'Laguna', 'Lanao del Norte', 'Lanao del Sur', 'Leyte', 'Maguindanao del Norte',
-    'Maguindanao del Sur', 'Marinduque', 'Masbate', 'Metro Manila', 'Misamis Occidental',
-    'Misamis Oriental', 'Mountain Province', 'Negros Occidental', 'Negros Oriental',
-    'Northern Samar', 'Nueva Ecija', 'Nueva Vizcaya', 'Occidental Mindoro', 'Oriental Mindoro',
-    'Palawan', 'Pampanga', 'Pangasinan', 'Quezon', 'Quirino', 'Rizal', 'Romblon',
-    'Samar', 'Sarangani', 'Siquijor', 'Sorsogon', 'South Cotabato', 'Southern Leyte',
-    'Sultan Kudarat', 'Sulu', 'Surigao del Norte', 'Surigao del Sur', 'Tarlac',
-    'Tawi-Tawi', 'Zambales', 'Zamboanga del Norte', 'Zamboanga del Sur', 'Zamboanga Sibugay',
-  ];
+  const [isProvinceDropdownVisible, setIsProvinceDropdownVisible] = useState(false);
+  const [filteredProvinces, setFilteredProvinces] = useState([]);
+  const provinceInputRef = useRef(null);
+  const [isCityDropdownVisible, setIsCityDropdownVisible] = useState(false);
+  const [filteredCities, setFilteredCities] = useState([]);
+  const cityInputRef = useRef(null);
+  const [isBarangayDropdownVisible, setIsBarangayDropdownVisible] = useState(false);
+  const [filteredBarangays, setFilteredBarangays] = useState([]);
+  const barangayInputRef = useRef(null);
 
   const requiredFields = [
     'donationDrive',
@@ -114,6 +107,10 @@ const CallForDonations = () => {
       if (value.trim() === '') {
         setFilteredRegions(regions || []);
         setIsRegionDropdownVisible(false);
+        setFilteredProvinces([]);
+        setFilteredCities([]);
+        setFilteredBarangays([]);
+        setFormData((prev) => ({ ...prev, province: '', city: '', barangay: '' }));
       } else {
         const filtered = (regions || []).filter((region) =>
           region.region_name.toLowerCase().includes(value.toLowerCase())
@@ -126,27 +123,77 @@ const CallForDonations = () => {
 
     if (field === 'province') {
       if (value.trim() === '') {
-        setFilteredProvinces(provinces);
+        setFilteredProvinces(provinces || []);
         setIsProvinceDropdownVisible(false);
+        setFilteredCities([]);
+        setFilteredBarangays([]);
+        setFormData((prev) => ({ ...prev, city: '', barangay: '' }));
       } else {
-        const filtered = provinces.filter((province) =>
-          province.toLowerCase().includes(value.toLowerCase())
+        const selectedRegion = regions.find((r) => r.region_name === formData.region);
+        const regionCode = selectedRegion ? selectedRegion.region_code : '';
+        const filtered = (provinces || []).filter(
+          (province) =>
+            province.province_name.toLowerCase().includes(value.toLowerCase()) &&
+            province.region_code === regionCode
         );
         setFilteredProvinces(filtered);
         setIsProvinceDropdownVisible(true);
       }
     }
+
+    if (field === 'city') {
+      if (value.trim() === '') {
+        setFilteredCities(cities || []);
+        setIsCityDropdownVisible(false);
+        setFilteredBarangays([]);
+        setFormData((prev) => ({ ...prev, barangay: '' }));
+      } else {
+        const selectedProvince = provinces.find((p) => p.province_name === formData.province);
+        const provinceCode = selectedProvince ? selectedProvince.province_code : '';
+        const filtered = (cities || []).filter(
+          (city) =>
+            city.city_name.toLowerCase().includes(value.toLowerCase()) &&
+            city.province_code === provinceCode
+        );
+        setFilteredCities(filtered);
+        setIsCityDropdownVisible(true);
+      }
+    }
+
+    if (field === 'barangay') {
+      if (value.trim() === '') {
+        setFilteredBarangays(barangays || []);
+        setIsBarangayDropdownVisible(false);
+      } else {
+        const selectedCity = cities.find((c) => c.city_name === formData.city);
+        const cityCode = selectedCity ? selectedCity.city_code : '';
+        const filtered = (barangays || []).filter(
+          (barangay) =>
+            barangay.brgy_name.toLowerCase().includes(value.toLowerCase()) &&
+            barangay.city_code === cityCode
+        );
+        setFilteredBarangays(filtered);
+        setIsBarangayDropdownVisible(true);
+      }
+    }
   };
 
   const handleRegionSelect = (region) => {
-    setFormData({ ...formData, region });
-    setIsRegionDropdownVisible(false);
+    setFormData({ ...formData, region, province: '', city: '', barangay: '' });
     setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors.region;
       return newErrors;
     });
-    regionInputRef.current.blur();
+    setIsRegionDropdownVisible(false);
+    setFilteredProvinces([]);
+    setFilteredCities([]);
+    setFilteredBarangays([]);
+    if (regionInputRef.current) {
+      setTimeout(() => {
+        regionInputRef.current.focus();
+      }, 0);
+    }
     console.log('Selected region:', region);
   };
 
@@ -157,27 +204,113 @@ const CallForDonations = () => {
   };
 
   const handleRBlur = () => {
-    setTimeout(() => setIsRegionDropdownVisible(false), 200);
+    setTimeout(() => {
+      if (!regionInputRef.current?.isFocused()) {
+        setIsRegionDropdownVisible(false);
+      }
+    }, 300);
   };
 
   const handleProvinceSelect = (province) => {
-    setFormData({ ...formData, province });
-    setIsProvinceDropdownVisible(false);
+    setFormData({ ...formData, province, city: '', barangay: '' });
     setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors.province;
       return newErrors;
     });
-    provinceInputRef.current.blur();
+    setIsProvinceDropdownVisible(false);
+    setFilteredCities([]);
+    setFilteredBarangays([]);
+    if (provinceInputRef.current) {
+      setTimeout(() => {
+        provinceInputRef.current.focus();
+      }, 0);
+    }
   };
 
   const handleProvinceFocus = () => {
+    const selectedRegion = regions.find((r) => r.region_name === formData.region);
+    const regionCode = selectedRegion ? selectedRegion.region_code : '';
+    const filtered = regionCode
+      ? provinces.filter((province) => province.region_code === regionCode)
+      : provinces;
+    setFilteredProvinces(filtered);
     setIsProvinceDropdownVisible(true);
-    setFilteredProvinces(provinces);
   };
 
   const handlePBlur = () => {
-    setTimeout(() => setIsProvinceDropdownVisible(false), 200);
+    setTimeout(() => {
+      if (!provinceInputRef.current?.isFocused()) {
+        setIsProvinceDropdownVisible(false);
+      }
+    }, 300);
+  };
+
+  const handleCitySelect = (city) => {
+    setFormData({ ...formData, city, barangay: '' });
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.city;
+      return newErrors;
+    });
+    setIsCityDropdownVisible(false);
+    setFilteredBarangays([]);
+    if (cityInputRef.current) {
+      setTimeout(() => {
+        cityInputRef.current.focus();
+      }, 0);
+    }
+  };
+
+  const handleCityFocus = () => {
+    const selectedProvince = provinces.find((p) => p.province_name === formData.province);
+    const provinceCode = selectedProvince ? selectedProvince.province_code : '';
+    const filtered = provinceCode
+      ? cities.filter((city) => city.province_code === provinceCode)
+      : cities;
+    setFilteredCities(filtered);
+    setIsCityDropdownVisible(true);
+  };
+
+  const handleCBlur = () => {
+    setTimeout(() => {
+      if (!cityInputRef.current?.isFocused()) {
+        setIsCityDropdownVisible(false);
+      }
+    }, 300);
+  };
+
+  const handleBarangaySelect = (barangay) => {
+    setFormData({ ...formData, barangay });
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.barangay;
+      return newErrors;
+    });
+    setIsBarangayDropdownVisible(false);
+    if (barangayInputRef.current) {
+      setTimeout(() => {
+        barangayInputRef.current.focus();
+      }, 0);
+    }
+  };
+
+  const handleBarangayFocus = () => {
+    const selectedCity = cities.find((c) => c.city_name === formData.city);
+    const cityCode = selectedCity ? selectedCity.city_code : '';
+    const filtered = cityCode
+      ? barangays.filter((barangay) => barangay.city_code === cityCode)
+      : barangays;
+    setFilteredBarangays(filtered);
+    setIsBarangayDropdownVisible(true);
+  };
+
+  const handleBBlur = () => {
+    setTimeout(() => {
+      if (!barangayInputRef.current?.isFocused()) {
+        setIsBarangayDropdownVisible(false);
+      }
+    }, 300);
   };
 
   const pickImage = async () => {
@@ -190,7 +323,7 @@ const CallForDonations = () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 0.5, // Reduced quality to prevent large file sizes
+      quality: 0.5,
     });
 
     if (!result.canceled) {
@@ -233,221 +366,301 @@ const CallForDonations = () => {
   };
 
   const renderLabel = (label, isRequired) => (
-    <Text style={CallForDonationsStyles.formTitle}>
+    <Text style={styles.formTitle}>
       {label}
       {isRequired && <Text style={{ color: 'red' }}>*</Text>}
     </Text>
   );
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: Theme.colors.lightBg }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
-      <View style={CallForDonationsStyles.container}>
-        <View style={GlobalStyles.headerContainer}>
-          <TouchableOpacity
-            onPress={() => navigation.openDrawer()}
-            style={GlobalStyles.headerMenuIcon}
-          >
-            <Ionicons name="menu" size={32} color={Theme.colors.white}/>
+    <SafeAreaView style={GlobalStyles.container}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <LinearGradient
+        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+        start={{ x: 1, y: 0.5 }}
+        end={{ x: 1, y: 1 }}
+        style={GlobalStyles.gradientContainer}
+      >
+        <View style={GlobalStyles.newheaderContainer}>
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={GlobalStyles.headerTitle}>Call for Donations</Text>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Call for Donations</Text>
         </View>
+      </LinearGradient>
 
-        <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
-          <ScrollView contentContainerStyle={CallForDonationsStyles.scrollViewContent}>
-            <View style={CallForDonationsStyles.form}>
-              <View style={CallForDonationsStyles.section}>
-                <Text style={CallForDonationsStyles.sectionTitle}>Donation Details</Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1, marginTop: 80 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.scrollViewContent]}
+          scrollEnabled={true}
+          keyboardShouldPersistTaps="always"
+        >
+          <View style={styles.form}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Donation Details</Text>
 
-                {renderLabel('Donation Drive', true)}
+              {renderLabel('Donation Drive', true)}
+              <TextInput
+                style={[styles.input, errors.donationDrive && styles.requiredInput]}
+                placeholder="Enter Donation Drive Name"
+                onChangeText={(val) => handleChange('donationDrive', val)}
+                value={formData.donationDrive}
+                autoComplete="off"
+              />
+              {errors.donationDrive && (
+                <Text style={styles.errorText}>{errors.donationDrive}</Text>
+              )}
+
+              {renderLabel('Contact Person', true)}
+              <TextInput
+                style={[styles.input, errors.contactPerson && styles.requiredInput]}
+                placeholder="Enter Contact Person Name"
+                onChangeText={(val) => handleChange('contactPerson', val)}
+                value={formData.contactPerson}
+                autoComplete="name"
+                textContentType="name"
+              />
+              {errors.contactPerson && (
+                <Text style={styles.errorText}>{errors.contactPerson}</Text>
+              )}
+
+              {renderLabel('Contact Number', true)}
+              <TextInput
+                style={[styles.input, errors.contactNumber && styles.requiredInput]}
+                placeholder="Enter Mobile Number"
+                onChangeText={(val) => handleChange('contactNumber', val)}
+                value={formData.contactNumber}
+                keyboardType="numeric"
+                autoComplete="tel"
+                textContentType="telephoneNumber"
+              />
+              {errors.contactNumber && (
+                <Text style={styles.errorText}>{errors.contactNumber}</Text>
+              )}
+
+              {renderLabel('Account Number', true)}
+              <TextInput
+                style={[styles.input, errors.accountNumber && styles.requiredInput]}
+                placeholder="Enter Bank Account Number"
+                onChangeText={(val) => handleChange('accountNumber', val)}
+                value={formData.accountNumber}
+                keyboardType="numeric"
+                autoComplete="off"
+              />
+              {errors.accountNumber && (
+                <Text style={styles.errorText}>{errors.accountNumber}</Text>
+              )}
+
+              {renderLabel('Account Name', true)}
+              <TextInput
+                style={[styles.input, errors.accountName && styles.requiredInput]}
+                placeholder="Enter Account Name"
+                onChangeText={(val) => handleChange('accountName', val)}
+                value={formData.accountName}
+                autoComplete="name"
+                textContentType="name"
+              />
+              {errors.accountName && (
+                <Text style={styles.errorText}>{errors.accountName}</Text>
+              )}
+
+              {renderLabel('Region', true)}
+              <View style={{ position: 'relative' }}>
                 <TextInput
-                  style={[CallForDonationsStyles.input, errors.donationDrive && CallForDonationsStyles.requiredInput]}
-                  placeholder="Enter Donation Drive Name"
-                  onChangeText={(val) => handleChange('donationDrive', val)}
-                  value={formData.donationDrive}
+                  ref={regionInputRef}
+                  style={[styles.input, errors.region && styles.requiredInput]}
+                  placeholder="Enter or Select Region"
+                  onChangeText={(val) => handleChange('region', val)}
+                  value={formData.region}
+                  onFocus={handleRegionFocus}
+                  onBlur={handleRBlur}
+                  blurOnSubmit={false}
+                  autoComplete="address-level1"
+                  textContentType="addressState"
                 />
-                {errors.donationDrive && (
-                  <Text style={CallForDonationsStyles.errorText}>{errors.donationDrive}</Text>
+                {isRegionDropdownVisible && filteredRegions.length > 0 && (
+                  <View style={styles.dropdownContainer}>
+                    <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="always">
+                      {filteredRegions.map((item) => (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={styles.dropdownItem}
+                          onPress={() => handleRegionSelect(item.region_name)}
+                        >
+                          <Text style={styles.dropdownItemText}>{item.region_name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
                 )}
+                {isRegionDropdownVisible && filteredRegions.length === 0 && (
+                  <Text style={styles.errorText}>No regions found</Text>
+                )}
+              </View>
+              {errors.region && (
+                <Text style={styles.errorText}>{errors.region}</Text>
+              )}
 
-                {renderLabel('Contact Person', true)}
+              {renderLabel('Province', true)}
+              <View style={{ position: 'relative' }}>
                 <TextInput
-                  style={[CallForDonationsStyles.input, errors.contactPerson && CallForDonationsStyles.requiredInput]}
-                  placeholder="Enter Contact Person Name"
-                  onChangeText={(val) => handleChange('contactPerson', val)}
-                  value={formData.contactPerson}
+                  ref={provinceInputRef}
+                  style={[styles.input, errors.province && styles.requiredInput]}
+                  placeholder="Enter or Select Province"
+                  onChangeText={(val) => handleChange('province', val)}
+                  value={formData.province}
+                  onFocus={handleProvinceFocus}
+                  onBlur={handlePBlur}
+                  blurOnSubmit={false}
+                  autoComplete="address-level1"
+                  textContentType="addressState"
                 />
-                {errors.contactPerson && (
-                  <Text style={CallForDonationsStyles.errorText}>{errors.contactPerson}</Text>
+                {isProvinceDropdownVisible && filteredProvinces.length > 0 && (
+                  <View style={styles.dropdownContainer}>
+                    <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="always">
+                      {filteredProvinces.map((item) => (
+                        <TouchableOpacity
+                          key={item.province_code}
+                          style={styles.dropdownItem}
+                          onPress={() => handleProvinceSelect(item.province_name)}
+                        >
+                          <Text style={styles.dropdownItemText}>{item.province_name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
                 )}
+                {isProvinceDropdownVisible && filteredProvinces.length === 0 && (
+                  <Text style={styles.errorText}>No provinces found</Text>
+                )}
+              </View>
+              {errors.province && (
+                <Text style={styles.errorText}>{errors.province}</Text>
+              )}
 
-                {renderLabel('Contact Number', true)}
+              {renderLabel('City/Municipality', true)}
+              <View style={{ position: 'relative' }}>
                 <TextInput
-                  style={[CallForDonationsStyles.input, errors.contactNumber && CallForDonationsStyles.requiredInput]}
-                  placeholder="Enter Mobile Number"
-                  onChangeText={(val) => handleChange('contactNumber', val)}
-                  value={formData.contactNumber}
-                  keyboardType="numeric"
-                />
-                {errors.contactNumber && (
-                  <Text style={CallForDonationsStyles.errorText}>{errors.contactNumber}</Text>
-                )}
-
-                {renderLabel('Account Number', true)}
-                <TextInput
-                  style={[CallForDonationsStyles.input, errors.accountNumber && CallForDonationsStyles.requiredInput]}
-                  placeholder="Enter Bank Account Number"
-                  onChangeText={(val) => handleChange('accountNumber', val)}
-                  value={formData.accountNumber}
-                  keyboardType="numeric"
-                />
-                {errors.accountNumber && (
-                  <Text style={CallForDonationsStyles.errorText}>{errors.accountNumber}</Text>
-                )}
-
-                {renderLabel('Account Name', true)}
-                <TextInput
-                  style={[CallForDonationsStyles.input, errors.accountName && CallForDonationsStyles.requiredInput]}
-                  placeholder="Enter Account Name"
-                  onChangeText={(val) => handleChange('accountName', val)}
-                  value={formData.accountName}
-                />
-                {errors.accountName && (
-                  <Text style={CallForDonationsStyles.errorText}>{errors.accountName}</Text>
-                )}
-
-                {renderLabel('Region', true)}
-                <View style={{ position: 'relative' }}>
-                  <TextInput
-                    ref={regionInputRef}
-                    style={[CallForDonationsStyles.input, errors.region && CallForDonationsStyles.requiredInput]}
-                    placeholder="Enter or Select Region"
-                    onChangeText={(val) => handleChange('region', val)}
-                    value={formData.region}
-                    onFocus={handleRegionFocus}
-                    onBlur={handleRBlur}
-                  />
-                  {isRegionDropdownVisible && filteredRegions.length > 0 && (
-                    <View style={CallForDonationsStyles.dropdownContainer}>
-                      <ScrollView nestedScrollEnabled={true}>
-                        {filteredRegions.map((item) => (
-                          <TouchableOpacity
-                            key={item.id}
-                            style={CallForDonationsStyles.dropdownItem}
-                            onPress={() => handleRegionSelect(item.region_name)}
-                          >
-                            <Text style={CallForDonationsStyles.dropdownItemText}>{item.region_name}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-                  {isRegionDropdownVisible && filteredRegions.length === 0 && (
-                    <Text style={CallForDonationsStyles.errorText}>No regions found</Text>
-                  )}
-                </View>
-                {errors.region && (
-                  <Text style={CallForDonationsStyles.errorText}>{errors.region}</Text>
-                )}
-
-                {renderLabel('Province', true)}
-                <View style={{ position: 'relative' }}>
-                  <TextInput
-                    ref={provinceInputRef}
-                    style={[CallForDonationsStyles.input, errors.province && CallForDonationsStyles.requiredInput]}
-                    placeholder="Enter or Select Province"
-                    onChangeText={(val) => handleChange('province', val)}
-                    value={formData.province}
-                    onFocus={handleProvinceFocus}
-                    onBlur={handlePBlur}
-                  />
-                  {isProvinceDropdownVisible && filteredProvinces.length > 0 && (
-                    <View style={CallForDonationsStyles.dropdownContainer}>
-                      <ScrollView nestedScrollEnabled={true}>
-                        {filteredProvinces.map((item) => (
-                          <TouchableOpacity
-                            key={item}
-                            style={CallForDonationsStyles.dropdownItem}
-                            onPress={() => handleProvinceSelect(item)}
-                          >
-                            <Text style={CallForDonationsStyles.dropdownItemText}>{item}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-                </View>
-                {errors.province && (
-                  <Text style={CallForDonationsStyles.errorText}>{errors.province}</Text>
-                )}
-
-                {renderLabel('City/Municipality', true)}
-                <TextInput
-                  style={[CallForDonationsStyles.input, errors.city && CallForDonationsStyles.requiredInput]}
-                  placeholder="Enter City/Municipality"
+                  ref={cityInputRef}
+                  style={[styles.input, errors.city && styles.requiredInput]}
+                  placeholder="Enter or Select City/Municipality"
                   onChangeText={(val) => handleChange('city', val)}
                   value={formData.city}
+                  onFocus={handleCityFocus}
+                  onBlur={handleCBlur}
+                  blurOnSubmit={false}
+                  autoComplete="address-level2"
+                  textContentType="addressCity"
                 />
-                {errors.city && (
-                  <Text style={CallForDonationsStyles.errorText}>{errors.city}</Text>
+                {isCityDropdownVisible && filteredCities.length > 0 && (
+                  <View style={styles.dropdownContainer}>
+                    <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="always">
+                      {filteredCities.map((item) => (
+                        <TouchableOpacity
+                          key={item.city_code}
+                          style={styles.dropdownItem}
+                          onPress={() => handleCitySelect(item.city_name)}
+                        >
+                          <Text style={styles.dropdownItemText}>{item.city_name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
                 )}
+                {isCityDropdownVisible && filteredCities.length === 0 && (
+                  <Text style={styles.errorText}>No cities found</Text>
+                )}
+              </View>
+              {errors.city && (
+                <Text style={styles.errorText}>{errors.city}</Text>
+              )}
 
-                {renderLabel('Barangay', true)}
+              {renderLabel('Barangay', true)}
+              <View style={{ position: 'relative' }}>
                 <TextInput
-                  style={[CallForDonationsStyles.input, errors.barangay && CallForDonationsStyles.requiredInput]}
-                  placeholder="Enter Barangay"
+                  ref={barangayInputRef}
+                  style={[styles.input, errors.barangay && styles.requiredInput]}
+                  placeholder="Enter or Select Barangay"
                   onChangeText={(val) => handleChange('barangay', val)}
                   value={formData.barangay}
+                  onFocus={handleBarangayFocus}
+                  onBlur={handleBBlur}
+                  blurOnSubmit={false}
+                  autoComplete="address-level3"
                 />
-                {errors.barangay && (
-                  <Text style={CallForDonationsStyles.errorText}>{errors.barangay}</Text>
+                {isBarangayDropdownVisible && filteredBarangays.length > 0 && (
+                  <View style={styles.dropdownContainer}>
+                    <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="always">
+                      {filteredBarangays.map((item) => (
+                        <TouchableOpacity
+                          key={item.brgy_code}
+                          style={styles.dropdownItem}
+                          onPress={() => handleBarangaySelect(item.brgy_name)}
+                        >
+                          <Text style={styles.dropdownItemText}>{item.brgy_name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
                 )}
-
-                {renderLabel('Blk/Lot/Unit #', true)}
-                <TextInput
-                  style={[CallForDonationsStyles.input, errors.street && CallForDonationsStyles.requiredInput]}
-                  placeholder="Enter Full street"
-                  onChangeText={(val) => handleChange('street', val)}
-                  value={formData.street}
-                />
-                {errors.street && (
-                  <Text style={CallForDonationsStyles.errorText}>{errors.street}</Text>
+                {isBarangayDropdownVisible && filteredBarangays.length === 0 && (
+                  <Text style={styles.errorText}>No barangays found</Text>
                 )}
-
-                {renderLabel('Facebook Link', false)}
-                <TextInput
-                  style={[CallForDonationsStyles.input, errors.facebookLink && CallForDonationsStyles.requiredInput]}
-                  placeholder="Enter Facebook URL (optional)"
-                  onChangeText={(val) => handleChange('facebookLink', val)}
-                  value={formData.facebookLink}
-                  keyboardType="url"
-                />
-                {errors.facebookLink && (
-                  <Text style={CallForDonationsStyles.errorText}>{errors.facebookLink}</Text>
-                )}
-
-                {renderLabel('Upload Donation Image', false)}
-                <TouchableOpacity
-                  style={[CallForDonationsStyles.imageUpload, image && { borderColor: '#00BCD4' }]}
-                  onPress={pickImage}
-                >
-                  <Text style={{ color: image ? '#333' : '#AAA' }}>
-                    {image ? 'Image Selected' : 'Tap to Upload Image'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={CallForDonationsStyles.button} onPress={handleSubmit}>
-                  <Text style={CallForDonationsStyles.buttonText}>Add Call for Donation</Text>
-                </TouchableOpacity>
               </View>
+              {errors.barangay && (
+                <Text style={styles.errorText}>{errors.barangay}</Text>
+              )}
+
+              {renderLabel('Blk/Lot/Unit #', true)}
+              <TextInput
+                style={[styles.input, errors.street && styles.requiredInput]}
+                placeholder="Enter Full street"
+                onChangeText={(val) => handleChange('street', val)}
+                value={formData.street}
+                autoComplete="street-address"
+                textContentType="streetAddressLine1"
+              />
+              {errors.street && (
+                <Text style={styles.errorText}>{errors.street}</Text>
+              )}
+
+              {renderLabel('Facebook Link', false)}
+              <TextInput
+                style={[styles.input, errors.facebookLink && styles.requiredInput]}
+                placeholder="Enter Facebook URL (optional)"
+                onChangeText={(val) => handleChange('facebookLink', val)}
+                value={formData.facebookLink}
+                keyboardType="url"
+                autoComplete="url"
+                textContentType="URL"
+              />
+              {errors.facebookLink && (
+                <Text style={styles.errorText}>{errors.facebookLink}</Text>
+              )}
+
+              {renderLabel('Upload Donation Image', false)}
+              <TouchableOpacity
+                style={[GlobalStyles.imageUpload, { borderColor: image ?  Theme.colors.primary : '#605D67'} ]}
+                onPress={pickImage}
+              >
+                <Text style={[GlobalStyles.imageUploadText,{ color: image ?  Theme.colors.black : Theme.colors.primary}]}>
+                  {image ? 'Image Selected' : 'Tap to Upload Image'}
+                </Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
-        </SafeAreaView>
-      </View>
-    </KeyboardAvoidingView>
+            <View style={{ marginHorizontal: 15, marginBottom: 10,  }}>
+              <TouchableOpacity style={GlobalStyles.button} onPress={handleSubmit}>
+                <Text style={GlobalStyles.buttonText}>Add Call for Donation</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 

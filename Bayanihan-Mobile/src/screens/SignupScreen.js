@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, ScrollView, Picker } from "react-native";
-import { Ionicons } from "react-native-vector-icons"; // Ensure this is installed
+import { Ionicons } from '@expo/vector-icons';
 
 const SignupScreen = ({ navigation }) => {
   const [firstName, setFirstName] = useState("");

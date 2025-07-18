@@ -14,12 +14,16 @@ import {
   View,
   Modal,
   Animated,
+  ScrollView,
+  StatusBar,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { Dropdown } from 'react-native-element-dropdown';
 import GlobalStyles from '../styles/GlobalStyles';
-import ReliefRequestStyles from '../styles/ReliefRequestStyles';
-import RDANAStyles from '../styles/RDANAStyles';
+import styles from '../styles/ReliefRequestStyles';
 import Theme from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText, showCancel }) => {
   return (
@@ -65,6 +69,7 @@ const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText
 
 const CustomToast = ({ visible, title, message, onDismiss }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  
 
   useEffect(() => {
     if (visible) {
@@ -131,6 +136,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
   });
   const itemInputRef = useRef(null);
   const flatListRef = useRef(null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (route.params?.reportData) {
@@ -230,6 +236,9 @@ const ReliefRequestScreen = ({ navigation, route }) => {
       return newErrors;
     });
     itemInputRef.current?.blur();
+      setTimeout(() => {
+        itemInputRef.current?.focus(); 
+      }, 0);
   };
 
   // const handleItemFocus = () => {
@@ -376,7 +385,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
   };
 
   const renderLabel = (label, isRequired) => (
-    <Text style={ReliefRequestStyles.formTitle}>
+    <Text style={GlobalStyles.formTitle}>
       {label}
       {isRequired && <Text style={{ color: 'red' }}> *</Text>}
     </Text>
@@ -385,30 +394,56 @@ const ReliefRequestScreen = ({ navigation, route }) => {
   const windowHeight = Dimensions.get('window').height;
   const maxDropdownHeight = windowHeight * 0.3;
 
-  const formSections = [
-    {
-      id: 'contact',
-      render: () => (
-        <View style={ReliefRequestStyles.section}>
-          <Text style={ReliefRequestStyles.sectionTitle}>Contact Information</Text>
+
+  return (
+    <SafeAreaView style={GlobalStyles.container}>     
+    <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      {/* Header */}
+      <LinearGradient
+        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+        start={{ x: 1, y: 0.5 }}
+        end={{ x: 1, y: 1 }}
+        style={GlobalStyles.gradientContainer}
+      >
+        <View style={GlobalStyles.newheaderContainer}>
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+          </TouchableOpacity>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Relief Request</Text>
+        </View>
+      </LinearGradient>
+
+       <KeyboardAvoidingView
+             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}  
+              style={{ flex: 1, marginTop: 80}}
+              keyboardVerticalOffset={0}
+            >
+          <ScrollView
+             contentContainerStyle={[styles.scrollViewContent]}
+             scrollEnabled={true}
+             keyboardShouldPersistTaps="handled"
+           >
+           <View style={GlobalStyles.form}>
+        <View style={GlobalStyles.section}>
+          <Text style={styles.sectionTitle}>Contact Information</Text>
 
           {renderLabel('Contact Person', true)}
           <View>
             <TextInput
-              style={[ReliefRequestStyles.input, errors.contactPerson && ReliefRequestStyles.requiredInput]}
+              style={[GlobalStyles.input, errors.contactPerson && styles.requiredInput]}
               placeholder="Enter Name of the Contact Person"
               onChangeText={(val) => handleChange('contactPerson', val)}
               value={reportData.contactPerson}
             />
           </View>
           {errors.contactPerson && (
-            <Text style={ReliefRequestStyles.errorText}>{errors.contactPerson}</Text>
+            <Text style={styles.errorText}>{errors.contactPerson}</Text>
           )}
 
           {renderLabel('Contact Number', true)}
           <View>
             <TextInput
-              style={[ReliefRequestStyles.input, errors.contactNumber && ReliefRequestStyles.requiredInput]}
+              style={[GlobalStyles.input, errors.contactNumber && styles.requiredInput]}
               placeholder="Enter Mobile Number"
               onChangeText={(val) => handleChange('contactNumber', val)}
               value={reportData.contactNumber}
@@ -416,120 +451,117 @@ const ReliefRequestScreen = ({ navigation, route }) => {
             />
           </View>
           {errors.contactNumber && (
-            <Text style={ReliefRequestStyles.errorText}>{errors.contactNumber}</Text>
+            <Text style={styles.errorText}>{errors.contactNumber}</Text>
           )}
 
           {renderLabel('Email', true)}
           <View>
             <TextInput
-              style={[ReliefRequestStyles.input, errors.email && ReliefRequestStyles.requiredInput]}
+              style={[GlobalStyles.input, errors.email && styles.requiredInput]}
               placeholder="Enter Email"
               onChangeText={(val) => handleChange('email', val)}
               value={reportData.email}
               keyboardType="email-address"
             />
           </View>
-          {errors.email && <Text style={ReliefRequestStyles.errorText}>{errors.email}</Text>}
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
           {renderLabel('Exact Drop-off Address', true)}
           <View>
             <TextInput
-              style={[ReliefRequestStyles.input, errors.address && ReliefRequestStyles.requiredInput]}
+              style={[GlobalStyles.input, errors.address && styles.requiredInput]}
               placeholder="Enter Drop-Off Address"
               onChangeText={(val) => handleChange('address', val)}
               value={reportData.address}
             />
           </View>
-          {errors.address && <Text style={ReliefRequestStyles.errorText}>{errors.address}</Text>}
+          {errors.address && <Text style={styles.errorText}>{errors.address}</Text>}
 
           {renderLabel('City', true)}
           <View>
             <TextInput
-              style={[ReliefRequestStyles.input, errors.city && ReliefRequestStyles.requiredInput]}
+              style={[GlobalStyles.input, errors.city && styles.requiredInput]}
               placeholder="Enter City"
               onChangeText={(val) => handleChange('city', val)}
               value={reportData.city}
               // onFocus={() => scrollToInput('city')}
             />
           </View>
-          {errors.city && <Text style={ReliefRequestStyles.errorText}>{errors.city}</Text>}
+          {errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
 
           {renderLabel('Donation Category', true)}
-          <View style={[RDANAStyles.input, RDANAStyles.pickerContainer, { zIndex: 2000 }]}>
-            <Picker
-              selectedValue={reportData.donationCategory}
-              onValueChange={(value) => handleChange('donationCategory', value)}
-              style={{
-                fontFamily: 'Poppins_Regular',
-                fontSize: 14,
-                color: reportData.donationCategory ? '#000' : '#999',
-                height: 68,
-                width: '100%',
-                textAlign: 'center',
-              }}
-              dropdownIconColor="#00BCD4"
-            >
-              <Picker.Item label="Select Donation Category" value="" style={{ fontFamily: 'Poppins_Regular', fontSize: 14 }} />
-              {categories.map((category) => (
-                <Picker.Item
-                  key={category}
-                  label={category}
-                  value={category}
-                  style={{ fontFamily: 'Poppins_Regular', fontSize: 14 }}
-                />
-              ))}
-            </Picker>
+          <View style={[GlobalStyles.input, styles.pickerContainer]}>
+           <Dropdown  
+            style={{ padding: 10, width:'100%' }}
+            placeholderStyle={{ fontFamily: 'Poppins_Regular', color: '#777', fontSize: 14}}
+            selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14}}
+            itemTextStyle={{fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black}}
+            data={categories.map((c) => ({ label: c, value: c }))}
+            labelField="label"
+            valueField="value"
+            placeholder="Select Donation Category"
+            value={reportData.donationCategory}
+            onChange={(item) => handleChange('donationCategory', item.value)}
+          />
           </View>
           {errors.donationCategory && (
-            <Text style={RDANAStyles.errorText}>{errors.donationCategory}</Text>
+            <Text style={styles.errorText}>{errors.donationCategory}</Text>
           )}
         </View>
-      ),
-    },
-    {
-      id: 'items',
-      render: () => (
-        <View style={[ReliefRequestStyles.section, { zIndex: 1000 }]}>
-          <Text style={ReliefRequestStyles.sectionTitle}>Requested Items</Text>
+
+        <View style={[GlobalStyles.section, { zIndex: 1000 }]}>
+          <Text style={styles.sectionTitle}>Requested Items</Text>
 
           {renderLabel('Item Name', true)}
-          <View style={{ position: 'relative', zIndex: 1500 }}>
-            <TextInput
-              ref={itemInputRef}
-              style={[ReliefRequestStyles.input, errors.itemName && ReliefRequestStyles.requiredInput]}
-              placeholder="Enter or Select Item Name"
-              onChangeText={(val) => handleChange('itemName', val)}
-              value={reportData.itemName}
-              onBlur={handleBlur}
-              editable={!!reportData.donationCategory}
-            />
-            {!reportData.donationCategory && (reportData.itemName || errors.itemName) && (
-              <Text style={ReliefRequestStyles.errorText}>Please select a Donation Category first.</Text>
-            )}
-            {isItemDropdownVisible && filteredItems.length > 0 && (
-              <View style={[ReliefRequestStyles.dropdownContainer, { maxHeight: maxDropdownHeight, zIndex: 1500 }]}>
-                <FlatList
-                  data={filteredItems}
-                  keyExtractor={(item) => item}
-                  nestedScrollEnabled
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={ReliefRequestStyles.dropdownItem}
-                      onPress={() => handleItemSelect(item)}
-                    >
-                      <Text style={ReliefRequestStyles.dropdownItemText}>{item}</Text>
-                    </TouchableOpacity>
-                  )}
-                />
-              </View>
-            )}
-          </View>
-          {errors.itemName && <Text style={ReliefRequestStyles.errorText}>{errors.itemName}</Text>}
+            <View style={{ position: 'relative', zIndex: 1500 }}>
+              <TextInput
+                ref={itemInputRef}
+                placeholder="Enter or Select Item Name"
+                value={reportData.itemName}
+                onChangeText={(val) => {
+                  handleChange('itemName', val);
+                  setIsItemDropdownVisible(true); // Show dropdown when typing
+                }}
+                onBlur={handleBlur}
+                editable={!!reportData.donationCategory}
+                style={[
+                  GlobalStyles.input,
+                  errors.itemName && styles.requiredInput
+                ]}
+              />
+
+              {/* Validation error */}
+              {!reportData.donationCategory && (reportData.itemName || errors.itemName) && (
+                <Text style={styles.errorText}>Please select a Donation Category first.</Text>
+              )}
+
+              {/* Dropdown suggestions */}
+              {isItemDropdownVisible && filteredItems.length > 0 && (
+                <View style={[styles.dropdownContainer, { maxHeight: maxDropdownHeight, zIndex: 1500 }]}>
+                  <FlatList
+                    data={filteredItems}
+                    keyExtractor={(item) => item}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.dropdownItem}
+                        onPress={() => handleItemSelect(item)} 
+                      >
+                        <Text style={styles.dropdownItemText}>{item}</Text>
+                      </TouchableOpacity>
+                    )}
+                  />
+                </View>
+              )}
+            </View>
+
+          {errors.itemName && <Text style={styles.errorText}>{errors.itemName}</Text>}
 
           {renderLabel('Quantity', true)}
           <View>
             <TextInput
-              style={[ReliefRequestStyles.input, errors.quantity && ReliefRequestStyles.requiredInput]}
+              style={[GlobalStyles.input, errors.quantity && styles.requiredInput]}
               placeholder="Enter Quantity"
               onChangeText={(val) => handleChange('quantity', val)}
               value={reportData.quantity}
@@ -537,18 +569,18 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               editable={!!reportData.donationCategory}
             />
             {!reportData.donationCategory && (reportData.quantity || errors.quantity) && (
-              <Text style={ReliefRequestStyles.errorText}>Please select a Donation Category first.</Text>
+              <Text style={styles.errorText}>Please select a Donation Category first.</Text>
             )}
           </View>
-          {errors.quantity && <Text style={ReliefRequestStyles.errorText}>{errors.quantity}</Text>}
+          {errors.quantity && <Text style={styles.errorText}>{errors.quantity}</Text>}
 
           {renderLabel('Additional Notes', false)}
           <View>
             <TextInput
               style={[
-                ReliefRequestStyles.input,
-                ReliefRequestStyles.textArea,
-                errors.notes && ReliefRequestStyles.requiredInput,
+                GlobalStyles.input,
+                styles.textArea,
+                errors.notes && styles.requiredInput,
               ]}
               placeholder="Enter Notes/Concerns (Optional)"
               onChangeText={(val) => handleChange('notes', val)}
@@ -556,93 +588,83 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               editable={!!reportData.donationCategory}
             />
             {!reportData.donationCategory && reportData.notes && (
-              <Text style={ReliefRequestStyles.errorText}>Please select a Donation Category first.</Text>
+              <Text style={styles.errorText}>Please select a Donation Category first.</Text>
             )}
           </View>
-          {errors.notes && <Text style={ReliefRequestStyles.errorText}>{errors.notes}</Text>}
+          {errors.notes && <Text style={styles.errorText}>{errors.notes}</Text>}
 
-          <View style={ReliefRequestStyles.addButtonContainer}>
-            <TouchableOpacity style={ReliefRequestStyles.addButton} onPress={addButton}>
-              <Text style={ReliefRequestStyles.addbuttonText}>Add Item</Text>
+          <View style={GlobalStyles.supplementaryButtonContainer}>
+            <TouchableOpacity style={GlobalStyles.supplementaryButton} onPress={addButton}>
+              <Text style={GlobalStyles.supplementaryButtonText}>Add Item</Text>
             </TouchableOpacity>
           </View>
 
           {items.length > 0 && (
-            <View style={{ marginTop: 20 }}>
-              <Text style={ReliefRequestStyles.addedItems}>Added Items:</Text>
-              <View style={ReliefRequestStyles.tableRow}>
-                <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.1 }]}>No.</Text>
-                <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.25 }]}>Item</Text>
-                <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.15 }]}>Qty</Text>
-                <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.25 }]}>Notes</Text>
-                <Text style={[ReliefRequestStyles.tableHeader, { flex: 0.15 }]}>Actions</Text>
-              </View>
-              <FlatList
-                data={items}
-                keyExtractor={(_, index) => index.toString()}
-                nestedScrollEnabled
-                renderItem={({ item, index }) => (
-                  <View style={ReliefRequestStyles.tableRow}>
-                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.1 }]}>{index + 1}</Text>
-                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.25 }]}>{item.itemName}</Text>
-                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.15 }]}>{item.quantity}</Text>
-                    <Text style={[ReliefRequestStyles.tableCell, { flex: 0.25 }]}>{item.notes || 'None'}</Text>
-                    <View style={[ReliefRequestStyles.tableCell, { flex: 0.15 }]}>
-                      <TouchableOpacity onPress={() => handleDeleteItem(index)}>
-                        <Ionicons name="trash-outline" size={20} color="#FF0000" />
-                      </TouchableOpacity>
-                    </View>
+            <View >
+              <Text style={styles.addedItems}>Added Items:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+              <View style={styles.table}>
+                {/* Table Header */}
+                <View style={styles.tableRow}>
+                  <View style={[styles.cell, { flex: 1, borderTopLeftRadius: 10 }]}>
+                    <Text style={styles.tableHeader}>No.</Text>
                   </View>
-                )}
-              />
+                  <View style={[styles.cell, { flex: 3 }]}>
+                    <Text style={styles.tableHeader}>Item</Text>
+                  </View>
+                  <View style={[styles.cell, { flex: 2 }]}>
+                    <Text style={styles.tableHeader}>Quantity</Text>
+                  </View>
+                  <View style={[styles.cell, { flex: 3 }]}>
+                    <Text style={styles.tableHeader}>Notes</Text>
+                  </View>
+                  <View style={[styles.cell, { flex: 1, borderTopRightRadius: 10 }]}>
+                    <Text style={styles.tableHeader}>Actions</Text>
+                  </View>
+                </View>
+
+                {/* Table Rows */}
+                <FlatList
+                  data={items}
+                  keyExtractor={(_, index) => index.toString()}
+                  nestedScrollEnabled
+                  renderItem={({ item, index }) => (
+                    <View style={styles.tableRow}>
+                      <View style={[styles.cell, { flex: 1 }]}>
+                        <Text style={styles.tableCell}>{index + 1}</Text>
+                      </View>
+                      <View style={[styles.cell, { flex: 3 }]}>
+                        <Text style={styles.tableCell}>{item.itemName}</Text>
+                      </View>
+                      <View style={[styles.cell, { flex: 2 }]}>
+                        <Text style={styles.tableCell}>{item.quantity}</Text>
+                      </View>
+                      <View style={[styles.cell, { flex: 3 }]}>
+                        <Text style={styles.tableCell}>{item.notes || 'None'}</Text>
+                      </View>
+                      <View style={[styles.cell, { flex: 1 }]}>
+                        <TouchableOpacity onPress={() => handleDeleteItem(index)}>
+                          <Ionicons name="trash-outline" size={20} color="#FF0000" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                />
+              </View>
+            </ScrollView>
+
             </View>
           )}
         </View>
-      ),
-    },
-    {
-      id: 'submit',
-      render: () => (
-        <TouchableOpacity style={ReliefRequestStyles.button} onPress={handleSubmit}>
-          <Text style={ReliefRequestStyles.buttonText}>Next</Text>
+        <View style={{marginHorizontal: 15}}>
+         <TouchableOpacity style={GlobalStyles.button} onPress={handleSubmit}>
+          <Text style={GlobalStyles.buttonText}>Proceed</Text>
         </TouchableOpacity>
-      ),
-    },
-  ];
-
-  return (
-    <View style={ReliefRequestStyles.container}>
-      <View style={GlobalStyles.headerContainer}>
-        <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
-          <Ionicons name="menu" size={32} color="white" />
-        </TouchableOpacity>
-        <Text style={GlobalStyles.headerTitle}>Relief Request</Text>
-      </View>
-
-      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
-        >
-          <FlatList
-            ref={flatListRef}
-            data={formSections}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => item.render()}
-            contentContainerStyle={ReliefRequestStyles.contentContainer}
-            keyboardShouldPersistTaps="handled"
-            getItemLayout={(data, index) => ({
-              length: 400,
-              offset: 400 * index,
-              index,
-            })}
-            onScrollToIndexFailed={(info) => {
-              flatListRef.current?.scrollToOffset({ offset: info.averageItemLength || 0, animated: true });
-            }}
-          />
+        </View>
+        </View>
+        </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+    
 
       <CustomModal
         visible={modalVisible}
@@ -660,99 +682,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
         message={toastConfig.message}
         onDismiss={() => setToastVisible(false)}
       />
-    </View>
-  );
+  </SafeAreaView>
+    );
 };
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
-    width: '80%',
-    maxWidth: 400,
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontFamily: 'Poppins_SemiBold',
-    fontSize: 20,
-    color: '#333',
-    marginBottom: 10,
-  },
-  modalContent: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalIcon: {
-    marginBottom: 10,
-  },
-  modalMessage: {
-    fontFamily: 'Poppins_Regular',
-    fontSize: 16,
-    color: '#333',
-    textAlign: 'center',
-  },
-  modalButtonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-  },
-  modalButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  confirmButton: {
-    backgroundColor: '#00BCD4',
-  },
-  cancelButton: {
-    backgroundColor: '#FF0000',
-  },
-  modalButtonText: {
-    fontFamily: 'Poppins_Regular',
-    fontSize: 16,
-    color: '#fff',
-  },
-  toastContainer: {
-    position: 'absolute',
-    bottom: 50,
-    left: 20,
-    right: 20,
-    backgroundColor: Theme.colors.lightBg,
-    borderRadius: 10,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  toastIcon: {
-    marginRight: 10,
-  },
-  toastContent: {
-    flex: 1,
-  },
-  toastTitle: {
-    fontFamily: 'Poppins_SemiBold',
-    fontSize: 16,
-    color: Theme.colors.black,
-  },
-  toastMessage: {
-    fontFamily: 'Poppins_Regular',
-    fontSize: 12,
-    color: Theme.colors.black,
-  },
-});
-
 export default ReliefRequestScreen;

@@ -4,11 +4,13 @@ import { useNavigation, useRoute, CommonActions } from '@react-navigation/native
 import { signInAnonymously } from 'firebase/auth';
 import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
 import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
+import styles from '../styles/RDANAStyles';
 import Theme from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const RDANASummary = () => {
   const navigation = useNavigation();
@@ -303,38 +305,55 @@ const RDANASummary = () => {
   };
 
   const renderMunicipalityItem = (item, index) => (
-    <View key={index.toString()} style={[styles.tableRow, { minWidth: 1150 }]}>
-      <Text style={[styles.tableCell, { minWidth: 50 }]}>{index + 1}</Text>
-      <Text style={[styles.tableCell, { minWidth: 240 }]}>{item.community || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 120 }]}>{item.totalPop || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 120 }]}>{item.affected || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.deaths || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.injured || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.missing || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.children || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.women || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 130 }]}>{item.seniors || 'N/A'}</Text>
-      <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.pwd || 'N/A'}</Text>
+    <View key={index.toString()} style={[styles.summaryTableRow, { minWidth: 1150 }]}>
+      <Text style={[styles.summaryTableCell, { minWidth: 50 }]}>{index + 1}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 240 }]}>{item.community || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 120 }]}>{item.totalPop || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 120 }]}>{item.affected || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{item.deaths || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{item.injured || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{item.missing || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{item.children || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{item.women || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 130 }]}>{item.seniors || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{item.pwd || 'N/A'}</Text>
     </View>
   );
 
   return (
-    <View style={{ flex: 1 }}>
-      <View style={GlobalStyles.headerContainer}>
-        <TouchableOpacity
-          onPress={() => navigation.openDrawer()}
-          style={GlobalStyles.headerMenuIcon}
+   <SafeAreaView style={GlobalStyles.container}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      {/* Header */}
+      <LinearGradient
+        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+        start={{ x: 1, y: 0.5 }}
+        end={{ x: 1, y: 1 }}
+        style={GlobalStyles.gradientContainer}
+      >
+        <View style={GlobalStyles.newheaderContainer}>
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+          </TouchableOpacity>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>RDANA</Text>
+        </View>
+      </LinearGradient>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1, marginTop: 80 }}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.scrollViewContent]}
+          scrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
         >
-          <Ionicons name="menu" size={32} color="white" />
-        </TouchableOpacity>
-        <Text style={GlobalStyles.headerTitle}>RDANA Summary</Text>
-      </View>
-      <ScrollView style={styles.container}>
-        <Text style={styles.subheader}>{organizationName}</Text>
-        <View style={styles.formContainer}>
+        <View style={GlobalStyles.form}>
+          <Text style={GlobalStyles.subheader}>Summary</Text>
+          <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
           {/* Profile of the Disaster */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Profile of the Disaster</Text>
+          <View style={GlobalStyles.section}>
+            <Text style={GlobalStyles.sectionTitle}>Profile of the Disaster</Text>
             {[
               { key: 'Site_Location_Address_Barangay', label: 'barangay' },
               { key: 'Site_Location_Address_City_Municipality', label: 'cityMunicipality' },
@@ -352,8 +371,8 @@ const RDANASummary = () => {
           </View>
 
           {/* Modality */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Modality</Text>
+          <View style={GlobalStyles.section}>
+            <Text style={GlobalStyles.sectionTitle}>Modality</Text>
             {[
               { key: 'Locations_and_Areas_Affected_Barangay', label: 'locationsAreasAffectedBarangay' },
               { key: 'Locations_and_Areas_Affected_City_Municipality', label: 'locationsAreasAffectedCityMunicipality' },
@@ -371,24 +390,24 @@ const RDANASummary = () => {
           </View>
 
           {/* Initial Effects */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Initial Effects</Text>
+          <View style={GlobalStyles.section}>
+            <Text style={GlobalStyles.sectionTitle}>Initial Effects</Text>
             <Text style={styles.sectionSubtitle}>Affected Municipalities</Text>
             {affectedMunicipalities.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                <View style={styles.table}>
-                  <View style={[styles.tableHeader, { minWidth: 1150 }]}>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 50 }]}>#</Text>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 240 }]}>Affected Municipalities/Communities</Text>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 120 }]}>Total Population</Text>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 120 }]}>Affected Population</Text>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>Deaths</Text>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>Injured</Text>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>Missing</Text>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>Children</Text>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>Women</Text>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 130 }]}>Senior Citizens</Text>
-                    <Text style={[styles.tableHeaderCell, { minWidth: 80 }]}>PWD</Text>
+                <View style={styles.summaryTable}>
+                  <View style={[styles.summaryTableHeader, { minWidth: 1150 }]}>
+                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 50 }]}>#</Text>
+                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 240 }]}>Affected Municipalities/Communities</Text>
+                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 120 }]}>Total Population</Text>
+                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 120 }]}>Affected Population</Text>
+                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Deaths</Text>
+                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Injured</Text>
+                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Missing</Text>
+                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Children</Text>
+                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Women</Text>
+                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 130 }]}>Senior Citizens</Text>
+                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>PWD</Text>
                   </View>
                   {affectedMunicipalities.map((item, index) => renderMunicipalityItem(item, index))}
                 </View>
@@ -399,8 +418,8 @@ const RDANASummary = () => {
           </View>
 
           {/* Status of Lifelines */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities</Text>
+          <View style={GlobalStyles.section}>
+            <Text style={GlobalStyles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities</Text>
             {[
               { key: 'residentialHousesStatus', label: 'Residential Houses' },
               { key: 'transportationAndMobilityStatus', label: 'Transportation and Mobility' },
@@ -418,8 +437,8 @@ const RDANASummary = () => {
           </View>
 
           {/* Initial Needs Assessment */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Initial Needs Assessment Checklist</Text>
+          <View style={GlobalStyles.section}>
+            <Text style={GlobalStyles.sectionTitle}>Initial Needs Assessment Checklist</Text>
             {[
               { key: 'reliefPacks', label: 'reliefPacks' },
               { key: 'hotMeals', label: 'hotMeals' },
@@ -437,8 +456,8 @@ const RDANASummary = () => {
           </View>
 
           {/* Initial Response Actions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Initial Response Actions</Text>
+          <View style={GlobalStyles.section}>
+            <Text style={GlobalStyles.sectionTitle}>Initial Response Actions</Text>
             {[
               { key: 'responseGroup', label: 'responseGroupsInvolved' },
               { key: 'reliefDeployed', label: 'reliefAssistanceDeployed' },
@@ -450,21 +469,23 @@ const RDANASummary = () => {
               </View>
             ))}
           </View>
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-            <Text style={styles.backButtonText}>Back</Text>
+          <View style={GlobalStyles.finalButtonContainer}>
+          <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack}>
+            <Text style={GlobalStyles.backButtonText}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.submitButton, isSubmitting && { opacity: 0.6 }]}
+            style={[GlobalStyles.submitButton, isSubmitting && { opacity: 0.6 }]}
             onPress={handleSubmit}
             disabled={isSubmitting}
           >
-            <Text style={styles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
+            <Text style={GlobalStyles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
           </TouchableOpacity>
         </View>
+        </View>
+
+       
       </ScrollView>
+      </KeyboardAvoidingView>
       <CustomModal
         visible={modalVisible}
         title={errorMessage ? 'Error' : 'Success!'}
@@ -488,147 +509,7 @@ const RDANASummary = () => {
         confirmText={errorMessage ? 'Retry' : 'Proceed'}
         showCancel={errorMessage ? true : false}
       />
-    </View>
+    </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#FFF9F0',
-  },
-  formContainer: {
-    marginBottom: 20,
-  },
-  section: {
-    marginVertical: 10,
-    marginHorizontal: 15,
-    borderWidth: 3,
-    backgroundColor: '#FFF9F0',
-    borderColor: '#00BCD4',
-    borderRadius: 10,
-    padding: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    marginBottom: 10,
-    color: '#00BCD4',
-    fontFamily: 'Poppins_Bold',
-  },
-  sectionSubtitle: {
-    fontSize: 16,
-    marginBottom: 10,
-    color: '#00BCD4',
-    fontFamily: 'Poppins_SemiBold',
-  },
-  fieldContainer: {
-    marginBottom: 10,
-  },
-  label: {
-    fontSize: 14,
-    color: '#00BCD4',
-    fontFamily: 'Poppins_SemiBold',
-  },
-  value: {
-    fontSize: 14,
-    color: '#000000',
-    marginTop: 2,
-    fontFamily: 'Poppins_Regular',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 10,
-    marginBottom: 20,
-    height: 45,
-  },
-  backButton: {
-    borderWidth: 1.5,
-    borderColor: '#4059A5',
-    borderRadius: 12,
-    justifyContent: 'center',
-    paddingHorizontal: 25,
-    alignItems: 'center',
-    marginRight: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  backButtonText: {
-    color: '#4059A5',
-    fontSize: 16,
-    fontFamily: 'Poppins_Medium',
-  },
-  submitButton: {
-    flex: 1,
-    backgroundColor: '#00BCD4',
-    borderRadius: 12,
-    justifyContent: 'center',
-  },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    paddingTop: 5,
-    fontFamily: 'Poppins_SemiBold',
-    textAlign: 'center',
-  },
-  table: {
-    borderWidth: 1,
-    borderColor: Theme.colors.primary,
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: Theme.colors.primary,
-    borderBottomWidth: 1,
-    borderColor: Theme.colors.primary,
-    paddingVertical: 8,
-    paddingHorizontal: 5,
-  },
-  tableHeaderCell: {
-    textAlign: 'center',
-    color: Theme.colors.white,
-    fontFamily: 'Poppins_SemiBold',
-    fontSize: 12,
-    paddingHorizontal: 5,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 5,
-  },
-  tableCell: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#000000',
-    fontFamily: 'Poppins_Regular',
-    paddingHorizontal: 5,
-    paddingVertical: 6,
-  },
-  modalContent: {
-    alignItems: 'center',
-    width: '100%',
-    justifyContent: 'center',
-  },
-  modalIcon: {
-    marginBottom: 15,
-  },
-  modalMessage: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 24,
-    fontFamily: 'Poppins_Regular',
-    textAlign: 'center',
-  },
-  subheader: {
-    fontSize: 16,
-    color: '#3D52A0',
-    textAlign: 'center',
-    marginVertical: 10,
-    fontFamily: 'Poppins_Regular' || 'sans-serif',
-  },
-});
-
 export default RDANASummary;

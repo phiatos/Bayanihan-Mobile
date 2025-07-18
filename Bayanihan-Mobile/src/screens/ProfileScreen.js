@@ -554,32 +554,33 @@ const ProfileScreen = ({ navigation }) => {
   }
 
   return (
-    <View style={GlobalStyles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+    <SafeAreaView style={GlobalStyles.container}>     
+    <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
         end={{ x: 1, y: 1 }}
-        style={styles.gradientContainer}
+        style={GlobalStyles.gradientContainer}
       >
-        <View style={styles.headerContainer}>
-          <TouchableOpacity
-            onPress={handleOpenDrawer}
-            style={styles.headerMenuIcon}
-          >
+        <View style={GlobalStyles.newheaderContainer}>
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
             <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
           <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Profile</Text>
         </View>
       </LinearGradient>
 
-      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
-              <KeyboardAvoidingView
-                style={{ flex: 1, paddingTop: 20 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 20}
-              >
-          <ScrollView contentContainerStyle={styles.scrollViewContent}>
+       <KeyboardAvoidingView
+             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}  
+              style={{ flex: 1, marginTop: 50}}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : StatusBar.currentHeight}
+            >
+          <ScrollView
+            contentContainerStyle={styles.scrollViewContent}
+            scrollEnabled={true}
+            keyboardShouldPersistTaps="handled"
+          >
             {!termsModalVisible && !passwordNeedsReset && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Volunteer Group Information</Text>
@@ -756,22 +757,21 @@ const ProfileScreen = ({ navigation }) => {
             {(!termsModalVisible || passwordNeedsReset) && (
               <View style={styles.submission}>
                 <TouchableOpacity
-                  style={[styles.button, submitting && { opacity: 0.5 }]}
+                  style={[GlobalStyles.button, submitting && { opacity: 0.5 }]}
                   onPress={handleChangePassword}
                   disabled={submitting}
                 >
                   {submitting ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text style={styles.buttonText}>Submit</Text>
+                    <Text style={GlobalStyles.buttonText}>Submit</Text>
                   )}
                 </TouchableOpacity>
               </View>
             )}
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
-    </View>
+    </SafeAreaView>
   );
 };
 

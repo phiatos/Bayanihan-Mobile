@@ -1,6 +1,7 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform, StatusBar, Dimensions } from 'react-native';
 import Theme from '../constants/theme';
 
+const { height, width } = Dimensions.get('window');
 
 const spacing = {
   xsmall: 5,
@@ -23,71 +24,19 @@ const borderWidth = {
   thick: 3,
 };
 
+// Calculate header top padding for iOS and Android
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
+const HEADER_HEIGHT = 60; 
+
 export default StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.lightBg,
-  },
-
-  scrollViewContent: {
-    paddingVertical: spacing.small, 
-  },
-
-  section: {
-    marginVertical: spacing.small,
-    marginHorizontal: spacing.medium,
-    borderWidth: borderWidth.thick,
-    borderColor: Theme.colors.primary,
-    borderRadius: borderRadius.medium,
-    padding: spacing.small,
-    backgroundColor: Theme.colors.lightBg,
-    shadowColor: Theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-
-  sectionTitle: {
-    fontSize: 18,
-    marginBottom: spacing.small,
-    color: Theme.colors.primary,
-    textAlign: 'center',
-    fontFamily: 'Poppins_SemiBold',
-  },
-
-  form: {
-    marginHorizontal: 10,
-  },
-
-  formTitle: {
-    fontSize: 13,
-    color: Theme.colors.primary,
-    marginBottom: 5,
-    fontFamily: 'Poppins_Bold',
-  },
-
-  input: {
-    borderWidth: borderWidth.thin,
-    borderColor: '#605D67',
-    borderRadius: borderRadius.large,
-    padding: spacing.small,
-    marginBottom: spacing.small,
-    fontFamily: 'Poppins_Regular',
-    fontSize: 14,
-    color: Theme.colors.black,
-  },
-
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-  
   requiredInput: {
     borderColor: '#D32F2F',
     fontWeight: '400',
   },
-
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -107,7 +56,7 @@ export default StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: 10,
   },
-  addButton: {
+  button: {
     paddingVertical: 10,
     paddingHorizontal: 20,
     backgroundColor: '#00BCD4',
@@ -119,7 +68,7 @@ export default StyleSheet.create({
     elevation: 3,
     marginBottom: 10,
   },
-  addbuttonText: {
+  buttonText: {
     color: 'white',
     textAlign: 'center',
     fontSize: 13,
@@ -148,7 +97,6 @@ export default StyleSheet.create({
     paddingVertical: 15,
     color: Theme.colors.white,
     backgroundColor: '#00b3c3c2',
-    
   },
   tableCell: {
     textAlign: 'left',
@@ -157,29 +105,9 @@ export default StyleSheet.create({
     paddingVertical: 5,
     borderWidth: 1,
     borderColor: Theme.colors.primary,
-
   },
   icon: {
     padding: 10,
-  },
-  button: {
-    backgroundColor: '#00BCD4',
-    padding: 13,
-    borderRadius: 10,
-    marginTop: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 30,
-    marginHorizontal: 10,
-  },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 15,
-    fontFamily: 'Poppins_Bold',
   },
   dropdownContainer: {
     position: 'absolute',
@@ -207,33 +135,174 @@ export default StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+    webView: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
   mapModalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'white',
   },
   map: {
-    width: width * 1,
-    height: height * 0.9,
-    borderRadius: 10,
-    overflow: 'hidden',
+    flex: 1,
+    width: '100%',
+    height: '100%'
   },
-  modalButtonContainer: {
+  openMap: {
     flexDirection: 'row',
-    marginVertical: 10,
-  },
-  modalButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    backgroundColor: '#00BCD4',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 10,
+  },
+  openMapText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 14,
+    fontFamily: 'Poppins_SemiBold',
+  },
+  overlayContainer: {
+    position: 'absolute',
+    top: 10,
+    left: 0,
+    right: 0,
+    zIndex: 900,
+  },
+  searchWrapper: {
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  searchContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    borderColor: Theme.colors.primary,
+    elevation: 10,
+    backgroundColor: Theme.colors.lightBg,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  searchIcon: {
+    paddingVertical: 10,
+    marginLeft: 2, 
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    backgroundColor: Theme.colors.white,
+    borderRadius: 10,
+    marginTop: 50,
+    elevation: 5,
+    maxHeight: 200,
+    zIndex: 1000,
+    marginHorizontal: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.lightBlack,
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: Theme.colors.black,
+    fontFamily: 'Poppins_Regular',
+  },
+  returnButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 20,
+    backgroundColor: Theme.colors.primary,
+    padding: 10,
+    borderRadius: 25,
+    elevation: 10,
+    zIndex: 1000,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+    mapTypeButtonsContainer: {
+    position: 'absolute',
+    left: 10,
+    top: 60,
+    flexDirection: 'column',
+    gap: 8,
+    padding: 10,
+  },
+  mapTypeButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  mapTypeButtonActive: {
+    backgroundColor: Theme.colors.lightBg,
+    borderColor: Theme.colors.primary,
+  },
+  mapTypeButtonText: {
+    fontSize: 14,
+    color: Theme.colors.white,
+    marginLeft: 6,
+    fontFamily: 'Poppins_Regular',
+  },
+  mapTypeButtonTextActive: {
+    color: Theme.colors.primary,
+    fontFamily: 'Poppins_Regular',
+  },
+  modalButtonContainer: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
+  modalButton: {
+    backgroundColor: '#00BCD4',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 15,
+    marginRight: 10,
+    alignItems:'center'
+  },
+  modalButtonCancel:{
+    backgroundColor: Theme.colors.lightBg,
+    borderColor: Theme.colors.primary,
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 15,
   },
   modalButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontFamily:'Poppins_Medium'
   },
   errorContainer: {
     flex: 1,
@@ -277,5 +346,114 @@ export default StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginBottom: 25,
-  }
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    color: 'red',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  permissionModalContainer: {
+    backgroundColor: 'white',
+    padding: 25,
+    borderRadius: 15,
+    alignItems: 'center',
+    width: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  permissionModalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333',
+    textAlign: 'center',
+  },
+  permissionModalText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+  },
+  // Summary
+  fieldContainer: {
+    marginBottom: 5,
+  },
+  label: {
+    fontSize: 16,
+    color: Theme.colors.primary,
+    textTransform: 'capitalize',
+    fontFamily: 'Poppins_Medium',
+  },
+  value: {
+    fontSize: 14,
+    color: Theme.colors.black,
+    marginTop: 2,
+    paddingLeft: 5,
+    fontFamily: 'Poppins_Regular',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 10,
+    marginTop: 10,
+    marginBottom: 20,
+    height: 50  ,
+  },
+  backButton: {
+    borderWidth: 1.5,
+    borderColor: '#4059A5',
+    borderRadius: 12,
+    justifyContent: 'center',
+    paddingHorizontal: 25,
+    paddingVertical: 0,
+    alignItems: 'center',
+    marginRight: 10,
+    backgroundColor: 'transparent',
+  },
+  backButtonText: {
+    color: '#4059A5',
+    fontSize: 16,
+    fontFamily: 'Poppins_Medium',
+  },
+  submitButton: {
+    flex: 1,
+    backgroundColor: '#14AEBB',
+    borderRadius: 12,
+    justifyContent: 'center',
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    paddingTop: 5,
+    fontFamily: 'Poppins_SemiBold',
+    textAlign: 'center',
+  },
+  modalContent: {
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'center',
+  },
+  modalIcon: {
+    marginBottom: 15,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 24,
+    fontFamily: 'Poppins_Regular',
+    textAlign: 'center',
+  },
 });
