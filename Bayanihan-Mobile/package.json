@@ -75,8 +75,7 @@
     "react-native-video": "^6.16.1",
     "react-native-web": "^0.20.0",
     "react-native-webview": "13.13.5",
-    "rimraf": "^6.0.1",
-    "expo-video": "~2.2.2"
+    "rimraf": "^6.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
