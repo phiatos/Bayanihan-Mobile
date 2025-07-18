@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, StatusBar } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref, onValue, query, orderByChild, remove } from 'firebase/database';
-import { Video } from 'expo-video';
+import Video from 'react-native-video'; // Updated import
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, database } from '../configuration/firebaseConfig';
 import GlobalStyles from '../styles/GlobalStyles';
@@ -185,12 +185,100 @@ const CommunityBoard = () => {
       return null;
     }
 
-    if (!Video && item.mediaType === 'video') {
-      console.error(`[${new Date().toISOString()}] Video component is undefined for post: ${item.id}`);
+    const isValidUrl = (url) => url && typeof url === 'string' && url.startsWith('https://');
+
+    if (item.mediaType === 'video' && !Video) {
+      console.error(`[${new Date().toISOString()}] Video component is undefined for post: ${item.id}. Installed react-native-video version: ${require('react-native-video/package.json').version || 'unknown'}. Ensure react-native-video is installed and linked correctly.`);
       return (
         <View style={styles.postContainer}>
-          <Text style={styles.postTitle}>Error: Video component not available</Text>
-          <Text style={styles.postContent}>Please ensure expo-video is installed and imported correctly.</Text>
+          <View style={styles.postHeader}>
+            <View>
+              <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
+              <Text style={styles.postMeta}>
+                {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
+              </Text>
+              {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
+              {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
+            </View>
+            {item.userId === user?.uid && (
+              <TouchableOpacity onPress={() => setMenuVisible(menuVisible === item.id ? null : item.id)}>
+                <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
+              </TouchableOpacity>
+            )}
+          </View>
+          {menuVisible === item.id && isEditable(item) && (
+            <View style={styles.menuContainer}>
+              <TouchableOpacity style={styles.menuItem} onPress={() => handleEditPost(item)}>
+                <Text style={styles.menuText}>Edit Post</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(null); handleDeletePost(item.id); }}>
+                <Text style={[styles.menuText, { color: 'red' }]}>Delete Post</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {item.title && <Text style={styles.postTitle}>{item.title}</Text>}
+          {item.content && <Text style={styles.postContent}>{item.content}</Text>}
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Video Unavailable</Text>
+            <Text style={styles.errorSubText}>Please ensure react-native-video is installed correctly or try viewing on another device.</Text>
+            {isValidUrl(item.thumbnailUrl) && (
+              <Image
+                source={{ uri: item.thumbnailUrl }}
+                style={styles.postMedia}
+                resizeMode="contain"
+                onError={(error) => console.error(`[${new Date().toISOString()}] Thumbnail load error for post ${item.id}:`, error.nativeEvent)}
+                onLoad={() => console.log(`[${new Date().toISOString()}] Thumbnail loaded for post ${item.id}: ${item.thumbnailUrl}`)}
+              />
+            )}
+          </View>
+        </View>
+      );
+    }
+
+    if (item.mediaType === 'video' && !isValidUrl(item.mediaUrl)) {
+      console.error(`[${new Date().toISOString()}] Invalid video URL for post ${item.id}: ${item.mediaUrl}`);
+      return (
+        <View style={styles.postContainer}>
+          <View style={styles.postHeader}>
+            <View>
+              <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
+              <Text style={styles.postMeta}>
+                {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
+              </Text>
+              {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
+              {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
+            </View>
+            {item.userId === user?.uid && (
+              <TouchableOpacity onPress={() => setMenuVisible(menuVisible === item.id ? null : item.id)}>
+                <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
+              </TouchableOpacity>
+            )}
+          </View>
+          {menuVisible === item.id && isEditable(item) && (
+            <View style={styles.menuContainer}>
+              <TouchableOpacity style={styles.menuItem} onPress={() => handleEditPost(item)}>
+                <Text style={styles.menuText}>Edit Post</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(null); handleDeletePost(item.id); }}>
+                <Text style={[styles.menuText, { color: 'red' }]}>Delete Post</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {item.title && <Text style={styles.postTitle}>{item.title}</Text>}
+          {item.content && <Text style={styles.postContent}>{item.content}</Text>}
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Invalid Video URL</Text>
+            <Text style={styles.errorSubText}>The video URL is missing or invalid. Please edit the post to fix it.</Text>
+            {isValidUrl(item.thumbnailUrl) && (
+              <Image
+                source={{ uri: item.thumbnailUrl }}
+                style={styles.postMedia}
+                resizeMode="contain"
+                onError={(error) => console.error(`[${new Date().toISOString()}] Thumbnail load error for post ${item.id}:`, error.nativeEvent)}
+                onLoad={() => console.log(`[${new Date().toISOString()}] Thumbnail loaded for post ${item.id}: ${item.thumbnailUrl}`)}
+              />
+            )}
+          </View>
         </View>
       );
     }
@@ -224,24 +312,26 @@ const CommunityBoard = () => {
         )}
         {item.title && <Text style={styles.postTitle}>{item.title}</Text>}
         {item.content && <Text style={styles.postContent}>{item.content}</Text>}
-        {item.mediaUrl && item.mediaType === 'image' && (
+        {item.mediaUrl && item.mediaType === 'image' && isValidUrl(item.mediaUrl) && (
           <Image
             source={{ uri: item.mediaUrl }}
             style={styles.postMedia}
             resizeMode="contain"
-          
+            onError={(error) => console.error(`[${new Date().toISOString()}] Image load error for post ${item.id}:`, error.nativeEvent)}
+            onLoad={() => console.log(`[${new Date().toISOString()}] Image loaded for post ${item.id}: ${item.mediaUrl}`)}
           />
         )}
         {item.mediaUrl && item.mediaType === 'video' && (
           <Video
             source={{ uri: item.mediaUrl }}
             style={styles.postMedia}
-            useNativeControls
+            controls={true}
             resizeMode="contain"
-            usePoster={!!item.thumbnailUrl}
-            posterSource={item.thumbnailUrl ? { uri: item.thumbnailUrl } : undefined}
+            poster={isValidUrl(item.thumbnailUrl) ? item.thumbnailUrl : undefined}
             onError={(error) => console.error(`[${new Date().toISOString()}] Video playback error for post ${item.id}:`, error)}
             onLoad={() => console.log(`[${new Date().toISOString()}] Video loaded for post ${item.id}: ${item.mediaUrl}`)}
+            paused={true}
+            repeat={false}
           />
         )}
       </View>
