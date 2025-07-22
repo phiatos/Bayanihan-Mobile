@@ -499,6 +499,7 @@ const CreatePost = () => {
 
             {(postType === 'image' || postType === 'video') && (
               <View style={styles.mediaContainer}>
+                <Text style={styles.label}>{postType === 'video' ? 'Video' : 'Image(s)'}</Text>
                 <TouchableOpacity style={styles.mediaButton} onPress={pickMedia}>
                   <Text style={styles.mediaButtonText}>
                     {media.length > 0 ? 'Add More Media' : 'Select Media'}
@@ -552,6 +553,7 @@ const CreatePost = () => {
 
             {postType === 'link' && (
               <View style={styles.mediaContainer}>
+                <Text style={styles.label}>Link URL</Text>
                 <TextInput
                   style={styles.input}
                   value={link}
