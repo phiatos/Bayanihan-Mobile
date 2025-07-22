@@ -57,7 +57,6 @@ export default StyleSheet.create({
     fontSize: 13,
     color: Theme.colors.black,
     textAlign: 'center',
-    
   },
   postContainer: {
     backgroundColor: '#fff',
@@ -128,9 +127,6 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_Regular',
     fontSize: 14,
     color: Theme.colors.black,
-  },
-  flatListContent: {
-    paddingBottom: spacing.xlarge,
   },
   floatingButtonContainer: {
     position: 'absolute',

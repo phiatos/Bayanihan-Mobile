@@ -21,6 +21,7 @@ import CommunityBoard from '../screens/CommunityBoard';
 import { AuthContext } from '../context/AuthContext';
 import CustomDrawer from '../components/CustomDrawer';
 import CreatePost from '../screens/Create Post';
+import ImageEditor from '../screens/ImageEditor';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -62,6 +63,7 @@ const CommunityBoardStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="CommunityBoard" component={CommunityBoard} />
     <Stack.Screen name="CreatePost" component={CreatePost} />
+    {/* <Stack.Screen name="ImageEditor" component={ImageEditor} /> */}
   </Stack.Navigator>
 );
 
@@ -113,6 +115,7 @@ const AppStack = () => {
 
     return () => clearTimeout(timeout);
   };
+
 
   useEffect(() => {
     return resetInactivityTimer({ navigate: () => {} }); // Initial call, placeholder navigation

@@ -113,6 +113,11 @@ export default StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Poppins_SemiBold',
   },
+  label: {
+    fontSize: 14,
+    color: '#00BCD4',
+    fontFamily: 'Poppins_SemiBold',
+  },
   input: {
     borderWidth: borderWidth.thin,
     borderColor: '#605D67',

@@ -15,7 +15,7 @@ const firebaseConfig = {
   measurementId: "G-ZTQ9VXXVV0",
 };
 
-console.log('Firebase Config Values:', firebaseConfig);
+// console.log('Firebase Config Values:', firebaseConfig);
 
 let app;
 try {

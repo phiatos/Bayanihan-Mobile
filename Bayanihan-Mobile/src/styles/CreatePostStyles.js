@@ -41,6 +41,25 @@ export default StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
   },
+  submitButton: {
+    position: 'absolute',
+    top: 10,
+    right: 5,
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: spacing.large,
+    paddingVertical: 5,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  submitButtonDisabled: {
+    backgroundColor: Theme.colors.lightGray,
+  },
+  submitButtonText: {
+    color: Theme.colors.white,
+    fontSize: 14,
+    fontFamily: 'Poppins_Medium'
+  },
   formContainer: {
     flex: 1,
     paddingTop: HEADER_HEIGHT + STATUS_BAR_HEIGHT,
@@ -61,38 +80,45 @@ export default StyleSheet.create({
     color: Theme.colors.primary,
   },
   categoryPicker: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    marginBottom: spacing.medium,
-    marginHorizontal: spacing.medium,
-    backgroundColor: '#fff',
+      flex: 1,
+      margin: spacing.medium,
+      marginLeft: 160,
+      borderWidth: 1,
+      borderColor: '#ccc',
+      borderRadius: borderRadius.medium,
+      backgroundColor: '#fff',
+      justifyContent: 'center', 
+      height: 40,
   },
-  picker: {
-    height: 50,
+    picker: {
+      textAlign: 'center'
   },
-  pickerItem: {
-    fontFamily: 'Poppins_Regular',
+    pickerItems: {
+      fontFamily: 'Poppins_Regular',
+      fontSize: 13,
+      color: Theme.colors.black,
+      textAlign: 'center',
+  },
+  label: {
     fontSize: 14,
-    color: Theme.colors.black,
+    color: '#00BCD4',
+    fontFamily: 'Poppins_SemiBold',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
     padding: spacing.medium,
     marginBottom: spacing.medium,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     fontFamily: 'Poppins_Regular',
     fontSize: 14,
   },
-  contentInput: {
+  textArea: {
+    height: 100,
     textAlignVertical: 'top',
   },
   mediaUpload: {
     borderWidth: 1,
     borderColor: '#AAA',
-    borderRadius: 10,
+    borderRadius: borderRadius.large,
     padding: spacing.medium,
     marginBottom: spacing.medium,
     backgroundColor: '#fff',
@@ -100,5 +126,85 @@ export default StyleSheet.create({
     alignItems: 'center',
     height: 50,
     marginHorizontal: spacing.medium,
+  },
+  videoPreview: {
+    width: '100%',
+    height: 200,
+    marginTop: spacing.small,
+    borderRadius: borderRadius.medium,
+  },
+  mediaPreviewContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    marginTop: spacing.small,
+  },
+  mediaPreview: {
+    position: 'relative',
+    margin: spacing.xsmall,
+    width: 100,
+    height: 100,
+  },
+  thumbnailPreview: {
+    width: 100,
+    height: 100,
+    borderRadius: borderRadius.medium,
+  },
+  cropButton: {
+    position: 'absolute',
+    top: spacing.xsmall,
+    right: spacing.xsmall,
+    backgroundColor: Theme.colors.primary,
+    borderRadius: borderRadius.medium,
+    padding: spacing.xsmall,
+  },
+  removeButton: {
+    position: 'absolute',
+    top: spacing.xsmall,
+    right: 30, 
+    backgroundColor: Theme.colors.red,
+    borderRadius: borderRadius.medium,
+    padding: spacing.xsmall,
+  },
+  mediaButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.medium,
+  },
+  mediaButton: {
+    backgroundColor: Theme.colors.lightBlue,
+    padding: spacing.medium,
+    borderRadius: borderRadius.medium,
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: spacing.xsmall,
+  },
+  mediaButtonText: {
+    color: Theme.colors.accentBlue,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  mediaInfo: {
+    fontSize: 14,
+    color: Theme.colors.black,
+    marginTop: spacing.small,
+  },
+  navbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.primary,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    
+  },
+  navButton: {
+    padding: spacing.small,
+    borderRadius: borderRadius.medium,
+  },
+  navButtonActive: {
+    fontSize
   },
 });

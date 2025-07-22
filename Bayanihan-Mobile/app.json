@@ -16,7 +16,8 @@
       "resizeMode": "contain",
       "backgroundColor": "#FFF9F0",
       "permissions": [
-        "location"
+        "location",
+        "CAMERA_ROLL"
       ]
     },
     "ios": {
@@ -49,14 +50,9 @@
           "locationWhenInUsePermission": "Allow this app to use your location to show your position on the map."
         }
       ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app needs access to your photos to upload donation images."
-        }
-      ],
       "expo-build-properties",
-      "expo-video"
+      "expo-video",
+      "expo-image-picker" 
     ],
     "jsEngine": "jsc",
     "extra": {
