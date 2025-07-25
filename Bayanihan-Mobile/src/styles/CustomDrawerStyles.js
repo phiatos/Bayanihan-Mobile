@@ -6,9 +6,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.primary,
     width: '100%',
+    overflow: 'hidden',
   },
   drawerScroll: {
     backgroundColor: Theme.colors.primary,
+     overflow: 'hidden',
   },
   userHeader: {
     padding: 20,
@@ -38,7 +40,7 @@ const styles = StyleSheet.create({
     marginRight: 5,
     fontSize: 12,
   },
-    userName: {
+  userName: {
     color: Theme.colors.white,
     fontSize: 15,
     fontFamily: 'Poppins_Bold',
@@ -47,30 +49,28 @@ const styles = StyleSheet.create({
   drawerListContainer: {
     flex: 1,
     backgroundColor: Theme.colors.primary,
-    paddingTop: 10,
+    paddingTop: 5,
     color: Theme.colors.white,
     fontFamily:'Poppins_Regular',
-    
+    overflow: 'hidden',
   },
   footer: {
-    padding: 20,
+    paddingHorizontal: 30,
+    paddingBottom: 40,
     color: Theme.colors.white
-
   },
   footerButton: {
-    paddingVertical: 15,
+    paddingVertical: 5,
   },
   footerButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-
   },
   footerButtonText: {
     fontSize: 13,
-    fontFamily: 'Poppins_Regular',
-    marginLeft: 5,
+    fontFamily: 'Poppins_Medium',
+    marginLeft: 25,
     color: Theme.colors.white
-
   },
     modalContent: {
     alignItems: 'center',

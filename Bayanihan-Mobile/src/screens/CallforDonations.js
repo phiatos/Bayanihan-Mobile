@@ -3,7 +3,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -11,6 +10,7 @@ import {
   StatusBar,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -316,7 +316,7 @@ const CallForDonations = () => {
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Permission Denied', 'Permission to access gallery is required!');
+      ToastAndroid.show('Permission to access gallery is required!',ToastAndroid.BOTTOM);
       return;
     }
 
@@ -357,7 +357,7 @@ const CallForDonations = () => {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      Alert.alert('Incomplete Data', `Please fill in required fields:\n${Object.values(newErrors).join('\n')}`);
+      ToastAndroid.show('Please fill in required fields.',ToastAndroid.BOTTOM);
       return;
     }
 

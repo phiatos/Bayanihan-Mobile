@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { ref as databaseRef, push, get } from 'firebase/database';
 import React, { useState, useEffect } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
@@ -38,12 +38,12 @@ const ReportSummary = () => {
         } else {
           console.warn('No organization found for user:', userUid);
           setOrganizationName('');
-          Alert.alert('Warning', 'No organization found in your profile. Using default name.');
+          ToastAndroid.show('No organization found in your profile. Using default name.',ToastAndroid.BOTTOM);
         }
       } catch (error) {
         console.error('Error fetching organization name:', error.message);
         setOrganizationName('');
-        Alert.alert('Error', 'Failed to fetch organization name: ' + error.message);
+        ToastAndroid.show('Failed to fetch organization name: ' + error.message, ToastAndroid.BOTTOM);
       }
     };
 
@@ -68,7 +68,7 @@ const ReportSummary = () => {
       }
 
       const newReport = {
-        reportID: reportData.reportID ||  s`REPORTS-${Math.floor(100000 + Math.random() * 900000)}`,
+        reportID: reportData.reportID || `REPORTS-${Math.floor(100000 + Math.random() * 900000)}`,
         AreaOfOperation: reportData.AreaOfOperation || '',
         DateOfReport: reportData.DateOfReport || '',
         calamityArea: reportData.calamityArea || '',  
@@ -87,8 +87,7 @@ const ReportSummary = () => {
         status: 'Pending',
         userUid: userUid,
         timestamp: Date.now(),
-        organization: organizationName, // Use fetched organizationName
-        
+        organization: organizationName,
       };
 
       // Save to reports/submitted subnode
@@ -134,7 +133,12 @@ const ReportSummary = () => {
   };
 
   const formatLabel = (key) => {
-    return key.replace(/([A-Z])/g, ' $1').toLowerCase();
+    let label = key.replace(/([A-Z])/g, ' $1').toLowerCase();
+    // Add period after "no" in specific fields
+    if (['no of individuals or families', 'no of food packs', 'no of hot meals', 'no of volunteers mobilized', 'no of organizations activated'].includes(label)) {
+      label = label.replace('no ', 'no. ');
+    }
+    return label;
   };
 
   const formatDateDisplay = (dateStr) => {
@@ -166,7 +170,7 @@ const ReportSummary = () => {
   };
 
   return (
- <SafeAreaView style={GlobalStyles.container}>
+    <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       {/* Header */}
       <LinearGradient
@@ -193,95 +197,90 @@ const ReportSummary = () => {
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
-      
-        <View style={GlobalStyles.form}>
-             <Text style={GlobalStyles.subheader}>Summary</Text>
-                    <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
-          <View style={GlobalStyles.summarySection}>
-            <Text style={GlobalStyles.summarySectionTitle}>Basic Information</Text>
-            {['reportID', 'AreaOfOperation', 'DateOfReport'].map((field) => (
-              <View key={field} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(field)}</Text>
-                <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
-              </View>
-            ))}
-            
-          </View>
+          <View style={GlobalStyles.form}>
+            <Text style={GlobalStyles.subheader}>Summary</Text>
+            <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
+            <View style={GlobalStyles.summarySection}>
+              <Text style={GlobalStyles.summarySectionTitle}>Basic Information</Text>
+              {['reportID', 'AreaOfOperation', 'DateOfReport'].map((field) => (
+                <View key={field} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{formatLabel(field)}</Text>
+                  <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+                </View>
+              ))}
+            </View>
 
-          <View style={GlobalStyles.summarySection}>
-            <Text style={GlobalStyles.summarySectionTitle}>Relief Operations</Text>
-            {['calamityArea','completionTimeOfIntervention', 'startingDateOfOperation', 'EndDate', 'NoOfIndividualsOrFamilies', 'LitersOfWater', 'NoOfVolunteersMobilized', 'NoOfOrganizationsActivated', 'TotalValueOfInKindDonations', 'TotalMonetaryDonations'].map((field) => (
-              <View key={field} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(field)}</Text>
-                <Text style={styles.value}>{reportData[field] || 'None'}</Text>
-              </View>
-            ))}
-          </View>
-            
-          <View style={GlobalStyles.summarySection}>
-            <Text style={GlobalStyles.summarySectionTitle}>Additional Updates</Text>
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Notes/Additional Information</Text>
-                <Text style={styles.value}>{reportData.NotesAdditionalInformation || 'None'}</Text>
-              </View>
-           
-          </View>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            disabled={isLoading}
-          >
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={handleSubmit}
-            disabled={isLoading}
-          >
-            <Text style={styles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
-          </TouchableOpacity>
-        </View>
-        </View>
-        </ScrollView>
-        </KeyboardAvoidingView>
-
-        <CustomModal
-          visible={modalVisible}
-          title={errorMessage ? 'Error' : 'Success!'}
-          message={
-            <View style={styles.modalContent}>
-              {errorMessage ? (
-                <>
-                  <Ionicons
-                    name="warning-outline"
-                    size={60}
-                    color="#FF0000"
-                    style={styles.modalIcon}
-                  />
-                  <Text style={styles.modalMessage}>{errorMessage}</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={60}
-                    color={Theme.colors.primary}
-                    style={styles.modalIcon}
-                  />
-                  <Text style={styles.modalMessage}>Report submitted successfully!</Text>
-                </>
-              )}
+            <View style={GlobalStyles.summarySection}>
+              <Text style={GlobalStyles.summarySectionTitle}>Relief Operations</Text>
+              {['calamityArea', 'completionTimeOfIntervention', 'StartDate', 'EndDate', 'NoOfIndividualsOrFamilies', 'NoOfFoodPacks', 'hotMeals', 'LitersOfWater', 'NoOfVolunteersMobilized', 'NoOfOrganizationsActivated', 'TotalValueOfInKindDonations', 'TotalMonetaryDonations'].map((field) => (
+                <View key={field} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{formatLabel(field)}</Text>
+                  <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+                </View>
+              ))}
             </View>
             
-          }
-          onConfirm={handleConfirm}
-          onCancel={handleCancel}
-          confirmText={errorMessage ? 'Retry' : 'Proceed'}
-          showCancel={false}
-        />
+            <View style={GlobalStyles.summarySection}>
+              <Text style={GlobalStyles.summarySectionTitle}>Additional Updates</Text>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>{formatLabel('NotesAdditionalInformation')}</Text>
+                <Text style={styles.value}>{reportData.NotesAdditionalInformation || 'None'}</Text>
+              </View>
+            </View>
 
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBack}
+                disabled={isLoading}
+              >
+                <Text style={styles.backButtonText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.submitButton}
+                onPress={handleSubmit}
+                disabled={isLoading}
+              >
+                <Text style={styles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <CustomModal
+        visible={modalVisible}
+        title={errorMessage ? 'Error' : 'Success!'}
+        message={
+          <View style={styles.modalContent}>
+            {errorMessage ? (
+              <>
+                <Ionicons
+                  name="warning-outline"
+                  size={60}
+                  color="#FF0000"
+                  style={styles.modalIcon}
+                />
+                <Text style={styles.modalMessage}>{errorMessage}</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={60}
+                  color={Theme.colors.primary}
+                  style={styles.modalIcon}
+                />
+                <Text style={styles.modalMessage}>Report submitted successfully!</Text>
+              </>
+            )}
+          </View>
+        }
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        confirmText={errorMessage ? 'Retry' : 'Proceed'}
+        showCancel={false}
+      />
     </SafeAreaView>
   );
 };

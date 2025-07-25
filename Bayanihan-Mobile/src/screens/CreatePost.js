@@ -18,8 +18,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import styles from '../styles/CreatePostStyles';
 
 // Debug ImagePicker module
-console.log('ImagePicker:', ImagePicker);
-console.log('ImagePicker.MediaTypeOptions:', ImagePicker.MediaTypeOptions);
+// console.log('ImagePicker:', ImagePicker);
+// console.log('ImagePicker.MediaTypeOptions:', ImagePicker.MediaTypeOptions);
 
 const CreatePost = () => {
   const navigation = useNavigation();

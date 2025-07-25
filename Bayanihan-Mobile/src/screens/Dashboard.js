@@ -3,11 +3,10 @@ import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/database';
 import React, { useEffect, useState, useRef } from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View, StatusBar, Animated, Easing } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View, StatusBar, Animated, Easing, ToastAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import ToastAndroid from 'react-native/Libraries/Components/ToastAndroid/ToastAndroid'; // Explicit import for ToastAndroid
 
 import styles from '../styles/DashboardStyles';
 import GlobalStyles from '../styles/GlobalStyles';
@@ -87,11 +86,8 @@ const DashboardScreen = ({ navigation }) => {
       database.ref(`users/${userId}`).once('value', snapshot => {
         const userData = snapshot.val();
         if (!userData || !userData.role) {
-          Alert.alert(
-            'User Data Missing',
-            'User role not found. Please contact an administrator.',
-            [{ text: 'OK', onPress: () => navigation.navigate('Login') }],
-          );
+          ToastAndroid.show('User role not found. Please contact an administrator.',ToastAndroid.BOTTOM);
+          navigation.navigate('Login')
           return;
         }
 
@@ -158,7 +154,7 @@ const DashboardScreen = ({ navigation }) => {
           ]);
         }, error => {
           console.error('Error fetching approved reports:', error);
-          Alert.alert('Error', 'Failed to load dashboard data. Please try again later.');
+          ToastAndroid.show('Failed to load dashboard data. Please try again later.',ToastAndroid.BOTTOM);
           setMetrics([
             { label: 'No. of Food Packs', value: '0', icon: 'food-variant' },
             { label: 'No. of Hot Meals', value: '0', icon: 'silverware-fork-knife' },
@@ -170,7 +166,7 @@ const DashboardScreen = ({ navigation }) => {
         });
       }, error => {
         console.error('Error fetching user data:', error);
-        Alert.alert('Error', 'Failed to load user data. Please try again later.');
+        ToastAndroid.show('Failed to load user data. Please try again later.',ToastAndroid.BOTTOM);
       });
     });
 

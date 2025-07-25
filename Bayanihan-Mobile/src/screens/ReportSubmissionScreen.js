@@ -178,12 +178,12 @@ const ReportSubmissionScreen = () => {
               },
               (error) => {
                 console.error('Error listening for active activations:', error);
-                Alert.alert('Error', 'Failed to load active operations. Please try again.');
+                ToastAndroid.show('Failed to load active operations. Please try again.',ToastAndroid.BOTTOM);
               }
             );
           } catch (error) {
             console.error('Error fetching user data:', error.message);
-            Alert.alert('Error', 'Failed to fetch user group. Please try again.');
+            ToastAndroid.show('Failed to fetch user group. Please try again.',ToastAndroid.BOTTOM);
           }
         } else {
           console.warn('No user is logged in');
@@ -192,7 +192,8 @@ const ReportSubmissionScreen = () => {
       },
       (error) => {
         console.error('Auth state listener error:', error.message);
-        Alert.alert('Error', 'Authentication error: ' + error.message);
+        ToastAndroid.show('Authentication error: ' + error.message,ToastAndroid.BOTTOM);
+
       }
     );
 
@@ -280,7 +281,7 @@ const ReportSubmissionScreen = () => {
     } catch (error) {
       console.error('Reverse Geocoding Error:', error);
       setLocationName('Unknown Location');
-      Alert.alert('Error', 'Failed to fetch location name. Using "Unknown Location" instead.');
+      ToastAndroid.show('Failed to fetch location name. Using "Unknown Location" instead.',ToastAndroid.BOTTOM);
       return 'Unknown Location';
     }
   };
@@ -520,9 +521,8 @@ const ReportSubmissionScreen = () => {
           ...prev,
           calamityArea: `${displayCalamity} (by ${selectedActivation.organization})`,
           CalamityAreaId: selectedActivation.id,
-          AreaOfOperation: selectedActivation.areaOfOperation || reportData.AreaOfOperation,
         }));
-        setLocationName(selectedActivation.areaOfOperation || reportData.AreaOfOperation);
+        setLocationName(reportData.AreaOfOperation);
       }
     }
   };
@@ -542,7 +542,7 @@ const ReportSubmissionScreen = () => {
 
   const handleMapConfirm = () => {
     if (!reportData.AreaOfOperation) {
-      Alert.alert('No Location Selected', 'Please select a location on the map or search for an address before confirming.');
+      ToastAndroid.show('Please select a location on the map or search for an address before confirming.',ToastAndroid.BOTTOM);
       return;
     }
     setShowMapModal(false);
@@ -864,7 +864,7 @@ const ReportSubmissionScreen = () => {
 
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Relief Operations</Text>
-              {renderLabel('Select Calamity & Area of Operation', true)}
+              {renderLabel('Select Calamity', true)}
               <View style={[GlobalStyles.input, errors.calamityArea && styles.requiredInput, styles.pickerContainer, { height: 45, paddingVertical: 0, alignContent: 'center', justifyContent: 'center', paddingHorizontal: 0 }]}>
                 <Picker
                   selectedValue={reportData.CalamityAreaId}

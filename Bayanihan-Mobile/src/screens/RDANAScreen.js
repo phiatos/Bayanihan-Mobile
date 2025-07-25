@@ -4,7 +4,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useRef, useState } from 'react';
 import {
-  Alert,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
@@ -12,6 +11,7 @@ import {
   StatusBar,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -857,10 +857,7 @@ const RDANAScreen = () => {
                     };
 
                     setAffectedMunicipalities((prev) => [...prev, newMunicipality]);
-                    Alert.alert(
-                      'Municipality Saved',
-                      `Saved:\nAffected Community: ${community}\nTotal Population: ${totalPop}\nAffected Population: ${affected}\nDeaths: ${deaths}\nInjured: ${injured}\nMissing: ${missing}\nChildren: ${children}\nWomen: ${women}\nSenior Citizens: ${seniors}\nPWD: ${pwd}`
-                    );
+                    ToastAndroid.show('Municipality Saved',ToastAndroid.BOTTOM);
                     setReportData((prev) => ({
                       ...prev,
                       community: '',

@@ -20,8 +20,9 @@ import CallforDonations from '../screens/CallforDonations';
 import CommunityBoard from '../screens/CommunityBoard';
 import { AuthContext } from '../context/AuthContext';
 import CustomDrawer from '../components/CustomDrawer';
-import CreatePost from '../screens/Create Post';
-import ImageEditor from '../screens/ImageEditor';
+import CreatePost from '../screens/CreatePost';
+import TransactionScreen from '../screens/TransactionScreen';
+
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -209,6 +210,15 @@ const AppStack = () => {
         options={{
           drawerIcon: ({ color }) => (
             <Ionicons name="document" size={22} color={color} />
+          ),
+        }}
+      />
+    <Drawer.Screen
+        name="Transactions History"
+        component={TransactionScreen}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="file-tray-stacked" size={22} color={color} />
           ),
         }}
       />

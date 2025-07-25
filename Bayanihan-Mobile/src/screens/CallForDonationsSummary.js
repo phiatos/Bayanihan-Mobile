@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { ref as databaseRef, push, get } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
@@ -36,12 +36,12 @@ const CallForDonationsSummary = () => {
           } else {
             console.warn('No organization found for user:', user.uid);
             setOrganizationName('Unknown Organization');
-            Alert.alert('Warning', 'No organization found in your profile. Using default name.');
+            ToastAndroid.show('No organization found in your profile. Using default name.',ToastAndroid.BOTTOM);
           }
         } catch (error) {
           console.error('Error fetching organization name:', error.message);
           setOrganizationName('Unknown Organization');
-          Alert.alert('Error', 'Failed to fetch organization name: ' + error.message);
+          ToastAndroid.show('Failed to fetch organization name: ' + error.message ,ToastAndroid.BOTTOM);
         }
       } else {
         console.warn('No user is logged in');
@@ -69,7 +69,7 @@ const CallForDonationsSummary = () => {
   const getBase64Image = async (uri) => {
     if (!uri) { 
       console.warn('No image URI provided');
-      Alert.alert('Warning', 'No image selected. Proceeding without an image.');
+      ToastAndroid.show('No image selected. Proceeding without an image.',ToastAndroid.BOTTOM);
       return '';
     }
     try {

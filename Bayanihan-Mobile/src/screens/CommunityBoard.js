@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, StatusBar } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, StatusBar, ToastAndroid } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref, onValue, query, orderByChild, remove } from 'firebase/database';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -78,7 +78,7 @@ const CommunityBoard = () => {
   useEffect(() => {
     if (!auth) {
       console.error(`Auth is not initialized`);
-      Alert.alert('Error', 'Authentication not initialized. Please restart the app.');
+      ToastAndroid.show('Authentication not initialized. Please restart the app.',ToastAndroid.BOTTOM);
       return;
     }
 
@@ -92,25 +92,23 @@ const CommunityBoard = () => {
           });
           const userDataFromDb = userSnapshot.val();
           if (userDataFromDb?.password_needs_reset) {
-            Alert.alert('Password Change Required', 'Please change your password.', [
-              { text: 'OK', onPress: () => navigation.navigate('Profile') },
-            ]);
+            ToastAndroid.show('Please change your password.',ToastAndroid.BOTTOM);
+            navigation.navigate('Profile')
             return;
           }
           const data = await fetchUserData(currentUser.uid);
           setUserData(data);
         } catch (error) {
           console.error(`Error fetching user data:`, error);
-          Alert.alert('Error', 'Failed to load user data.');
+          ToastAndroid.show('Failed to load user data.',ToastAndroid.BOTTOM);
         }
       } else {
-        Alert.alert('Authentication Required', 'Please log in to view posts.', [
-          { text: 'OK', onPress: () => navigation.navigate('Login') },
-        ]);
+        ToastAndroid.show('Please log in to view posts.',ToastAndroid.BOTTOM);
+        navigation.navigate('Login');
       }
     }, (error) => {
       console.error(`Auth state listener error:`, error);
-      Alert.alert('Error', 'Authentication error. Please restart the app.');
+      ToastAndroid.show('Authentication error. Please restart the app.',ToastAndroid.BOTTOM);
     });
 
     return () => {
@@ -141,7 +139,7 @@ const CommunityBoard = () => {
       }
     }, (error) => {
       console.error(`Error loading posts:`, error);
-      Alert.alert('Error', 'Failed to load posts.');
+      ToastAndroid.show('Failed to load posts.',ToastAndroid.BOTTOM);
     });
     return () => unsubscribe();
   }, [sortOrder, categoryFilter, user]);
@@ -185,10 +183,10 @@ const CommunityBoard = () => {
           onPress: async () => {
             try {
               await remove(ref(database, `posts/${postId}`));
-              Alert.alert('Success', 'Post deleted successfully.');
+              ToastAndroid.show('Post deleted successfully.',ToastAndroid.BOTTOM);
             } catch (error) {
               console.error(`Error deleting post:`, error);
-              Alert.alert('Error', 'Failed to delete post.');
+              ToastAndroid.show('Failed to delete post.',ToastAndroid.BOTTOM);
             }
           },
         },
