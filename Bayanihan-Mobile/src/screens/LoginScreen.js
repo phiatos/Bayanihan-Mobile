@@ -118,7 +118,7 @@ const LoginScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('Onboarding')}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={28} color="#14AFBC" />
+            <Ionicons name="arrow-back" size={26} color="#14AFBC" />
           </TouchableOpacity>
 
           <View style={styles.formContainer}>

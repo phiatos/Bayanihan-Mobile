@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { signInAnonymously } from 'firebase/auth';
-import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
-import React, { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ref as databaseRef, push, get, serverTimestamp, query, orderByChild, equalTo } from 'firebase/database';
+import React, { useEffect, useState, useRef } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
 import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
@@ -22,6 +22,7 @@ const RDANASummary = () => {
   const [userUid, setUserUid] = useState(null);
   const [organizationName, setOrganizationName] = useState('[Unknown Organization]');
   const [errorMessage, setErrorMessage] = useState(null);
+  const [canSubmit, setCanSubmit] = useState(false);
 
   // Validate incoming data
   if (!reportData || typeof reportData !== 'object') {
@@ -31,14 +32,34 @@ const RDANASummary = () => {
   }
 
   if (!Array.isArray(affectedMunicipalities)) {
-    console.warn('Invalid affectedMunicipalities received:', affected);
+    console.warn('Invalid affectedMunicipalities received:', affectedMunicipalities);
     Alert.alert('Error', 'Invalid municipalities data.');
     return null;
   }
 
-  // Organization name fetching
+  // Helper function to sanitize keys for Firebase (preserve single underscores)
+  const sanitizeKey = (key) => {
+    return key
+      .replace(/[.#$/[\]]/g, '_') // Replace invalid Firebase characters
+      .replace(/\s+/g, '_') // Replace spaces with underscore
+      .replace(/[^a-zA-Z0-9_]/g, '') // Remove other special characters
+      .replace(/_+/g, '_'); // Collapse multiple underscores to single
+  };
+
+  // Format label for display
+  const formatLabel = (key) => {
+    return key
+      .replace(/_/g, ' ') // Replace underscores with spaces
+      .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+      .trim()
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  // Organization name and role-based submission check
   useEffect(() => {
-    const fetchOrganizationName = async () => {
+    const fetchUserData = async () => {
       try {
         const storedOrg = await AsyncStorage.getItem('organizationName');
         if (storedOrg) {
@@ -46,62 +67,102 @@ const RDANASummary = () => {
           console.log('Organization name loaded from storage:', storedOrg);
         }
 
-        console.log('Setting up auth state listener...');
-        const unsubscribe = auth.onAuthStateChanged(
-          (user) => {
-            if (user) {
-              setUserUid(user.uid);
-              console.log('Logged-in user UID:', user.uid);
-              const userRef = databaseRef(database, `users/${user.uid}`);
-              get(userRef)
-                .then((snapshot) => {
-                  if (snapshot.exists()) {
-                    const userData = snapshot.val();
-                    if (userData && userData.organization) {
-                      setOrganizationName(userData.organization);
-                      AsyncStorage.setItem('organizationName', userData.organization);
-                      console.log('Organization name fetched:', userData.organization);
-                    } else {
-                      console.warn('User data or organization not found for UID:', user.uid);
-                      setOrganizationName('[Unknown Organization]');
-                      setErrorMessage('Organization name not found. Please contact support.');
-                      setModalVisible(true);
-                    }
-                  } else {
-                    console.warn('No user data found for UID:', user.uid);
-                    setOrganizationName('[Unknown Organization]');
-                    setErrorMessage('No user data found. Using default organization name.');
-                    setModalVisible(true);
-                  }
-                })
-                .catch((error) => {
-                  console.error('Error fetching user data:', error.message);
-                  setOrganizationName('[Unknown Organization]');
-                  setErrorMessage('Failed to fetch organization name: ' + error.message);
-                  setModalVisible(true);
-                });
-            } else {
-              console.warn('No user is logged in');
-              setErrorMessage('User not authenticated. Please log in.');
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
+          if (user) {
+            setUserUid(user.uid);
+            console.log('Logged-in user UID:', user.uid);
+            const userRef = databaseRef(database, `users/${user.uid}`);
+            const userSnapshot = await get(userRef);
+            const userData = userSnapshot.val();
+
+            if (!userData) {
+              console.error('User data not found for UID:', user.uid);
+              setErrorMessage('Your user profile is incomplete. Please contact support.');
               setModalVisible(true);
+              navigation.navigate('Login');
+              return;
             }
-          },
-          (error) => {
-            console.error('Auth state listener error: ' + error.message);
-            setErrorMessage('Authentication error: ' + error.message);
+
+            // Password reset check
+            if (userData.password_needs_reset) {
+              setErrorMessage('For security reasons, please change your password.');
+              setModalVisible(true);
+              navigation.navigate('Profile');
+              return;
+            }
+
+            const userRole = userData.role;
+            const orgName = userData.organization || '[Unknown Organization]';
+            setOrganizationName(orgName);
+            await AsyncStorage.setItem('organizationName', orgName);
+            console.log('User Role:', userRole, 'Organization:', orgName);
+
+            // Role-based submission eligibility
+            if (userRole === 'AB ADMIN') {
+              console.log('AB ADMIN role detected. Submission allowed.');
+              setCanSubmit(true);
+            } else if (userRole === 'ABVN') {
+              console.log('ABVN role detected. Checking organization activations.');
+              if (orgName === '[Unknown Organization]') {
+                console.warn('ABVN user has no organization assigned.');
+                setErrorMessage('Your account is not associated with an organization.');
+                setModalVisible(true);
+                navigation.navigate('Volunteer Dashboard');
+                return;
+              }
+
+              const activationsRef = query(
+                databaseRef(database, 'activations'),
+                orderByChild('organization'),
+                equalTo(orgName)
+              );
+              const activationsSnapshot = await get(activationsRef);
+              let hasActiveActivations = false;
+              activationsSnapshot.forEach((childSnapshot) => {
+                if (childSnapshot.val().status === 'active') {
+                  hasActiveActivations = true;
+                  return true; // Exit loop
+                }
+              });
+
+              if (hasActiveActivations) {
+                console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
+                setCanSubmit(true);
+              } else {
+                console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
+                setErrorMessage('Your organization has no active operations. You cannot submit reports at this time.');
+                setModalVisible(true);
+                navigation.navigate('Volunteer Dashboard');
+                setCanSubmit(false);
+              }
+            } else {
+              console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
+              setErrorMessage('Your role does not permit report submission.');
+              setModalVisible(true);
+              navigation.navigate('Volunteer Dashboard');
+              setCanSubmit(false);
+            }
+          } else {
+            console.warn('No user is logged in');
+            setErrorMessage('User not authenticated. Please log in.');
             setModalVisible(true);
+            navigation.navigate('Login');
           }
-        );
+        }, (error) => {
+          console.error('Auth state listener error:', error.message);
+          setErrorMessage('Authentication error: ' + error.message);
+          setModalVisible(true);
+        });
 
         return () => unsubscribe();
       } catch (error) {
-        console.error('Error in fetchOrganizationName:', error.message);
-        setErrorMessage('Failed to initialize organization name: ' + error.message);
+        console.error('Error in fetchUserData:', error.message);
+        setErrorMessage('Failed to initialize user data: ' + error.message);
         setModalVisible(true);
       }
     };
 
-    fetchOrganizationName();
+    fetchUserData();
   }, []);
 
   // Debug organization name rendering
@@ -121,44 +182,28 @@ const RDANASummary = () => {
           setErrorMessage(error.message);
           setModalVisible(true);
         });
-      } else {
-        console.log('Already authenticated:', auth.currentUser?.uid);
-      }
-    }, []);
+    } else {
+      console.log('Already authenticated:', auth.currentUser?.uid);
+    }
+  }, []);
 
   // Debug lifeline data in reportData
   useEffect(() => {
     console.log('Received reportData:', reportData);
     console.log('Lifeline data:', {
-      residentialHousesStatus: reportData.residentialHousesStatus,
-      transportationAndMobilityStatus: reportData.transportationAndMobilityStatus,
-      electricityPowerGridStatus: reportData.electricityPowerGridStatus,
-      communicationNetworksInternetStatus: reportData.communicationNetworksInternetStatus,
-      hospitalsRuralHealthUnitsStatus: reportData.hospitalsRuralHealthUnitsStatus,
-      waterSupplySystemStatus: reportData.waterSupplySystemStatus,
-      marketBusinessAndCommercialEstablishmentsStatus: reportData.marketBusinessAndCommercialEstablishmentsStatus,
+      residentialHousesStatus: reportData.residentialhousesStatus,
+      transportationAndMobilityStatus: reportData.transportationandmobilityStatus,
+      electricityPowerGridStatus: reportData.electricitypowergridStatus,
+      communicationNetworksInternetStatus: reportData.communicationnetworksinternetStatus,
+      hospitalsRuralHealthUnitsStatus: reportData.hospitalsruralhealthunitsStatus,
+      waterSupplySystemStatus: reportData.watersupplysystemStatus,
+      marketBusinessAndCommercialEstablishmentsStatus: reportData.marketbusinessandcommercialestablishmentsStatus,
+      othersStatus: reportData.othersStatus,
     });
   }, [reportData]);
 
-  const formatLabel = (key) => {
-    return key
-      .replace(/([A-Z])/g, ' $1')
-      .trim()
-      .split(' ')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-
-  const sanitizeKey = (key) => {
-    return key
-      .replace(/[.#$/[\]]/g, '_')
-      .replace(/\s+/g, '_')
-      .replace(/[^a-zA-Z0-9_]/g, '');
-  };
-
   const handleSubmit = async () => {
     setIsSubmitting(true);
-
     const user = auth.currentUser;
     if (!user) {
       console.error('No authenticated user found');
@@ -169,6 +214,14 @@ const RDANASummary = () => {
     }
     console.log('Authenticated user UID:', user.uid);
 
+    if (!canSubmit) {
+      console.error('Submission not allowed due to role or inactive organization');
+      setErrorMessage('Your organization is inactive or you lack permission to submit reports.');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
     if (Object.keys(reportData).length === 0 || affectedMunicipalities.length === 0) {
       console.log('Validation failed: Incomplete form data', { reportData, affectedMunicipalities });
       setErrorMessage('Form data is incomplete. Please ensure all fields are filled correctly.');
@@ -178,76 +231,94 @@ const RDANASummary = () => {
     }
     console.log('Form data validated successfully');
 
-    const sanitizedProfileData = {};
-    Object.keys(reportData).forEach((key) => {
-      sanitizedProfileData[sanitizeKey(formatLabel(key))] = reportData[key] || 'N/A';
-    });
-
+    // Priority needs
     const priorityNeeds = [];
     if (reportData.reliefPacks === 'Yes') priorityNeeds.push('Relief Packs');
     if (reportData.hotMeals === 'Yes') priorityNeeds.push('Hot Meals');
     if (reportData.hygieneKits === 'Yes') priorityNeeds.push('Hygiene Kits');
     if (reportData.drinkingWater === 'Yes') priorityNeeds.push('Drinking Water');
     if (reportData.ricePacks === 'Yes') priorityNeeds.push('Rice Packs');
+    if (reportData.otherNeeds) priorityNeeds.push(reportData.otherNeeds);
 
+    // Needs checklist (include all items, checked or unchecked)
     const needsChecklist = [
       { item: 'Relief Packs', needed: reportData.reliefPacks === 'Yes' },
       { item: 'Hot Meals', needed: reportData.hotMeals === 'Yes' },
       { item: 'Hygiene Kits', needed: reportData.hygieneKits === 'Yes' },
       { item: 'Drinking Water', needed: reportData.drinkingWater === 'Yes' },
       { item: 'Rice Packs', needed: reportData.ricePacks === 'Yes' },
+      ...(reportData.otherNeeds ? [{ item: reportData.otherNeeds, needed: true }] : []),
     ];
 
-    // Structure status array for Firebase, mirroring JavaScript code
+    // Structure status (include all entries, use 'N/A' for empty)
     const structureStatus = [
-      { structure: 'Residential Houses', status: reportData.residentialHousesStatus || 'N/A' },
-      { structure: 'Transportation and Mobility', status: reportData.transportationAndMobilityStatus || 'N/A' },
-      { structure: 'Electricity, Power Grid', status: reportData.electricityPowerGridStatus || 'N/A' },
-      { structure: 'Communication Networks, Internet', status: reportData.communicationNetworksInternetStatus || 'N/A' },
-      { structure: 'Hospitals, Rural Health Units', status: reportData.hospitalsRuralHealthUnitsStatus || 'N/A' },
-      { structure: 'Water Supply System', status: reportData.waterSupplySystemStatus || 'N/A' },
-      { structure: 'Market, Business, Commercial Establishments', status: reportData.marketBusinessAndCommercialEstablishmentsStatus || 'N/A' },
+      { structure: 'Residential Houses', status: reportData.residentialhousesStatus || 'N/A' },
+      { structure: 'Transportation and Mobility', status: reportData.transportationandmobilityStatus || 'N/A' },
+      { structure: 'Electricity, Power Grid', status: reportData.electricitypowergridStatus || 'N/A' },
+      { structure: 'Communication Networks', status: reportData.communicationnetworksinternetStatus || 'N/A' },
+      { structure: 'Hospitals, Rural Health Units', status: reportData.hospitalsruralhealthunitsStatus || 'N/A' },
+      { structure: 'Water Supply System', status: reportData.watersupplysystemStatus || 'N/A' },
+      { structure: 'Market, Business, Commercial Establishments', status: reportData.marketbusinessandcommercialestablishmentsStatus || 'N/A' },
+      { structure: 'Others', status: reportData.othersStatus || 'N/A' },
     ];
 
+    // Profile data (only specific fields)
+    const profile = {
+      Site_Location_Address_Barangay: reportData.Site_Location_Address_Barangay || '',
+      Site_Location_Address_City_Municipality: reportData.Site_Location_Address_City_Municipality || '',
+      Site_Location_Address_Province: reportData.Site_Location_Address_Province || '',
+      Time_of_Information_Gathered: reportData.Time_of_Information_Gathered || '',
+      Time_of_Occurrence: reportData.Time_of_Occurrence || '',
+      Type_of_Disaster: reportData.Type_of_Disaster || '',
+      Date_of_Information_Gathered: reportData.Date_of_Information_Gathered || '',
+      Date_of_Occurrence: reportData.Date_of_Occurrence || '',
+      Local_Authorities_Persons_Contacted_for_Information: reportData.Local_Authorities_Persons_Contacted_for_Information || '',
+      Name_of_the_Organizations_Involved: reportData.Name_of_the_Organizations_Involved || '',
+    };
+
+    // Align with expected Firebase data structure
     const reportDataForFirebase = {
       rdanaId: `RDANA-${Math.floor(100 + Math.random() * 900)}`,
       dateTime: new Date().toISOString(),
-      Site_Location_Address_Barangay: reportData.Site_Location_Address_Barangay || 'N/A',
-      disasterType: reportData.Type_of_Disaster || 'N/A',
-      effects: { affectedPopulation: affectedMunicipalities.reduce((sum, c) => sum + (parseInt(c.affected) || 0), 0) },
+      rdanaGroup: organizationName,
+      siteLocation: reportData.Site_Location_Address_Barangay || '',
+      disasterType: reportData.Type_of_Disaster || '',
+      effects: {
+        affectedPopulation: affectedMunicipalities.reduce((sum, c) => sum + (parseInt(c.affected) || 0), 0).toString(),
+        estQty: reportData.estQty || '',
+        familiesServed: reportData.familiesServed || ''
+      },
       needs: {
-        priority: priorityNeeds,
+        priority: priorityNeeds
       },
-      profile: sanitizedProfileData,
+      needsChecklist,
+      profile,
       modality: {
-        Locations_and_Areas_Affected: reportData.Locations_and_Areas_Affected_Barangay || 'N/A',
-        Type_of_Disaster: reportData.Type_of_Disaster || 'N/A',
-        Date_and_Time_of_Occurrence: `${reportData.Date_of_Occurrence || ''} ${reportData.Time_of_Occurrence || ''}`,
+        Locations_and_Areas_Affected: reportData.Locations_and_Areas_Affected_Barangay || '',
+        Type_of_Disaster: reportData.Type_of_Disaster || '',
+        Date_and_Time_of_Occurrence: `${reportData.Date_of_Occurrence || ''} ${reportData.Time_of_Occurrence || ''}`.trim()
       },
-      summary: reportData.summary || 'N/A',
+      summary: reportData.summary || '',
       affectedCommunities: affectedMunicipalities.map((community) => ({
-        community: community.community || 'N/A',
-        totalPop: community.totalPop || '0',
-        affected: community.affected || '0',
-        deaths: community.deaths || '0',
-        injured: community.injured || '0',
-        missing: community.missing || '0',
-        children: community.children || '0',
-        women: community.women || '0',
-        seniors: community.seniors || '0',
-        pwd: community.pwd || '0',
+        community: community.community || '',
+        totalPop: community.totalPop || '',
+        affected: community.affected || '',
+        deaths: community.deaths || '',
+        injured: community.injured || '',
+        missing: community.missing || '',
+        children: community.children || '',
+        women: community.women || '',
+        seniors: community.seniors || '',
+        pwd: community.pwd || ''
       })),
-      structureStatus: structureStatus,
-      needsChecklist: needsChecklist,
-      otherNeeds: reportData.otherNeeds || 'N/A',
-      estQty: reportData.estQty || 'N/A',
-      responseGroup: reportData.responseGroup || 'N/A',
-      reliefDeployed: reportData.reliefDeployed || 'N/A',
-      familiesServed: reportData.familiesServed || 'N/A',
+      structureStatus,
+      otherNeeds: reportData.otherNeeds || '',
+      responseGroup: reportData.responseGroup || '',
+      reliefDeployed: reportData.reliefDeployed || '',
+      familiesServed: reportData.familiesServed || '',
       userUid: user.uid,
       status: 'Submitted',
-      timestamp: serverTimestamp(),
-      organization: organizationName,
+      timestamp: serverTimestamp()
     };
 
     console.log('Prepared report data:', JSON.stringify(reportDataForFirebase, null, 2));
@@ -256,12 +327,7 @@ const RDANASummary = () => {
       const submittedRef = databaseRef(database, 'rdana/submitted');
       console.log('Writing to Firebase at path:', submittedRef.toString());
 
-      const pushPromise = push(submittedRef, reportDataForFirebase);
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Database write timed out after 10 seconds')), 10000);
-      });
-
-      const newReportRef = await Promise.race([pushPromise, timeoutPromise]);
+      const newReportRef = await push(submittedRef, reportDataForFirebase);
       console.log('Report successfully saved with key:', newReportRef.key);
       setErrorMessage(null);
       setModalVisible(true);
@@ -321,7 +387,7 @@ const RDANASummary = () => {
   );
 
   return (
-   <SafeAreaView style={GlobalStyles.container}>
+    <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       {/* Header */}
       <LinearGradient
@@ -348,143 +414,145 @@ const RDANASummary = () => {
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
-        <View style={GlobalStyles.form}>
-          <Text style={GlobalStyles.subheader}>Summary</Text>
-          <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
-          {/* Profile of the Disaster */}
-          <View style={GlobalStyles.section}>
-            <Text style={GlobalStyles.sectionTitle}>Profile of the Disaster</Text>
-            {[
-              { key: 'Site_Location_Address_Barangay', label: 'barangay' },
-              { key: 'Site_Location_Address_City_Municipality', label: 'cityMunicipality' },
-              { key: 'Site_Location_Address_Province', label: 'province' },
-              { key: 'Local_Authorities_Persons_Contacted_for_Information', label: 'localAuthoritiesPersonsContacted' },
-              { key: 'Date_of_Information_Gathered', label: 'dateInformationGathered' },
-              { key: 'Time_of_Information_Gathered', label: 'timeInformationGathered' },
-              { key: 'Name_of_the_Organizations_Involved', label: 'nameOrganizationInvolved' },
-            ].map(({ key, label }) => (
-              <View key={label} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(label)}:</Text>
-                <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Modality */}
-          <View style={GlobalStyles.section}>
-            <Text style={GlobalStyles.sectionTitle}>Modality</Text>
-            {[
-              { key: 'Locations_and_Areas_Affected_Barangay', label: 'locationsAreasAffectedBarangay' },
-              { key: 'Locations_and_Areas_Affected_City_Municipality', label: 'locationsAreasAffectedCityMunicipality' },
-              { key: 'Locations_and_Areas_Affected_Province', label: 'locationsAreasAffectedProvince' },
-              { key: 'Type_of_Disaster', label: 'typeOfDisaster' },
-              { key: 'Date_of_Occurrence', label: 'dateOfOccurrence' },
-              { key: 'Time_of_Occurrence', label: 'timeOfOccurrence' },
-              { key: 'summary', label: 'summaryOfDisasterIncident' },
-            ].map(({ key, label }) => (
-              <View key={label} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(label)}:</Text>
-                <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Initial Effects */}
-          <View style={GlobalStyles.section}>
-            <Text style={GlobalStyles.sectionTitle}>Initial Effects</Text>
-            <Text style={styles.sectionSubtitle}>Affected Municipalities</Text>
-            {affectedMunicipalities.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                <View style={styles.summaryTable}>
-                  <View style={[styles.summaryTableHeader, { minWidth: 1150 }]}>
-                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 50 }]}>#</Text>
-                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 240 }]}>Affected Municipalities/Communities</Text>
-                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 120 }]}>Total Population</Text>
-                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 120 }]}>Affected Population</Text>
-                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Deaths</Text>
-                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Injured</Text>
-                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Missing</Text>
-                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Children</Text>
-                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Women</Text>
-                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 130 }]}>Senior Citizens</Text>
-                    <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>PWD</Text>
-                  </View>
-                  {affectedMunicipalities.map((item, index) => renderMunicipalityItem(item, index))}
+          <View style={GlobalStyles.form}>
+            <Text style={GlobalStyles.subheader}>Summary</Text>
+            <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
+            {/* Profile of the Disaster */}
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>Profile of the Disaster</Text>
+              {[
+                { key: 'Site_Location_Address_Barangay', label: 'barangay' },
+                { key: 'Site_Location_Address_City_Municipality', label: 'cityMunicipality' },
+                { key: 'Site_Location_Address_Province', label: 'province' },
+                { key: 'Local_Authorities_Persons_Contacted_for_Information', label: 'localAuthoritiesPersonsContacted' },
+                { key: 'Date_of_Information_Gathered', label: 'dateInformationGathered' },
+                { key: 'Time_of_Information_Gathered', label: 'timeInformationGathered' },
+                { key: 'Name_of_the_Organizations_Involved', label: 'nameOrganizationInvolved' },
+              ].map(({ key, label }) => (
+                <View key={label} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{formatLabel(label)}:</Text>
+                  <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
                 </View>
-              </ScrollView>
-            ) : (
-              <Text style={styles.value}>No municipalities added.</Text>
-            )}
-          </View>
+              ))}
+            </View>
 
-          {/* Status of Lifelines */}
-          <View style={GlobalStyles.section}>
-            <Text style={GlobalStyles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities</Text>
-            {[
-              { key: 'residentialHousesStatus', label: 'Residential Houses' },
-              { key: 'transportationAndMobilityStatus', label: 'Transportation and Mobility' },
-              { key: 'electricityPowerGridStatus', label: 'Electricity, Power Grid' },
-              { key: 'communicationNetworksInternetStatus', label: 'Communication Networks, Internet' },
-              { key: 'hospitalsRuralHealthUnitsStatus', label: 'Hospitals, Rural Health Units' },
-              { key: 'waterSupplySystemStatus', label: 'Water Supply System' },
-              { key: 'marketBusinessAndCommercialEstablishmentsStatus', label: 'Market, Business, Commercial Establishments' },
-            ].map(({ key, label }) => (
-              <View key={key} style={styles.fieldContainer}>
-                <Text style={styles.label}>{label}:</Text>
-                <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
-              </View>
-            ))}
-          </View>
+            {/* Modality */}
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>Modality</Text>
+              {[
+                { key: 'Locations_and_Areas_Affected_Barangay', label: 'locationsAreasAffectedBarangay' },
+                { key: 'Locations_and_Areas_Affected_City_Municipality', label: 'locationsAreasAffectedCityMunicipality' },
+                { key: 'Locations_and_Areas_Affected_Province', label: 'locationsAreasAffectedProvince' },
+                { key: 'Type_of_Disaster', label: 'typeOfDisaster' },
+                { key: 'Date_of_Occurrence', label: 'dateOfOccurrence' },
+                { key: 'Time_of_Occurrence', label: 'timeOfOccurrence' },
+                { key: 'summary', label: 'summaryOfDisasterIncident' },
+              ].map(({ key, label }) => (
+                <View key={label} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{formatLabel(label)}:</Text>
+                  <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
+                </View>
+              ))}
+            </View>
 
-          {/* Initial Needs Assessment */}
-          <View style={GlobalStyles.section}>
-            <Text style={GlobalStyles.sectionTitle}>Initial Needs Assessment Checklist</Text>
-            {[
-              { key: 'reliefPacks', label: 'reliefPacks' },
-              { key: 'hotMeals', label: 'hotMeals' },
-              { key: 'hygieneKits', label: 'hygieneKits' },
-              { key: 'drinkingWater', label: 'drinkingWater' },
-              { key: 'ricePacks', label: 'ricePacks' },
-              { key: 'otherNeeds', label: 'otherImmediateNeeds' },
-              { key: 'estQty', label: 'estimatedQuantity' },
-            ].map(({ key, label }) => (
-              <View key={label} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(label)}:</Text>
-                <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
-              </View>
-            ))}
-          </View>
+            {/* Initial Effects */}
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>Initial Effects</Text>
+              <Text style={styles.sectionSubtitle}>Affected Municipalities</Text>
+              {affectedMunicipalities.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                  <View style={styles.summaryTable}>
+                    <View style={[styles.summaryTableHeader, { minWidth: 1150 }]}>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 50 }]}>#</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 240 }]}>Affected Municipalities/Communities</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 120 }]}>Total Population</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 120 }]}>Affected Population</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Deaths</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Injured</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Missing</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Children</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Women</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 130 }]}>Senior Citizens</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>PWD</Text>
+                    </View>
+                    {affectedMunicipalities.map((item, index) => renderMunicipalityItem(item, index))}
+                  </View>
+                </ScrollView>
+              ) : (
+                <Text style={styles.value}>No municipalities added.</Text>
+              )}
+            </View>
 
-          {/* Initial Response Actions */}
-          <View style={GlobalStyles.section}>
-            <Text style={GlobalStyles.sectionTitle}>Initial Response Actions</Text>
-            {[
-              { key: 'responseGroup', label: 'responseGroupsInvolved' },
-              { key: 'reliefDeployed', label: 'reliefAssistanceDeployed' },
-              { key: 'familiesServed', label: 'numberOfFamiliesServed' },
-            ].map(({ key, label }) => (
-              <View key={label} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(label)}:</Text>
-                <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
-              </View>
-            ))}
-          </View>
-          <View style={GlobalStyles.finalButtonContainer}>
-          <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack}>
-            <Text style={GlobalStyles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[GlobalStyles.submitButton, isSubmitting && { opacity: 0.6 }]}
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-          >
-            <Text style={GlobalStyles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
-          </TouchableOpacity>
-        </View>
-        </View>
+            {/* Status of Lifelines */}
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities</Text>
+              {[
+                { key: 'residentialhousesStatus', label: 'Residential Houses' },
+                { key: 'transportationandmobilityStatus', label: 'Transportation and Mobility' },
+                { key: 'electricitypowergridStatus', label: 'Electricity, Power Grid' },
+                { key: 'communicationnetworksinternetStatus', label: 'Communication Networks, Internet' },
+                { key: 'hospitalsruralhealthunitsStatus', label: 'Hospitals, Rural Health Units' },
+                { key: 'watersupplysystemStatus', label: 'Water Supply System' },
+                { key: 'marketbusinessandcommercialestablishmentsStatus', label: 'Market, Business, Commercial Establishments' },
+                { key: 'othersStatus', label: 'Others' },
+              ].map(({ key, label }) => (
+                <View key={key} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{label}:</Text>
+                  <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
+                </View>
+              ))}
+            </View>
 
-       
-      </ScrollView>
+            {/* Initial Needs Assessment */}
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>Initial Needs Assessment Checklist</Text>
+              {[
+                { key: 'reliefPacks', label: 'reliefPacks' },
+                { key: 'hotMeals', label: 'hotMeals' },
+                { key: 'hygieneKits', label: 'hygieneKits' },
+                { key: 'drinkingWater', label: 'drinkingWater' },
+                { key: 'ricePacks', label: 'ricePacks' },
+                { key: 'otherNeeds', label: 'otherImmediateNeeds' },
+                { key: 'estQty', label: 'estimatedQuantity' },
+              ].map(({ key, label }) => (
+                <View key={label} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{formatLabel(label)}:</Text>
+                  <Text style={styles.value}>
+                    {key === 'otherNeeds' || key === 'estQty' ? reportData[key] || 'N/A' : reportData[key] === 'Yes' ? 'Yes' : 'No'}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Initial Response Actions */}
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>Initial Response Actions</Text>
+              {[
+                { key: 'responseGroup', label: 'responseGroupsInvolved' },
+                { key: 'reliefDeployed', label: 'reliefAssistanceDeployed' },
+                { key: 'familiesServed', label: 'numberOfFamiliesServed' },
+              ].map(({ key, label }) => (
+                <View key={label} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{formatLabel(label)}:</Text>
+                  <Text style={styles.value}>{reportData[key] || 'N/A'}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={GlobalStyles.finalButtonContainer}>
+              <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack}>
+                <Text style={GlobalStyles.backButtonText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[GlobalStyles.submitButton, isSubmitting && { opacity: 0.6 }]}
+                onPress={handleSubmit}
+                disabled={isSubmitting || !canSubmit}
+              >
+                <Text style={GlobalStyles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
       <CustomModal
         visible={modalVisible}
@@ -512,4 +580,5 @@ const RDANASummary = () => {
     </SafeAreaView>
   );
 };
+
 export default RDANASummary;

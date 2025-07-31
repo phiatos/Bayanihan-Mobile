@@ -17,10 +17,9 @@ export const styles = StyleSheet.create({
   backButton: {
     position: 'absolute',
     zIndex: 1,
-    left: 10,
+    left: 0,
     top: 25,
-    padding: 10,
-    paddingTop: 25,
+    paddingTop: 10,
   },
   title: {
     fontSize: 26,

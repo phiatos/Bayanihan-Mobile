@@ -24,15 +24,26 @@ const styles = StyleSheet.create({
     borderBottomColor: '#ccc',
   },
   header: {
-    marginLeft: 90,
+    position: 'absolute',
+    width: '80%',
+    top: 80,
+    left: 90,
     marginRight: -15,
-    marginTop: -65,
   },
   profileImage: {
-    height: 80,
-    width: 80,
+    height: 60,
+    width: 60,
     borderRadius: 40,
     marginBottom: 10,
+  },
+  organization: {
+    fontSize: 14,
+    color: Theme.colors.white,
+    marginTop: 4,
+    fontFamily: 'Poppins_Regular',
+  },
+  organizationContainer: {
+    minHeight: 20,
   },
   userRole: {
     color: Theme.colors.white,
@@ -49,7 +60,7 @@ const styles = StyleSheet.create({
   drawerListContainer: {
     flex: 1,
     backgroundColor: Theme.colors.primary,
-    paddingTop: 5,
+    paddingTop: 20,
     color: Theme.colors.white,
     fontFamily:'Poppins_Regular',
     overflow: 'hidden',

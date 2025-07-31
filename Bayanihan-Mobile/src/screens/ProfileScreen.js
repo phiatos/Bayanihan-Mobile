@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
   EmailAuthProvider,
-  onAuthStateChanged,
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth';
@@ -20,6 +19,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { auth } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import { AuthContext } from '../context/AuthContext';
@@ -29,7 +29,8 @@ import { KeyboardAvoidingView } from 'react-native';
 import CustomModal from '../components/CustomModal';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const ProfileScreen = ({ navigation }) => {
+const ProfileScreen = () => {
+  const navigation = useNavigation();
   const { user } = useContext(AuthContext);
   const [profileData, setProfileData] = useState({
     organization: '',
@@ -83,6 +84,16 @@ const ProfileScreen = ({ navigation }) => {
     icon: {
       marginBottom: 15,
     },
+    sectionTitleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    organizationText: {
+      fontSize: 16,
+      fontFamily: 'Poppins_Regular',
+      color: Theme.colors.text,
+      marginLeft: 8,
+    },
   });
 
   const [customModal, setCustomModal] = useState({
@@ -95,7 +106,8 @@ const ProfileScreen = ({ navigation }) => {
   });
 
   useEffect(() => {
-    const initializeProfile = async () => {
+    const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
+      setLoading(true);
       if (!user?.id) {
         setLoading(false);
         setCustomModal({
@@ -131,13 +143,27 @@ const ProfileScreen = ({ navigation }) => {
           ].filter(field => field && field !== 'N/A');
           const hq = addressFields.length > 0 ? addressFields.join(', ') : 'N/A';
 
+          // Determine contactPerson: Use contactPerson or firstName + lastName
+          let contactPerson = data.contactPerson || null;
+          if (!contactPerson) {
+            contactPerson = (data.firstName || data.lastName)
+              ? `${data.firstName || ''} ${data.lastName || ''}`.trim()
+              : 'Unknown';
+          }
+
+          // Combine role with adminPosition, if available
+          let role = data.role || 'N/A';
+          if (data.adminPosition && data.adminPosition !== 'N/A') {
+            role = role !== 'N/A' ? `${role} | ${data.adminPosition}` : data.adminPosition;
+          }
+
           setProfileData({
             organization: data.organization || 'N/A',
             hq: hq,
-            contactPerson: data.contactPerson || user.contactPerson || 'N/A',
+            contactPerson: contactPerson,
             email: data.email || user.email || 'N/A',
             mobile: data.mobile || 'N/A',
-            role: data.role || 'N/A',
+            role: role,
           });
 
           const userAgreedVersion = data.terms_agreed_version || 0;
@@ -169,7 +195,7 @@ const ProfileScreen = ({ navigation }) => {
             setIsNavigationBlocked(false);
           }
         } else {
-          console.warn('No profile data found for user:', user.id);
+          console.warn('No user document found for ID:', user.id);
           setCustomModal({
             visible: true,
             title: 'Warning',
@@ -183,51 +209,53 @@ const ProfileScreen = ({ navigation }) => {
             confirmText: 'OK',
             showCancel: false,
           });
+          setProfileData({
+            organization: 'N/A',
+            hq: 'N/A',
+            contactPerson: 'Unknown',
+            email: user.email || 'N/A',
+            mobile: 'N/A',
+            role: 'N/A',
+          });
         }
       } catch (error) {
-        console.error('Error fetching profile data:', error);
-        setCustomModal({
-          visible: true,
-          title: 'Error',
-          message: (
-            <View style={{ alignItems: 'center' }}>
-              <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
-              <Text style={localStyles.message}>Failed to fetch profile data: {error.message}</Text>
-            </View>
-          ),
-          onConfirm: closeModal,
-          confirmText: 'OK',
-          showCancel: false,
-        });
+        console.error('Error fetching user data:', error.message, error.code);
+        if (retryCount < maxRetries && error.code === 'unavailable') {
+          console.log(`Retrying fetch (${retryCount + 1}/${maxRetries})...`);
+          setTimeout(() => fetchUserData(retryCount + 1, maxRetries), 1000);
+        } else {
+          setCustomModal({
+            visible: true,
+            title: 'Error',
+            message: (
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+                <Text style={localStyles.message}>Failed to fetch profile data: {error.message}</Text>
+              </View>
+            ),
+            onConfirm: closeModal,
+            confirmText: 'OK',
+            showCancel: false,
+          });
+          setProfileData({
+            organization: 'N/A',
+            hq: 'N/A',
+            contactPerson: 'Unknown',
+            email: user.email || 'N/A',
+            mobile: 'N/A',
+            role: 'N/A',
+          });
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    initializeProfile();
-
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (!currentUser) {
-        setCustomModal({
-          visible: true,
-          title: 'Not Logged In',
-          message: (
-            <View style={{ alignItems: 'center' }}>
-              <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
-              <Text style={localStyles.message}>Please log in to view your profile.</Text>
-            </View>
-          ),
-          onConfirm: () => {
-            closeModal();
-            navigation.navigate('Login');
-          },
-          confirmText: 'OK',
-          showCancel: false,
-        });
-      }
-    });
-
-    return () => unsubscribe();
+    if (user?.id) {
+      fetchUserData();
+    } else {
+      setLoading(false);
+    }
   }, [user, navigation]);
 
   const handlePasswordInput = (password) => {
@@ -521,27 +549,7 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
-  const handleOpenDrawer = () => {
-    if (isNavigationBlocked) {
-      setCustomModal({
-        visible: true,
-        title: 'Action Required',
-        message: (
-          <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
-            <Text style={localStyles.message}>
-              You must complete the required actions (accept terms or change password) to navigate the application.
-            </Text>
-          </View>
-        ),
-        onConfirm: closeModal,
-        confirmText: 'OK',
-        showCancel: false,
-      });
-      return;
-    }
-    navigation.openDrawer();
-  };
+  
 
   if (loading) {
     return (
@@ -554,8 +562,8 @@ const ProfileScreen = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={GlobalStyles.container}>     
-    <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+    <SafeAreaView style={GlobalStyles.container}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
@@ -564,38 +572,37 @@ const ProfileScreen = ({ navigation }) => {
         style={GlobalStyles.gradientContainer}
       >
         <View style={GlobalStyles.newheaderContainer}>
-          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+          <TouchableOpacity onPress={()=> navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
             <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
           <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Profile</Text>
         </View>
       </LinearGradient>
 
-       <KeyboardAvoidingView
-             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}  
-              style={{ flex: 1, marginTop: 50}}
-              keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : StatusBar.currentHeight}
-            >
-          <ScrollView
-            contentContainerStyle={styles.scrollViewContent}
-            scrollEnabled={true}
-            keyboardShouldPersistTaps="handled"
-          >
-            {!termsModalVisible && !passwordNeedsReset && (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1, marginTop: 50 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : StatusBar.currentHeight}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollViewContent}
+          scrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
+        >
+           <View style={styles.form}>
+            <Text style={[GlobalStyles.subheader, {color: Theme.colors.accent, fontSize: profileData.role.includes('AB ADMIN') ? 22 : 20,}]}>{profileData.role.includes('AB ADMIN') ? 'Admin Account' : 'Volunteer Group: ' + profileData.organization}</Text>
+          {!termsModalVisible && !passwordNeedsReset && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Volunteer Group Information</Text>
+                <Text style={styles.sectionTitle}>Basic Information</Text>
                 {[
-                  ['Role:', profileData.role],
-                  ['Organization Name:', profileData.organization],
-                  ['Headquarters:', profileData.hq],
-                  ['Contact Person:', profileData.contactPerson],
-                  ['Email Address:', profileData.email],
-                  ['Mobile Number:', profileData.mobile],
+                  ['Role', profileData.role],
+                  ['Organization Name', profileData.organization, profileData.role.includes('ABVN')],
+                  ['HQ', profileData.hq, profileData.role.includes('ABVN')],
+                  ['Full Name', profileData.contactPerson],
+                  ['Email Address', profileData.email],
+                  ['Mobile Number', profileData.mobile],
                 ]
-                  .filter(([label, value]) =>
-                    label !== 'Organization Name:' && label !== 'Headquarters:' ||
-                    (value && value !== 'N/A')
-                  )
+                  .filter(([label, value, show]) => show !== false && (label !== 'Organization Name:' && label !== 'Headquarters:' || (value && value !== 'N/A')))
                   .map(([label, value], idx) => (
                     <View key={idx} style={styles.infoRow}>
                       <Text style={styles.label}>{label}</Text>
@@ -605,172 +612,173 @@ const ProfileScreen = ({ navigation }) => {
                     </View>
                   ))}
               </View>
-            )}
+          )}
 
-            {termsModalVisible && (
-              <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                  <Text style={styles.modalTitle}>Terms and Conditions</Text>
-                  <ScrollView style={styles.modalContent}>
-                    <Text style={styles.modalText}>
-                      Please read and accept the Terms and Conditions to continue using the app.
-                      Lorem ipsum dolor sit amet, consectetur adipiscing elit...
-                    </Text>
-                  </ScrollView>
-                  <View style={styles.checkboxContainer}>
-                    <TouchableOpacity
-                      onPress={() => setAgreedTerms(!agreedTerms)}
-                      style={styles.checkbox}
-                    >
-                      {agreedTerms ? (
-                        <Ionicons name="checkbox" size={24} color={Theme.colors.primary} />
-                      ) : (
-                        <Ionicons name="checkbox-outline" size={24} color={Theme.colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                    <Text style={styles.checkboxLabel}>
-                      I agree to the Terms and Conditions
-                    </Text>
-                  </View>
+          {termsModalVisible && (
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContainer}>
+                <Text style={styles.modalTitle}>Terms and Conditions</Text>
+                <ScrollView style={styles.modalContent}>
+                  <Text style={styles.modalText}>
+                    Please read and accept the Terms and Conditions to continue using the app.
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit...
+                  </Text>
+                </ScrollView>
+                <View style={styles.checkboxContainer}>
                   <TouchableOpacity
-                    style={[styles.modalButton, !agreedTerms && { opacity: 0.5 }]}
-                    onPress={handleAgreeTerms}
-                    disabled={!agreedTerms}
+                    onPress={() => setAgreedTerms(!agreedTerms)}
+                    style={styles.checkbox}
                   >
-                    <Text style={styles.modalButtonText}> Agree and Continue</Text>
+                    {agreedTerms ? (
+                      <Ionicons name="checkbox" size={24} color={Theme.colors.primary} />
+                    ) : (
+                      <Ionicons name="checkbox-outline" size={24} color={Theme.colors.primary} />
+                    )}
                   </TouchableOpacity>
+                  <Text style={styles.checkboxLabel}>
+                    I agree to the Terms and Conditions
+                  </Text>
                 </View>
-              </View>
-            )}
-
-            <CustomModal
-              visible={customModal.visible}
-              title={customModal.title}
-              message={customModal.message}
-              onConfirm={customModal.onConfirm}
-              onCancel={closeModal}
-              confirmText={customModal.confirmText}
-              showCancel={customModal.showCancel}
-            />
-
-            {(!termsModalVisible || passwordNeedsReset) && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Change Password</Text>
-                <View style={styles.passwordInputField}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Current Password"
-                    value={currentPassword}
-                    onChangeText={setCurrentPassword}
-                    secureTextEntry={!showCurrentPassword}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-                    style={styles.passwordEyeIcon}
-                  >
-                    <Ionicons
-                      name={showCurrentPassword ? 'eye-off' : 'eye'}
-                      size={24}
-                      color={Theme.colors.primary}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.passwordInputField}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="New Password"
-                    value={newPassword}
-                    onChangeText={handlePasswordInput}
-                    secureTextEntry={!showNewPassword}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowNewPassword(!showNewPassword)}
-                    style={styles.passwordEyeIcon}
-                  >
-                    <Ionicons
-                      name={showNewPassword ? 'eye-off' : 'eye'}
-                      size={24}
-                      color={Theme.colors.primary}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.passwordInputField}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Confirm Password"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={styles.passwordEyeIcon}
-                  >
-                    <Ionicons
-                      name={showConfirmPassword ? 'eye-off' : 'eye'}
-                      size={24}
-                      color={Theme.colors.primary}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                {showPasswordStrength && (
-                  <View style={styles.strengthContainer}>
-                    <Text style={[styles.strengthText, { fontFamily: 'Poppins-SemiBold' }]}>
-                      Password Strength: {passwordStrength.strength}
-                    </Text>
-                    <View style={styles.strengthBarContainer}>
-                      <View
-                        style={[
-                          styles.strengthBar,
-                          {
-                            width: passwordStrength.barWidth,
-                            backgroundColor: passwordStrength.barColor,
-                          },
-                        ]}
-                      />
-                    </View>
-                    {[
-                      ['At least 8 characters', passwordStrength.checks.hasLength],
-                      ['An uppercase letter', passwordStrength.checks.hasUppercase],
-                      ['A lowercase letter', passwordStrength.checks.hasLowercase],
-                      ['A number', passwordStrength.checks.hasNumber],
-                      ['A symbol (!@#$ etc.)', passwordStrength.checks.hasSymbol],
-                    ].map(([text, passed], idx) => (
-                      <Text
-                        key={idx}
-                        style={[
-                          styles.checkText,
-                          { fontFamily: 'Poppins-Regular', color: passed ? '#008000' : '#FF4D4D' },
-                        ]}
-                      >
-                        {passed ? '✅' : '❌'} {text}
-                      </Text>
-                    ))}
-                  </View>
-                )}
-              </View>
-            )}
-
-            {(!termsModalVisible || passwordNeedsReset) && (
-              <View style={styles.submission}>
                 <TouchableOpacity
-                  style={[GlobalStyles.button, submitting && { opacity: 0.5 }]}
-                  onPress={handleChangePassword}
-                  disabled={submitting}
+                  style={[styles.modalButton, !agreedTerms && { opacity: 0.5 }]}
+                  onPress={handleAgreeTerms}
+                  disabled={!agreedTerms}
                 >
-                  {submitting ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <Text style={GlobalStyles.buttonText}>Submit</Text>
-                  )}
+                  <Text style={styles.modalButtonText}> Agree and Continue</Text>
                 </TouchableOpacity>
               </View>
-            )}
-          </ScrollView>
-        </KeyboardAvoidingView>
+            </View>
+          )}
+
+          <CustomModal
+            visible={customModal.visible}
+            title={customModal.title}
+            message={customModal.message}
+            onConfirm={customModal.onConfirm}
+            onCancel={closeModal}
+            confirmText={customModal.confirmText}
+            showCancel={customModal.showCancel}
+          />
+
+          {(!termsModalVisible || passwordNeedsReset) && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Change Password</Text>
+              <View style={styles.passwordInputField}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Current Password"
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  secureTextEntry={!showCurrentPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                  style={styles.passwordEyeIcon}
+                >
+                  <Ionicons
+                    name={showCurrentPassword ? 'eye-off' : 'eye'}
+                    size={24}
+                    color={Theme.colors.primary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.passwordInputField}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="New Password"
+                  value={newPassword}
+                  onChangeText={handlePasswordInput}
+                  secureTextEntry={!showNewPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowNewPassword(!showNewPassword)}
+                  style={styles.passwordEyeIcon}
+                >
+                  <Ionicons
+                    name={showNewPassword ? 'eye-off' : 'eye'}
+                    size={24}
+                    color={Theme.colors.primary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.passwordInputField}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.passwordEyeIcon}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? 'eye-off' : 'eye'}
+                    size={24}
+                    color={Theme.colors.primary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {showPasswordStrength && (
+                <View style={styles.strengthContainer}>
+                  <Text style={[styles.strengthText, { fontFamily: 'Poppins-SemiBold' }]}>
+                    Password Strength: {passwordStrength.strength}
+                  </Text>
+                  <View style={styles.strengthBarContainer}>
+                    <View
+                      style={[
+                        styles.strengthBar,
+                        {
+                          width: passwordStrength.barWidth,
+                          backgroundColor: passwordStrength.barColor,
+                        },
+                      ]}
+                    />
+                  </View>
+                  {[
+                    ['At least 8 characters', passwordStrength.checks.hasLength],
+                    ['An uppercase letter', passwordStrength.checks.hasUppercase],
+                    ['A lowercase letter', passwordStrength.checks.hasLowercase],
+                    ['A number', passwordStrength.checks.hasNumber],
+                    ['A symbol (!@#$ etc.)', passwordStrength.checks.hasSymbol],
+                  ].map(([text, passed], idx) => (
+                    <Text
+                      key={idx}
+                      style={[
+                        styles.checkText,
+                        { fontFamily: 'Poppins-Regular', color: passed ? '#008000' : '#FF4D4D' },
+                      ]}
+                    >
+                      {passed ? '✅' : '❌'} {text}
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {(!termsModalVisible || passwordNeedsReset) && (
+            <View style={styles.submission}>
+              <TouchableOpacity
+                style={[GlobalStyles.button, submitting && { opacity: 0.5 }]}
+                onPress={handleChangePassword}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={GlobalStyles.buttonText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+           </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

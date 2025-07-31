@@ -6,87 +6,98 @@ import { MaterialIcons } from '@expo/vector-icons';
 import styles from '../styles/CustomDrawerStyles';
 import Theme from '../constants/theme';
 import { signOut } from 'firebase/auth';
-import { auth, db } from '../configuration/firebaseConfig';
-import { doc, getDoc } from 'firebase/firestore';
+import { auth } from '../configuration/firebaseConfig';
+import { getDatabase, ref, get } from 'firebase/database';
 import { AuthContext } from '../context/AuthContext';
 import CustomModal from './CustomModal';
 
 const CustomDrawer = (props) => {
-  const { onSignOut, navigation } = props; // Use navigation from props
+  const { onSignOut, navigation } = props; 
   const { user } = useContext(AuthContext);
   const [modalVisible, setModalVisible] = useState(false);
-  const [organizationName, setOrganizationName] = useState('Loading...');
+  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  const [organizationName, setOrganizationName] = useState(null);
+  const [role, setRole] = useState('N/A');
+  const [adminPosition, setAdminPosition] = useState('N/A');
+  const [contactPerson, setContactPerson] = useState(null);
+  const [firstName, setFirstName] = useState(null);
+  const [lastName, setLastName] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // // Redirect to login if no user
-  // useEffect(() => {
-  //   if (!user && !isLoading) {
-  //     console.warn('No authenticated user, redirecting to login');
-  //     Alert.alert('Authentication Required', 'Please log in to continue.');
-  //     navigation.navigate('Login'); // Use props.navigation
-  //   }
-  // }, [user, isLoading, navigation]);
 
-  // Fetch organization name from Firestore
   useEffect(() => {
-    const fetchOrganizationName = async (retryCount = 0, maxRetries = 2) => {
+      const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
       setIsLoading(true);
-      console.log('AuthContext user:', user);
-      if (!user?.uid) {
-        console.warn('No user UID available');
-        setOrganizationName('Unknown Organization');
-        setIsLoading(false);
-        return;
-      }
-
-      if (!db) {
-        console.error('Firestore db instance is not initialized');
-        setOrganizationName('Unknown Organization');
-        Alert.alert('Error', 'Firestore database is not properly initialized.');
+      if (!user?.id) {
+        console.warn('No user ID available');
+        setErrorModal({
+          visible: true,
+          message: 'No user ID available. Please log in again.',
+        });
+        setOrganizationName(null);
+        setRole('N/A');
+        setAdminPosition('N/A');
+        setContactPerson(null);
+        setFirstName(null);
+        setLastName(null);
         setIsLoading(false);
         return;
       }
 
       try {
-        console.log('Fetching user document for UID:', user.uid);
-        const userRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userRef);
+      const db = getDatabase();
+        const userRef = ref(db, `users/${user.id}`);
+        const snapshot = await get(userRef);
 
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          console.log('User data fetched:', userData);
-          if (userData.organization) {
-            setOrganizationName(userData.organization);
-          } else {
-            console.warn('No organization field found in user document:', user.uid);
-            setOrganizationName('Unknown Organization');
-            Alert.alert('Warning', 'No organization found in your profile.');
-          }
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          setOrganizationName(userData.organization || null);
+          setRole(userData.role || 'N/A');
+          setAdminPosition(userData.adminPosition || 'N/A');
+          setContactPerson(userData.contactPerson || null);
+          setFirstName(userData.firstName || null);
+          setLastName(userData.lastName || null);
         } else {
-          console.warn('No user document found for UID:', user.uid);
-          setOrganizationName('Unknown Organization');
-          Alert.alert('Warning', 'No user profile found in database.');
+          console.warn('No user document found for ID:', user.id);
+          setErrorModal({
+            visible: true,
+            message: 'No user profile found in database.',
+          });
+          setOrganizationName(null);
+          setRole('N/A');
+          setAdminPosition('N/A');
+          setContactPerson(null);
+          setFirstName(null);
+          setLastName(null);
         }
       } catch (error) {
-        console.error('Error fetching organization name:', error.message, error.code);
+        console.error('Error fetching user data:', error.message, error.code);
         if (retryCount < maxRetries && error.code === 'unavailable') {
           console.log(`Retrying fetch (${retryCount + 1}/${maxRetries})...`);
-          setTimeout(() => fetchOrganizationName(retryCount + 1, maxRetries), 1000);
+          setTimeout(() => fetchUserData(retryCount + 1, maxRetries), 1000); 
         } else {
-          setOrganizationName('Unknown Organization');
-          Alert.alert('Error', `Failed to fetch organization name: ${error.message}`);
+          setErrorModal({
+            visible: true,
+            message: `Failed to fetch user data: ${error.message}`,
+          });
+          setOrganizationName(null);
+          setRole('N/A');
+          setAdminPosition('N/A');
+          setContactPerson(null);
+          setFirstName(null);
+          setLastName(null);
         }
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (user?.uid) {
-      fetchOrganizationName();
+    if (user?.id) {
+      fetchUserData();
     } else {
       setIsLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.id]);
 
   const handleShowLogoutModal = () => {
     setModalVisible(true);
@@ -104,6 +115,34 @@ const CustomDrawer = (props) => {
     }
   };
 
+   // Determine user name display: contactPerson or firstName + lastName
+  const getUserName = () => {
+    if (contactPerson) {
+      return contactPerson;
+    }
+    if (firstName || lastName) {
+      return `${firstName || ''} ${lastName || ''}`.trim();
+    }
+    return 'Unknown User';
+  };
+
+  // Determine display text: organization for ABVN, or adminPosition for ADMIN
+  const getDisplayText = () => {
+    if (isLoading) {
+      return <ActivityIndicator size="small" color={Theme.colors.grey} />;
+    }
+    if (role === 'ABVN' && organizationName) {
+      return <Text style={styles.organization}>{organizationName}</Text>;
+    }
+    if (role === 'AB ADMIN' && adminPosition !== 'N/A') {
+      return <Text style={styles.organization}>{`ADMIN (${adminPosition.toUpperCase()})`}</Text>;
+    }
+    if (role === 'AB ADMIN') {
+      return <Text style={styles.organization}>ADMIN</Text>;
+    }
+    return <Text style={styles.organization}>{role}</Text>;
+  };
+
   const handleCancelLogout = () => {
     setModalVisible(false);
   };
@@ -114,25 +153,18 @@ const CustomDrawer = (props) => {
         {...props}
         contentContainerStyle={styles.drawerScroll}
       >
-        <View style={styles.userHeader}>
+        <TouchableOpacity onPress={()=>navigation.navigate("Profile")} style={styles.userHeader}>
           <Image
             source={require('../../assets/images/user.jpg')}
             style={styles.profileImage}
           />
           <View style={styles.header}>
-            <View style={styles.userRoleContainer}>
-              <Text style={styles.userRole}>{user?.organization || ''}</Text>
-            </View>
-            <Text style={styles.userName}>{user?.contactPerson || 'Unknown User'}</Text>
-            {/* <View style={combinedStyles.organizationContainer}>
-              {isLoading ? (
-                <ActivityIndicator size="small" color={Theme.colors.grey} />
-              ) : (
-                <Text style={combinedStyles.organization}>{organizationName}</Text>
-              )}
-            </View> */}
+                <View style={styles.organizationContainer}>
+              {getDisplayText()}
+              </View>
+            <Text style={styles.userName}>{getUserName()}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
         <View style={styles.drawerListContainer}>
           <DrawerItemList {...props} />
         </View>
@@ -140,10 +172,6 @@ const CustomDrawer = (props) => {
 
       <View style={styles.footer}>
         <TouchableOpacity onPress={() => {}} style={styles.footerButton}>
-          {/* <View style={styles.footerButtonContent}>
-            <MaterialIcons name="info" size={22} style={{ color: Theme.colors.white }} />
-            <Text style={styles.footerButtonText}>Help</Text>
-          </View> */}
         </TouchableOpacity>
         <TouchableOpacity onPress={handleShowLogoutModal} style={styles.footerButton}>
           <View style={styles.footerButtonContent}>
@@ -164,26 +192,12 @@ const CustomDrawer = (props) => {
         }
         onConfirm={handleConfirmLogout}
         onCancel={handleCancelLogout}
-        confirmText="Yes, Log Out"
+        confirmText="Log Out"
         cancelText="Cancel"
         showCancel={true}
       />
     </View>
   );
 };
-
-const localStyles = StyleSheet.create({
-  organization: {
-    fontSize: 14,
-    color: Theme.colors.grey,
-    marginTop: 4,
-  },
-  organizationContainer: {
-    marginTop: 4,
-    minHeight: 20,
-  },
-});
-
-const combinedStyles = { ...styles, ...localStyles };
 
 export default CustomDrawer;

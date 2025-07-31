@@ -70,7 +70,7 @@ export default StyleSheet.create({
     color: Theme.colors.primary
   },
   headerTitle: {
-    color:  Theme.colors.primary,
+    color:  Theme.colors.accent,
     fontSize: 20,
     fontFamily: 'Poppins_SemiBold', 
     textAlign: 'center',

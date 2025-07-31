@@ -28,7 +28,7 @@ export default StyleSheet.create({
     marginTop: HEADER_HEIGHT,
   },
   filterText: {
-    color: Theme.colors.black,
+    color: Theme.colors.accent,
     fontFamily: 'Poppins_Regular',
     fontSize: 12,
   },
@@ -37,7 +37,6 @@ export default StyleSheet.create({
     backgroundColor: '#ddd',
     borderRadius: borderRadius.medium,
     textAlign: 'center'
-
   },
   categoryPicker: {
     flex: 1,

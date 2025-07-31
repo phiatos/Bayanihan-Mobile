@@ -431,7 +431,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           <View>
             <TextInput
               style={[GlobalStyles.input, errors.contactPerson && styles.requiredInput]}
-              placeholder="Enter Name of the Contact Person"
+              placeholder="Enter Name"
               onChangeText={(val) => handleChange('contactPerson', val)}
               value={reportData.contactPerson}
             />
@@ -499,7 +499,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
             data={categories.map((c) => ({ label: c, value: c }))}
             labelField="label"
             valueField="value"
-            placeholder="Select Donation Category"
+            placeholder="Select Category"
             value={reportData.donationCategory}
             onChange={(item) => handleChange('donationCategory', item.value)}
           />
@@ -516,11 +516,11 @@ const ReliefRequestScreen = ({ navigation, route }) => {
             <View style={{ position: 'relative', zIndex: 1500 }}>
               <TextInput
                 ref={itemInputRef}
-                placeholder="Enter or Select Item Name"
+                placeholder="Select or Type Item"
                 value={reportData.itemName}
                 onChangeText={(val) => {
                   handleChange('itemName', val);
-                  setIsItemDropdownVisible(true); // Show dropdown when typing
+                  setIsItemDropdownVisible(true);
                 }}
                 onBlur={handleBlur}
                 editable={!!reportData.donationCategory}
@@ -582,7 +582,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 styles.textArea,
                 errors.notes && styles.requiredInput,
               ]}
-              placeholder="Enter Notes/Concerns (Optional)"
+              placeholder="Enter Notes"
               onChangeText={(val) => handleChange('notes', val)}
               value={reportData.notes}
               editable={!!reportData.donationCategory}

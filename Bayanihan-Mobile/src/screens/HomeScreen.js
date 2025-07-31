@@ -27,14 +27,14 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { KeyboardAvoidingView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { getDatabase, ref, get } from 'firebase/database'; 
 const { height, width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
   const [location, setLocation] = useState(null);
   const [permissionStatus, setPermissionStatus] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [hasShownModal, setHasShownModal] = useState(false); // New state for modal tracking
+  const [hasShownModal, setHasShownModal] = useState(false); 
   const [searchBarVisible, setSearchBarVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -46,6 +46,11 @@ const HomeScreen = ({ navigation }) => {
   const webViewRef = useRef(null);
   const searchTimeout = useRef(null);
   const insets = useSafeAreaInsets();
+  const [contactPerson, setContactPerson] = useState(null);
+  const [firstName, setFirstName] = useState(null);
+  const [lastName, setLastName] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
 
   useEffect(() => {
     if (!hasShownModal && !permissionStatus) {
@@ -596,7 +601,78 @@ const HomeScreen = ({ navigation }) => {
     `
       : null;
 
+      const getUserName = () => {
+    if (!user) return 'Unknown User';
+    if (contactPerson) {
+      return contactPerson;
+    }
+    if (firstName || lastName) {
+      return `${firstName || ''} ${lastName || ''}`.trim();
+    }
+    return 'Unknown User';
+  };
 
+  useEffect(() => {
+    const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
+      setIsLoading(true);
+      if (!user?.id) {
+        console.warn('No user ID available');
+        setErrorModal({
+          visible: true,
+          message: 'No user ID available. Please log in again.',
+        });
+        setContactPerson(null);
+        setFirstName(null);
+        setLastName(null);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const db = getDatabase();
+        const userRef = ref(db, `users/${user.id}`);
+        const snapshot = await get(userRef);
+
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          setContactPerson(userData.contactPerson || null);
+          setFirstName(userData.firstName || null);
+          setLastName(userData.lastName || null);
+        } else {
+          console.warn('No user document found for ID:', user.id);
+          setErrorModal({
+            visible: true,
+            message: 'No user profile found in database.',
+          });
+          setContactPerson(null);
+          setFirstName(null);
+          setLastName(null);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error.message, error.code);
+        if (retryCount < maxRetries && error.code === 'unavailable') {
+          console.log(`Retrying fetch (${retryCount + 1}/${maxRetries})...`);
+          setTimeout(() => fetchUserData(retryCount + 1, maxRetries), 1000);
+        } else {
+          setErrorModal({
+            visible: true,
+            message: `Failed to fetch user data: ${error.message}`,
+          });
+          setContactPerson(null);
+          setFirstName(null);
+          setLastName(null);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user?.id) {
+      fetchUserData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user?.id]);
       
   return (
     <SafeAreaView style={GlobalStyles.container}>
@@ -636,7 +712,7 @@ const HomeScreen = ({ navigation }) => {
                   <Ionicons name="menu" size={32} color={Theme.colors.white} />
                 </TouchableOpacity>
                 <View style={styles.headerUserContainer}>
-                  <Text style={styles.userName}>{user?.contactPerson}</Text>
+                <Text style={styles.userName}>{getUserName()}</Text>
                   <ImageBackground
                     source={{ uri: 'https://via.placeholder.com/35' }}
                     style={{ width: 35, height: 35 }}
@@ -774,33 +850,24 @@ const HomeScreen = ({ navigation }) => {
           </View>
         </KeyboardAvoidingView>
       ) : (
-        <ScrollView style={GlobalStyles.container}>
-            {/* Header */}
-          <BlurView intensity={50} tint="light" style={styles.headerContainer}>
-            <LinearGradient
-              colors={['rgba(185, 185, 185, 0.12)', 'rgba(77, 77, 77, 0.2)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.formCard}
-            >
-              <View style={styles.headerContent}>
-                <TouchableOpacity
-                  onPress={() => navigation.openDrawer()}
-                  style={styles.headerMenuIcon}
-                >
-                  <Ionicons name="menu" size={32} color={Theme.colors.white} />
-                </TouchableOpacity>
-                <View style={styles.headerUserContainer}>
-                  <Text style={styles.userName}>{user?.contactPerson}</Text>
-                  <ImageBackground
-                    source={{ uri: 'https://via.placeholder.com/35' }}
-                    style={{ width: 35, height: 35 }}
-                    imageStyle={{ borderRadius: 25 }}
-                  />
-                </View>
-              </View>
+        <SafeAreaView style={GlobalStyles.container}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <LinearGradient
+        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+        start={{ x: 1, y: 0.5 }}
+        end={{ x: 1, y: 1 }}
+        style={GlobalStyles.gradientContainer}
+      >
+        <View style={GlobalStyles.newheaderContainer}>
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+          </TouchableOpacity>
+            <View style={styles.headerUserContainer}>
+            <Text style={[styles.userName, {color: Theme.colors.primary, marginLeft: 70}]}>{getUserName()}</Text>   
+            </View>
+            </View>
             </LinearGradient>
-          </BlurView>
+        
           <View style={{ paddingHorizontal: 20, marginTop: 100 }}>
             {/* <View style={styles.searchContainer}>
               <Feather name="search" size={24} style={{ marginHorizontal: 10 }} color={Theme.colors.primary} />
@@ -827,7 +894,7 @@ const HomeScreen = ({ navigation }) => {
               </View>
             )}
           </View>
-        </ScrollView>
+        </SafeAreaView>
       )}
 
       <Modal

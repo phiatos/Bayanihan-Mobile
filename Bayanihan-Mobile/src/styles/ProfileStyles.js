@@ -31,6 +31,10 @@ export default StyleSheet.create({
     flexGrow: 1,
     minHeight: Dimensions.get('window').height - (STATUS_BAR_HEIGHT),
   },
+   form: {
+    marginTop: 20,
+    marginBottom: 40
+  },
   section: {
     marginVertical: spacing.small,
     marginHorizontal: spacing.medium,

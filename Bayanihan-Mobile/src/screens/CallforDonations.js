@@ -406,7 +406,7 @@ const CallForDonations = () => {
               {renderLabel('Donation Drive', true)}
               <TextInput
                 style={[styles.input, errors.donationDrive && styles.requiredInput]}
-                placeholder="Enter Donation Drive Name"
+                placeholder="Donation Drive"
                 onChangeText={(val) => handleChange('donationDrive', val)}
                 value={formData.donationDrive}
                 autoComplete="off"
@@ -418,7 +418,7 @@ const CallForDonations = () => {
               {renderLabel('Contact Person', true)}
               <TextInput
                 style={[styles.input, errors.contactPerson && styles.requiredInput]}
-                placeholder="Enter Contact Person Name"
+                placeholder="Contact Name"
                 onChangeText={(val) => handleChange('contactPerson', val)}
                 value={formData.contactPerson}
                 autoComplete="name"
@@ -431,7 +431,7 @@ const CallForDonations = () => {
               {renderLabel('Contact Number', true)}
               <TextInput
                 style={[styles.input, errors.contactNumber && styles.requiredInput]}
-                placeholder="Enter Mobile Number"
+                placeholder="Contact Number"
                 onChangeText={(val) => handleChange('contactNumber', val)}
                 value={formData.contactNumber}
                 keyboardType="numeric"
@@ -445,7 +445,7 @@ const CallForDonations = () => {
               {renderLabel('Account Number', true)}
               <TextInput
                 style={[styles.input, errors.accountNumber && styles.requiredInput]}
-                placeholder="Enter Bank Account Number"
+                placeholder="Account Number"
                 onChangeText={(val) => handleChange('accountNumber', val)}
                 value={formData.accountNumber}
                 keyboardType="numeric"
@@ -458,7 +458,7 @@ const CallForDonations = () => {
               {renderLabel('Account Name', true)}
               <TextInput
                 style={[styles.input, errors.accountName && styles.requiredInput]}
-                placeholder="Enter Account Name"
+                placeholder="Account Name"
                 onChangeText={(val) => handleChange('accountName', val)}
                 value={formData.accountName}
                 autoComplete="name"
@@ -473,7 +473,7 @@ const CallForDonations = () => {
                 <TextInput
                   ref={regionInputRef}
                   style={[styles.input, errors.region && styles.requiredInput]}
-                  placeholder="Enter or Select Region"
+                  placeholder="Enter or Choose Region"
                   onChangeText={(val) => handleChange('region', val)}
                   value={formData.region}
                   onFocus={handleRegionFocus}
@@ -618,7 +618,7 @@ const CallForDonations = () => {
               {renderLabel('Blk/Lot/Unit #', true)}
               <TextInput
                 style={[styles.input, errors.street && styles.requiredInput]}
-                placeholder="Enter Full street"
+                placeholder="(e.g. 1234 Singkamas St.)"
                 onChangeText={(val) => handleChange('street', val)}
                 value={formData.street}
                 autoComplete="street-address"
@@ -631,7 +631,7 @@ const CallForDonations = () => {
               {renderLabel('Facebook Link', false)}
               <TextInput
                 style={[styles.input, errors.facebookLink && styles.requiredInput]}
-                placeholder="Enter Facebook URL (optional)"
+                placeholder="Facebook Link"
                 onChangeText={(val) => handleChange('facebookLink', val)}
                 value={formData.facebookLink}
                 keyboardType="url"
@@ -654,7 +654,7 @@ const CallForDonations = () => {
             </View>
             <View style={{ marginHorizontal: 15, marginBottom: 10,  }}>
               <TouchableOpacity style={GlobalStyles.button} onPress={handleSubmit}>
-                <Text style={GlobalStyles.buttonText}>Add Call for Donation</Text>
+                <Text style={GlobalStyles.buttonText}>Proceed</Text>
               </TouchableOpacity>
             </View>
           </View>

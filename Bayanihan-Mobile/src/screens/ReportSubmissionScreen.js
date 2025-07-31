@@ -1,4 +1,4 @@
-import { FontAwesome5, FontAwesome6, Ionicons, MaterialCommunityIcons,Feather, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -29,20 +29,24 @@ const ReportSubmissionScreen = () => {
   // Helper functions for formatting
   const formatDate = (date) => {
     if (!date) return '';
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
   };
 
   const formatTime = (date) => {
     if (!date) return '';
     let hours = date.getHours();
     const minutes = date.getMinutes().toString().padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const ampm = hours >= 12 ? 'pm' : 'am';
     hours = hours % 12;
     hours = hours || 12;
     return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`; // HH:MM AM/PM
   };
 
-  // Initialize current date and time
+  // Initialize current date
   const currentDate = new Date();
 
   const [reportData, setReportData] = useState({
@@ -51,7 +55,7 @@ const ReportSubmissionScreen = () => {
     DateOfReport: formatDate(currentDate),
     calamityArea: '',
     CalamityAreaId: '',
-    completionTimeOfIntervention: formatTime(currentDate),
+    completionTimeOfIntervention: '',
     StartDate: '',
     EndDate: '',
     NoOfIndividualsOrFamilies: '',
@@ -66,7 +70,6 @@ const ReportSubmissionScreen = () => {
   });
 
   const [showDatePicker, setShowDatePicker] = useState({
-    DateOfReport: false,
     StartDate: false,
     EndDate: false,
   });
@@ -74,10 +77,9 @@ const ReportSubmissionScreen = () => {
     completionTimeOfIntervention: false,
   });
   const [tempDate, setTempDate] = useState({
-    DateOfReport: currentDate,
     StartDate: new Date(),
     EndDate: new Date(),
-    completionTimeOfIntervention: currentDate,
+    completionTimeOfIntervention: new Date(),
   });
   const [errors, setErrors] = useState({});
   const [userUid, setUserUid] = useState(null);
@@ -178,12 +180,12 @@ const ReportSubmissionScreen = () => {
               },
               (error) => {
                 console.error('Error listening for active activations:', error);
-                ToastAndroid.show('Failed to load active operations. Please try again.',ToastAndroid.BOTTOM);
+                ToastAndroid.show('Failed to load active operations. Please try again.', ToastAndroid.BOTTOM);
               }
             );
           } catch (error) {
             console.error('Error fetching user data:', error.message);
-            ToastAndroid.show('Failed to fetch user group. Please try again.',ToastAndroid.BOTTOM);
+            ToastAndroid.show('Failed to fetch user group. Please try again.', ToastAndroid.BOTTOM);
           }
         } else {
           console.warn('No user is logged in');
@@ -192,8 +194,7 @@ const ReportSubmissionScreen = () => {
       },
       (error) => {
         console.error('Auth state listener error:', error.message);
-        ToastAndroid.show('Authentication error: ' + error.message,ToastAndroid.BOTTOM);
-
+        ToastAndroid.show('Authentication error: ' + error.message, ToastAndroid.BOTTOM);
       }
     );
 
@@ -204,9 +205,6 @@ const ReportSubmissionScreen = () => {
   useEffect(() => {
     if (route.params?.reportData) {
       setReportData(route.params.reportData);
-      if (route.params.reportData.DateOfReport) {
-        setTempDate(prev => ({ ...prev, DateOfReport: new Date(route.params.reportData.DateOfReport) }));
-      }
       if (route.params.reportData.StartDate) {
         setTempDate(prev => ({ ...prev, StartDate: new Date(route.params.reportData.StartDate) }));
       }
@@ -252,7 +250,7 @@ const ReportSubmissionScreen = () => {
       }
     } else {
       const generateReportID = () => {
-        const randomNumbers = Math.floor(100000 + Math.random() * 900000);
+        const randomNumbers = Math.floor(1000000000 + Math.random() * 9000000000);
         return `REPORTS-${randomNumbers}`;
       };
       setReportData((prev) => ({ ...prev, reportID: generateReportID() }));
@@ -281,7 +279,7 @@ const ReportSubmissionScreen = () => {
     } catch (error) {
       console.error('Reverse Geocoding Error:', error);
       setLocationName('Unknown Location');
-      ToastAndroid.show('Failed to fetch location name. Using "Unknown Location" instead.',ToastAndroid.BOTTOM);
+      ToastAndroid.show('Failed to fetch location name. Using "Unknown Location" instead.', ToastAndroid.BOTTOM);
       return 'Unknown Location';
     }
   };
@@ -514,7 +512,7 @@ const ReportSubmissionScreen = () => {
       const selectedActivation = activeActivations.find((activation) => activation.id === value);
       if (selectedActivation) {
         let displayCalamity = selectedActivation.calamityType;
-        if (selectedActivation.calamityType === 'Typhoon' && savedActivation.typhoonName) {
+        if (selectedActivation.calamityType === 'Typhoon' && selectedActivation.typhoonName) {
           displayCalamity += ` (${selectedActivation.typhoonName})`;
         }
         setReportData((prev) => ({
@@ -542,7 +540,7 @@ const ReportSubmissionScreen = () => {
 
   const handleMapConfirm = () => {
     if (!reportData.AreaOfOperation) {
-      ToastAndroid.show('Please select a location on the map or search for an address before confirming.',ToastAndroid.BOTTOM);
+      ToastAndroid.show('Please select a location on the map or search for an address before confirming.', ToastAndroid.BOTTOM);
       return;
     }
     setShowMapModal(false);
@@ -610,7 +608,7 @@ const ReportSubmissionScreen = () => {
 
     const serializedReportData = {
       ...reportData,
-      reportID: reportData.reportID || `REPORTS-${Math.floor(100000 + Math.random() * 900000)}`,
+      reportID: reportData.reportID || `REPORTS-${Math.floor(1000000000 + Math.random() * 9000000000)}`,
       locationName,
       coordinates: selectedLocation ? `${selectedLocation.latitude},${selectedLocation.longitude}` : null,
     };
@@ -826,7 +824,7 @@ const ReportSubmissionScreen = () => {
               {renderLabel('Area of Operation', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.AreaOfOperation && styles.requiredInput]}
-                placeholder="Select location on map or from dropdown"
+                placeholder="e.g. Purok 2, Brgy. Maligaya, Rosario"
                 value={locationName || reportData.AreaOfOperation}
                 onChangeText={(text) => {
                   setLocationName(text);
@@ -843,22 +841,11 @@ const ReportSubmissionScreen = () => {
               </TouchableOpacity>
               {errors.AreaOfOperation && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.AreaOfOperation}</Text>}
               {renderLabel('Date of Report', true)}
-              <TouchableOpacity
-                style={[GlobalStyles.input, errors.DateOfReport && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
-                onPress={() => setShowDatePicker((prev) => ({ ...prev, DateOfReport: true }))}
-              >
+              <View style={[GlobalStyles.input, errors.DateOfReport && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}>
                 <Text style={{ flex: 1, color: reportData.DateOfReport ? '#000' : '#999' }}>
-                  {reportData.DateOfReport || 'YYYY-MM-DD'}
+                  {reportData.DateOfReport || 'dd-mm-yyyy'}
                 </Text>
-              </TouchableOpacity>
-              {showDatePicker.DateOfReport && (
-                <DateTimePicker
-                  value={tempDate.DateOfReport}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, date) => handleDateChange('DateOfReport', event, date)}
-                />
-              )}
+              </View>
               {errors.DateOfReport && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.DateOfReport}</Text>}
             </View>
 
@@ -904,7 +891,7 @@ const ReportSubmissionScreen = () => {
                 onPress={() => setShowTimePicker((prev) => ({ ...prev, completionTimeOfIntervention: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.completionTimeOfIntervention ? '#000' : '#999' }}>
-                  {reportData.completionTimeOfIntervention || 'HH:MM AM/PM'}
+                  {reportData.completionTimeOfIntervention || '--:-- --'}
                 </Text>
                 <Ionicons name="time" size={24} style={{ color: "#00BCD4" }} />
               </TouchableOpacity>
@@ -924,7 +911,7 @@ const ReportSubmissionScreen = () => {
                 onPress={() => setShowDatePicker((prev) => ({ ...prev, StartDate: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.StartDate ? '#000' : '#999' }}>
-                  {reportData.StartDate || 'YYYY-MM-DD'}
+                  {reportData.StartDate || 'dd/mm/yyyy'}
                 </Text>
                 <Ionicons name="calendar" size={24} style={{ color: "#00BCD4" }} />
               </TouchableOpacity>
@@ -943,7 +930,7 @@ const ReportSubmissionScreen = () => {
                 onPress={() => setShowDatePicker((prev) => ({ ...prev, EndDate: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.EndDate ? '#000' : '#999' }}>
-                  {reportData.EndDate || 'YYYY-MM-DD'}
+                  {reportData.EndDate || 'dd/mm/yyyy'}
                 </Text>
                 <Ionicons name="calendar" size={24} color="#00BCD4" />
               </TouchableOpacity>
@@ -959,7 +946,7 @@ const ReportSubmissionScreen = () => {
               {renderLabel('No. of Individuals or Families', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.NoOfIndividualsOrFamilies && styles.requiredInput]}
-                placeholder="Enter No. of Individuals or Families"
+                placeholder="No. of Individuals or Families"
                 onChangeText={(val) => handleChange('NoOfIndividualsOrFamilies', val)}
                 value={reportData.NoOfIndividualsOrFamilies}
                 keyboardType="numeric"
@@ -968,7 +955,7 @@ const ReportSubmissionScreen = () => {
               {renderLabel('No. of Relief Packs', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.NoOfFoodPacks && styles.requiredInput]}
-                placeholder="Enter No. of Relief Packs"
+                placeholder="No. of Food Packs"
                 onChangeText={(val) => handleChange('NoOfFoodPacks', val)}
                 value={reportData.NoOfFoodPacks}
                 keyboardType="numeric"
@@ -977,7 +964,7 @@ const ReportSubmissionScreen = () => {
               {renderLabel('No. of Hot Meals/Ready-to-eat Food', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.hotMeals && styles.requiredInput]}
-                placeholder="Enter No. of Hot Meals"
+                placeholder="No. of Hot Meals"
                 onChangeText={(val) => handleChange('hotMeals', val)}
                 value={reportData.hotMeals}
                 keyboardType="numeric"
@@ -986,7 +973,7 @@ const ReportSubmissionScreen = () => {
               {renderLabel('Liters of Water', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.LitersOfWater && styles.requiredInput]}
-                placeholder="Enter Liters of Water"
+                placeholder="Liters of Water"
                 onChangeText={(val) => handleChange('LitersOfWater', val)}
                 value={reportData.LitersOfWater}
                 keyboardType="numeric"
@@ -995,7 +982,7 @@ const ReportSubmissionScreen = () => {
               {renderLabel('No. of Volunteers Mobilized', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.NoOfVolunteersMobilized && styles.requiredInput]}
-                placeholder="Enter No. of Volunteers"
+                placeholder="No. of Volunteers Mobilized"
                 onChangeText={(val) => handleChange('NoOfVolunteersMobilized', val)}
                 value={reportData.NoOfVolunteersMobilized}
                 keyboardType="numeric"
@@ -1004,7 +991,7 @@ const ReportSubmissionScreen = () => {
               {renderLabel('No. of Organizations Activated', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.NoOfOrganizationsActivated && styles.requiredInput]}
-                placeholder="Enter No. of Organizations"
+                placeholder="No. of Organizations Activated"
                 onChangeText={(val) => handleChange('NoOfOrganizationsActivated', val)}
                 value={reportData.NoOfOrganizationsActivated}
                 keyboardType="numeric"
@@ -1013,7 +1000,7 @@ const ReportSubmissionScreen = () => {
               {renderLabel('Total Value of In-Kind Donations', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.TotalValueOfInKindDonations && styles.requiredInput]}
-                placeholder="Enter Value of In-Kind Donations"
+                placeholder="Total Value of In-Kind Donations"
                 onChangeText={(val) => handleChange('TotalValueOfInKindDonations', val)}
                 value={reportData.TotalValueOfInKindDonations}
                 keyboardType="numeric"
@@ -1022,7 +1009,7 @@ const ReportSubmissionScreen = () => {
               {renderLabel('Total Monetary Donations', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.TotalMonetaryDonations && styles.requiredInput]}
-                placeholder="Enter Total Monetary Donations"
+                placeholder="Total Monetary Donations"
                 onChangeText={(val) => handleChange('TotalMonetaryDonations', val)}
                 value={reportData.TotalMonetaryDonations}
                 keyboardType="numeric"
@@ -1044,7 +1031,7 @@ const ReportSubmissionScreen = () => {
               {errors.NotesAdditionalInformation && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NotesAdditionalInformation}</Text>}
             </View>
 
-            <TouchableOpacity style={[GlobalStyles.button, {marginHorizontal: 10}]} onPress={handleSubmit}>
+            <TouchableOpacity style={[GlobalStyles.button, { marginHorizontal: 10 }]} onPress={handleSubmit}>
               <Text style={GlobalStyles.buttonText}>Proceed</Text>
             </TouchableOpacity>
           </View>
@@ -1113,7 +1100,6 @@ const ReportSubmissionScreen = () => {
                 onMessage={(event) => {
                   try {
                     const data = JSON.parse(event.nativeEvent.data);
-                    console.log('WebView message:', data);
                     if (data.error) {
                       setMapError(data.error);
                     } else if (data.latitude && data.longitude) {
@@ -1225,28 +1211,28 @@ const ReportSubmissionScreen = () => {
                   </TouchableOpacity>
                 </View>
               </View>
-               <View style={styles.mapTypeButtonsContainer}>
-              <TouchableOpacity
-                style={[styles.mapTypeButton, mapType === 'roadmap' && styles.mapTypeButtonActive]}
-                onPress={() => toggleMapType('roadmap')}
-              >
-                <MaterialIcons
-                  name="map"
-                  size={24}
-                  color={mapType === 'roadmap' ? Theme.colors.primary : '#FFFFFF'}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.mapTypeButton, mapType === 'hybrid' && styles.mapTypeButtonActive]}
-                onPress={() => toggleMapType('hybrid')}
-              >
-                <MaterialIcons
-                  name="satellite"
-                  size={24}
-                  color={mapType === 'hybrid' ? Theme.colors.primary : '#FFFFFF'}
-                />
-              </TouchableOpacity>
-            </View>
+              <View style={styles.mapTypeButtonsContainer}>
+                <TouchableOpacity
+                  style={[styles.mapTypeButton, mapType === 'roadmap' && styles.mapTypeButtonActive]}
+                  onPress={() => toggleMapType('roadmap')}
+                >
+                  <MaterialIcons
+                    name="map"
+                    size={24}
+                    color={mapType === 'roadmap' ? Theme.colors.primary : '#FFFFFF'}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.mapTypeButton, mapType === 'hybrid' && styles.mapTypeButtonActive]}
+                  onPress={() => toggleMapType('hybrid')}
+                >
+                  <MaterialIcons
+                    name="satellite"
+                    size={24}
+                    color={mapType === 'hybrid' ? Theme.colors.primary : '#FFFFFF'}
+                  />
+                </TouchableOpacity>
+              </View>
               <View style={styles.modalButtonContainer}>
                 <TouchableOpacity
                   style={styles.modalButton}
@@ -1258,7 +1244,7 @@ const ReportSubmissionScreen = () => {
                   style={styles.modalButtonCancel}
                   onPress={() => setShowMapModal(false)}
                 >
-                  <Text style={[styles.modalButtonText, {color: Theme.colors.primary}]}>Cancel</Text>
+                  <Text style={[styles.modalButtonText, { color: Theme.colors.primary }]}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             </>

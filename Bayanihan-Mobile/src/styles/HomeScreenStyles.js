@@ -82,6 +82,7 @@ export const styles = StyleSheet.create({
     color: Theme.colors.white,
     fontSize: 14,
     fontFamily: 'Poppins_Medium',
+    textAlign: 'right',
     right: -30,
   },
   overlayContainer: {
