@@ -1,30 +1,17 @@
-# How to Run the Project Locally
-1. Clone or download this repository.
-2. You can run the project from the 'main' branch
-3. cd 'bayanihan-mobile'
-4. cd 'bayanihan-mobile'
+How to Run the Project Locally
 
-## If first time:
-1. npm install
-2. Install the dependencies provided below.
+Clone or download this repository.
+You can run the project from the 'main' branch
+cd 'bayanihan-mobile'
+cd 'bayanihan-mobile'
 
+If first time:
 
+npm install
+Install the dependencies provided below.
 
-
-
-
-
-
-
-
-
-
-
-
-
-<!-- --------------------- -->
-### Latest dependencies that needs to be integrated
-paste these at the dependencies bracket:
+Latest dependencies that needs to be integrated
+Paste these at the dependencies bracket:
     "@expo-google-fonts/poppins": "^0.3.1",
     "@expo/metro-runtime": "~5.0.4",
     "@expo/vector-icons": "^14.1.0",
