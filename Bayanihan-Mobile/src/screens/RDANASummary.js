@@ -274,6 +274,9 @@ const RDANASummary = () => {
       Date_of_Occurrence: reportData.Date_of_Occurrence || '',
       Local_Authorities_Persons_Contacted_for_Information: reportData.Local_Authorities_Persons_Contacted_for_Information || '',
       Name_of_the_Organizations_Involved: reportData.Name_of_the_Organizations_Involved || '',
+      Locations_and_Areas_Affected_Barangay: reportData.Locations_and_Areas_Affected_Barangay || '',
+      Locations_and_Areas_Affected_City_Municipality: reportData.Locations_and_Areas_Affected_City_Municipality || '',
+      Locations_and_Areas_Affected_Province: reportData.Locations_and_Areas_Affected_Province || ''
     };
 
     // Align with expected Firebase data structure
