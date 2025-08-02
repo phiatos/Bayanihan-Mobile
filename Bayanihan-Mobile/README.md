@@ -1,14 +1,12 @@
-    # How to Run the Project Locally
-    1. Clone or download this repository.
-    2. You can run the project from the 'main' branch
-    3. cd 'bayanihan-mobile'
-    4. cd 'bayanihan-mobile'
+# How to Run the Project Locally
+1. Clone or download this repository.
+2. You can run the project from the 'main' branch
+3. cd 'bayanihan-mobile'
+4. cd 'bayanihan-mobile'
 
-    ## If first time:
-    1. npm install
-    2. Install the dependencies provided below.
-
-
+## If first time:
+1. npm install
+2. Install the dependencies provided below.
 
 
 
@@ -22,76 +20,78 @@
 
 
 
-    <!-- --------------------- -->
-    ### Latest dependencies that needs to be integrated
-    paste these at the dependencies bracket:
-    ```
-        "@expo-google-fonts/poppins": "^0.3.1",
-        "@expo/metro-runtime": "~5.0.4",
-        "@expo/vector-icons": "^14.1.0",
-        "@fortawesome/fontawesome-svg-core": "^6.7.2",
-        "@fortawesome/free-solid-svg-icons": "^6.7.2",
-        "@fortawesome/react-native-fontawesome": "^0.3.2",
-        "@oclif/core": "^4.4.1",
-        "@react-native-async-storage/async-storage": "2.1.2",
-        "@react-native-community/blur": "^4.4.1",
-        "@react-native-community/datetimepicker": "8.4.1",
-        "@react-native-community/geolocation": "^3.4.0",
-        "@react-native-community/slider": "4.5.6",
-        "@react-native-firebase/app": "^22.2.0",
-        "@react-native-firebase/auth": "^22.2.0",
-        "@react-native-picker/picker": "^2.11.1",
-        "@react-navigation/drawer": "^7.3.12",
-        "@react-navigation/native": "^7.1.9",
-        "@react-navigation/native-stack": "^7.3.13",
-        "@react-navigation/stack": "^7.3.2",
-        "@xmldom/xmldom": "^0.9.8",
-        "axios": "^1.9.0",
-        "date-fns": "^4.1.0",
-        "expo": "~53.0.20",
-        "expo-av": "~15.1.7",
-        "expo-blur": "~14.1.5",
-        "expo-build-properties": "~0.14.8",
-        "expo-constants": "^17.1.6",
-        "expo-document-picker": "~13.1.6",
-        "expo-file-system": "~18.1.11",
-        "expo-font": "~13.3.2",
-        "expo-image": "~2.4.0",
-        "expo-image-manipulator": "~13.1.7",
-        "expo-image-picker": "~16.1.4",
-        "expo-linear-gradient": "~14.1.5",
-        "expo-location": "~18.1.6",
-        "expo-navigation-bar": "~4.2.7",
-        "expo-splash-screen": "~0.30.9",
-        "expo-status-bar": "~2.2.3",
-        "expo-system-ui": "~5.0.10",
-        "expo-updates": "~0.28.17",
-        "expo-video": "~2.2.2",
-        "expo-video-thumbnails": "~9.1.3",
-        "firebase": "^11.10.0",
-        "glob": "^11.0.3",
-        "lodash": "^4.17.21",
-        "lottie-react-native": "7.2.2",
-        "moti": "^0.30.0",
-        "react": "19.0.0",
-        "react-datepicker": "^8.3.0",
-        "react-dom": "19.0.0",
-        "react-native": "0.79.5",
-        "react-native-animatable": "^1.4.0",
-        "react-native-autocomplete-input": "^5.5.6",
-        "react-native-element-dropdown": "^2.12.4",
-        "react-native-fontawesome": "^7.0.0",
-        "react-native-geocoding": "^0.5.0",
-        "react-native-gesture-handler": "~2.24.0",
-        "react-native-permissions": "^5.4.0",
-        "react-native-reanimated": "~3.17.4",
-        "react-native-safe-area-context": "5.4.0",
-        "react-native-screens": "~4.11.1",
-        "react-native-select-dropdown": "^4.0.1",
-        "react-native-splash-screen": "^3.3.0",
-        "react-native-svg": "15.11.2",
-        "react-native-vector-icons": "^10.2.0",
-        "react-native-web": "^0.20.0",
-        "react-native-webview": "13.13.5",
-        "rimraf": "^6.0.1"
-        ```
+
+
+<!-- --------------------- -->
+### Latest dependencies that needs to be integrated
+paste these at the dependencies bracket:
+```
+    "@expo-google-fonts/poppins": "^0.3.1",
+    "@expo/metro-runtime": "~5.0.4",
+    "@expo/vector-icons": "^14.1.0",
+    "@fortawesome/fontawesome-svg-core": "^6.7.2",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
+    "@fortawesome/react-native-fontawesome": "^0.3.2",
+    "@oclif/core": "^4.4.1",
+    "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-native-community/blur": "^4.4.1",
+    "@react-native-community/datetimepicker": "8.4.1",
+    "@react-native-community/geolocation": "^3.4.0",
+    "@react-native-community/slider": "4.5.6",
+    "@react-native-firebase/app": "^22.2.0",
+    "@react-native-firebase/auth": "^22.2.0",
+    "@react-native-picker/picker": "^2.11.1",
+    "@react-navigation/drawer": "^7.3.12",
+    "@react-navigation/native": "^7.1.9",
+    "@react-navigation/native-stack": "^7.3.13",
+    "@react-navigation/stack": "^7.3.2",
+    "@xmldom/xmldom": "^0.9.8",
+    "axios": "^1.9.0",
+    "date-fns": "^4.1.0",
+    "expo": "~53.0.20",
+    "expo-av": "~15.1.7",
+    "expo-blur": "~14.1.5",
+    "expo-build-properties": "~0.14.8",
+    "expo-constants": "^17.1.6",
+    "expo-document-picker": "~13.1.6",
+    "expo-file-system": "~18.1.11",
+    "expo-font": "~13.3.2",
+    "expo-image": "~2.4.0",
+    "expo-image-manipulator": "~13.1.7",
+    "expo-image-picker": "~16.1.4",
+    "expo-linear-gradient": "~14.1.5",
+    "expo-location": "~18.1.6",
+    "expo-navigation-bar": "~4.2.7",
+    "expo-splash-screen": "~0.30.9",
+    "expo-status-bar": "~2.2.3",
+    "expo-system-ui": "~5.0.10",
+    "expo-updates": "~0.28.17",
+    "expo-video": "~2.2.2",
+    "expo-video-thumbnails": "~9.1.3",
+    "firebase": "^11.10.0",
+    "glob": "^11.0.3",
+    "lodash": "^4.17.21",
+    "lottie-react-native": "7.2.2",
+    "moti": "^0.30.0",
+    "react": "19.0.0",
+    "react-datepicker": "^8.3.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.5",
+    "react-native-animatable": "^1.4.0",
+    "react-native-autocomplete-input": "^5.5.6",
+    "react-native-element-dropdown": "^2.12.4",
+    "react-native-fontawesome": "^7.0.0",
+    "react-native-geocoding": "^0.5.0",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-permissions": "^5.4.0",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.1",
+    "react-native-select-dropdown": "^4.0.1",
+    "react-native-splash-screen": "^3.3.0",
+    "react-native-svg": "15.11.2",
+    "react-native-vector-icons": "^10.2.0",
+    "react-native-web": "^0.20.0",
+    "react-native-webview": "13.13.5",
+    "rimraf": "^6.0.1"
+ ```
