@@ -9,19 +9,6 @@
 2. Install the dependencies provided below.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 <!-- --------------------- -->
 ### Latest dependencies that needs to be integrated
 paste these at the dependencies bracket:

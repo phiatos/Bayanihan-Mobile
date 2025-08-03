@@ -47,13 +47,12 @@ export default StyleSheet.create({
     borderColor: '#AAA',
     borderRadius: 10,
     backgroundColor: '#fff',
-    marginBottom: 10,
   },
   errorText: {
     color: 'red',
     fontSize: 12,
     marginLeft: 10,
-    marginBottom: spacing.small,
+    marginBottom: spacing.medium,
   },
   pickerContainer: {
     borderWidth: borderWidth.thin, 
@@ -78,30 +77,35 @@ export default StyleSheet.create({
   },
   summaryTable: {
     marginBottom: 20,
-    minWidth: '100%',
   },
   summaryTableRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cell: {
-    paddingHorizontal: 10,
-    justifyContent: 'center',
   },
   summaryTableHeader: {
+    alignItems: 'left',
+    paddingVertical: 10,
+    backgroundColor: Theme.colors.primary,  
+  },
+  summaryTableHeaderCell: {
+    paddingLeft: 10,
+    color: Theme.colors.white,
     fontFamily: 'Poppins_SemiBold',
     fontSize: 12,
-    color: Theme.colors.white,
-    backgroundColor: Theme.colors.primary,
-    paddingVertical: 15,
   },
   summaryTableCell: {
-    fontFamily: 'Poppins_Regular',
-    fontSize: 12,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: Theme.colors.primary,
     flexShrink: 1,
+    flexWrap: 'wrap',
+    maxWidth: 100, 
+    textAlign: 'left',
+    fontFamily: 'Poppins_Regular',
+    paddingVertical: 5,
+    fontSize: 12,
+    
   },
   icon: {
     padding: 10,
@@ -245,39 +249,40 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_Regular',
   },
   table: {
-    borderWidth: 1,
-    borderColor: '#4059A5',
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: 'hsla(225, 44.10%, 44.90%, 0.23)',
-    borderBottomWidth: 1,
-    borderColor: '#4059A5',
-    paddingVertical: 8,
-    paddingHorizontal: 5,
-  },
-  tableHeaderCell: {
-    flex: 1,
-    textAlign: 'center',
-    color: Theme.colors.black,
-    fontFamily: 'Poppins_SemiBold',
+    marginVertical: 20,
+    
   },
   tableRow: {
     flexDirection: 'row',
+  },
+  tableHeader: {
+    textAlign: 'left',
+    // alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    backgroundColor: Theme.colors.primary,
+  },
+  tableHeaderText: {
+    fontFamily: 'Poppins_SemiBold',
+    color: Theme.colors.white,
+    fontSize: 12,
+    paddingLeft: 10
   },
   tableCell: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 14,
-    color: Theme.colors.black,
+    textAlign: 'left',
+    fontFamily: 'Poppins_Regular',
+    paddingVertical: 5,
+    fontSize: 12,
+  },
+  cell: {
+    paddingHorizontal: 10,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    maxWidth: 100, 
+
   },
   modalContent: {
     alignItems: 'center',

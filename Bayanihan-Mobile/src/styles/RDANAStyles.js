@@ -57,12 +57,6 @@ export default StyleSheet.create({
     color: 'red',
     fontSize: 12,
   },
-
-  addedItems: {
-    fontFamily: 'Poppins_Medium',
-    fontSize: 18,
-    color: '#14AEBB',
-  },
   table: {
     marginVertical: 20,
     borderTopLeftRadius: 10,

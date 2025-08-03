@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, CommonActions } from '@react-navigation/native';
-import { get, push, ref, serverTimestamp, set } from 'firebase/database';
+import { get, push, ref, set, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
+import { FlatList, Text, TouchableOpacity, View, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
@@ -19,15 +19,15 @@ const ReliefSummary = ({ route, navigation }) => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [userUid, setUserUid] = useState(null);
-  const [organizationName, setOrganizationName] = useState('[Unknown Org]'); // Changed to organizationName
+  const [volunteerOrganization, setVolunteerOrganization] = useState('[Unknown Org]');
   const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
-    const fetchOrganizationName = async () => {
-      const storedOrg = await AsyncStorage.getItem('organizationName'); // Changed to organizationName
+    const fetchVolunteerOrganization = async () => {
+      const storedOrg = await AsyncStorage.getItem('volunteerOrganization');
       if (storedOrg) {
-        setOrganizationName(storedOrg);
-        console.log('Organization name loaded from storage:', storedOrg);
+        setVolunteerOrganization(storedOrg);
+        console.log('Volunteer organization loaded from storage:', storedOrg);
       }
 
       console.log('Setting up auth state listener...');
@@ -40,13 +40,13 @@ const ReliefSummary = ({ route, navigation }) => {
             get(userRef)
               .then((snapshot) => {
                 const userData = snapshot.val();
-                if (userData && userData.organization) { // Changed to organization
-                  setOrganizationName(userData.organization);
-                  AsyncStorage.setItem('organizationName', userData.organization); // Changed to organizationName
-                  console.log('Organization name fetched:', userData.organization);
+                if (userData && userData.organization) {
+                  setVolunteerOrganization(userData.organization);
+                  AsyncStorage.setItem('volunteerOrganization', userData.organization);
+                  console.log('Volunteer organization fetched:', userData.organization);
                 } else {
                   console.warn('User data or organization not found for UID:', user.uid);
-                  setErrorMessage('Organization name not found. Please contact support.');
+                  setErrorMessage('Volunteer organization not found. Please contact support.');
                   setModalVisible(true);
                 }
               })
@@ -71,7 +71,7 @@ const ReliefSummary = ({ route, navigation }) => {
       return () => unsubscribe();
     };
 
-    fetchOrganizationName(); // Changed function name
+    fetchVolunteerOrganization();
   }, []);
 
   const handleSubmit = () => {
@@ -82,22 +82,84 @@ const ReliefSummary = ({ route, navigation }) => {
       return;
     }
 
+    const contactPerson = reportData.contactPerson?.trim();
+    const contactNumber = reportData.contactNumber?.trim();
+    const email = reportData.email?.trim();
+    const address = reportData.address?.trim();
+    const city = reportData.city?.trim();
+    const donationCategory = reportData.donationCategory;
+
+    // Validation
+    if (!contactPerson) {
+      console.log('Validation failed: Contact person is empty');
+      setErrorMessage('Please enter the contact person’s name.');
+      setModalVisible(true);
+      return;
+    }
+
+    if (!contactNumber || !/^\d{10,}$/.test(contactNumber)) {
+      console.log('Validation failed: Invalid contact number', { contactNumber });
+      setErrorMessage('Please enter a valid contact number (at least 10 digits).');
+      setModalVisible(true);
+      return;
+    }
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      console.log('Validation failed: Invalid email', { email });
+      setErrorMessage('Please enter a valid email address.');
+      setModalVisible(true);
+      return;
+    }
+
+    if (!address) {
+      console.log('Validation failed: Address is empty');
+      setErrorMessage('Please enter the drop-off address.');
+      setModalVisible(true);
+      return;
+    }
+
+    if (!city) {
+      console.log('Validation failed: City is empty');
+      setErrorMessage('Please enter the city.');
+      setModalVisible(true);
+      return;
+    }
+
+    if (!donationCategory) {
+      console.log('Validation failed: Donation category not selected');
+      setErrorMessage('Please select a donation category.');
+      setModalVisible(true);
+      return;
+    }
+
+    if (addedItems.length === 0) {
+      console.log('Validation failed: No items added');
+      setErrorMessage('Please add at least one item before proceeding.');
+      setModalVisible(true);
+      return;
+    }
+
     try {
-      console.log('serverTimestamp:', serverTimestamp);
+      // Verify serverTimestamp is available
+      if (!serverTimestamp) {
+        throw new Error('serverTimestamp is not available. Check Firebase SDK import.');
+      }
+
+      console.log('Preparing to submit request to Firebase');
       const newRequest = {
-        contactPerson: reportData.contactPerson,
-        contactNumber: reportData.contactNumber,
-        email: reportData.email,
-        address: reportData.address,
-        city: reportData.city,
-        category: reportData.donationCategory,
-        organizationName, // Changed to organizationName
+        contactPerson,
+        contactNumber,
+        email,
+        address,
+        city,
+        category: donationCategory,
+        volunteerOrganization,
         userUid,
         items: addedItems.map((item) => ({
           name: item.itemName,
           quantity: item.quantity,
           notes: item.notes || '',
-          category: item.donationCategory || reportData.donationCategory,
+          category: item.donationCategory || donationCategory,
         })),
         timestamp: serverTimestamp(),
       };
@@ -134,9 +196,7 @@ const ReliefSummary = ({ route, navigation }) => {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [
-            { name: 'Volunteer Dashboard' },
-          ],
+          routes: [{ name: 'Volunteer Dashboard' }],
         })
       );
     } else {
@@ -173,10 +233,20 @@ const ReliefSummary = ({ route, navigation }) => {
 
   const renderItem = ({ item, index }) => (
     <View style={styles.summaryTableRow}>
-      <Text style={styles.summaryTableCell}>{item.itemName || 'N/A'}</Text>
-      <Text style={styles.summaryTableCell}>{item.quantity || '0'}</Text>
-      <Text style={styles.summaryTableCell}>{item.notes || 'None'}</Text>
-      <View style={styles.summaryTableCell}>
+      <Text style={[styles.summaryTableCell, { minWidth: 100 }]}>
+        {item.itemName || 'N/A'}
+      </Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 100 }]}>
+        {item.quantity || '0'}
+      </Text>
+      <Text
+        style={[styles.summaryTableCell, { minWidth: 150, flex: 1 }]}
+        numberOfLines={100}
+        ellipsizeMode="tail"
+      >
+        {item.notes || 'None'}
+      </Text>
+      <View style={[styles.summaryTableCell, { minWidth: 100 }]}>
         <TouchableOpacity onPress={() => handleDelete(index)}>
           <Ionicons name="trash-outline" size={20} color="#FF0000" />
         </TouchableOpacity>
@@ -189,7 +259,6 @@ const ReliefSummary = ({ route, navigation }) => {
   return (
     <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
@@ -214,32 +283,41 @@ const ReliefSummary = ({ route, navigation }) => {
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
-        <View style={GlobalStyles.form}>
-          <Text style={GlobalStyles.subheader}>Summary</Text>
-          <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
-          <View style={GlobalStyles.summarySection}>
-            <Text style={GlobalStyles.summarySectionTitle}>Contact Information</Text>
-                {['contactPerson', 'contactNumber', 'email', 'address', 'city', 'donationCategory'].map(
-                  (field) => (
-                    <View key={field} style={styles.fieldContainer}>
-                      <Text style={styles.label}>{formatLabel(field)}:</Text>
-                      <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
-                    </View>
-                  )
-                )}
-              </View>
+          <View style={GlobalStyles.form}>
+            <Text style={GlobalStyles.subheader}>Summary</Text>
+            <Text style={GlobalStyles.organizationName}>{volunteerOrganization}</Text>
+            <View style={GlobalStyles.summarySection}>
+              <Text style={GlobalStyles.summarySectionTitle}>Contact Information</Text>
+              {['contactPerson', 'contactNumber', 'email', 'address', 'city', 'donationCategory'].map(
+                (field) => (
+                  <View key={field} style={styles.fieldContainer}>
+                    <Text style={styles.label}>{formatLabel(field)}:</Text>
+                    <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+                  </View>
+                )
+              )}
+            </View>
 
-              <View style={GlobalStyles.summarySection}>
-                <Text style={GlobalStyles.summarySectionTitle}>Requested Items</Text>
-                {addedItems.length === 0 ? (
-                  <Text style={styles.value}>No items added yet.</Text>
-                ) : (
+            <View style={GlobalStyles.summarySection}>
+              <Text style={GlobalStyles.summarySectionTitle}>Requested Items</Text>
+              {addedItems.length === 0 ? (
+                <Text style={styles.value}>No items added yet.</Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
                   <View style={styles.summaryTable}>
-                    <View style={styles.summaryTableHeader}>
-                      <Text style={styles.tableHeaderCell}>Item Name</Text>
-                      <Text style={styles.tableHeaderCell}>Quantity</Text>
-                      <Text style={styles.tableHeaderCell}>Notes</Text>
-                      <Text style={styles.tableHeaderCell}>Actions</Text>
+                    <View style={styles.summaryTableRow}>
+                      <View style={[styles.summaryTableHeader, { minWidth: 100, borderTopLeftRadius: 10 }]}>
+                        <Text style={styles.summaryTableHeaderCell}>Item Name</Text>
+                      </View>
+                      <View style={[styles.summaryTableHeader, { minWidth: 100 }]}>
+                        <Text style={styles.summaryTableHeaderCell}>Quantity</Text>
+                      </View>
+                      <View style={[styles.summaryTableHeader, { minWidth: 150, flex: 1 }]}>
+                        <Text style={styles.summaryTableHeaderCell}>Notes</Text>
+                      </View>
+                      <View style={[styles.summaryTableHeader, { minWidth: 100, borderTopRightRadius: 10 }]}>
+                        <Text style={styles.summaryTableHeaderCell}>Actions</Text>
+                      </View>
                     </View>
                     <FlatList
                       data={addedItems}
@@ -248,9 +326,10 @@ const ReliefSummary = ({ route, navigation }) => {
                       scrollEnabled={false}
                     />
                   </View>
-                )}
-              </View>
-               <View style={GlobalStyles.finalButtonContainer}>
+                </ScrollView>
+              )}
+            </View>
+            <View style={GlobalStyles.finalButtonContainer}>
               <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack}>
                 <Text style={GlobalStyles.backButtonText}>Back</Text>
               </TouchableOpacity>
@@ -258,9 +337,9 @@ const ReliefSummary = ({ route, navigation }) => {
                 <Text style={GlobalStyles.submitButtonText}>Submit</Text>
               </TouchableOpacity>
             </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <CustomModal
         visible={modalVisible}

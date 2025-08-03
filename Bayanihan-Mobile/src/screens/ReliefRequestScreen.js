@@ -603,23 +603,23 @@ const ReliefRequestScreen = ({ navigation, route }) => {
             <View >
               <Text style={styles.addedItems}>Added Items:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-              <View style={styles.table}>
+              <View style={[styles.table]}>
                 {/* Table Header */}
                 <View style={styles.tableRow}>
-                  <View style={[styles.cell, { flex: 1, borderTopLeftRadius: 10 }]}>
-                    <Text style={styles.tableHeader}>No.</Text>
+                  <View style={[styles.tableHeader, {minWidth:100, borderTopLeftRadius: 10}]}>
+                    <Text style={styles.tableHeaderText}>No.</Text>
                   </View>
-                  <View style={[styles.cell, { flex: 3 }]}>
-                    <Text style={styles.tableHeader}>Item</Text>
+                  <View style={[styles.tableHeader, {minWidth:100}]}>
+                    <Text style={styles.tableHeaderText}>Item</Text>
                   </View>
-                  <View style={[styles.cell, { flex: 2 }]}>
-                    <Text style={styles.tableHeader}>Quantity</Text>
+                  <View style={[styles.tableHeader, {minWidth:100 }]}>
+                    <Text style={styles.tableHeaderText}>Quantity</Text>
                   </View>
-                  <View style={[styles.cell, { flex: 3 }]}>
-                    <Text style={styles.tableHeader}>Notes</Text>
+                  <View style={[styles.tableHeader, {minWidth:150, flex: 1 }]}>
+                    <Text style={styles.tableHeaderText}>Notes</Text>
                   </View>
-                  <View style={[styles.cell, { flex: 1, borderTopRightRadius: 10 }]}>
-                    <Text style={styles.tableHeader}>Actions</Text>
+                  <View style={[styles.tableHeader, {minWidth:100, borderTopRightRadius: 10}]}>
+                    <Text style={styles.tableHeaderText}>Actions</Text>
                   </View>
                 </View>
 
@@ -630,19 +630,23 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                   nestedScrollEnabled
                   renderItem={({ item, index }) => (
                     <View style={styles.tableRow}>
-                      <View style={[styles.cell, { flex: 1 }]}>
+                      <View style={[styles.cell, { minWidth:100 }]}>
                         <Text style={styles.tableCell}>{index + 1}</Text>
                       </View>
-                      <View style={[styles.cell, { flex: 3 }]}>
+                      <View style={[styles.cell, { minWidth:100 }]}>
                         <Text style={styles.tableCell}>{item.itemName}</Text>
                       </View>
-                      <View style={[styles.cell, { flex: 2 }]}>
+                      <View style={[styles.cell, { minWidth:100 }]}>
                         <Text style={styles.tableCell}>{item.quantity}</Text>
                       </View>
-                      <View style={[styles.cell, { flex: 3 }]}>
-                        <Text style={styles.tableCell}>{item.notes || 'None'}</Text>
+                      <View style={[styles.cell, { minWidth:150, flex: 1 }]}>
+                        <Text
+                            style={styles.tableCell}
+                            numberOfLines={100}
+                            ellipsizeMode="tail">
+                          {item.notes || 'None'}</Text>
                       </View>
-                      <View style={[styles.cell, { flex: 1 }]}>
+                      <View style={[styles.cell, { minWidth:100, alignContent: 'center', }]}>
                         <TouchableOpacity onPress={() => handleDeleteItem(index)}>
                           <Ionicons name="trash-outline" size={20} color="#FF0000" />
                         </TouchableOpacity>

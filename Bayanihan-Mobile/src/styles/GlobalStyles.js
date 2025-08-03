@@ -70,7 +70,7 @@ export default StyleSheet.create({
     color: Theme.colors.primary
   },
   headerTitle: {
-    color:  Theme.colors.accent,
+    color:  Theme.colors.primary,
     fontSize: 20,
     fontFamily: 'Poppins_SemiBold', 
     textAlign: 'center',
@@ -127,6 +127,11 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_Regular',
     fontSize: 14,
     color: Theme.colors.black,
+  },
+    errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginLeft: 10,
   },
    imageUpload: {
     borderWidth: 1,
