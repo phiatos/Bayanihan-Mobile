@@ -22,7 +22,7 @@ import { AuthContext } from '../context/AuthContext';
 import CustomDrawer from '../components/CustomDrawer';
 import CreatePost from '../screens/CreatePost';
 import TransactionScreen from '../screens/TransactionScreen';
-
+import TransactionDetailsScreen from '../screens/TransactionDetailsScreen';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -64,7 +64,14 @@ const CommunityBoardStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="CommunityBoard" component={CommunityBoard} />
     <Stack.Screen name="CreatePost" component={CreatePost} />
-    {/* <Stack.Screen name="ImageEditor" component={ImageEditor} /> */}
+  </Stack.Navigator>
+);
+
+// Transaction Stack
+const TransactionStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="TransactionScreen" component={TransactionScreen} />
+    <Stack.Screen name="TransactionDetailsScreen" component={TransactionDetailsScreen} />
   </Stack.Navigator>
 );
 
@@ -117,9 +124,8 @@ const AppStack = () => {
     return () => clearTimeout(timeout);
   };
 
-
   useEffect(() => {
-    return resetInactivityTimer({ navigate: () => {} }); // Initial call, placeholder navigation
+    return resetInactivityTimer({ navigate: () => {} });
   }, []);
 
   return (
@@ -213,9 +219,9 @@ const AppStack = () => {
           ),
         }}
       />
-    <Drawer.Screen
+      <Drawer.Screen
         name="Transactions History"
-        component={TransactionScreen}
+        component={TransactionStack}
         options={{
           drawerIcon: ({ color }) => (
             <Ionicons name="file-tray-stacked" size={22} color={color} />

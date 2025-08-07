@@ -366,7 +366,7 @@ const CallForDonations = () => {
   };
 
   const renderLabel = (label, isRequired) => (
-    <Text style={styles.formTitle}>
+    <Text style={GlobalStyles.formTitle}>
       {label}
       {isRequired && <Text style={{ color: 'red' }}>*</Text>}
     </Text>
@@ -392,32 +392,32 @@ const CallForDonations = () => {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1, marginTop: 80 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
           contentContainerStyle={[styles.scrollViewContent]}
           scrollEnabled={true}
-          keyboardShouldPersistTaps="always"
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.form}>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Donation Details</Text>
+          <View style={GlobalStyles.form}>
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>Donation Details</Text>
 
               {renderLabel('Donation Drive', true)}
               <TextInput
-                style={[styles.input, errors.donationDrive && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.donationDrive && styles.requiredInput]}
                 placeholder="Donation Drive"
                 onChangeText={(val) => handleChange('donationDrive', val)}
                 value={formData.donationDrive}
                 autoComplete="off"
               />
               {errors.donationDrive && (
-                <Text style={styles.errorText}>{errors.donationDrive}</Text>
+                <Text style={GlobalStyles.errorText}>{errors.donationDrive}</Text>
               )}
 
               {renderLabel('Contact Person', true)}
               <TextInput
-                style={[styles.input, errors.contactPerson && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.contactPerson && styles.requiredInput]}
                 placeholder="Contact Name"
                 onChangeText={(val) => handleChange('contactPerson', val)}
                 value={formData.contactPerson}
@@ -425,12 +425,12 @@ const CallForDonations = () => {
                 textContentType="name"
               />
               {errors.contactPerson && (
-                <Text style={styles.errorText}>{errors.contactPerson}</Text>
+                <Text style={GlobalStyles.errorText}>{errors.contactPerson}</Text>
               )}
 
               {renderLabel('Contact Number', true)}
               <TextInput
-                style={[styles.input, errors.contactNumber && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.contactNumber && styles.requiredInput]}
                 placeholder="Contact Number"
                 onChangeText={(val) => handleChange('contactNumber', val)}
                 value={formData.contactNumber}
@@ -439,12 +439,12 @@ const CallForDonations = () => {
                 textContentType="telephoneNumber"
               />
               {errors.contactNumber && (
-                <Text style={styles.errorText}>{errors.contactNumber}</Text>
+                <Text style={GlobalStyles.errorText}>{errors.contactNumber}</Text>
               )}
 
               {renderLabel('Account Number', true)}
               <TextInput
-                style={[styles.input, errors.accountNumber && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.accountNumber && styles.requiredInput]}
                 placeholder="Account Number"
                 onChangeText={(val) => handleChange('accountNumber', val)}
                 value={formData.accountNumber}
@@ -452,12 +452,12 @@ const CallForDonations = () => {
                 autoComplete="off"
               />
               {errors.accountNumber && (
-                <Text style={styles.errorText}>{errors.accountNumber}</Text>
+                <Text style={GlobalStyles.errorText}>{errors.accountNumber}</Text>
               )}
 
               {renderLabel('Account Name', true)}
               <TextInput
-                style={[styles.input, errors.accountName && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.accountName && styles.requiredInput]}
                 placeholder="Account Name"
                 onChangeText={(val) => handleChange('accountName', val)}
                 value={formData.accountName}
@@ -465,14 +465,14 @@ const CallForDonations = () => {
                 textContentType="name"
               />
               {errors.accountName && (
-                <Text style={styles.errorText}>{errors.accountName}</Text>
+                <Text style={GlobalStyles.errorText}>{errors.accountName}</Text>
               )}
 
               {renderLabel('Region', true)}
               <View style={{ position: 'relative' }}>
                 <TextInput
                   ref={regionInputRef}
-                  style={[styles.input, errors.region && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.region && styles.requiredInput]}
                   placeholder="Enter or Choose Region"
                   onChangeText={(val) => handleChange('region', val)}
                   value={formData.region}
@@ -498,18 +498,18 @@ const CallForDonations = () => {
                   </View>
                 )}
                 {isRegionDropdownVisible && filteredRegions.length === 0 && (
-                  <Text style={styles.errorText}>No regions found</Text>
+                  <Text style={GlobalStyles.errorText}>No regions found</Text>
                 )}
               </View>
               {errors.region && (
-                <Text style={styles.errorText}>{errors.region}</Text>
+                <Text style={GlobalStyles.errorText}>{errors.region}</Text>
               )}
 
               {renderLabel('Province', true)}
               <View style={{ position: 'relative' }}>
                 <TextInput
                   ref={provinceInputRef}
-                  style={[styles.input, errors.province && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.province && styles.requiredInput]}
                   placeholder="Enter or Select Province"
                   onChangeText={(val) => handleChange('province', val)}
                   value={formData.province}
@@ -535,18 +535,18 @@ const CallForDonations = () => {
                   </View>
                 )}
                 {isProvinceDropdownVisible && filteredProvinces.length === 0 && (
-                  <Text style={styles.errorText}>No provinces found</Text>
+                  <Text style={GlobalStyles.errorText}>No provinces found</Text>
                 )}
               </View>
               {errors.province && (
-                <Text style={styles.errorText}>{errors.province}</Text>
+                <Text style={GlobalStyles.errorText}>{errors.province}</Text>
               )}
 
               {renderLabel('City/Municipality', true)}
               <View style={{ position: 'relative' }}>
                 <TextInput
                   ref={cityInputRef}
-                  style={[styles.input, errors.city && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.city && styles.requiredInput]}
                   placeholder="Enter or Select City/Municipality"
                   onChangeText={(val) => handleChange('city', val)}
                   value={formData.city}
@@ -572,18 +572,18 @@ const CallForDonations = () => {
                   </View>
                 )}
                 {isCityDropdownVisible && filteredCities.length === 0 && (
-                  <Text style={styles.errorText}>No cities found</Text>
+                  <Text style={GlobalStyles.errorText}>No cities found</Text>
                 )}
               </View>
               {errors.city && (
-                <Text style={styles.errorText}>{errors.city}</Text>
+                <Text style={GlobalStyles.errorText}>{errors.city}</Text>
               )}
 
               {renderLabel('Barangay', true)}
               <View style={{ position: 'relative' }}>
                 <TextInput
                   ref={barangayInputRef}
-                  style={[styles.input, errors.barangay && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.barangay && styles.requiredInput]}
                   placeholder="Enter or Select Barangay"
                   onChangeText={(val) => handleChange('barangay', val)}
                   value={formData.barangay}
@@ -608,16 +608,16 @@ const CallForDonations = () => {
                   </View>
                 )}
                 {isBarangayDropdownVisible && filteredBarangays.length === 0 && (
-                  <Text style={styles.errorText}>No barangays found</Text>
+                  <Text style={GlobalStyles.errorText}>No barangays found</Text>
                 )}
               </View>
               {errors.barangay && (
-                <Text style={styles.errorText}>{errors.barangay}</Text>
+                <Text style={GlobalStyles.errorText}>{errors.barangay}</Text>
               )}
 
               {renderLabel('Blk/Lot/Unit #', true)}
               <TextInput
-                style={[styles.input, errors.street && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.street && styles.requiredInput]}
                 placeholder="(e.g. 1234 Singkamas St.)"
                 onChangeText={(val) => handleChange('street', val)}
                 value={formData.street}
@@ -625,12 +625,12 @@ const CallForDonations = () => {
                 textContentType="streetAddressLine1"
               />
               {errors.street && (
-                <Text style={styles.errorText}>{errors.street}</Text>
+                <Text style={GlobalStyles.errorText}>{errors.street}</Text>
               )}
 
               {renderLabel('Facebook Link', false)}
               <TextInput
-                style={[styles.input, errors.facebookLink && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.facebookLink && styles.requiredInput]}
                 placeholder="Facebook Link"
                 onChangeText={(val) => handleChange('facebookLink', val)}
                 value={formData.facebookLink}
@@ -639,7 +639,7 @@ const CallForDonations = () => {
                 textContentType="URL"
               />
               {errors.facebookLink && (
-                <Text style={styles.errorText}>{errors.facebookLink}</Text>
+                <Text style={GlobalStyles.errorText}>{errors.facebookLink}</Text>
               )}
 
               {renderLabel('Upload Donation Image', false)}

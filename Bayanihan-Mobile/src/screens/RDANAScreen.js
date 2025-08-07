@@ -494,7 +494,7 @@ const RDANAScreen = () => {
                   onPress={() => setShowDatePicker((prev) => ({ ...prev, Date_of_Information_Gathered: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Date_of_Information_Gathered ? '#000' : '#999' }}>
-                    {reportData.Date_of_Information_Gathered || 'DD-MM-YYYY'}
+                    {reportData.Date_of_Information_Gathered || 'dd/mm/yyyy'}
                   </Text>
                   <Ionicons name="calendar" size={24} color="#00BCD4" />
                 </TouchableOpacity>
@@ -516,7 +516,7 @@ const RDANAScreen = () => {
                   onPress={() => setShowTimePicker((prev) => ({ ...prev, Time_of_Information_Gathered: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Time_of_Information_Gathered ? '#000' : '#999' }}>
-                    {reportData.Time_of_Information_Gathered || 'HH:MM AM/PM'}
+                    {reportData.Time_of_Information_Gathered || '--:-- --'}
                   </Text>
                   <Ionicons name="time" size={24} color="#00BCD4" />
                 </TouchableOpacity>
@@ -616,7 +616,7 @@ const RDANAScreen = () => {
                   onPress={() => setShowDatePicker((prev) => ({ ...prev, Date_of_Occurrence: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Date_of_Occurrence ? '#000' : '#999' }}>
-                    {reportData.Date_of_Occurrence || 'DD-MM-YYYY'}
+                    {reportData.Date_of_Occurrence || 'dd/mm/yyyy'}
                   </Text>
                   <Ionicons name="calendar" size={24} color="#00BCD4" />
                 </TouchableOpacity>
@@ -638,7 +638,7 @@ const RDANAScreen = () => {
                   onPress={() => setShowTimePicker((prev) => ({ ...prev, Time_of_Occurrence: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Time_of_Occurrence ? '#000' : '#999' }}>
-                    {reportData.Time_of_Occurrence || 'HH:MM AM/PM'}
+                    {reportData.Time_of_Occurrence || '--:-- --'}
                   </Text>
                   <Ionicons name="time" size={24} color="#00BCD4" />
                 </TouchableOpacity>

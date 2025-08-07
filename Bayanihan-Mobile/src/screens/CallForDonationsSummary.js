@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
-import { ref as databaseRef, push, get } from 'firebase/database';
+import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import * as FileSystem from 'expo-file-system';
@@ -10,6 +10,8 @@ import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/CallForDonationsStyles';
 import { LinearGradient } from 'expo-linear-gradient';
+import { logActivity } from '../components/logActivity';
+import { logSubmission } from '../components/logSubmission';
 
 const CallForDonationsSummary = () => {
   const route = useRoute();
@@ -87,7 +89,7 @@ const CallForDonationsSummary = () => {
     }
   };
 
-  const handleSubmit = async () => {
+    const handleSubmit = async () => {
     if (!auth.currentUser) {
       console.error('No authenticated user found');
       setErrorMessage('Please log in to submit a donation.');
@@ -105,6 +107,7 @@ const CallForDonationsSummary = () => {
 
     try {
       console.log('Submitting donation with formData:', formData, 'and image URI:', image);
+      console.log('Database object:', database); // Add this to verify database
       let imageBase64 = '';
       if (image) {
         imageBase64 = await getBase64Image(image);
@@ -136,15 +139,21 @@ const CallForDonationsSummary = () => {
         image: imageBase64 || '',
         status: 'Pending',
         userUid: userUid,
-        timestamp: Date.now(),
+        timestamp: serverTimestamp(),
       };
 
-      if (!database || typeof databaseRef !== 'function') {
+      console.log('New donation object:', newDonation); // Log the donation object
+      if (!database) {
         throw new Error('Database reference is not available');
       }
 
-      const donationRef = databaseRef(database, 'callfordonation');
+      console.log('Creating database reference for callfordonation');
+      const donationRef = ref(database, 'callfordonation');
+      const newDonationRef = push(donationRef); // Generate submissionId
+      const submissionId = newDonationRef.key;
       await push(donationRef, newDonation);
+      await logActivity('Submitted a donation', submissionId);
+      await logSubmission('callfordonation', newDonation, submissionId);
       console.log('Donation saved successfully:', newDonation);
       setErrorMessage(null);
       setModalVisible(true);
@@ -320,4 +329,4 @@ const borderWidth = {
   thick: 3,
 };
 
-export default CallForDonationsSummary;
+export default CallForDonationsSummary; 

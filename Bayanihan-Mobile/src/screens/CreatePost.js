@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, ScrollView, Image, StatusBar, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, ScrollView, Image, StatusBar, SafeAreaView, ToastAndroid } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { ref as dbRef, push, set, update, onValue } from 'firebase/database';
+import { ref, push, set, update, onValue, serverTimestamp } from 'firebase/database';
 import { auth, database, storage } from '../configuration/firebaseConfig';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -16,10 +16,8 @@ import Theme from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import styles from '../styles/CreatePostStyles';
-
-// Debug ImagePicker module
-// console.log('ImagePicker:', ImagePicker);
-// console.log('ImagePicker.MediaTypeOptions:', ImagePicker.MediaTypeOptions);
+import { logActivity } from '../components/logActivity';
+import { logSubmission } from '../components/logSubmission';
 
 const CreatePost = () => {
   const navigation = useNavigation();
@@ -89,7 +87,7 @@ const CreatePost = () => {
 
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
+          allowsEditing: false, // Disable built-in cropping to preserve original dimensions
           allowsMultipleSelection: false,
           quality: 0.8,
           exif: false,
@@ -119,38 +117,32 @@ const CreatePost = () => {
               continue;
             }
 
-            // Get image dimensions for square crop
-            const { width, height } = await new Promise((resolve, reject) => {
-              Image.getSize(uri, (width, height) => resolve({ width, height }), reject);
-            });
-
-            // Calculate square crop dimensions
-            const cropSize = Math.min(width, height);
-            const originX = (width - cropSize) / 2;
-            const originY = (height - cropSize) / 2;
-
-            // Apply final square crop
+            // Compress image without cropping
             try {
               const manipResult = await ImageManipulator.manipulateAsync(
                 uri,
-                [{ crop: { originX, originY, width: cropSize, height: cropSize } }],
+                [], // No transformations (e.g., cropping)
                 { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
               );
-              const mimePrefix = 'data:image/jpeg;base64,';
+              // Write base64 to a temporary file
+              const tempUri = `${FileSystem.cacheDirectory}${Date.now()}_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+              await FileSystem.writeAsStringAsync(tempUri, manipResult.base64, {
+                encoding: FileSystem.EncodingType.Base64,
+              });
               newMedia.push({
-                uri: mimePrefix + manipResult.base64,
+                uri: tempUri,
                 name,
                 mimeType: 'image/jpeg',
               });
             } catch (error) {
-              console.error(`Error cropping image ${name}:`, error);
-              Alert.alert('Error', `Failed to crop image "${name}": ${error.message}`);
+              console.error(`Error compressing image ${name}:`, error);
+              Alert.alert('Error', `Failed to compress image "${name}": ${error.message}`);
               continue;
             }
           }
           setMedia(newMedia);
           // Prompt to add more images
-          if (newMedia.length < 10) { // Arbitrary limit to prevent excessive picks
+          if (newMedia.length < 10) {
             Alert.alert('Add More?', 'Would you like to add another image?', [
               { text: 'No', style: 'cancel' },
               { text: 'Yes', onPress: pickMedia },
@@ -230,10 +222,10 @@ const CreatePost = () => {
       const hasPermission = await requestPermissions();
       if (!hasPermission) return;
 
-      // Use expo-image-picker for additional cropping
+      // Allow user to manually crop the image
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+        allowsEditing: true, // Enable manual cropping
         allowsMultipleSelection: false,
         quality: 0.8,
         exif: false,
@@ -255,26 +247,22 @@ const CreatePost = () => {
           return;
         }
 
-        // Get image dimensions for square crop
-        const { width, height } = await new Promise((resolve, reject) => {
-          Image.getSize(uri, (width, height) => resolve({ width, height }), reject);
-        });
-
-        // Calculate square crop dimensions
-        const cropSize = Math.min(width, height);
-        const originX = (width - cropSize) / 2;
-        const originY = (height - cropSize) / 2;
-
-        // Apply final square crop
+        // Compress the cropped image
         const manipResult = await ImageManipulator.manipulateAsync(
           uri,
-          [{ crop: { originX, originY, width: cropSize, height: cropSize } }],
+          [], // No additional transformations (user already cropped)
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
         );
 
+        // Write base64 to a temporary file
+        const tempUri = `${FileSystem.cacheDirectory}${Date.now()}_${image.name}`;
+        await FileSystem.writeAsStringAsync(tempUri, manipResult.base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
         const newMedia = [...media];
         newMedia[index] = {
-          uri: 'data:image/jpeg;base64,' + manipResult.base64,
+          uri: tempUri,
           name: image.name,
           mimeType: 'image/jpeg',
         };
@@ -296,20 +284,33 @@ const CreatePost = () => {
   const uploadMedia = async (file, path, retries = 3) => {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        const fileInfo = await FileSystem.getInfoAsync(file.uri);
-        if (!fileInfo.exists || !fileInfo.size) {
-          throw new Error(`File does not exist or is empty at URI: ${file.uri}`);
+        let uri = file.uri;
+
+        // Handle base64 data URI for images
+        if (file.uri.startsWith('data:image/')) {
+          const base64String = file.uri.split(',')[1]; // Remove the 'data:image/jpeg;base64,' prefix
+          // Write base64 data to a temporary file
+          uri = `${FileSystem.cacheDirectory}${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          await FileSystem.writeAsStringAsync(uri, base64String, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
         }
 
-        const response = await fetch(file.uri);
-        const blob = await response.blob();
-
-        if (!blob.size) {
-          throw new Error('Blob is empty');
+        // Verify file accessibility
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        if (!fileInfo.exists || !fileInfo.size) {
+          throw new Error(`File does not exist or is empty at URI: ${uri}`);
         }
 
         if (!storage) {
           throw new Error('Firebase Storage is not initialized.');
+        }
+
+        const response = await fetch(uri);
+        const blob = await response.blob();
+
+        if (!blob.size) {
+          throw new Error('Blob is empty');
         }
 
         const storageReference = storageRef(storage, path);
@@ -328,6 +329,7 @@ const CreatePost = () => {
     }
   };
 
+
   const handleSubmit = async () => {
     if (!auth || !auth.currentUser) {
       console.error(`No authenticated user or auth not initialized`);
@@ -336,8 +338,9 @@ const CreatePost = () => {
     }
 
     if (!title.trim() || !content.trim()) {
-      console.error(`Missing title or content`);
-      Alert.alert('Error', 'Title and content are required.');
+      // console.error(`Missing title or content`);
+      // Alert.alert('Error', 'Title and content are required.');
+    ToastAndroid.show('Title and content are required.',ToastAndroid.BOTTOM);
       return;
     }
 
@@ -356,7 +359,7 @@ const CreatePost = () => {
     setIsSubmitting(true);
 
     try {
-      const userRef = dbRef(database, `users/${auth.currentUser.uid}`);
+      const userRef = ref(database, `users/${auth.currentUser.uid}`);
       const userSnapshot = await new Promise((resolve, reject) => {
         onValue(userRef, resolve, reject, { onlyOnce: true });
       });
@@ -370,7 +373,7 @@ const CreatePost = () => {
         category,
         userName,
         organization,
-        timestamp: Date.now(),
+        timestamp: serverTimestamp(),
         userId: auth.currentUser.uid,
         mediaType: postType,
       };
@@ -398,15 +401,20 @@ const CreatePost = () => {
       }
 
       if (postId) {
-        const postRef = dbRef(database, `posts/${postId}`);
-        await update(postRef, postData);
-        Alert.alert('Success', 'Post updated successfully.');
-      } else {
-        const postsRef = dbRef(database, 'posts');
-        const newPostRef = push(postsRef);
-        await set(newPostRef, postData);
-        Alert.alert('Success', 'Post created successfully.');
-      }
+            const postRef = ref(database, `posts/${postId}`);
+            await update(postRef, postData);
+            await logActivity('Updated a post', postId);
+            await logSubmission('posts', postData, postId);
+            Alert.alert('Success', 'Post updated successfully.');
+          } else {
+            const postsRef = ref(database, 'posts');
+            const newPostRef = push(postsRef);
+            const submissionId = newPostRef.key;
+            await set(newPostRef, postData);
+            await logActivity(`Created a new post in ${category}`, submissionId);
+            await logSubmission('posts', postData, submissionId);
+            Alert.alert('Success', 'Post created successfully.');
+          }
 
       navigation.goBack();
     } catch (error) {

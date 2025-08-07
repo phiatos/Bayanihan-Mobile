@@ -11,6 +11,8 @@ import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/RDANAStyles';
 import Theme from '../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
+import { logActivity } from '../components/logActivity';
+import { logSubmission } from '../components/logSubmission';
 
 const RDANASummary = () => {
   const navigation = useNavigation();
@@ -240,7 +242,7 @@ const RDANASummary = () => {
     if (reportData.ricePacks === 'Yes') priorityNeeds.push('Rice Packs');
     if (reportData.otherNeeds) priorityNeeds.push(reportData.otherNeeds);
 
-    // Needs checklist (include all items, checked or unchecked)
+    // Needs checklist
     const needsChecklist = [
       { item: 'Relief Packs', needed: reportData.reliefPacks === 'Yes' },
       { item: 'Hot Meals', needed: reportData.hotMeals === 'Yes' },
@@ -250,7 +252,7 @@ const RDANASummary = () => {
       ...(reportData.otherNeeds ? [{ item: reportData.otherNeeds, needed: true }] : []),
     ];
 
-    // Structure status (include all entries, use 'N/A' for empty)
+    // Structure status
     const structureStatus = [
       { structure: 'Residential Houses', status: reportData.residentialhousesStatus || 'N/A' },
       { structure: 'Transportation and Mobility', status: reportData.transportationandmobilityStatus || 'N/A' },
@@ -262,7 +264,7 @@ const RDANASummary = () => {
       { structure: 'Others', status: reportData.othersStatus || 'N/A' },
     ];
 
-    // Profile data (only specific fields)
+    // Profile data
     const profile = {
       Site_Location_Address_Barangay: reportData.Site_Location_Address_Barangay || '',
       Site_Location_Address_City_Municipality: reportData.Site_Location_Address_City_Municipality || '',
@@ -276,10 +278,10 @@ const RDANASummary = () => {
       Name_of_the_Organizations_Involved: reportData.Name_of_the_Organizations_Involved || '',
       Locations_and_Areas_Affected_Barangay: reportData.Locations_and_Areas_Affected_Barangay || '',
       Locations_and_Areas_Affected_City_Municipality: reportData.Locations_and_Areas_Affected_City_Municipality || '',
-      Locations_and_Areas_Affected_Province: reportData.Locations_and_Areas_Affected_Province || ''
+      Locations_and_Areas_Affected_Province: reportData.Locations_and_Areas_Affected_Province || '',
     };
 
-    // Align with expected Firebase data structure
+    // Firebase data structure
     const reportDataForFirebase = {
       rdanaId: `RDANA-${Math.floor(100 + Math.random() * 900)}`,
       dateTime: new Date().toISOString(),
@@ -289,17 +291,17 @@ const RDANASummary = () => {
       effects: {
         affectedPopulation: affectedMunicipalities.reduce((sum, c) => sum + (parseInt(c.affected) || 0), 0).toString(),
         estQty: reportData.estQty || '',
-        familiesServed: reportData.familiesServed || ''
+        familiesServed: reportData.familiesServed || '',
       },
       needs: {
-        priority: priorityNeeds
+        priority: priorityNeeds,
       },
       needsChecklist,
       profile,
       modality: {
         Locations_and_Areas_Affected: reportData.Locations_and_Areas_Affected_Barangay || '',
         Type_of_Disaster: reportData.Type_of_Disaster || '',
-        Date_and_Time_of_Occurrence: `${reportData.Date_of_Occurrence || ''} ${reportData.Time_of_Occurrence || ''}`.trim()
+        Date_and_Time_of_Occurrence: `${reportData.Date_of_Occurrence || ''} ${reportData.Time_of_Occurrence || ''}`.trim(),
       },
       summary: reportData.summary || '',
       affectedCommunities: affectedMunicipalities.map((community) => ({
@@ -312,7 +314,7 @@ const RDANASummary = () => {
         children: community.children || '',
         women: community.women || '',
         seniors: community.seniors || '',
-        pwd: community.pwd || ''
+        pwd: community.pwd || '',
       })),
       structureStatus,
       otherNeeds: reportData.otherNeeds || '',
@@ -321,16 +323,18 @@ const RDANASummary = () => {
       familiesServed: reportData.familiesServed || '',
       userUid: user.uid,
       status: 'Submitted',
-      timestamp: serverTimestamp()
+      timestamp: serverTimestamp(),
     };
 
     console.log('Prepared report data:', JSON.stringify(reportDataForFirebase, null, 2));
 
     try {
-      const submittedRef = databaseRef(database, 'rdana/submitted');
-      console.log('Writing to Firebase at path:', submittedRef.toString());
-
-      const newReportRef = await push(submittedRef, reportDataForFirebase);
+      const submittedRef = ref(database, 'rdana/submitted');
+      const newReportRef = push(submittedRef);
+      const submissionId = newReportRef.key;
+      await push(submittedRef, reportDataForFirebase);
+      await logActivity('Submitted an RDANA Report', submissionId);
+      await logSubmission('rdana/submitted', reportDataForFirebase, submissionId);
       console.log('Report successfully saved with key:', newReportRef.key);
       setErrorMessage(null);
       setModalVisible(true);

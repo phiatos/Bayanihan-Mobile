@@ -1,133 +1,358 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, Button, Modal, ScrollView, StyleSheet, TouchableOpacity, Alert, SafeAreaView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
-import { db } from '../configuration/firebaseConfig';
-import { ref, onValue } from 'firebase/database';
-import { getAuth } from 'firebase/auth';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, SafeAreaView, StatusBar, KeyboardAvoidingView, Platform, Modal, Animated, ScrollView, Image, Dimensions } from 'react-native';
+import { database, auth } from '../configuration/firebaseConfig';
+import { ref, onValue, query, limitToLast, orderByChild, startAfter } from 'firebase/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import GlobalStyles from '../styles/GlobalStyles';
 import { Ionicons } from '@expo/vector-icons';
 import Theme from '../constants/theme';
 import { useNavigation } from '@react-navigation/native';
+import styles from '../styles/TransactionStyles';
 
-const SubmissionHistoryScreen = () => {
+
+const TransactionScreen = () => {
   const navigation = useNavigation();
   const [history, setHistory] = useState([]);
-  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [submissionData, setSubmissionData] = useState({});
+  const [imageDimensions, setImageDimensions] = useState({});
+  const [lastTimestamp, setLastTimestamp] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
-  const auth = getAuth();
+  const [selectedItem, setSelectedItem] = useState(null);
+  const fadeAnim = useState(new Animated.Value(0))[0];
+  const slideAnim = useState(new Animated.Value(100))[0];
   const user = auth.currentUser;
+  const PAGE_SIZE = 15;
+  const screenWidth = Dimensions.get('window').width;
+  const maxImageWidth = screenWidth * 0.9;
+  const maxImageHeight = 400;
 
   useEffect(() => {
-    if (user) {
-      fetchSubmissions();
-    } else {
-      Alert.alert('Error', 'Please log in to view your submission history');
+    if (!database) {
+      Alert.alert('Error', 'Firebase Realtime Database not initialized. Please check your configuration.');
+      console.error(`[${new Date().toISOString()}] Firebase Realtime Database not initialized`);
+      return;
     }
-    // Cleanup listeners on unmount
+    if (user) {
+      fetchHistory();
+      fetchSubmissionData();
+    } else {
+      Alert.alert('Error', 'Please log in to view your activity history');
+    }
     return () => {
-      // Detach listeners (handled automatically by onValue cleanup in Firebase SDK)
+      // Detach listeners
     };
   }, [user]);
 
-  const fetchSubmissions = () => {
+  const fetchHistory = useCallback(async (loadMore = false) => {
     try {
       const userId = user.uid;
-      const allSubmissions = [];
+      let activityQuery = query(
+        ref(database, `activity_log/${userId}`),
+        orderByChild('timestamp'),
+        limitToLast(PAGE_SIZE)
+      );
 
-      // Helper function to fetch from a Realtime Database path
-      const fetchFromPath = (path, useUserFilter = true) => {
-        const dbRef = ref(db, path);
-        onValue(dbRef, (snapshot) => {
-          const data = snapshot.val();
-          if (!data) return;
+      if (loadMore && lastTimestamp) {
+        activityQuery = query(
+          ref(database, `activity_log/${userId}`),
+          orderByChild('timestamp'),
+          startAfter(lastTimestamp),
+          limitToLast(PAGE_SIZE)
+        );
+      }
 
-          const submissions = Object.entries(data).map(([id, value]) => ({
-            id,
-            collection: path,
-            data: value,
-            timestamp: value.timestamp || value.createdAt || new Date().toISOString(),
-          }));
+      onValue(activityQuery, (snapshot) => {
+        const data = snapshot.val();
+        const activities = data
+          ? Object.entries(data)
+              .map(([id, activity]) => ({
+                id,
+                message: activity.message,
+                timestamp: activity.timestamp,
+                submissionId: activity.submissionId || null,
+              }))
+              .sort((a, b) => b.timestamp - a.timestamp)
+          : [];
 
-          // Filter by userId if required
-          const filteredSubmissions = useUserFilter
-            ? submissions.filter((submission) => submission.data.userId === userId)
-            : submissions;
-
-          // Update history state
-          setHistory((prev) => {
-            const otherSubmissions = prev.filter((item) => item.collection !== path);
-            const updatedSubmissions = [...otherSubmissions, ...filteredSubmissions];
-            return updatedSubmissions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-          });
-        }, (error) => {
-          Alert.alert('Error', `Failed to fetch data from ${path}: ${error.message}`);
-          console.error(error);
-        });
-      };
-
-      // Define paths and whether to filter by userId
-      const paths = [
-        { path: 'callfordonation', useUserFilter: true },
-        { path: 'posts', useUserFilter: true },
-        { path: 'rdana', useUserFilter: true },
-        { path: 'requestRelief/requests', useUserFilter: true },
-        { path: 'reports/submitted', useUserFilter: true },
-      ];
-
-      // Attach listeners to all paths
-      paths.forEach(({ path, useUserFilter }) => fetchFromPath(path, useUserFilter));
+        setHistory((prev) => (loadMore ? [...prev, ...activities] : activities));
+        setHasMore(activities.length === PAGE_SIZE);
+        if (activities.length > 0) {
+          setLastTimestamp(activities[activities.length - 1].timestamp);
+        }
+        console.log(`[${new Date().toISOString()}] Activity log fetched: ${activities.length} items, loadMore: ${loadMore}`);
+      }, { onlyOnce: true }, (error) => {
+        Alert.alert('Error', `Failed to fetch activity log: ${error.message}`);
+        console.error(`[${new Date().toISOString()}] Error fetching activity log:`, error);
+      });
     } catch (error) {
-      Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
-      console.error(error);
+      Alert.alert('Error', `Failed to fetch history: ${error.message}`);
+      console.error(`[${new Date().toISOString()}] Error in fetchHistory:`, error);
+    }
+  }, [lastTimestamp]);
+
+  const fetchSubmissionData = () => {
+    try {
+      const userId = user.uid;
+      const submissionRef = ref(database, `submission_history/${userId}`);
+      onValue(submissionRef, (snapshot) => {
+        const data = snapshot.val();
+        const submissions = data
+          ? Object.entries(data).reduce((acc, [id, submission]) => {
+              acc[submission.submissionId || id] = {
+                id,
+                collection: submission.collection,
+                data: submission.data,
+                timestamp: submission.timestamp,
+                submissionId: submission.submissionId || null,
+              };
+              return acc;
+            }, {})
+          : {};
+        setSubmissionData(submissions);
+        console.log(`[${new Date().toISOString()}] Submission history fetched: ${Object.keys(submissions).length} items`);
+      }, { onlyOnce: true }, (error) => {
+        Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
+        console.error(`[${new Date().toISOString()}] Error fetching submission history:`, error);
+      });
+    } catch (error) {
+      Alert.alert('Error', `Failed to fetch submission data: ${error.message}`);
+      console.error(`[${new Date().toISOString()}] Error in fetchSubmissionData:`, error);
     }
   };
 
-  const renderSubmission = ({ item }) => (
-    <View style={styles.submissionItem}>
-      <Text style={styles.submissionText}>
-        {item.collection} - {new Date(item.timestamp).toLocaleDateString()}
-      </Text>
+  const fieldLabels = {
+    'posts.title': 'Post Title',
+    'posts.content': 'Content',
+    'posts.category': 'Category',
+    'posts.userName': 'User Name',
+    'posts.organization': 'Organization',
+    'posts.mediaType': 'Media Type',
+    'posts.mediaUrls': 'Media URLs',
+    'posts.mediaUrl': 'Media URL',
+    'posts.thumbnailUrl': 'Thumbnail URL',
+    'posts.userId': 'User ID',
+    'posts.timestamp': 'Submission Time',
+  };
+
+  const flattenObject = (obj, prefix = '', maxDepth = 2) => {
+    const result = [];
+    const images = [];
+    const flatten = (obj, prefix, depth) => {
+      Object.entries(obj).forEach(([key, value]) => {
+        const newKey = prefix ? `${prefix}.${key}` : key;
+        if (depth >= maxDepth || typeof value !== 'object' || value === null) {
+          if (key === 'mediaUrl' && typeof value === 'string' && value.startsWith('data:image')) {
+            images.push({ key: newKey, value, type: 'image' });
+          } else {
+            result.push({ key: newKey, value: Array.isArray(value) ? `${value.length} item(s)` : value || 'N/A', type: 'text' });
+          }
+        } else if (Array.isArray(value)) {
+          result.push({ key: newKey, value: `${value.length} item(s)`, type: 'text' });
+        } else {
+          flatten(value, newKey, depth + 1);
+        }
+      });
+    };
+    flatten(obj, prefix, 0);
+    return { details: result, images };
+  };
+
+  const findSubmissionData = useCallback((item) => {
+    if (!item.submissionId) {
+      const activityTime = item.timestamp;
+      return Object.values(submissionData).find((submission) => {
+        const submissionTime = submission.timestamp;
+        return Math.abs(submissionTime - activityTime) < 1000;
+      });
+    }
+    return submissionData[item.submissionId];
+  }, [submissionData]);
+
+  const getDetails = useCallback((item) => {
+    const submission = findSubmissionData(item);
+    if (!submission) {
+      return [{ key: 'Action', value: item.message, type: 'text' }];
+    }
+    const { details, images } = flattenObject(submission.data, submission.collection);
+    const detailItems = [
+      { key: 'Action', value: item.message, type: 'text' },
+      ...details.map(({ key, value, type }) => ({
+        key: fieldLabels[key] || key.split('.').pop(),
+        value,
+        type,
+      })),
+      ...images.map(({ key, value, type }) => ({
+        key: fieldLabels[key] || 'Image',
+        value,
+        type,
+      })),
+    ];
+    images.forEach(({ key, value }) => {
+      Image.getSize(
+        value,
+        (width, height) => {
+          const aspectRatio = width / height;
+          let scaledWidth = width;
+          let scaledHeight = height;
+          if (width > maxImageWidth) {
+            scaledWidth = maxImageWidth;
+            scaledHeight = maxImageWidth / aspectRatio;
+          }
+          if (scaledHeight > maxImageHeight) {
+            scaledHeight = maxImageHeight;
+            scaledWidth = maxImageHeight * aspectRatio;
+          }
+          setImageDimensions((prev) => ({
+            ...prev,
+            [key]: { width: scaledWidth, height: scaledHeight },
+          }));
+        },
+        (error) => {
+          console.error(`[${new Date().toISOString()}] Error getting image size for ${key}:`, error);
+          setImageDimensions((prev) => ({
+            ...prev,
+            [key]: { width: 200, height: 200 },
+          }));
+        }
+      );
+    });
+    return detailItems;
+  }, [submissionData]);
+
+  const openModal = (item) => {
+    setSelectedItem(item);
+    setModalVisible(true);
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeModal = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 100,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setModalVisible(false);
+      setSelectedItem(null);
+    });
+  };
+
+  const isModalAction = (message) => {
+    return (
+      message.includes('created a new post') ||
+      message.includes('edited a post') ||
+      message.includes('deleted a post') ||
+      message.includes('commented on a post')
+    );
+  };
+
+  const RenderHistoryItem = React.memo(({ item }) => (
+    <View style={styles.historyItem}>
+      <View style={styles.historyTime}>
+        <Text style={styles.historyTimeText}>{new Date(item.timestamp).toLocaleDateString()}</Text>
+      </View>
+      <View style={styles.historyMessage}>
+        <Text style={styles.historyMessageText}>{item.message}</Text>
+      </View>
       <TouchableOpacity
         style={styles.viewButton}
         onPress={() => {
-          setSelectedSubmission(item);
-          setModalVisible(true);
+          if (isModalAction(item.message)) {
+            openModal(item);
+          } else {
+            navigation.navigate('TransactionDetailsScreen', { item });
+          }
         }}
       >
         <Text style={styles.viewButtonText}>View Details</Text>
       </TouchableOpacity>
     </View>
-  );
+  ));
 
-  const renderSubmissionDetails = () => {
-    if (!selectedSubmission) return null;
-    const { data } = selectedSubmission;
-
-    const details = Object.entries(data).map(([key, value]) => (
-      <View key={key} style={styles.detailRow}>
-        <Text style={styles.detailKey}>{key}:</Text>
-        <Text style={styles.detailValue}>
-          {typeof value === 'object' ? JSON.stringify(value) : value}
-        </Text>
+  const RenderDetailItem = React.memo(({ item }) => {
+    if (item.type === 'image') {
+      const dimensions = imageDimensions[item.key] || { width: 200, height: 200 };
+      return (
+        <View style={styles.modalImageContainer}>
+          <Text style={styles.modalDetailKey}>{item.key}:</Text>
+          <Image
+            source={{ uri: item.value }}
+            style={[styles.modalImage, { width: dimensions.width, height: dimensions.height }]}
+            resizeMode="contain"
+            onError={(error) => console.error(`[${new Date().toISOString()}] Image load error:`, error)}
+          />
+        </View>
+      );
+    }
+    return (
+      <View style={styles.modalDetailRow}>
+        <Text style={styles.modalDetailKey}>{item.key}:</Text>
+        <Text style={styles.modalDetailValue}>{item.value}</Text>
       </View>
-    ));
+    );
+  });
 
+  const CustomModal = ({ visible, item, onClose }) => {
+    if (!item) return null;
+    const details = getDetails(item);
     return (
       <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        animationType="none"
+        transparent
+        visible={visible}
+        onRequestClose={onClose}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{selectedSubmission.collection}</Text>
-            <Text style={styles.modalSubtitle}>
-              Submitted on: {new Date(selectedSubmission.timestamp).toLocaleString()}
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            style={[
+              styles.modalContainer,
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            ]}
+          >
+            <Text style={styles.modalTitle}>Activity Details</Text>
+            <Text style={styles.modalText}>
+             <Text style={{fontFamily: 'Poppins_SemiBold', color:Theme.colors.accent}}>Date:</Text> {new Date(item.timestamp).toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })}  
+               <Text style={{fontFamily: 'Poppins_SemiBold', color:Theme.colors.accent}}>  Time: </Text>{new Date(item.timestamp).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true, // use false for 24-hour format
+              })}
+
             </Text>
-            <ScrollView style={styles.detailContainer}>{details}</ScrollView>
-            <Button title="Close" onPress={() => setModalVisible(false)} />
-          </View>
+            <FlatList
+              data={details}
+              renderItem={({ item }) => <RenderDetailItem item={item} />}
+              keyExtractor={item => `${item.key}-${item.type}`}
+              style={styles.modalDetailContainer}
+              ListEmptyComponent={<Text style={styles.modalText}>No details available</Text>}
+            />
+
+            <TouchableOpacity style={[GlobalStyles.backButton, {paddingVertical: 5, borderRadius: 10, marginTop: 15}]} onPress={onClose}>
+              <Text style={GlobalStyles.backButtonText}>Close</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </Modal>
     );
@@ -146,7 +371,7 @@ const SubmissionHistoryScreen = () => {
           <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
             <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Transactions History</Text>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Transaction History</Text>
         </View>
       </LinearGradient>
 
@@ -156,18 +381,29 @@ const SubmissionHistoryScreen = () => {
         keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollViewContent]}
+          contentContainerStyle={styles.scrollViewContent}
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
           <View style={GlobalStyles.form}>
             <FlatList
               data={history}
-              renderItem={renderSubmission}
-              keyExtractor={item => `${item.collection}-${item.id}`}
-              ListEmptyComponent={<Text>No submissions found</Text>}
+              renderItem={({ item }) => <RenderHistoryItem item={item} />}
+              keyExtractor={item => item.id}
+              ListEmptyComponent={<Text style={styles.noActivity}>No activities found</Text>}
+              ListFooterComponent={
+                hasMore ? (
+                  <TouchableOpacity style={GlobalStyles.button} onPress={() => fetchHistory(true)}>
+                    <Text style={GlobalStyles.buttonText}>Load More</Text>
+                  </TouchableOpacity>
+                ) : null
+              }
             />
-            {renderSubmissionDetails()}
+            <CustomModal
+              visible={modalVisible}
+              item={selectedItem}
+              onClose={closeModal}
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -175,64 +411,5 @@ const SubmissionHistoryScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  submissionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  submissionText: {
-    fontSize: 16,
-  },
-  viewButton: {
-    backgroundColor: '#007AFF',
-    padding: 8,
-    borderRadius: 5,
-  },
-  viewButtonText: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    width: '90%',
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    marginBottom: 10,
-    color: '#666',
-  },
-  detailContainer: {
-    marginBottom: 20,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    marginBottom: 5,
-  },
-  detailKey: {
-    fontWeight: 'bold',
-    width: 120,
-  },
-  detailValue: {
-    flex: 1,
-  },
-});
 
-export default SubmissionHistoryScreen;
+export default TransactionScreen;

@@ -23,40 +23,6 @@ const borderWidth = {
 };
 
 export default StyleSheet.create({
-  section: {
-    marginVertical: spacing.small,
-    marginHorizontal: spacing.medium,
-    borderWidth: borderWidth.thick,
-    borderColor: Theme.colors.primary,
-    borderRadius: borderRadius.medium,
-    padding: spacing.small,
-    backgroundColor: Theme.colors.lightBg,
-    shadowColor: Theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-
-  sectionTitle: {
-    fontSize: 18,
-    marginBottom: spacing.small,
-    color: Theme.colors.primary,
-    textAlign: 'center',
-    fontFamily: 'Poppins_SemiBold',
-  },
-
-  form: {
-    marginHorizontal: 10,
-    marginTop: 20
-  },
-
-  formTitle: {
-    fontSize: 13,
-    color: Theme.colors.primary,
-    marginBottom: 5,
-    fontFamily: 'Poppins_Bold',
-  },
 
   input: {
     borderWidth: borderWidth.thin,
@@ -87,11 +53,6 @@ export default StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#fff',
     marginBottom: 10,
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-    marginLeft: 10,
   },
   addButtonContainer: {
     flexDirection: 'row',
@@ -151,7 +112,49 @@ export default StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  
+  mediaPreviewContainer: {
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  mediaPreview: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  thumbnailPreview: {
+    width: 200, 
+    height: 200, 
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  cropButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: Theme.colors.primary,
+    padding: 5,
+    borderRadius: 5,
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 50,
+    backgroundColor: '#FF0000', // Ensure Theme.colors.error is defined, e.g., '#FF0000'
+    padding: 5,
+    borderRadius: 5,
+  },
+    imageContainer: {
+    marginTop: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  image: {
+    width: 250,
+    height: 250,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+
   // Summary
   fieldContainer: {
     marginBottom: 10,

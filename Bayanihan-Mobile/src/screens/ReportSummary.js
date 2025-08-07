@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
-import { ref as databaseRef, push, get } from 'firebase/database';
+import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
 import React, { useState, useEffect } from 'react';
 import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
@@ -9,6 +9,8 @@ import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReportSubmissionStyles';
 import { LinearGradient } from 'expo-linear-gradient';
+import { logActivity } from '../components/logActivity';
+import { logSubmission } from '../components/logSubmission';
 
 const ReportSummary = () => {
   const route = useRoute();
@@ -50,6 +52,7 @@ const ReportSummary = () => {
     fetchOrganizationName();
   }, [userUid]);
 
+
   const handleSubmit = async () => {
     if (!userUid) {
       console.error('No user UID available. Cannot submit report.');
@@ -62,8 +65,7 @@ const ReportSummary = () => {
     setIsLoading(true);
 
     try {
-      console.log('Database instance in ReportSummary:', database);
-      if (!database || typeof databaseRef !== 'function') {
+      if (!database) {
         throw new Error('Database reference is not available');
       }
 
@@ -71,7 +73,7 @@ const ReportSummary = () => {
         reportID: reportData.reportID || `REPORTS-${Math.floor(100000 + Math.random() * 900000)}`,
         AreaOfOperation: reportData.AreaOfOperation || '',
         DateOfReport: reportData.DateOfReport || '',
-        calamityArea: reportData.calamityArea || '',  
+        calamityArea: reportData.calamityArea || '',
         TimeOfIntervention: reportData.completionTimeOfIntervention || '',
         StartDate: reportData.StartDate || '',
         EndDate: reportData.EndDate || '',
@@ -86,13 +88,16 @@ const ReportSummary = () => {
         NotesAdditionalInformation: reportData.NotesAdditionalInformation || '',
         status: 'Pending',
         userUid: userUid,
-        timestamp: Date.now(),
+        timestamp: serverTimestamp(),
         organization: organizationName,
       };
 
-      // Save to reports/submitted subnode
-      const reportRef = databaseRef(database, 'reports/submitted');
+      const reportRef = ref(database, 'reports/submitted');
+      const newReportRef = push(reportRef);
+      const submissionId = newReportRef.key;
       await push(reportRef, newReport);
+      await logActivity('Submitted a report', submissionId);
+      await logSubmission('reports/submitted', newReport, submissionId);
       console.log('Report saved successfully to reports/submitted');
       setErrorMessage(null);
       setModalVisible(true);

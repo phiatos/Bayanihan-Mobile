@@ -4,7 +4,7 @@ import {
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth';
-import { get, getDatabase, ref, update } from 'firebase/database';
+import { get, getDatabase, ref, update, serverTimestamp } from 'firebase/database';
 import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -28,6 +28,9 @@ import styles from '../styles/ProfileStyles';
 import { KeyboardAvoidingView } from 'react-native';
 import CustomModal from '../components/CustomModal';
 import { LinearGradient } from 'expo-linear-gradient';
+import { v4 as uuidv4 } from 'uuid';
+import { logActivity } from '../components/logActivity';
+import { logSubmission } from '../components/logSubmission';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
@@ -416,6 +419,10 @@ const ProfileScreen = () => {
         lastPasswordChange: new Date().toISOString(),
         password_needs_reset: false,
       });
+      const submissionId = uuidv4();
+      await logActivity('User changed their password', submissionId);
+      await logSubmission('profile', { action: 'password_change', newPasswordLength: newPassword.length }, submissionId);
+
 
       setCustomModal({
         visible: true,

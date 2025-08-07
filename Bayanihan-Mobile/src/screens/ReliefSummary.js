@@ -10,6 +10,9 @@ import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReliefRequestStyles';
 import { LinearGradient } from 'expo-linear-gradient';
+import { logActivity } from '../components/logActivity';
+import { logSubmission } from '../components/logSubmission';
+
 
 const ReliefSummary = ({ route, navigation }) => {
   const { reportData: initialReportData = {}, addedItems: initialItems = [] } = route.params || {};
@@ -73,6 +76,7 @@ const ReliefSummary = ({ route, navigation }) => {
 
     fetchVolunteerOrganization();
   }, []);
+
 
   const handleSubmit = () => {
     if (!userUid) {
@@ -140,11 +144,6 @@ const ReliefSummary = ({ route, navigation }) => {
     }
 
     try {
-      // Verify serverTimestamp is available
-      if (!serverTimestamp) {
-        throw new Error('serverTimestamp is not available. Check Firebase SDK import.');
-      }
-
       console.log('Preparing to submit request to Firebase');
       const newRequest = {
         contactPerson,
@@ -165,24 +164,18 @@ const ReliefSummary = ({ route, navigation }) => {
       };
 
       console.log('Submitting request to Firebase:', newRequest);
-
       const requestRef = push(ref(database, 'requestRelief/requests'));
-      const userRequestRef = ref(database, `users/${userUid}/requests/${requestRef.key}`);
-
-      Promise.all([
+      const submissionId = requestRef.key;
+      const userRequestRef = ref(database, `users/${userUid}/requests/${submissionId}`);
+       Promise.all([
         set(requestRef, newRequest),
         set(userRequestRef, newRequest),
-      ])
-        .then(() => {
-          console.log('Data saved to Firebase successfully');
-          setErrorMessage(null);
-          setModalVisible(true);
-        })
-        .catch((error) => {
-          console.error('Failed to save data to Firebase:', error.message);
-          setErrorMessage('Failed to submit request: ' + error.message);
-          setModalVisible(true);
-        });
+        logActivity('Submitted a Relief Request', submissionId),
+        logSubmission('requestRelief/requests', newRequest, submissionId),
+      ]);
+    console.log('Data saved to Firebase successfully');
+    setErrorMessage(null);
+    setModalVisible(true);
     } catch (error) {
       console.error('Error in handleSubmit:', error.message);
       setErrorMessage('Failed to submit request: ' + error.message);
