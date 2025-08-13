@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, ToastAndroid, TouchableOpacity, View, Text } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
@@ -22,6 +22,8 @@ const CallForDonationsSummary = () => {
   const [userUid, setUserUid] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [organizationName, setOrganizationName] = useState('Loading...');
+  const [formDataState, setFormDataState] = useState(formData);
+  const [imageState, setImageState] = useState(image);
 
   useEffect(() => {
     console.log('Received params in CallForDonationsSummary:', { formData, image });
@@ -38,12 +40,12 @@ const CallForDonationsSummary = () => {
           } else {
             console.warn('No organization found for user:', user.uid);
             setOrganizationName('Unknown Organization');
-            ToastAndroid.show('No organization found in your profile. Using default name.',ToastAndroid.BOTTOM);
+            ToastAndroid.show('No organization found in your profile. Using default name.', ToastAndroid.BOTTOM);
           }
         } catch (error) {
           console.error('Error fetching organization name:', error.message);
           setOrganizationName('Unknown Organization');
-          ToastAndroid.show('Failed to fetch organization name: ' + error.message ,ToastAndroid.BOTTOM);
+          ToastAndroid.show('Failed to fetch organization name: ' + error.message, ToastAndroid.BOTTOM);
         }
       } else {
         console.warn('No user is logged in');
@@ -69,9 +71,9 @@ const CallForDonationsSummary = () => {
   };
 
   const getBase64Image = async (uri) => {
-    if (!uri) { 
+    if (!uri) {
       console.warn('No image URI provided');
-      ToastAndroid.show('No image selected. Proceeding without an image.',ToastAndroid.BOTTOM);
+      ToastAndroid.show('No image selected. Proceeding without an image.', ToastAndroid.BOTTOM);
       return '';
     }
     try {
@@ -89,7 +91,23 @@ const CallForDonationsSummary = () => {
     }
   };
 
-    const handleSubmit = async () => {
+  const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
+    try {
+      const notificationRef = databaseRef(database, 'notifications');
+      await push(notificationRef, {
+        message,
+        requestRefKey,
+        contactPerson,
+        volunteerOrganization,
+        timestamp: serverTimestamp(),
+      });
+      console.log('Admin notified successfully:', message);
+    } catch (error) {
+      console.error('Failed to notify admin:', error.message);
+    }
+  };
+
+  const handleSubmit = async () => {
     if (!auth.currentUser) {
       console.error('No authenticated user found');
       setErrorMessage('Please log in to submit a donation.');
@@ -106,11 +124,11 @@ const CallForDonationsSummary = () => {
     setIsLoading(true);
 
     try {
-      console.log('Submitting donation with formData:', formData, 'and image URI:', image);
-      console.log('Database object:', database); // Add this to verify database
+      console.log('Submitting donation with formData:', formDataState, 'and image URI:', imageState);
+      console.log('Database object:', database);
       let imageBase64 = '';
-      if (image) {
-        imageBase64 = await getBase64Image(image);
+      if (imageState) {
+        imageBase64 = await getBase64Image(imageState);
       } else {
         console.log('No image URI provided, proceeding without image');
       }
@@ -118,43 +136,53 @@ const CallForDonationsSummary = () => {
       const newDonation = {
         donationId: `DONATION-${Math.floor(100 + Math.random() * 900)}`,
         dateTime: new Date().toISOString(),
-        donationDrive: formData.donationDrive || '',
+        donationDrive: formDataState.donationDrive || '',
         contact: {
-          person: formData.contactPerson || '',
-          number: formData.contactNumber || '',
+          person: formDataState.contactPerson || '',
+          number: formDataState.contactNumber || '',
         },
         account: {
-          number: formData.accountNumber || '',
-          name: formData.accountName || '',
+          number: formDataState.accountNumber || '',
+          name: formDataState.accountName || '',
         },
         address: {
-          region: formData.region || 'N/A',
-          province: formData.province || '',
-          city: formData.city || '',
-          barangay: formData.barangay || '',
-          street: formData.street || '',
-          fullAddress: `${formData.street || ''}, ${formData.barangay || ''}, ${formData.city || ''}, ${formData.province || ''}`.trim(),
+          region: formDataState.region || 'N/A',
+          province: formDataState.province || '',
+          city: formDataState.city || '',
+          barangay: formDataState.barangay || '',
+          street: formDataState.street || '',
+          fullAddress: `${formDataState.street || ''}, ${formDataState.barangay || ''}, ${formDataState.city || ''}, ${formDataState.province || ''}`.trim(),
         },
-        facebookLink: formData.facebookLink || 'N/A',
+        facebookLink: formDataState.facebookLink || 'N/A',
         image: imageBase64 || '',
         status: 'Pending',
         userUid: userUid,
         timestamp: serverTimestamp(),
       };
 
-      console.log('New donation object:', newDonation); // Log the donation object
+      console.log('New donation object:', newDonation);
       if (!database) {
         throw new Error('Database reference is not available');
       }
 
       console.log('Creating database reference for callfordonation');
-      const donationRef = ref(database, 'callfordonation');
-      const newDonationRef = push(donationRef); // Generate submissionId
+      const donationRef = databaseRef(database, 'callfordonation');
+      const newDonationRef = push(donationRef);
       const submissionId = newDonationRef.key;
       await push(donationRef, newDonation);
+
+      // Notify admin
+      const message = `New donation request submitted by ${formDataState.contactPerson || 'Unknown'} from ${organizationName} for ${formDataState.donationDrive || 'Donation Drive'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      await notifyAdmin(message, submissionId, formDataState.contactPerson, organizationName);
+
       await logActivity('Submitted a donation', submissionId);
       await logSubmission('callfordonation', newDonation, submissionId);
       console.log('Donation saved successfully:', newDonation);
+
+      // Reset form data and image
+      setFormDataState({});
+      setImageState(null);
+
       setErrorMessage(null);
       setModalVisible(true);
     } catch (error) {
@@ -172,9 +200,7 @@ const CallForDonationsSummary = () => {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [
-            { name: 'Volunteer Dashboard' },
-          ],
+          routes: [{ name: 'Volunteer Dashboard' }],
         })
       );
     } else {
@@ -187,12 +213,12 @@ const CallForDonationsSummary = () => {
   };
 
   const handleBack = () => {
-    console.log('Navigating back to CallForDonations with formData:', formData, 'and image:', image);
-    navigation.navigate('CallforDonations', { formData, image });
+    console.log('Navigating back to CallForDonations with formData:', formDataState, 'and image:', imageState);
+    navigation.navigate('CallforDonations', { formData: formDataState, image: imageState });
   };
 
   return (
-     <SafeAreaView style={GlobalStyles.container}>
+    <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       {/* Header */}
       <LinearGradient
@@ -219,91 +245,91 @@ const CallForDonationsSummary = () => {
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
-        <View style={GlobalStyles.form}>
-          <Text style={GlobalStyles.subheader}>Summary</Text>
-          <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
-          <View style={GlobalStyles.summarySection}>
-            <Text style={GlobalStyles.summarySectionTitle}>Donation Details</Text>
-            {[
-              'donationDrive',
-              'contactPerson',
-              'contactNumber',
-              'accountNumber',
-              'accountName',
-              'province',
-              'city',
-              'barangay',
-              'street',
-              'facebookLink',
-            ].map((field) => (
-              <View key={field} style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel(field)}:</Text>
-                <Text style={styles.value}>
-                  {formData[field] || 'N/A'}
-                </Text>
+          <View style={GlobalStyles.form}>
+            <Text style={GlobalStyles.subheader}>Summary</Text>
+            <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
+            <View style={GlobalStyles.summarySection}>
+              <Text style={GlobalStyles.summarySectionTitle}>Donation Details</Text>
+              {[
+                'donationDrive',
+                'contactPerson',
+                'contactNumber',
+                'accountNumber',
+                'accountName',
+                'province',
+                'city',
+                'barangay',
+                'street',
+                'facebookLink',
+              ].map((field) => (
+                <View key={field} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{formatLabel(field)}:</Text>
+                  <Text style={styles.value}>
+                    {formDataState[field] || 'N/A'}
+                  </Text>
+                </View>
+              ))}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Donation Image:</Text>
+                {imageState ? (
+                  <Image
+                    source={{ uri: imageState }}
+                    style={styles.image}
+                    resizeMode="cover"
+                    onError={(e) => console.error('Image load error:', e.nativeEvent.error)}
+                  />
+                ) : (
+                  <Text style={styles.value}>No image uploaded</Text>
+                )}
               </View>
-            ))}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Donation Image:</Text>
-              {image ? (
-                <Image
-                  source={{ uri: image }}
-                  style={styles.image}
-                  resizeMode="cover"
-                  onError={(e) => console.error('Image load error:', e.nativeEvent.error)}
-                />
-              ) : (
-                <Text style={styles.value}>No image uploaded</Text>
-              )}
+            </View>
+            <View style={GlobalStyles.finalButtonContainer}>
+              <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack} disabled={isLoading}>
+                <Text style={GlobalStyles.backButtonText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={GlobalStyles.submitButton} onPress={handleSubmit} disabled={isLoading}>
+                <Text style={GlobalStyles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
+              </TouchableOpacity>
             </View>
           </View>
-           <View style={GlobalStyles.finalButtonContainer}>
-          <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack} disabled={isLoading}>
-            <Text style={GlobalStyles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={GlobalStyles.submitButton} onPress={handleSubmit} disabled={isLoading}>
-            <Text style={GlobalStyles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
-          </TouchableOpacity>
-        </View>
-        </View>
         </ScrollView>
-        </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
 
-        <CustomModal
-          visible={modalVisible}
-          title={errorMessage ? 'Error' : 'Success!'}
-          message={
-            <View style={styles.modalContent}>
-              {errorMessage ? (
-                <>
-                  <Ionicons
-                    name="warning-outline"
-                    size={60}
-                    color="#FF0000"
-                    style={styles.modalIcon}
-                  />
-                  <Text style={styles.modalMessage}>{errorMessage}</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={60}
-                    color={Theme.colors.primary}
-                    style={styles.modalIcon}
-                  />
-                  <Text style={styles.modalMessage}>
-                    Donation call submitted successfully!
-                  </Text>
-                </>
-              )}
-            </View>
-          }
-          onConfirm={handleConfirm}
-          onCancel={handleCancel}
-          confirmText={errorMessage ? 'Retry' : 'Proceed'}
-          showCancel={false}
-        />
+      <CustomModal
+        visible={modalVisible}
+        title={errorMessage ? 'Error' : 'Request Submitted'}
+        message={
+          <View style={styles.modalContent}>
+            {errorMessage ? (
+              <>
+                <Ionicons
+                  name="warning-outline"
+                  size={60}
+                  color="#FF0000"
+                  style={styles.modalIcon}
+                />
+                <Text style={styles.modalMessage}>{errorMessage}</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={60}
+                  color={Theme.colors.primary}
+                  style={styles.modalIcon}
+                />
+                <Text style={styles.modalMessage}>
+                  Your donation request has been successfully submitted!
+                </Text>
+              </>
+            )}
+          </View>
+        }
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        confirmText={errorMessage ? 'Retry' : 'Proceed'}
+        showCancel={false}
+      />
     </SafeAreaView>
   );
 };
@@ -329,4 +355,4 @@ const borderWidth = {
   thick: 3,
 };
 
-export default CallForDonationsSummary; 
+export default CallForDonationsSummary;

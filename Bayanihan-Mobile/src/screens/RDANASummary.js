@@ -204,6 +204,22 @@ const RDANASummary = () => {
     });
   }, [reportData]);
 
+  const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
+    try {
+      const notificationRef = databaseRef(database, 'notifications');
+      await push(notificationRef, {
+        message,
+        requestRefKey,
+        contactPerson,
+        volunteerOrganization,
+        timestamp: serverTimestamp(),
+      });
+      console.log('Admin notified successfully:', message);
+    } catch (error) {
+      console.error('Failed to notify admin:', error.message);
+    }
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     const user = auth.currentUser;
@@ -329,13 +345,23 @@ const RDANASummary = () => {
     console.log('Prepared report data:', JSON.stringify(reportDataForFirebase, null, 2));
 
     try {
-      const submittedRef = ref(database, 'rdana/submitted');
+      const submittedRef = databaseRef(database, 'rdana/submitted');
       const newReportRef = push(submittedRef);
       const submissionId = newReportRef.key;
       await push(submittedRef, reportDataForFirebase);
+
+      // Notify admin
+      const message = `New RDANA report submitted by ${reportData.Local_Authorities_Persons_Contacted_for_Information || 'Unknown'} from ${organizationName} for ${reportData.Type_of_Disaster || 'Disaster'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      await notifyAdmin(message, submissionId, reportData.Local_Authorities_Persons_Contacted_for_Information, organizationName);
+
       await logActivity('Submitted an RDANA Report', submissionId);
       await logSubmission('rdana/submitted', reportDataForFirebase, submissionId);
       console.log('Report successfully saved with key:', newReportRef.key);
+
+      // Reset form data
+      setReportData({});
+      setAffectedMunicipalities([]);
+
       setErrorMessage(null);
       setModalVisible(true);
     } catch (error) {
@@ -563,7 +589,7 @@ const RDANASummary = () => {
       </KeyboardAvoidingView>
       <CustomModal
         visible={modalVisible}
-        title={errorMessage ? 'Error' : 'Success!'}
+        title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
           <View style={styles.modalContent}>
             {errorMessage ? (
@@ -574,7 +600,7 @@ const RDANASummary = () => {
             ) : (
               <>
                 <Ionicons name="checkmark-circle" size={60} color="#00BCD4" style={styles.modalIcon} />
-                <Text style={styles.modalMessage}>Report submitted successfully!</Text>
+                <Text style={styles.modalMessage}>Your RDANA report has been successfully submitted!</Text>
               </>
             )}
           </View>

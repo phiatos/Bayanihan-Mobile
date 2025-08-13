@@ -13,7 +13,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { logActivity } from '../components/logActivity';
 import { logSubmission } from '../components/logSubmission';
 
-
 const ReliefSummary = ({ route, navigation }) => {
   const { reportData: initialReportData = {}, addedItems: initialItems = [] } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
@@ -77,8 +76,23 @@ const ReliefSummary = ({ route, navigation }) => {
     fetchVolunteerOrganization();
   }, []);
 
+  const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
+    try {
+      const notificationRef = ref(database, 'notifications');
+      await push(notificationRef, {
+        message,
+        requestRefKey,
+        contactPerson,
+        volunteerOrganization,
+        timestamp: serverTimestamp(),
+      });
+      console.log('Admin notified successfully:', message);
+    } catch (error) {
+      console.error('Failed to notify admin:', error.message);
+    }
+  };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!userUid) {
       console.error('No user UID available. Cannot submit request.');
       setErrorMessage('User not authenticated. Please log in again.');
@@ -167,15 +181,26 @@ const ReliefSummary = ({ route, navigation }) => {
       const requestRef = push(ref(database, 'requestRelief/requests'));
       const submissionId = requestRef.key;
       const userRequestRef = ref(database, `users/${userUid}/requests/${submissionId}`);
-       Promise.all([
+
+      // Notify admin
+      const message = `New relief request submitted by ${contactPerson || 'Unknown'} from ${volunteerOrganization} for ${donationCategory || 'Relief'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      await notifyAdmin(message, submissionId, contactPerson, volunteerOrganization);
+
+      await Promise.all([
         set(requestRef, newRequest),
         set(userRequestRef, newRequest),
         logActivity('Submitted a Relief Request', submissionId),
         logSubmission('requestRelief/requests', newRequest, submissionId),
       ]);
-    console.log('Data saved to Firebase successfully');
-    setErrorMessage(null);
-    setModalVisible(true);
+
+      console.log('Data saved to Firebase successfully');
+
+      // Reset form data
+      setReportData({});
+      setAddedItems([]);
+
+      setErrorMessage(null);
+      setModalVisible(true);
     } catch (error) {
       console.error('Error in handleSubmit:', error.message);
       setErrorMessage('Failed to submit request: ' + error.message);
@@ -336,7 +361,7 @@ const ReliefSummary = ({ route, navigation }) => {
 
       <CustomModal
         visible={modalVisible}
-        title={errorMessage ? 'Error' : userUid ? 'Success!' : 'Authentication Error'}
+        title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
           <View style={styles.modalContent}>
             {errorMessage ? (
@@ -349,7 +374,7 @@ const ReliefSummary = ({ route, navigation }) => {
                 />
                 <Text style={styles.modalMessage}>{errorMessage}</Text>
               </>
-            ) : userUid ? (
+            ) : (
               <>
                 <Ionicons
                   name="checkmark-circle"
@@ -357,24 +382,14 @@ const ReliefSummary = ({ route, navigation }) => {
                   color={Theme.colors.primary}
                   style={styles.modalIcon}
                 />
-                <Text style={styles.modalMessage}>Report submitted successfully!</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons
-                  name="warning-outline"
-                  size={60}
-                  color="#FF0000"
-                  style={styles.modalIcon}
-                />
-                <Text style={styles.modalMessage}>Please log in again.</Text>
+                <Text style={styles.modalMessage}>Your relief request has been successfully submitted!</Text>
               </>
             )}
           </View>
         }
         onConfirm={handleConfirm}
         onCancel={handleCancel}
-        confirmText={errorMessage ? 'Retry' : userUid ? 'Proceed' : 'Login'}
+        confirmText={errorMessage ? 'Retry' : 'Proceed'}
         showCancel={false}
       />
       <CustomModal

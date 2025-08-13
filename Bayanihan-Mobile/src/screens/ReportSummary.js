@@ -40,7 +40,7 @@ const ReportSummary = () => {
         } else {
           console.warn('No organization found for user:', userUid);
           setOrganizationName('');
-          ToastAndroid.show('No organization found in your profile. Using default name.',ToastAndroid.BOTTOM);
+          ToastAndroid.show('No organization found in your profile. Using default name.', ToastAndroid.BOTTOM);
         }
       } catch (error) {
         console.error('Error fetching organization name:', error.message);
@@ -52,6 +52,21 @@ const ReportSummary = () => {
     fetchOrganizationName();
   }, [userUid]);
 
+  const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
+    try {
+      const notificationRef = databaseRef(database, 'notifications');
+      await push(notificationRef, {
+        message,
+        requestRefKey,
+        contactPerson,
+        volunteerOrganization,
+        timestamp: serverTimestamp(),
+      });
+      console.log('Admin notified successfully:', message);
+    } catch (error) {
+      console.error('Failed to notify admin:', error.message);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!userUid) {
@@ -92,13 +107,22 @@ const ReportSummary = () => {
         organization: organizationName,
       };
 
-      const reportRef = ref(database, 'reports/submitted');
+      const reportRef = databaseRef(database, 'reports/submitted');
       const newReportRef = push(reportRef);
       const submissionId = newReportRef.key;
+
+      // Notify admin
+      const message = `New report submitted by ${reportData.contactPerson || 'Unknown'} from ${organizationName} for ${reportData.calamityArea || 'Calamity Area'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      await notifyAdmin(message, submissionId, reportData.contactPerson, organizationName);
+
       await push(reportRef, newReport);
       await logActivity('Submitted a report', submissionId);
       await logSubmission('reports/submitted', newReport, submissionId);
       console.log('Report saved successfully to reports/submitted');
+
+      // Reset form data
+      setReportData({});
+
       setErrorMessage(null);
       setModalVisible(true);
     } catch (error) {
@@ -113,7 +137,7 @@ const ReportSummary = () => {
   const handleConfirm = () => {
     setModalVisible(false);
     if (!errorMessage) {
-      // SUCCESS: Reset the navigation stack and go to the Home screen
+      // SUCCESS: Reset the navigation stack and go to the Volunteer Dashboard
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -255,7 +279,7 @@ const ReportSummary = () => {
 
       <CustomModal
         visible={modalVisible}
-        title={errorMessage ? 'Error' : 'Success!'}
+        title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
           <View style={styles.modalContent}>
             {errorMessage ? (
@@ -276,7 +300,7 @@ const ReportSummary = () => {
                   color={Theme.colors.primary}
                   style={styles.modalIcon}
                 />
-                <Text style={styles.modalMessage}>Report submitted successfully!</Text>
+                <Text style={styles.modalMessage}>Your report has been successfully submitted!</Text>
               </>
             )}
           </View>
