@@ -145,14 +145,14 @@ const AppStack = () => {
           width: 270,
         },
       }}
-      initialRouteName="Home"
+      initialRouteName="Volunteer Dashboard"
     >
       <Drawer.Screen
-        name="Home"
+        name="Disaster Map"
         component={HomeScreen}
         options={{
           drawerIcon: ({ color }) => (
-            <Ionicons name="home" size={22} color={color} />
+            <Ionicons name="map" size={22} color={color} />
           ),
         }}
       />
