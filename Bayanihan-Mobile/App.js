@@ -28,6 +28,18 @@ function App() {
   });
 
   if (!fontsLoaded) return null;
+
+  useEffect(() => {
+  console.log('App.js: AuthContext State:', { user: user ? user.id : null, loading });
+  async function prepare() {
+    await SplashScreen.preventAutoHideAsync();
+    if (fontsLoaded && !loading) {
+      console.log('App.js: Hiding splash screen, rendering:', user ? 'AppStack' : 'AuthStack');
+      await SplashScreen.hideAsync();
+    }
+  }
+  prepare();
+}, [fontsLoaded, loading]);
   
 
   return (

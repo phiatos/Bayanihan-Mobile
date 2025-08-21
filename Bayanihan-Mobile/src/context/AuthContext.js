@@ -12,19 +12,61 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    console.log('Setting up auth state listener');
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log('Auth state changed:', currentUser ? currentUser.uid : 'No user');
-      setUser(currentUser);
-      setLoading(false);
-    });
+useEffect(() => {
+  console.log('AuthContext: Setting up auth state listener');
+  const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    console.log('AuthContext: onAuthStateChanged triggered, user:', currentUser ? currentUser.uid : 'null');
+    if (currentUser) {
+      try {
+        const userSnapshot = await get(ref(database, `users/${currentUser.uid}`));
+        const userData = userSnapshot.val();
+        console.log('AuthContext: User data fetched:', userData);
+        if (userData) {
+          const isAdmin = userData?.role === 'AB ADMIN' || userData?.role === 'admin';
+          if (!isAdmin && !currentUser.emailVerified) {
+            const actionCodeSettings = {
+              url: 'https://bayanihan-5ce7e.firebaseapp.com',
+              handleCodeInApp: false,
+            };
+            await sendEmailVerification(currentUser, actionCodeSettings);
+            await signOut(auth);
+            setUser(null);
+            console.log('AuthContext: Email not verified, user signed out');
+          } else {
+            setUser({
+              id: currentUser.uid,
+              contactPerson: userData.contactPerson || currentUser.displayName || 'Unknown',
+              email: currentUser.email,
+              role: userData.role,
+              organization: userData.organization,
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              adminPosition: userData.adminPosition,
+            });
+            console.log('AuthContext: User set:', currentUser.uid);
+          }
+        } else {
+          await signOut(auth);
+          setUser(null);
+          console.log('AuthContext: No user data in database, user signed out');
+        }
+      } catch (error) {
+        console.error('AuthContext: Error fetching user data:', error.message);
+        setUser(null);
+      }
+    } else {
+      setUser(null);
+      console.log('AuthContext: No user logged in');
+    }
+    setLoading(false);
+    console.log('AuthContext: Auth state changed, final user:', user ? user.id : 'null');
+  });
 
-    return () => {
-      console.log('Cleaning up auth state listener');
-      unsubscribe();
-    };
-  }, []);
+  return () => {
+    console.log('AuthContext: Cleaning up auth state listener');
+    unsubscribe();
+  };
+}, []);
 
   return (
     <AuthContext.Provider value={{ user, setUser }}>
