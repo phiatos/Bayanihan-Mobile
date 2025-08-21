@@ -492,14 +492,14 @@ const CreatePost = () => {
               style={[styles.input, { fontSize: 20, fontFamily: 'Poppins_SemiBold' }]}
               value={title}
               onChangeText={setTitle}
-              placeholder="Post Title"
+              placeholder="Title"
               placeholderTextColor={Theme.colors.placeholder}
             />
             <TextInput
               style={[styles.input, styles.textArea]}
               value={content}
               onChangeText={setContent}
-              placeholder="Post Content"
+              placeholder="What's on your mind?"
               placeholderTextColor={Theme.colors.placeholder}
               multiline
               numberOfLines={4}

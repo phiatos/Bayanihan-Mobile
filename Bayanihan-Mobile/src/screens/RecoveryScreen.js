@@ -3,7 +3,7 @@ import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/database';
 import { useState } from "react";
-import { Alert, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, SafeAreaView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 
 // Firebase configuration (same as web)
@@ -43,12 +43,12 @@ const RecoveryScreen = ({ navigation }) => {
 
     const handleEmailSubmit = async () => {
         if (!email) {
-            Alert.alert("Error", "Please enter your email address.");
+          ToastAndroid.show('Please enter your email address.',ToastAndroid.SHORT);
             return;
         }
 
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            Alert.alert("Error", "Enter a valid email address.");
+           ToastAndroid.show('Please enter a valid email address.',ToastAndroid.SHORT);
             return;
         }
 

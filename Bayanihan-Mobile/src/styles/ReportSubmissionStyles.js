@@ -33,10 +33,6 @@ export default StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
   },
-  requiredInput: {
-    borderColor: '#D32F2F',
-    fontWeight: '400',
-  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',

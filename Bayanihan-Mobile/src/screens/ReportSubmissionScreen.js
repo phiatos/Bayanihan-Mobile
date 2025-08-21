@@ -4,7 +4,7 @@ import { Picker } from '@react-native-picker/picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ref as databaseRef, get, onValue, query, orderByChild, equalTo } from 'firebase/database';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Alert, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View, StyleSheet, Dimensions, KeyboardAvoidingView, Modal, StatusBar, ToastAndroid, FlatList, Animated } from 'react-native';
+import { Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View, Modal, StatusBar, ToastAndroid, FlatList, Animated, Dimensions, KeyboardAvoidingView } from 'react-native';
 import * as Location from 'expo-location';
 import WebView from 'react-native-webview';
 import { auth, database } from '../configuration/firebaseConfig';
@@ -16,6 +16,38 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { height, width } = Dimensions.get('window');
 
+const CustomModal = ({ visible, title, message, onConfirm, confirmText }) => {
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onConfirm}
+    >
+      <View style={GlobalStyles.modalOverlay}>
+        <View style={GlobalStyles.modalView}>
+          <Text style={GlobalStyles.modalTitle}>{title}</Text>
+          <View style={GlobalStyles.modalContent}>
+            <Ionicons
+              name="warning"
+              size={60}
+              color="#FF0000"
+              style={GlobalStyles.modalIcon}
+            />
+            <Text style={GlobalStyles.modalMessage}>{message}</Text>
+          </View>
+          <TouchableOpacity
+            style={GlobalStyles.modalButton}
+            onPress={onConfirm}
+          >
+            <Text style={GlobalStyles.modalButtonText}>{confirmText}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const ReportSubmissionScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -25,13 +57,22 @@ const ReportSubmissionScreen = () => {
   const [searchBarVisible, setSearchBarVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    confirmText: 'OK',
+  });
+  const [mapType, setMapType] = useState('hybrid');
+
 
   // Helper functions for formatting
   const formatDate = (date) => {
     if (!date) return '';
     const d = new Date(date);
     const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+    const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
     return `${day}-${month}-${year}`;
   };
@@ -43,7 +84,7 @@ const ReportSubmissionScreen = () => {
     const ampm = hours >= 12 ? 'pm' : 'am';
     hours = hours % 12;
     hours = hours || 12;
-    return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`; // HH:MM AM/PM
+    return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
   };
 
   // Initialize current date
@@ -92,7 +133,6 @@ const ReportSubmissionScreen = () => {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [locationName, setLocationName] = useState('');
   const [activeActivations, setActiveActivations] = useState([]);
-  const [mapType, setMapType] = useState('hybrid');
 
   const requiredFields = [
     'AreaOfOperation',
@@ -101,6 +141,17 @@ const ReportSubmissionScreen = () => {
     'completionTimeOfIntervention',
     'StartDate',
     'EndDate',
+    'NoOfIndividualsOrFamilies',
+    'NoOfFoodPacks',
+    'hotMeals',
+    'LitersOfWater',
+    'NoOfVolunteersMobilized',
+    'NoOfOrganizationsActivated',
+    'TotalValueOfInKindDonations',
+    'TotalMonetaryDonations',
+  ];
+
+  const numericFields = [
     'NoOfIndividualsOrFamilies',
     'NoOfFoodPacks',
     'hotMeals',
@@ -476,26 +527,18 @@ const ReportSubmissionScreen = () => {
       });
     }
 
-    const numericFields = [
-      'NoOfIndividualsOrFamilies',
-      'NoOfFoodPacks',
-      'hotMeals',
-      'LitersOfWater',
-      'NoOfVolunteersMobilized',
-      'NoOfOrganizationsActivated',
-      'TotalValueOfInKindDonations',
-      'TotalMonetaryDonations',
-    ];
-    if (numericFields.includes(field) && value && !/^\d+$/.test(value)) {
-      setErrors((prev) => ({
-        ...prev,
-        [field]: `${capitalizeFirstLetter(field.replace(/([A-Z])/g, ' $1').trim())} must be a positive number`,
-      }));
-    } else if (numericFields.includes(field) && value && parseInt(value) < 0) {
-      setErrors((prev) => ({
-        ...prev,
-        [field]: `${capitalizeFirstLetter(field.replace(/([A-Z])/g, ' $1').trim())} cannot be negative`,
-      }));
+    if (numericFields.includes(field) && value) {
+      if (!/^\d+$/.test(value)) {
+        setErrors((prev) => ({
+          ...prev,
+          [field]: `${capitalizeFirstLetter(field.replace(/([A-Z])/g, ' $1').trim())} must be a positive number`,
+        }));
+      } else if (parseInt(value) < 0) {
+        setErrors((prev) => ({
+          ...prev,
+          [field]: `${capitalizeFirstLetter(field.replace(/([A-Z])/g, ' $1').trim())} must be a positive number`,
+        }));
+      }
     }
   };
 
@@ -539,8 +582,8 @@ const ReportSubmissionScreen = () => {
   };
 
   const handleMapConfirm = () => {
-    if (!reportData.AreaOfOperation) {
-      ToastAndroid.show('Please select a location on the map or search for an address before confirming.', ToastAndroid.BOTTOM);
+    if (!reportData.AreaOfOperation || reportData.AreaOfOperation === 'Unknown Location') {
+      ToastAndroid.show('Please select a valid location on the map or search for an address.', ToastAndroid.BOTTOM);
       return;
     }
     setShowMapModal(false);
@@ -562,47 +605,66 @@ const ReportSubmissionScreen = () => {
     setShowPermissionModal(false);
   };
 
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    const [day, month, year] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const handleSubmit = () => {
     const newErrors = {};
+    let allRequiredBlank = true;
 
     requiredFields.forEach((field) => {
       const value = reportData[field];
       if (value === null || (typeof value === 'string' && value.trim() === '')) {
         const fieldName = field.replace(/([A-Z])/g, ' $1').trim();
         newErrors[field] = `${capitalizeFirstLetter(fieldName)} is required`;
+      } else {
+        allRequiredBlank = false;
       }
-      const numericFields = [
-        'NoOfIndividualsOrFamilies',
-        'NoOfFoodPacks',
-        'hotMeals',
-        'LitersOfWater',
-        'NoOfVolunteersMobilized',
-        'NoOfOrganizationsActivated',
-        'TotalValueOfInKindDonations',
-        'TotalMonetaryDonations',
-      ];
+
       if (numericFields.includes(field) && value) {
         if (!/^\d+$/.test(value)) {
           const fieldName = field.replace(/([A-Z])/g, ' $1').trim();
           newErrors[field] = `${capitalizeFirstLetter(fieldName)} must be a positive number`;
         } else if (parseInt(value) < 0) {
-          const fieldName = field.replace(/([A-Z])/g, ' $1').trim();
-          newErrors[field] = `${capitalizeFirstLetter(fieldName)} cannot be negative`;
+          newErrors[field] = `${capitalizeFirstLetter(fieldName)} must be a positive number`;
         }
       }
     });
 
-    if (reportData.AreaOfOperation && reportData.AreaOfOperation === 'Unknown Location') {
+    if (reportData.AreaOfOperation === 'Unknown Location') {
       newErrors.AreaOfOperation = 'Please select a valid location';
+    }
+
+    const startDate = parseDate(reportData.StartDate);
+    const endDate = parseDate(reportData.EndDate);
+    if (startDate && endDate && endDate < startDate) {
+      newErrors.EndDate = 'Ending Date of Operation must not be earlier than Starting Date';
     }
 
     setErrors(newErrors);
 
+    if (allRequiredBlank) {
+      setModalConfig({
+        title: 'Missing Required Fields',
+        message: 'Please input required fields.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     if (Object.keys(newErrors).length > 0) {
-      Alert.alert(
-        'Incomplete Data',
-        `Please fill out the following:\n${Object.values(newErrors).join('\n')}`,
-      );
+      setModalConfig({
+        title: 'Missing Required Fields',
+        message: 'Please fill out all required fields correctly.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
       return;
     }
 
@@ -653,7 +715,7 @@ const ReportSubmissionScreen = () => {
               background: #ff4444;
               color: white;
               padding: 10px;
-              border-radius: 4px;
+              borderRadius: 4px;
               text-align: center;
               z-index: 10;
               display: none;
@@ -683,7 +745,7 @@ const ReportSubmissionScreen = () => {
                 map = new google.maps.Map(document.getElementById("map"), {
                   center: userLocation,
                   zoom: 16,
-                  mapTypeId: "${mapType}",
+                  mapTypeId: "hybrid",
                   mapTypeControl: false,
                   streetViewControl: false,
                   zoomControl: false,
@@ -786,7 +848,6 @@ const ReportSubmissionScreen = () => {
   return (
     <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
@@ -823,7 +884,7 @@ const ReportSubmissionScreen = () => {
               />
               {renderLabel('Area of Operation', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.AreaOfOperation && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.AreaOfOperation && GlobalStyles.inputError]}
                 placeholder="e.g. Purok 2, Brgy. Maligaya, Rosario"
                 value={locationName || reportData.AreaOfOperation}
                 onChangeText={(text) => {
@@ -839,20 +900,20 @@ const ReportSubmissionScreen = () => {
                 <MaterialIcons name="pin-drop" size={28} style={{ color: 'white' }} />
                 <Text style={styles.openMapText}> Pin Location</Text>
               </TouchableOpacity>
-              {errors.AreaOfOperation && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.AreaOfOperation}</Text>}
+              {errors.AreaOfOperation && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.AreaOfOperation}</Text>}
               {renderLabel('Date of Report', true)}
-              <View style={[GlobalStyles.input, errors.DateOfReport && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}>
+              <View style={[GlobalStyles.input, errors.DateOfReport && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}>
                 <Text style={{ flex: 1, color: reportData.DateOfReport ? '#000' : '#999' }}>
                   {reportData.DateOfReport || 'dd-mm-yyyy'}
                 </Text>
               </View>
-              {errors.DateOfReport && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.DateOfReport}</Text>}
+              {errors.DateOfReport && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.DateOfReport}</Text>}
             </View>
 
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Relief Operations</Text>
               {renderLabel('Select Calamity', true)}
-              <View style={[GlobalStyles.input, errors.calamityArea && styles.requiredInput, styles.pickerContainer, { height: 45, paddingVertical: 0, alignContent: 'center', justifyContent: 'center', paddingHorizontal: 0 }]}>
+              <View style={[GlobalStyles.input, errors.calamityArea && GlobalStyles.inputError, styles.pickerContainer, { height: 45, paddingVertical: 0, alignContent: 'center', justifyContent: 'center', paddingHorizontal: 0 }]}>
                 <Picker
                   selectedValue={reportData.CalamityAreaId}
                   onValueChange={(value) => handleCalamityChange(value)}
@@ -885,9 +946,10 @@ const ReportSubmissionScreen = () => {
                   })}
                 </Picker>
               </View>
+              {errors.calamityArea && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.calamityArea}</Text>}
               {renderLabel('Completion Time of Intervention', true)}
               <TouchableOpacity
-                style={[GlobalStyles.input, errors.completionTimeOfIntervention && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                style={[GlobalStyles.input, errors.completionTimeOfIntervention && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => setShowTimePicker((prev) => ({ ...prev, completionTimeOfIntervention: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.completionTimeOfIntervention ? '#000' : '#999' }}>
@@ -904,14 +966,14 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, time) => handleTimeChange('completionTimeOfIntervention', event, time)}
                 />
               )}
-              {errors.completionTimeOfIntervention && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.completionTimeOfIntervention}</Text>}
+              {errors.completionTimeOfIntervention && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.completionTimeOfIntervention}</Text>}
               {renderLabel('Starting Date of Operation', true)}
               <TouchableOpacity
-                style={[GlobalStyles.input, errors.StartDate && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                style={[GlobalStyles.input, errors.StartDate && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => setShowDatePicker((prev) => ({ ...prev, StartDate: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.StartDate ? '#000' : '#999' }}>
-                  {reportData.StartDate || 'dd/mm/yyyy'}
+                  {reportData.StartDate || 'dd-mm-yyyy'}
                 </Text>
                 <Ionicons name="calendar" size={24} style={{ color: "#00BCD4" }} />
               </TouchableOpacity>
@@ -923,14 +985,14 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, date) => handleDateChange('StartDate', event, date)}
                 />
               )}
-              {errors.StartDate && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.StartDate}</Text>}
+              {errors.StartDate && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.StartDate}</Text>}
               {renderLabel('Ending Date of Operation', true)}
               <TouchableOpacity
-                style={[GlobalStyles.input, errors.EndDate && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                style={[GlobalStyles.input, errors.EndDate && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => setShowDatePicker((prev) => ({ ...prev, EndDate: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.EndDate ? '#000' : '#999' }}>
-                  {reportData.EndDate || 'dd/mm/yyyy'}
+                  {reportData.EndDate || 'dd-mm-yyyy'}
                 </Text>
                 <Ionicons name="calendar" size={24} color="#00BCD4" />
               </TouchableOpacity>
@@ -942,93 +1004,93 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, val) => handleDateChange('EndDate', event, val)}
                 />
               )}
-              {errors.EndDate && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.EndDate}</Text>}
+              {errors.EndDate && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.EndDate}</Text>}
               {renderLabel('No. of Individuals or Families', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.NoOfIndividualsOrFamilies && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.NoOfIndividualsOrFamilies && GlobalStyles.inputError]}
                 placeholder="No. of Individuals or Families"
                 onChangeText={(val) => handleChange('NoOfIndividualsOrFamilies', val)}
                 value={reportData.NoOfIndividualsOrFamilies}
                 keyboardType="numeric"
               />
-              {errors.NoOfIndividualsOrFamilies && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfIndividualsOrFamilies}</Text>}
+              {errors.NoOfIndividualsOrFamilies && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.NoOfIndividualsOrFamilies}</Text>}
               {renderLabel('No. of Relief Packs', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.NoOfFoodPacks && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.NoOfFoodPacks && GlobalStyles.inputError]}
                 placeholder="No. of Food Packs"
                 onChangeText={(val) => handleChange('NoOfFoodPacks', val)}
                 value={reportData.NoOfFoodPacks}
                 keyboardType="numeric"
               />
-              {errors.NoOfFoodPacks && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfFoodPacks}</Text>}
+              {errors.NoOfFoodPacks && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.NoOfFoodPacks}</Text>}
               {renderLabel('No. of Hot Meals/Ready-to-eat Food', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.hotMeals && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.hotMeals && GlobalStyles.inputError]}
                 placeholder="No. of Hot Meals"
                 onChangeText={(val) => handleChange('hotMeals', val)}
                 value={reportData.hotMeals}
                 keyboardType="numeric"
               />
-              {errors.hotMeals && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.hotMeals}</Text>}
+              {errors.hotMeals && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.hotMeals}</Text>}
               {renderLabel('Liters of Water', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.LitersOfWater && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.LitersOfWater && GlobalStyles.inputError]}
                 placeholder="Liters of Water"
                 onChangeText={(val) => handleChange('LitersOfWater', val)}
                 value={reportData.LitersOfWater}
                 keyboardType="numeric"
               />
-              {errors.LitersOfWater && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.LitersOfWater}</Text>}
+              {errors.LitersOfWater && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.LitersOfWater}</Text>}
               {renderLabel('No. of Volunteers Mobilized', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.NoOfVolunteersMobilized && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.NoOfVolunteersMobilized && GlobalStyles.inputError]}
                 placeholder="No. of Volunteers Mobilized"
                 onChangeText={(val) => handleChange('NoOfVolunteersMobilized', val)}
                 value={reportData.NoOfVolunteersMobilized}
                 keyboardType="numeric"
               />
-              {errors.NoOfVolunteersMobilized && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfVolunteersMobilized}</Text>}
+              {errors.NoOfVolunteersMobilized && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.NoOfVolunteersMobilized}</Text>}
               {renderLabel('No. of Organizations Activated', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.NoOfOrganizationsActivated && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.NoOfOrganizationsActivated && GlobalStyles.inputError]}
                 placeholder="No. of Organizations Activated"
                 onChangeText={(val) => handleChange('NoOfOrganizationsActivated', val)}
                 value={reportData.NoOfOrganizationsActivated}
                 keyboardType="numeric"
               />
-              {errors.NoOfOrganizationsActivated && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfOrganizationsActivated}</Text>}
+              {errors.NoOfOrganizationsActivated && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.NoOfOrganizationsActivated}</Text>}
               {renderLabel('Total Value of In-Kind Donations', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.TotalValueOfInKindDonations && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.TotalValueOfInKindDonations && GlobalStyles.inputError]}
                 placeholder="Total Value of In-Kind Donations"
                 onChangeText={(val) => handleChange('TotalValueOfInKindDonations', val)}
                 value={reportData.TotalValueOfInKindDonations}
                 keyboardType="numeric"
               />
-              {errors.TotalValueOfInKindDonations && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.TotalValueOfInKindDonations}</Text>}
+              {errors.TotalValueOfInKindDonations && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.TotalValueOfInKindDonations}</Text>}
               {renderLabel('Total Monetary Donations', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.TotalMonetaryDonations && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.TotalMonetaryDonations && GlobalStyles.inputError]}
                 placeholder="Total Monetary Donations"
                 onChangeText={(val) => handleChange('TotalMonetaryDonations', val)}
                 value={reportData.TotalMonetaryDonations}
                 keyboardType="numeric"
               />
-              {errors.TotalMonetaryDonations && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.TotalMonetaryDonations}</Text>}
+              {errors.TotalMonetaryDonations && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.TotalMonetaryDonations}</Text>}
             </View>
 
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Additional Updates</Text>
               {renderLabel('Notes/Additional Information (Optional)', false)}
               <TextInput
-                style={[GlobalStyles.input, errors.NotesAdditionalInformation && styles.requiredInput, { textAlignVertical: 'top', height: 100 }]}
+                style={[GlobalStyles.input, errors.NotesAdditionalInformation && GlobalStyles.inputError, { textAlignVertical: 'top', height: 100 }]}
                 placeholder="Enter Notes/Additional Information"
                 onChangeText={(val) => handleChange('NotesAdditionalInformation', val)}
                 value={reportData.NotesAdditionalInformation}
                 multiline
                 numberOfLines={4}
               />
-              {errors.NotesAdditionalInformation && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NotesAdditionalInformation}</Text>}
+              {errors.NotesAdditionalInformation && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.NotesAdditionalInformation}</Text>}
             </View>
 
             <TouchableOpacity style={[GlobalStyles.button, { marginHorizontal: 10 }]} onPress={handleSubmit}>
@@ -1044,55 +1106,34 @@ const ReportSubmissionScreen = () => {
         animationType="slide"
         onRequestClose={() => setShowMapModal(false)}
       >
-        <View style={{
-          flex: 1,
-          width: '100%',
-          height: '100%',
-          margin: 0,
-          padding: 0,
-          backgroundColor: '#fff',
-        }}>
+        <View style={GlobalStyles.modalOverlay}>
           {mapError ? (
-            <View style={{
-              flex: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
-              backgroundColor: '#fff',
-            }}>
-              <Text style={{
-                color: '#ff4444',
-                fontSize: 18,
-                textAlign: 'center',
-                marginBottom: 20,
-              }}>{mapError}</Text>
+            <View style={GlobalStyles.modalView}>
+              <Text style={GlobalStyles.modalTitle}>Map Error</Text>
+              <View style={GlobalStyles.modalContent}>
+                <Ionicons
+                  name="warning"
+                  size={60}
+                  color="#FF0000"
+                  style={GlobalStyles.modalIcon}
+                />
+                <Text style={GlobalStyles.modalMessage}>{mapError}</Text>
+              </View>
               <TouchableOpacity
-                style={{
-                  backgroundColor: '#FF4444',
-                  paddingVertical: 10,
-                  paddingHorizontal: 20,
-                  borderRadius: 5,
-                }}
+                style={GlobalStyles.modalButton}
                 onPress={() => {
                   setMapError(null);
                   setShowMapModal(false);
                 }}
               >
-                <Text style={{
-                  color: '#fff',
-                  fontSize: 16,
-                  fontWeight: 'bold',
-                }}>Close</Text>
+                <Text GlobalStyles={styles.modalButtonText}>OK</Text>
               </TouchableOpacity>
             </View>
           ) : mapHtml ? (
-            <>
+            <View style={{ flex: 1, width: '100%', height: '100%', margin: 0, padding: 0 }}>
               <WebView
                 ref={webViewRef}
-                style={{
-                  flex: 1,
-                  width: '100%',
-                  height: '100%',
-                }}
+                style={{ flex: 1, width: '100%', height: '100%' }}
                 source={{ html: mapHtml }}
                 originWhitelist={['*']}
                 javaScriptEnabled={true}
@@ -1240,27 +1281,26 @@ const ReportSubmissionScreen = () => {
                 >
                   <Text style={styles.modalButtonText}>Confirm Location</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalButtonCancel}
-                  onPress={() => setShowMapModal(false)}
-                >
-                  <Text style={[styles.modalButtonText, { color: Theme.colors.primary }]}>Cancel</Text>
-                </TouchableOpacity>
               </View>
-            </>
+            </View>
           ) : (
-            <View style={{
-              flex: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
-              backgroundColor: '#fff',
-            }}>
-              <Text style={{
-                color: '#ff4444',
-                fontSize: 18,
-                textAlign: 'center',
-                marginBottom: 20,
-              }}>Waiting for location permission...</Text>
+            <View style={styles.modalView}>
+              <Text style={styles.modalText}>Waiting for Location</Text>
+              <View style={styles.modalContent}>
+                <Ionicons
+                  name="warning"
+                  size={60}
+                  color="#FF0000"
+                  style={styles.modalIcon}
+                />
+                <Text style={styles.modalMessage}>Waiting for location permission...</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowMapModal(false)}
+              >
+                <Text style={styles.modalButtonText}>OK</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -1273,66 +1313,44 @@ const ReportSubmissionScreen = () => {
         transparent={true}
         onRequestClose={() => setShowPermissionModal(false)}
       >
-        <View style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: 'rgba(0,0,0,0.5)',
-        }}>
-          <View style={{
-            backgroundColor: '#fff',
-            padding: 20,
-            borderRadius: 10,
-            alignItems: 'center',
-            width: '80%',
-          }}>
-            <Ionicons name="location" size={60} color="#00BCD4" />
-            <Text style={{
-              fontSize: 20,
-              fontWeight: 'bold',
-              marginVertical: 10,
-            }}>Location Access Required</Text>
-            <Text style={{
-              fontSize: 16,
-              textAlign: 'center',
-              marginBottom: 20,
-            }}>
-              Please allow location access to pin a location on the map.
-            </Text>
+        <View style={GlobalStyles.modalOverlay}>
+          <View style={GlobalStyles.modalView}>
+            <Text style={GlobalStyles.modalTitle}>Location Access Required</Text>
+            <View style={GlobalStyles.modalContent}>
+              <Ionicons
+                name="location"
+                size={60}
+                color="#00BCD4"
+                style={GlobalStyles.modalIcon}
+              />
+              <Text style={GlobalStyles.modalMessage}>
+                Please allow location access to pin a location on the map.
+              </Text>
+            </View>
             <TouchableOpacity
-              style={{
-                backgroundColor: '#00BCD4',
-                paddingVertical: 10,
-                paddingHorizontal: 20,
-                borderRadius: 5,
-                marginBottom: 10,
-              }}
+              style={GlobalStyles.modalButton}
               onPress={handleRetryPermission}
             >
-              <Text style={{
-                color: '#fff',
-                fontSize: 16,
-                fontWeight: 'bold',
-              }}>Allow Location</Text>
+              <Text style={styles.modalButtonText}>Allow Location</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={{
-                backgroundColor: '#FF4444',
-                paddingVertical: 10,
-                paddingHorizontal: 20,
-                borderRadius: 5,
-              }}
+              style={GlobalStyles.modalButton}
               onPress={() => setShowPermissionModal(false)}
             >
-              <Text style={{
-                color: '#fff',
-                fontSize: 16,
-                fontWeight: 'bold',
-              }}>No Thanks</Text>
+              <Text style={GlobalStyles.modalButtonText}>No Thanks</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
+
+      {/* Validation Error Modal */}
+      <CustomModal
+        visible={modalVisible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        confirmText={modalConfig.confirmText}
+      />
     </SafeAreaView>
   );
 };

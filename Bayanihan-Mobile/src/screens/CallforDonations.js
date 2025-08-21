@@ -13,6 +13,7 @@ import {
   ToastAndroid,
   TouchableOpacity,
   View,
+  Modal,
 } from 'react-native';
 import styles from '../styles/CallForDonationsStyles';
 import GlobalStyles from '../styles/GlobalStyles';
@@ -22,6 +23,38 @@ import provinces from '../data/province.json';
 import cities from '../data/city.json';
 import barangays from '../data/barangay.json';
 import { LinearGradient } from 'expo-linear-gradient';
+
+const CustomModal = ({ visible, title, message, onConfirm, confirmText }) => {
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onConfirm}
+    >
+      <View style={GlobalStyles.modalOverlay}>
+        <View style={GlobalStyles.modalView}>
+          <Text style={GlobalStyles.modalTitle}>{title}</Text>
+          <View style={GlobalStyles.modalContent}>
+            <Ionicons
+              name="warning"
+              size={60}
+              color="#FF0000"
+              style={GlobalStyles.modalIcon}
+            />
+            <Text style={GlobalStyles.modalMessage}>{message}</Text>
+          </View>
+          <TouchableOpacity
+            style={GlobalStyles.modalButton}
+            onPress={onConfirm}
+          >
+            <Text style={GlobalStyles.modalButtonText}>{confirmText}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const CallForDonations = () => {
   const navigation = useNavigation();
@@ -53,6 +86,13 @@ const CallForDonations = () => {
   const [isBarangayDropdownVisible, setIsBarangayDropdownVisible] = useState(false);
   const [filteredBarangays, setFilteredBarangays] = useState([]);
   const barangayInputRef = useRef(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    confirmText: 'OK',
+  });
 
   const requiredFields = [
     'donationDrive',
@@ -91,6 +131,12 @@ const CallForDonations = () => {
 
     if (field === 'contactNumber' && value && !/^[0-9]{11}$/.test(value)) {
       setErrors((prev) => ({ ...prev, contactNumber: 'Phone number must be 11 digits' }));
+    } else if (field === 'contactNumber' && value === '') {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.contactNumber;
+        return newErrors;
+      });
     }
 
     if (field === 'facebookLink' && value && !/^https?:\/\/(www\.)?facebook\.com\/.+$/.test(value)) {
@@ -316,7 +362,7 @@ const CallForDonations = () => {
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      ToastAndroid.show('Permission to access gallery is required!',ToastAndroid.BOTTOM);
+      ToastAndroid.show('Permission to access gallery is required!', ToastAndroid.BOTTOM);
       return;
     }
 
@@ -335,6 +381,8 @@ const CallForDonations = () => {
 
   const handleSubmit = () => {
     const newErrors = {};
+    let allRequiredBlank = true;
+
     requiredFields.forEach((field) => {
       const value = formData[field];
       if (value.trim() === '') {
@@ -343,6 +391,8 @@ const CallForDonations = () => {
           .trim()
           .replace(/^./, (str) => str.toUpperCase());
         newErrors[field] = `${fieldName} is required`;
+      } else {
+        allRequiredBlank = false;
       }
     });
 
@@ -356,8 +406,25 @@ const CallForDonations = () => {
 
     setErrors(newErrors);
 
+    if (allRequiredBlank) {
+      setModalConfig({
+        title: 'Incomplete Data',
+        message: 'Please input required fields.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     if (Object.keys(newErrors).length > 0) {
-      ToastAndroid.show('Please fill in required fields.',ToastAndroid.BOTTOM);
+      setModalConfig({
+        title: 'Incomplete Data',
+        message: 'Please fill in all required fields.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
       return;
     }
 
@@ -405,7 +472,7 @@ const CallForDonations = () => {
 
               {renderLabel('Donation Drive', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.donationDrive && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.donationDrive && GlobalStyles.inputError]}
                 placeholder="Donation Drive"
                 onChangeText={(val) => handleChange('donationDrive', val)}
                 value={formData.donationDrive}
@@ -417,7 +484,7 @@ const CallForDonations = () => {
 
               {renderLabel('Contact Person', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.contactPerson && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.contactPerson && GlobalStyles.inputError]}
                 placeholder="Contact Name"
                 onChangeText={(val) => handleChange('contactPerson', val)}
                 value={formData.contactPerson}
@@ -430,7 +497,7 @@ const CallForDonations = () => {
 
               {renderLabel('Contact Number', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.contactNumber && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.contactNumber && GlobalStyles.inputError]}
                 placeholder="Contact Number"
                 onChangeText={(val) => handleChange('contactNumber', val)}
                 value={formData.contactNumber}
@@ -444,7 +511,7 @@ const CallForDonations = () => {
 
               {renderLabel('Account Number', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.accountNumber && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.accountNumber && GlobalStyles.inputError]}
                 placeholder="Account Number"
                 onChangeText={(val) => handleChange('accountNumber', val)}
                 value={formData.accountNumber}
@@ -457,7 +524,7 @@ const CallForDonations = () => {
 
               {renderLabel('Account Name', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.accountName && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.accountName && GlobalStyles.inputError]}
                 placeholder="Account Name"
                 onChangeText={(val) => handleChange('accountName', val)}
                 value={formData.accountName}
@@ -472,7 +539,7 @@ const CallForDonations = () => {
               <View style={{ position: 'relative' }}>
                 <TextInput
                   ref={regionInputRef}
-                  style={[GlobalStyles.input, errors.region && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.region && GlobalStyles.inputError]}
                   placeholder="Enter or Choose Region"
                   onChangeText={(val) => handleChange('region', val)}
                   value={formData.region}
@@ -509,7 +576,7 @@ const CallForDonations = () => {
               <View style={{ position: 'relative' }}>
                 <TextInput
                   ref={provinceInputRef}
-                  style={[GlobalStyles.input, errors.province && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.province && GlobalStyles.inputError]}
                   placeholder="Enter or Select Province"
                   onChangeText={(val) => handleChange('province', val)}
                   value={formData.province}
@@ -546,7 +613,7 @@ const CallForDonations = () => {
               <View style={{ position: 'relative' }}>
                 <TextInput
                   ref={cityInputRef}
-                  style={[GlobalStyles.input, errors.city && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.city && GlobalStyles.inputError]}
                   placeholder="Enter or Select City/Municipality"
                   onChangeText={(val) => handleChange('city', val)}
                   value={formData.city}
@@ -583,7 +650,7 @@ const CallForDonations = () => {
               <View style={{ position: 'relative' }}>
                 <TextInput
                   ref={barangayInputRef}
-                  style={[GlobalStyles.input, errors.barangay && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.barangay && GlobalStyles.inputError]}
                   placeholder="Enter or Select Barangay"
                   onChangeText={(val) => handleChange('barangay', val)}
                   value={formData.barangay}
@@ -617,7 +684,7 @@ const CallForDonations = () => {
 
               {renderLabel('Blk/Lot/Unit #', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.street && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.street && GlobalStyles.inputError]}
                 placeholder="(e.g. 1234 Singkamas St.)"
                 onChangeText={(val) => handleChange('street', val)}
                 value={formData.street}
@@ -630,7 +697,7 @@ const CallForDonations = () => {
 
               {renderLabel('Facebook Link', false)}
               <TextInput
-                style={[GlobalStyles.input, errors.facebookLink && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.facebookLink && GlobalStyles.inputError]}
                 placeholder="Facebook Link"
                 onChangeText={(val) => handleChange('facebookLink', val)}
                 value={formData.facebookLink}
@@ -644,15 +711,15 @@ const CallForDonations = () => {
 
               {renderLabel('Upload Donation Image', false)}
               <TouchableOpacity
-                style={[GlobalStyles.imageUpload, { borderColor: image ?  Theme.colors.primary : '#605D67'} ]}
+                style={[GlobalStyles.imageUpload, { borderColor: image ? Theme.colors.primary : '#605D67' }]}
                 onPress={pickImage}
               >
-                <Text style={[GlobalStyles.imageUploadText,{ color: image ?  Theme.colors.black : Theme.colors.primary}]}>
+                <Text style={[GlobalStyles.imageUploadText, { color: image ? Theme.colors.black : Theme.colors.primary }]}>
                   {image ? 'Image Selected' : 'Tap to Upload Image'}
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={{ marginHorizontal: 15, marginBottom: 10,  }}>
+            <View style={{ marginHorizontal: 15, marginBottom: 10 }}>
               <TouchableOpacity style={GlobalStyles.button} onPress={handleSubmit}>
                 <Text style={GlobalStyles.buttonText}>Proceed</Text>
               </TouchableOpacity>
@@ -660,6 +727,14 @@ const CallForDonations = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <CustomModal
+        visible={modalVisible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        confirmText={modalConfig.confirmText}
+      />
     </SafeAreaView>
   );
 };

@@ -13,6 +13,7 @@ import {
   ToastAndroid,
   TouchableOpacity,
   View,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -76,6 +77,7 @@ const RDANAScreen = () => {
   const inputContainerRefs = useRef({}).current;
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
+  const [requiredFieldsModalVisible, setRequiredFieldsModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
 
   // Custom error messages for required fields
@@ -93,7 +95,7 @@ const RDANAScreen = () => {
     Time_of_Information_Gathered: 'Please provide the time when information was gathered (within 24-48 hours of occurrence).',
     Time_of_Occurrence: 'Please specify the time of the disaster occurrence.',
     Type_of_Disaster: 'Please select the type of disaster.',
-    community: 'Please enter the affected municipality or community.',
+    community: 'Please add at least one municipality.',
     totalPop: 'Please provide the total population.',
     affected: 'Please provide the number of affected population.',
     deaths: 'Please enter the number of deaths.',
@@ -430,6 +432,25 @@ const RDANAScreen = () => {
         </View>
       </LinearGradient>
 
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={requiredFieldsModalVisible}
+        onRequestClose={() => setRequiredFieldsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalText}>Please fill in required fields.</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setRequiredFieldsModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1, marginTop: 80 }}
@@ -446,51 +467,51 @@ const RDANAScreen = () => {
               {renderLabel('Site Location/Address (Barangay)', true)}
               <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Barangay = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.Site_Location_Address_Barangay && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.Site_Location_Address_Barangay && GlobalStyles.inputError]}
                   placeholder="Enter Affected Barangay"
                   onChangeText={(val) => handleChange('Site_Location_Address_Barangay', val)}
                   value={reportData.Site_Location_Address_Barangay}
                 />
               </View>
-              {errors.Site_Location_Address_Barangay && <Text style={styles.errorText}>{errors.Site_Location_Address_Barangay}</Text>}
+              {errors.Site_Location_Address_Barangay && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Barangay}</Text>}
 
               {renderLabel('Site Location/Address (City/Municipality)', true)}
               <View ref={(ref) => (inputContainerRefs.Site_Location_Address_City_Municipality = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.Site_Location_Address_City_Municipality && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.Site_Location_Address_City_Municipality && GlobalStyles.inputError]}
                   placeholder="Enter Affected City/Municipality"
                   onChangeText={(val) => handleChange('Site_Location_Address_City_Municipality', val)}
                   value={reportData.Site_Location_Address_City_Municipality}
                 />
               </View>
-              {errors.Site_Location_Address_City_Municipality && <Text style={styles.errorText}>{errors.Site_Location_Address_City_Municipality}</Text>}
+              {errors.Site_Location_Address_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_City_Municipality}</Text>}
 
               {renderLabel('Site Location/Address (Province)', true)}
               <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Province = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.Site_Location_Address_Province && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.Site_Location_Address_Province && GlobalStyles.inputError]}
                   placeholder="Enter Affected Province"
                   onChangeText={(val) => handleChange('Site_Location_Address_Province', val)}
                   value={reportData.Site_Location_Address_Province}
                 />
               </View>
-              {errors.Site_Location_Address_Province && <Text style={styles.errorText}>{errors.Site_Location_Address_Province}</Text>}
+              {errors.Site_Location_Address_Province && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Province}</Text>}
 
               {renderLabel('Local Authorities/ Persons Contacted for Information', true)}
               <View ref={(ref) => (inputContainerRefs.Local_Authorities_Persons_Contacted_for_Information = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.Local_Authorities_Persons_Contacted_for_Information && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.Local_Authorities_Persons_Contacted_for_Information && GlobalStyles.inputError]}
                   placeholder="Enter Name"
                   onChangeText={(val) => handleChange('Local_Authorities_Persons_Contacted_for_Information', val)}
                   value={reportData.Local_Authorities_Persons_Contacted_for_Information}
                 />
               </View>
-              {errors.Local_Authorities_Persons_Contacted_for_Information && <Text style={styles.errorText}>{errors.Local_Authorities_Persons_Contacted_for_Information}</Text>}
+              {errors.Local_Authorities_Persons_Contacted_for_Information && <Text style={GlobalStyles.errorText}>{errors.Local_Authorities_Persons_Contacted_for_Information}</Text>}
 
               {renderLabel('Date of Information Gathered', true)}
               <View ref={(ref) => (inputContainerRefs.Date_of_Information_Gathered = ref)}>
                 <TouchableOpacity
-                  style={[GlobalStyles.input, errors.Date_of_Information_Gathered && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                  style={[GlobalStyles.input, errors.Date_of_Information_Gathered && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                   onPress={() => setShowDatePicker((prev) => ({ ...prev, Date_of_Information_Gathered: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Date_of_Information_Gathered ? '#000' : '#999' }}>
@@ -507,12 +528,12 @@ const RDANAScreen = () => {
                   />
                 )}
               </View>
-              {errors.Date_of_Information_Gathered && <Text style={styles.errorText}>{errors.Date_of_Information_Gathered}</Text>}
+              {errors.Date_of_Information_Gathered && <Text style={GlobalStyles.errorText}>{errors.Date_of_Information_Gathered}</Text>}
 
               {renderLabel('Time of Information Gathered', true)}
               <View ref={(ref) => (inputContainerRefs.Time_of_Information_Gathered = ref)}>
                 <TouchableOpacity
-                  style={[GlobalStyles.input, errors.Time_of_Information_Gathered && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                  style={[GlobalStyles.input, errors.Time_of_Information_Gathered && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                   onPress={() => setShowTimePicker((prev) => ({ ...prev, Time_of_Information_Gathered: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Time_of_Information_Gathered ? '#000' : '#999' }}>
@@ -530,18 +551,18 @@ const RDANAScreen = () => {
                   />
                 )}
               </View>
-              {errors.Time_of_Information_Gathered && <Text style={styles.errorText}>{errors.Time_of_Information_Gathered}</Text>}
+              {errors.Time_of_Information_Gathered && <Text style={GlobalStyles.errorText}>{errors.Time_of_Information_Gathered}</Text>}
 
               {renderLabel('Name of Organization Involved', true)}
               <View ref={(ref) => (inputContainerRefs.Name_of_the_Organizations_Involved = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.Name_of_the_Organizations_Involved && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.Name_of_the_Organizations_Involved && GlobalStyles.inputError]}
                   placeholder="Enter Organization Name"
                   onChangeText={(val) => handleChange('Name_of_the_Organizations_Involved', val)}
                   value={reportData.Name_of_the_Organizations_Involved}
                 />
               </View>
-              {errors.Name_of_the_Organizations_Involved && <Text style={styles.errorText}>{errors.Name_of_the_Organizations_Involved}</Text>}
+              {errors.Name_of_the_Organizations_Involved && <Text style={GlobalStyles.errorText}>{errors.Name_of_the_Organizations_Involved}</Text>}
             </View>
 
             <View style={GlobalStyles.section}>
@@ -549,39 +570,39 @@ const RDANAScreen = () => {
               {renderLabel('Locations and Areas Affected (Barangay)', true)}
               <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Barangay = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_Barangay && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_Barangay && GlobalStyles.inputError]}
                   placeholder="Enter Affected Barangay"
                   onChangeText={(val) => handleChange('Locations_and_Areas_Affected_Barangay', val)}
                   value={reportData.Locations_and_Areas_Affected_Barangay}
                 />
               </View>
-              {errors.Locations_and_Areas_Affected_Barangay && <Text style={styles.errorText}>{errors.Locations_and_Areas_Affected_Barangay}</Text>}
+              {errors.Locations_and_Areas_Affected_Barangay && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Barangay}</Text>}
 
               {renderLabel('Locations and Areas Affected (City/Municipality)', true)}
               <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_City_Municipality = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_City_Municipality && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_City_Municipality && GlobalStyles.inputError]}
                   placeholder="Enter Affected City/Municipality"
                   onChangeText={(val) => handleChange('Locations_and_Areas_Affected_City_Municipality', val)}
                   value={reportData.Locations_and_Areas_Affected_City_Municipality}
                 />
               </View>
-              {errors.Locations_and_Areas_Affected_City_Municipality && <Text style={styles.errorText}>{errors.Locations_and_Areas_Affected_City_Municipality}</Text>}
+              {errors.Locations_and_Areas_Affected_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_City_Municipality}</Text>}
 
               {renderLabel('Locations and Areas Affected (Province)', true)}
               <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Province = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_Province && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_Province && GlobalStyles.inputError]}
                   placeholder="Enter Province"
                   onChangeText={(val) => handleChange('Locations_and_Areas_Affected_Province', val)}
                   value={reportData.Locations_and_Areas_Affected_Province}
                 />
               </View>
-              {errors.Locations_and_Areas_Affected_Province && <Text style={styles.errorText}>{errors.Locations_and_Areas_Affected_Province}</Text>}
+              {errors.Locations_and_Areas_Affected_Province && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Province}</Text>}
 
               {renderLabel('Type of Disaster', true)}
               <View
-                style={[GlobalStyles.input, styles.pickerContainer, errors.Type_of_Disaster && styles.requiredInput]}
+                style={[GlobalStyles.input, styles.pickerContainer, errors.Type_of_Disaster && GlobalStyles.inputError]}
                 ref={(ref) => (inputContainerRefs.Type_of_Disaster = ref)}
               >
                 <Picker
@@ -607,12 +628,12 @@ const RDANAScreen = () => {
                   ))}
                 </Picker>
               </View>
-              {errors.Type_of_Disaster && <Text style={styles.errorText}>{errors.Type_of_Disaster}</Text>}
+              {errors.Type_of_Disaster && <Text style={GlobalStyles.errorText}>{errors.Type_of_Disaster}</Text>}
 
               {renderLabel('Date of Occurrence', true)}
               <View ref={(ref) => (inputContainerRefs.Date_of_Occurrence = ref)}>
                 <TouchableOpacity
-                  style={[GlobalStyles.input, errors.Date_of_Occurrence && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                  style={[GlobalStyles.input, errors.Date_of_Occurrence && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                   onPress={() => setShowDatePicker((prev) => ({ ...prev, Date_of_Occurrence: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Date_of_Occurrence ? '#000' : '#999' }}>
@@ -629,12 +650,12 @@ const RDANAScreen = () => {
                   />
                 )}
               </View>
-              {errors.Date_of_Occurrence && <Text style={styles.errorText}>{errors.Date_of_Occurrence}</Text>}
+              {errors.Date_of_Occurrence && <Text style={GlobalStyles.errorText}>{errors.Date_of_Occurrence}</Text>}
 
               {renderLabel('Time of Occurrence', true)}
               <View ref={(ref) => (inputContainerRefs.Time_of_Occurrence = ref)}>
                 <TouchableOpacity
-                  style={[GlobalStyles.input, errors.Time_of_Occurrence && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                  style={[GlobalStyles.input, errors.Time_of_Occurrence && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                   onPress={() => setShowTimePicker((prev) => ({ ...prev, Time_of_Occurrence: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Time_of_Occurrence ? '#000' : '#999' }}>
@@ -652,7 +673,7 @@ const RDANAScreen = () => {
                   />
                 )}
               </View>
-              {errors.Time_of_Occurrence && <Text style={styles.errorText}>{errors.Time_of_Occurrence}</Text>}
+              {errors.Time_of_Occurrence && <Text style={GlobalStyles.errorText}>{errors.Time_of_Occurrence}</Text>}
 
               {renderLabel('Summary of Disaster/Incident (optional)', false)}
               <TextInput
@@ -663,7 +684,7 @@ const RDANAScreen = () => {
                 onChangeText={(val) => handleChange('summary', val)}
                 value={reportData.summary}
               />
-              {errors.summary && <Text style={styles.errorText}>{errors.summary}</Text>}
+              {errors.summary && <Text style={GlobalStyles.errorText}>{errors.summary}</Text>}
             </View>
 
             <View style={GlobalStyles.section}>
@@ -671,7 +692,7 @@ const RDANAScreen = () => {
               {affectedMunicipalities.length > 0 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={true}>
                   <View style={styles.table}>
-                    <View style={[styles.tableRow, { minWidth: 1300}]}>
+                    <View style={[styles.tableRow, { minWidth: 1300 }]}>
                       <Text style={[styles.tableHeader, { minWidth: 50, borderTopLeftRadius: 10 }]}>#</Text>
                       <Text style={[styles.tableHeader, { minWidth: 250, fontSize: 11 }]}>AFFECTED MUNICIPALITIES/COMMUNITIES</Text>
                       <Text style={[styles.tableHeader, { minWidth: 140 }]}>TOTAL POPULATION</Text>
@@ -713,159 +734,146 @@ const RDANAScreen = () => {
               {renderLabel('Affected Municipalities/Communities', true)}
               <View ref={(ref) => (inputContainerRefs.community = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.community && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.community && GlobalStyles.inputError]}
                   placeholder="Enter Municipalities/Communities"
                   onChangeText={(val) => handleChange('community', val)}
                   value={reportData.community}
                 />
               </View>
-              {errors.community && <Text style={styles.errorText}>{errors.community}</Text>}
+              {errors.community && <Text style={GlobalStyles.errorText}>{errors.community}</Text>}
 
               {renderLabel('Total Population', true)}
               <View ref={(ref) => (inputContainerRefs.totalPop = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.totalPop && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.totalPop && GlobalStyles.inputError]}
                   placeholder="Enter Total Population"
                   onChangeText={(val) => handleChange('totalPop', val)}
                   value={reportData.totalPop}
                   keyboardType="numeric"
                 />
               </View>
-              {errors.totalPop && <Text style={styles.errorText}>{errors.totalPop}</Text>}
+              {errors.totalPop && <Text style={GlobalStyles.errorText}>{errors.totalPop}</Text>}
 
               {renderLabel('Affected Population', true)}
               <View ref={(ref) => (inputContainerRefs.affected = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.affected && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.affected && GlobalStyles.inputError]}
                   placeholder="Enter Affected Population"
                   onChangeText={(val) => handleChange('affected', val)}
                   value={reportData.affected}
                   keyboardType="numeric"
                 />
               </View>
-              {errors.affected && <Text style={styles.errorText}>{errors.affected}</Text>}
+              {errors.affected && <Text style={GlobalStyles.errorText}>{errors.affected}</Text>}
 
               {renderLabel('Deaths', true)}
               <View ref={(ref) => (inputContainerRefs.deaths = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.deaths && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.deaths && GlobalStyles.inputError]}
                   placeholder="No. of Deaths"
                   onChangeText={(val) => handleChange('deaths', val)}
                   value={reportData.deaths}
                   keyboardType="numeric"
                 />
               </View>
-              {errors.deaths && <Text style={styles.errorText}>{errors.deaths}</Text>}
+              {errors.deaths && <Text style={GlobalStyles.errorText}>{errors.deaths}</Text>}
 
               {renderLabel('Injured', true)}
               <View ref={(ref) => (inputContainerRefs.injured = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.injured && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.injured && GlobalStyles.inputError]}
                   placeholder="No. of Injured"
                   onChangeText={(val) => handleChange('injured', val)}
                   value={reportData.injured}
                   keyboardType="numeric"
                 />
               </View>
-              {errors.injured && <Text style={styles.errorText}>{errors.injured}</Text>}
+              {errors.injured && <Text style={GlobalStyles.errorText}>{errors.injured}</Text>}
 
               {renderLabel('Missing', true)}
               <View ref={(ref) => (inputContainerRefs.missing = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.missing && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.missing && GlobalStyles.inputError]}
                   placeholder="No. of Missing"
                   onChangeText={(val) => handleChange('missing', val)}
                   value={reportData.missing}
                   keyboardType="numeric"
                 />
               </View>
-              {errors.missing && <Text style={styles.errorText}>{errors.missing}</Text>}
+              {errors.missing && <Text style={GlobalStyles.errorText}>{errors.missing}</Text>}
 
               {renderLabel('Children', true)}
               <View ref={(ref) => (inputContainerRefs.children = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.children && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.children && GlobalStyles.inputError]}
                   placeholder="No. of Children"
                   onChangeText={(val) => handleChange('children', val)}
                   value={reportData.children}
                   keyboardType="numeric"
                 />
               </View>
-              {errors.children && <Text style={styles.errorText}>{errors.children}</Text>}
+              {errors.children && <Text style={GlobalStyles.errorText}>{errors.children}</Text>}
 
               {renderLabel('Women', true)}
               <View ref={(ref) => (inputContainerRefs.women = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.women && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.women && GlobalStyles.inputError]}
                   placeholder="No. of Women"
                   onChangeText={(val) => handleChange('women', val)}
                   value={reportData.women}
                   keyboardType="numeric"
                 />
               </View>
-              {errors.women && <Text style={styles.errorText}>{errors.women}</Text>}
+              {errors.women && <Text style={GlobalStyles.errorText}>{errors.women}</Text>}
 
               {renderLabel('Senior Citizens', true)}
               <View ref={(ref) => (inputContainerRefs.seniors = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.seniors && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.seniors && GlobalStyles.inputError]}
                   placeholder="No. of Senior Citizens"
                   onChangeText={(val) => handleChange('seniors', val)}
                   value={reportData.seniors}
                   keyboardType="numeric"
                 />
               </View>
-              {errors.seniors && <Text style={styles.errorText}>{errors.seniors}</Text>}
+              {errors.seniors && <Text style={GlobalStyles.errorText}>{errors.seniors}</Text>}
 
               {renderLabel('PWD', true)}
               <View ref={(ref) => (inputContainerRefs.pwd = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.pwd && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.pwd && GlobalStyles.inputError]}
                   placeholder="No. of PWD"
                   onChangeText={(val) => handleChange('pwd', val)}
                   value={reportData.pwd}
                   keyboardType="numeric"
                 />
               </View>
-              {errors.pwd && <Text style={styles.errorText}>{errors.pwd}</Text>}
+              {errors.pwd && <Text style={GlobalStyles.errorText}>{errors.pwd}</Text>}
 
               <View style={GlobalStyles.supplementaryButtonContainer}>
                 <TouchableOpacity style={GlobalStyles.supplementaryButton} onPress={() => {
-                  const {
-                    community,
-                    totalPop,
-                    affected,
-                    deaths,
-                    injured,
-                    missing,
-                    children,
-                    women,
-                    seniors,
-                    pwd,
-                  } = reportData;
-
                   const { isValid, newErrors } = validateMunicipalityInputs();
                   if (!isValid) {
                     setErrors(newErrors);
-                    ToastAndroid.show('Please fill out all required municipality fields before adding.', ToastAndroid.BOTTOM);
+                    ToastAndroid.show('Please fill out the Initial Effects fields before adding an entry.', ToastAndroid.SHORT);
                     return;
                   }
 
                   const newMunicipality = {
-                    community,
-                    totalPop,
-                    affected,
-                    deaths,
-                    injured,
-                    missing,
-                    children,
-                    women,
-                    seniors,
-                    pwd,
+                    community: reportData.community,
+                    totalPop: reportData.totalPop,
+                    affected: reportData.affected,
+                    deaths: reportData.deaths,
+                    injured: reportData.injured,
+                    missing: reportData.missing,
+                    children: reportData.children,
+                    women: reportData.women,
+                    seniors: reportData.seniors,
+                    pwd: reportData.pwd,
                   };
 
                   setAffectedMunicipalities((prev) => [...prev, newMunicipality]);
-                  ToastAndroid.show('Municipality Saved', ToastAndroid.BOTTOM);
+                  ToastAndroid.show('Municipality Saved', ToastAndroid.SHORT);
                   setReportData((prev) => ({
                     ...prev,
                     community: '',
@@ -938,7 +946,7 @@ const RDANAScreen = () => {
                         ))}
                       </Picker>
                     </View>
-                    {errors[field] && <Text style={styles.errorText}>{errors[field]}</Text>}
+                    {errors[field] && <Text style={GlobalStyles.errorText}>{errors[field]}</Text>}
                   </View>
                 );
               })}
@@ -949,7 +957,7 @@ const RDANAScreen = () => {
                 onChangeText={(val) => handleChange('othersStatus', val)}
                 value={reportData.othersStatus}
               />
-              {errors.othersStatus && <Text style={styles.errorText}>{errors.othersStatus}</Text>}
+              {errors.othersStatus && <Text style={GlobalStyles.errorText}>{errors.othersStatus}</Text>}
             </View>
 
             <View style={GlobalStyles.section}>
@@ -979,7 +987,7 @@ const RDANAScreen = () => {
                 onChangeText={(val) => handleChange('otherNeeds', val)}
                 value={reportData.otherNeeds}
               />
-              {errors.otherNeeds && <Text style={styles.errorText}>{errors.otherNeeds}</Text>}
+              {errors.otherNeeds && <Text style={GlobalStyles.errorText}>{errors.otherNeeds}</Text>}
               {renderLabel('Estimated Quantity', false)}
               <TextInput
                 style={[GlobalStyles.input]}
@@ -988,7 +996,7 @@ const RDANAScreen = () => {
                 value={reportData.estQty}
                 keyboardType="numeric"
               />
-              {errors.estQty && <Text style={styles.errorText}>{errors.estQty}</Text>}
+              {errors.estQty && <Text style={GlobalStyles.errorText}>{errors.estQty}</Text>}
             </View>
 
             <View style={GlobalStyles.section}>
@@ -996,36 +1004,36 @@ const RDANAScreen = () => {
               {renderLabel('Response Groups Involved', true)}
               <View ref={(ref) => (inputContainerRefs.responseGroup = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.responseGroup && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.responseGroup && GlobalStyles.inputError]}
                   placeholder="Enter Organization's Name"
                   onChangeText={(val) => handleChange('responseGroup', val)}
                   value={reportData.responseGroup}
                 />
               </View>
-              {errors.responseGroup && <Text style={styles.errorText}>{errors.responseGroup}</Text>}
+              {errors.responseGroup && <Text style={GlobalStyles.errorText}>{errors.responseGroup}</Text>}
 
               {renderLabel('Relief Assistance Deployed', true)}
               <View ref={(ref) => (inputContainerRefs.reliefDeployed = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.reliefDeployed && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.reliefDeployed && GlobalStyles.inputError]}
                   placeholder="Enter Relief Assistance"
                   onChangeText={(val) => handleChange('reliefDeployed', val)}
                   value={reportData.reliefDeployed}
                 />
               </View>
-              {errors.reliefDeployed && <Text style={styles.errorText}>{errors.reliefDeployed}</Text>}
+              {errors.reliefDeployed && <Text style={GlobalStyles.errorText}>{errors.reliefDeployed}</Text>}
 
               {renderLabel('Number of Families Served', true)}
               <View ref={(ref) => (inputContainerRefs.familiesServed = ref)}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.familiesServed && styles.requiredInput]}
+                  style={[GlobalStyles.input, errors.familiesServed && GlobalStyles.inputError]}
                   placeholder="Enter Number of Families"
                   onChangeText={(val) => handleChange('familiesServed', val)}
                   value={reportData.familiesServed}
                   keyboardType="numeric"
                 />
               </View>
-              {errors.familiesServed && <Text style={styles.errorText}>{errors.familiesServed}</Text>}
+              {errors.familiesServed && <Text style={GlobalStyles.errorText}>{errors.familiesServed}</Text>}
             </View>
 
             <View style={{ marginHorizontal: 15 }}>
@@ -1033,34 +1041,51 @@ const RDANAScreen = () => {
                 style={GlobalStyles.button}
                 onPress={() => {
                   const newErrors = {};
+                  let allRequiredBlank = true;
+
+                  // Check required fields
                   requiredFields.forEach((field) => {
                     const value = reportData[field];
                     if (value === null || (typeof value === 'string' && value.trim() === '')) {
                       newErrors[field] = requiredFieldsErrors[field];
+                    } else {
+                      allRequiredBlank = false;
                     }
                   });
+
+                  // Check if all required fields are blank
+                  if (allRequiredBlank) {
+                    setRequiredFieldsModalVisible(true);
+                    return;
+                  }
+
+                  // Validate no municipalities
+                  if (affectedMunicipalities.length === 0) {
+                    newErrors.community = 'Please add at least one municipality.';
+                  }
 
                   // Validate 24-48 hour restriction
                   const gatheredDate = parseDate(reportData.Date_of_Information_Gathered);
                   const gatheredTime = parseTimeToDate(reportData.Time_of_Information_Gathered);
                   const occurrenceDate = parseDate(reportData.Date_of_Occurrence);
                   const occurrenceTime = parseTimeToDate(reportData.Time_of_Occurrence);
-                  if (!isWithin24To48Hours(gatheredDate, gatheredTime, occurrenceDate, occurrenceTime)) {
-                    newErrors.Date_of_Information_Gathered = 'Date must be 24-48 hours after the occurrence.';
-                    newErrors.Time_of_Information_Gathered = 'Time must be 24-48 hours after the occurrence.';
-                  }
-
-                  if (affectedMunicipalities.length === 0) {
-                    newErrors.community = 'Please add at least one municipality with all required fields.';
+                  if (gatheredDate && gatheredTime && occurrenceDate && occurrenceTime) {
+                    if (!isWithin24To48Hours(gatheredDate, gatheredTime, occurrenceDate, occurrenceTime)) {
+                      newErrors.Date_of_Information_Gathered = 'Date must be 24-48 hours after the occurrence.';
+                      newErrors.Time_of_Information_Gathered = 'Time must be 24-48 hours after the occurrence.';
+                      ToastAndroid.show('Date must be 24-48 hours after the occurrence.', ToastAndroid.SHORT);
+                    }
                   }
 
                   if (Object.keys(newErrors).length > 0) {
                     setErrors(newErrors);
-                    ToastAndroid.show(`Please fill in required fields:\n${Object.values(newErrors).join('\n')}`, ToastAndroid.BOTTOM);
+                    if (!allRequiredBlank) {
+                      ToastAndroid.show('Please fill in required fields.', ToastAndroid.SHORT);
+                    }
                     return;
                   }
 
-                  // Filter out temporary municipality fields from reportData
+                  // All required fields are filled, navigate to RDANA Summary
                   const completeReportData = Object.keys(reportData).reduce((acc, key) => {
                     if (!municipalityFields.includes(key)) {
                       acc[key] = reportData[key];

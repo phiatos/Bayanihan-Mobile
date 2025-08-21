@@ -280,4 +280,53 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_SemiBold',
     textAlign: 'center',
   },
+
+  // Modal UI
+ modalContent: {
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'center',
+  },
+  modalIcon: {
+    marginBottom: 10,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 24,
+    marginBottom: 15,
+    fontFamily: 'Poppins_Regular',
+    textAlign: 'center',
+  },
+modalOverlay: {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+},
+modalView: {
+  backgroundColor: '#FFF9F0',
+  borderRadius: 10,
+  padding: 20,
+  alignItems: 'center',
+  elevation: 5,
+  width: '80%',
+},
+modalTitle: {
+  fontSize: 20,
+  color: '#444',
+  textAlign: 'center',
+  fontFamily: 'Poppins_Bold',
+},
+modalButton: {
+  backgroundColor: '#14AFBC',
+  paddingVertical: 10,
+  paddingHorizontal: 20,
+  borderRadius: 10,
+},
+modalButtonText: {
+  color: '#fff',
+  fontSize: 16,
+  fontFamily: 'Poppins_SemiBold',
+},
 });
