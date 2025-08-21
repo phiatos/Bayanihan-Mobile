@@ -51,8 +51,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow this app to use your location to show your position on the map."
-        }
+        "locationAlwaysAndWhenInUsePermission": "Allow Bayanihan to use your location."        
+      }
       ],
       "expo-build-properties",
       "expo-video",
