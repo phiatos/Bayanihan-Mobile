@@ -26,20 +26,32 @@ function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (fontsLoaded) {
-      setReady(true);
-    }
-  }, [fontsLoaded]);
+  const prepareApp = async () => {
+    try {
+      await SplashScreen.preventAutoHideAsync();
 
-  useEffect(() => {
-    if (ready) {
-      SplashScreen.hideAsync();
-    }
-  }, [ready]);
+      if (fontsLoaded) setReady(true);
 
-  if (!ready) {
-    return null;
-  }
+      // optional: small delay to avoid instant flicker
+      await new Promise((res) => setTimeout(res, 100));
+    } catch (e) {
+      console.warn(e);
+    } finally {
+      await SplashScreen.hideAsync(); // always hide splash eventually
+    }
+  };
+
+  prepareApp();
+}, [fontsLoaded]);
+
+if (!ready) {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <ActivityIndicator size="large" color="#000" />
+    </View>
+  );
+}
+
 
   return (
     <AuthContext.Provider value={{ user, setUser }}>

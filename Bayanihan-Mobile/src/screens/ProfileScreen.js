@@ -327,149 +327,159 @@ const ProfileScreen = () => {
     });
   };
 
-  const handleChangePassword = async () => {
-    if (!user) {
-      setCustomModal({
-        visible: true,
-        title: 'Not Logged In',
-        message: (
-          <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
-            <Text style={localStyles.message}>Please log in to change your password.</Text>
-          </View>
-        ),
-        onConfirm: () => {
-          closeModal();
-          navigation.navigate('Login');
-        },
-        confirmText: 'OK',
-        showCancel: false,
-      });
-      return;
+const handleChangePassword = async () => {
+  if (!user) {
+    setCustomModal({
+      visible: true,
+      title: 'Not Logged In',
+      message: (
+        <View style={{ alignItems: 'center' }}>
+          <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+          <Text style={localStyles.message}>Please log in to change your password.</Text>
+        </View>
+      ),
+      onConfirm: () => {
+        closeModal();
+        navigation.navigate('Login');
+      },
+      confirmText: 'OK',
+      showCancel: false,
+    });
+    return;
+  }
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    setCustomModal({
+      visible: true,
+      title: 'Error',
+      message: (
+        <View style={{ alignItems: 'center' }}>
+          <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+          <Text style={localStyles.message}>Please fill in all password fields.</Text>
+        </View>
+      ),
+      onConfirm: closeModal,
+      confirmText: 'OK',
+      showCancel: false,
+    });
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    setCustomModal({
+      visible: true,
+      title: 'Error',
+      message: (
+        <View style={{ alignItems: 'center' }}>
+          <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+          <Text style={localStyles.message}>New password and confirmation do not match.</Text>
+        </View>
+      ),
+      onConfirm: closeModal,
+      confirmText: 'OK',
+      showCancel: false,
+    });
+    return;
+  }
+
+  const { hasLength, hasUppercase, hasLowercase, hasNumber, hasSymbol } = passwordStrength.checks;
+  if (!hasLength || !hasUppercase || !hasLowercase || !hasNumber || !hasSymbol) {
+    setCustomModal({
+      visible: true,
+      title: 'Weak Password',
+      message: (
+        <View style={{ alignItems: 'center' }}>
+          <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+          <Text style={localStyles.message}>
+            Your new password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a symbol.
+          </Text>
+        </View>
+      ),
+      onConfirm: closeModal,
+      confirmText: 'OK',
+      showCancel: false,
+    });
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    const userEmail = user.email || profileData.email;
+    if (!userEmail) {
+      throw new Error('No email associated with this user for re-authentication.');
     }
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setCustomModal({
-        visible: true,
-        title: 'Error',
-        message: (
-          <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
-            <Text style={localStyles.message}>Please fill in all password fields.</Text>
-          </View>
-        ),
-        onConfirm: closeModal,
-        confirmText: 'OK',
-        showCancel: false,
-      });
-      return;
-    }
+    const credential = EmailAuthProvider.credential(userEmail, currentPassword);
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    await updatePassword(auth.currentUser, newPassword);
 
-    if (newPassword !== confirmPassword) {
-      setCustomModal({
-        visible: true,
-        title: 'Error',
-        message: (
-          <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
-            <Text style={localStyles.message}>New password and confirmation do not match.</Text>
-          </View>
-        ),
-        onConfirm: closeModal,
-        confirmText: 'OK',
-        showCancel: false,
-      });
-      return;
-    }
+    const db = getDatabase();
+    await update(ref(db, `users/${user.id}`), {
+      lastPasswordChange: new Date().toISOString(),
+      password_needs_reset: false,
+    });
 
-    const { hasLength, hasUppercase, hasLowercase, hasNumber, hasSymbol } = passwordStrength.checks;
-    if (!hasLength || !hasUppercase || !hasLowercase || !hasNumber || !hasSymbol) {
-      setCustomModal({
-        visible: true,
-        title: 'Weak Password',
-        message: (
-          <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
-            <Text style={localStyles.message}>
-              Your new password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a symbol.
-            </Text>
-          </View>
-        ),
-        onConfirm: closeModal,
-        confirmText: 'OK',
-        showCancel: false,
-      });
-      return;
-    }
-
-    setSubmitting(true);
-
+    // Generate UUID safely
+    let submissionId;
     try {
-      const userEmail = user.email || profileData.email;
-      if (!userEmail) {
-        throw new Error('No email associated with this user for re-authentication.');
-      }
-
-      const credential = EmailAuthProvider.credential(userEmail, currentPassword);
-      await reauthenticateWithCredential(auth.currentUser, credential);
-      await updatePassword(auth.currentUser, newPassword);
-
-      const db = getDatabase();
-      await update(ref(db, `users/${user.id}`), {
-        lastPasswordChange: new Date().toISOString(),
-        password_needs_reset: false,
-      });
-      const submissionId = uuidv4();
-      await logActivity('User changed their password', submissionId);
-      await logSubmission('profile', { action: 'password_change', newPasswordLength: newPassword.length }, submissionId);
-
-
-      setCustomModal({
-        visible: true,
-        title: 'Success',
-        message: (
-          <View style={{ alignItems: 'center' }}>
-            <Ionicons name="checkmark-circle" size={60} color="#00BCD4" style={localStyles.icon} />
-            <Text style={localStyles.message}>Your password has been updated successfully.</Text>
-          </View>
-        ),
-        onConfirm: () => {
-          closeModal();
-          setCurrentPassword('');
-          setNewPassword('');
-          setConfirmPassword('');
-          setShowPasswordStrength(false);
-          setPasswordNeedsReset(false);
-          setIsNavigationBlocked(false);
-        },
-        confirmText: 'OK',
-        showCancel: false,
-      });
-    } catch (error) {
-      console.error('Password change error:', error);
-      let errorMessage = 'Failed to change password. Please ensure your current password is correct.';
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
-        errorMessage = 'Incorrect current password or authentication issue.';
-      } else if (error.code === 'auth/requires-recent-login') {
-        errorMessage = 'For security, please log in again before changing your password.';
-      }
-      setCustomModal({
-        visible: true,
-        title: 'Error',
-        message: (
-          <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
-            <Text style={localStyles.message}>{errorMessage}</Text>
-          </View>
-        ),
-        onConfirm: closeModal,
-        confirmText: 'OK',
-        showCancel: false,
-      });
-    } finally {
-      setSubmitting(false);
+      submissionId = uuidv4();
+    } catch (uuidError) {
+      console.error('UUID generation error:', uuidError);
+      submissionId = `fallback-${Date.now()}`; // Fallback ID if UUID fails
     }
-  };
+
+    await logActivity('User changed their password', submissionId);
+    await logSubmission('profile', { action: 'password_change', newPasswordLength: newPassword.length }, submissionId);
+
+    setCustomModal({
+      visible: true,
+      title: 'Success',
+      message: (
+        <View style={{ alignItems: 'center' }}>
+          <Ionicons name="checkmark-circle" size={60} color="#00BCD4" style={localStyles.icon} />
+          <Text style={localStyles.message}>Your password has been updated successfully.</Text>
+        </View>
+      ),
+      onConfirm: () => {
+        closeModal();
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setShowPasswordStrength(false);
+        setPasswordNeedsReset(false);
+        setIsNavigationBlocked(false);
+      },
+      confirmText: 'OK',
+      showCancel: false,
+    });
+  } catch (error) {
+    console.error('Password change error:', error);
+    let errorMessage = 'Failed to change password. Please ensure your current password is correct.';
+    if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+      errorMessage = 'Incorrect current password or authentication issue.';
+    } else if (error.code === 'auth/requires-recent-login') {
+      errorMessage = 'For security, please log in again before changing your password.';
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = 'Too many attempts. Please try again later.';
+    }
+    setCustomModal({
+      visible: true,
+      title: 'Error',
+      message: (
+        <View style={{ alignItems: 'center' }}>
+          <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={localStyles.icon} />
+          <Text style={localStyles.message}>{errorMessage}</Text>
+        </View>
+      ),
+      onConfirm: closeModal,
+      confirmText: 'OK',
+      showCancel: false,
+    });
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleAgreeTerms = async () => {
     if (!agreedTerms) {

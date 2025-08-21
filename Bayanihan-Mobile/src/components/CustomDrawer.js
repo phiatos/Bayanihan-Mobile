@@ -31,7 +31,7 @@ const CustomDrawer = (props) => {
     try {
       await signOut(auth);
       onSignOut();
-      navigation.navigate('Login');
+        navigation.navigate("AuthStack", { screen: "Login" });
     } catch (error) {
       console.error('Sign out error:', error.message);
       Alert.alert('Error', 'Failed to sign out: ' + error.message);

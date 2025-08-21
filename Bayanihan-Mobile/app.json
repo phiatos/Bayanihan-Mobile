@@ -25,7 +25,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/ab_logo.png",
+        "foregroundImage": "./assets/images/app_logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -44,7 +44,7 @@
       "package": "com.firebase.bayanihan"
     },
     "web": {
-      "favicon": "./assets/images/ab_logo.png"
+      "favicon": "./assets/images/app_logo.png"
     },
     "plugins": [
       "expo-font",
