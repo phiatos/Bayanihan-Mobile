@@ -30,7 +30,7 @@ let auth, database, storage, db;
 try {
   auth = getAuth(app);
   database = getDatabase(app);
-  storage = getStorage(app, 'gs://bayanihan-5ce7e.firebasestorage.app'); 
+  storage = getStorage(app); 
   db = getFirestore(app);
   console.log('Firebase Auth:', !!auth);
   console.log('Firebase Database:', !!database);

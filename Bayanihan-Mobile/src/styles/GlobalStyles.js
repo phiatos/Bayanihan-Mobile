@@ -128,10 +128,14 @@ export default StyleSheet.create({
     fontSize: 14,
     color: Theme.colors.black,
   },
-    errorText: {
+  errorText: {
     color: 'red',
     fontSize: 12,
     marginLeft: 10,
+  },
+  inputError: {
+    borderColor: 'red',
+    borderWidth: 1,
   },
    imageUpload: {
     borderWidth: 1,

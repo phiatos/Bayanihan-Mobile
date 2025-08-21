@@ -5,14 +5,25 @@
 4. cd 'bayanihan-mobile'
 
 ## If first time:
-1. npm install
-2. Install the dependencies provided below.
+1. Copy the entire code provided below.
+2. npm install
 
 
 <!-- --------------------- -->
 ### Latest dependencies that needs to be integrated
-paste these at the dependencies bracket:
+paste these at the package.json:
 ```
+{
+  "name": "bayanihan-mobile",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
     "@expo-google-fonts/poppins": "^0.3.1",
     "@expo/metro-runtime": "~5.0.4",
     "@expo/vector-icons": "^14.1.0",
@@ -75,10 +86,43 @@ paste these at the dependencies bracket:
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
     "react-native-select-dropdown": "^4.0.1",
-    "react-native-splash-screen": "^3.3.0",
     "react-native-svg": "15.11.2",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "^0.20.0",
     "react-native-webview": "13.13.5",
     "rimraf": "^6.0.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@react-native-community/cli": "latest",
+    "@types/react": "~19.0.10",
+    "expo": "^53.0.20",
+    "typescript": "~5.8.3"
+  },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "@react-native-community/checkbox",
+          "react-native-geocoding",
+          "@fortawesome/free-solid-svg-icons",
+          "react-native-element-dropdown",
+          "@fortawesome/react-fontawesome",
+          "@oclif/core",
+          "@xmldom/xmldom",
+          "firebase",
+          "glob",
+          "lodash",
+          "react-datepicker",
+          "react-native-fontawesome",
+          "react-native-vector-icons",
+          "rimraf"
+        ],
+        "listUnknownPackages": false
+      }
+    }
+  },
+  "private": true
+}
+
  ```

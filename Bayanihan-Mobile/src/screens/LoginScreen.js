@@ -1,24 +1,16 @@
-import React, { useState, useContext } from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  Text,
-  TextInput,
-  ToastAndroid,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { sendEmailVerification, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { get, ref } from 'firebase/database';
+import { debounce } from 'lodash';
+import React, { useCallback, useContext, useState } from 'react';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { auth, database } from '../configuration/firebaseConfig';
 import { AuthContext } from '../context/AuthContext';
-import { debounce } from 'lodash';
 import Theme from '../constants/theme';
 import { styles } from '../styles/LoginScreenStyles';
-import { database } from '../configuration/firebaseConfig';
-import bcrypt from 'react-native-bcrypt';
+import GlobalStyles from '../styles/GlobalStyles';
+
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -26,120 +18,116 @@ const LoginScreen = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({});
-  const { handleLogin } = useContext(AuthContext);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const { setUser } = useContext(AuthContext);
 
-  const validateEmail = (emailValue) => {
-    const newErrors = { ...errors };
-    if (!emailValue) {
-      newErrors.email = 'Email is required.';
-      setErrors(newErrors);
-      return false;
+  const validateInputs = () => {
+    let isValid = true;
+    
+    // Check if email is empty
+    if (!email) {
+      setEmailError('Email is required');
+      isValid = false;
+    } else {
+      setEmailError('');
     }
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(emailValue)) {
-      newErrors.email = 'Please enter a valid email address.';
-      setErrors(newErrors);
-      return false;
+
+    // Check if password is empty or too short
+    if (!password) {
+      setPasswordError('Password is required');
+      isValid = false;
+    } else if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters long');
+      isValid = false;
+    } else {
+      setPasswordError('');
     }
-    delete newErrors.email;
-    setErrors(newErrors);
-    return true;
+
+    return isValid;
   };
 
-  const validatePassword = (passwordValue) => {
-    const newErrors = { ...errors };
-    if (!passwordValue) {
-      newErrors.password = 'Password is required.';
-      setErrors(newErrors);
-      return false;
-    }
-    if (passwordValue.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters long.';
-      setErrors(newErrors);
-      return false;
-    }
-    delete newErrors.password;
-    setErrors(newErrors);
-    return true;
-  };
-
-  const checkDatabasePassword = async (email, password, retryCount = 0, maxRetries = 2) => {
+  const checkEmailExists = async () => {
     try {
-      const usersSnapshot = await database()
-        .ref('users')
-        .orderByChild('email')
-        .equalTo(email.toLowerCase())
-        .once('value');
-
-      if (!usersSnapshot.exists()) {
-        return { valid: false, error: 'Email not found.' };
+      // Query the users node to find if email exists
+      const usersRef = ref(database, 'users');
+      const snapshot = await get(usersRef);
+      if (snapshot.exists()) {
+        const users = snapshot.val();
+        // Check if any user has the provided email
+        const userId = Object.keys(users).find(uid => users[uid].email === email);
+        return userId ? { uid: userId, userData: users[userId] } : null;
       }
-
-      let passwordMatches = false;
-      usersSnapshot.forEach((childSnapshot) => {
-        const userData = childSnapshot.val();
-        if (bcrypt.compareSync(password, userData.password)) { // Assumes password is hashed
-          passwordMatches = true;
-        }
-      });
-
-      if (!passwordMatches) {
-        return { valid: false, error: 'Password does not match.' };
-      }
-
-      return { valid: true };
+      return null;
     } catch (error) {
-      console.error('Database password check error:', error);
-      if (retryCount < maxRetries && error.code === 'unavailable') {
-        console.log(`Retrying database check (${retryCount + 1}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return checkDatabasePassword(email, password, retryCount + 1, maxRetries);
-      }
-      return { valid: false, error: `Database error: ${error.message}` };
+      console.error('Error checking email:', error);
+      return null;
     }
   };
 
-  const onLogin = debounce(
-    async () => {
-      const isEmailValid = validateEmail(email);
-      const isPasswordValid = validatePassword(password);
-
-      if (!isEmailValid || !isPasswordValid) {
-        return;
-      }
-
-      if (isLoading) return;
-
-      setIsLoading(true);
-      try {
-        // Check password in Realtime Database
-        const dbCheck = await checkDatabasePassword(email, password);
-        if (!dbCheck.valid) {
-          ToastAndroid.show(dbCheck.error, ToastAndroid.SHORT);
-          setIsLoading(false);
+  const handleLogin = useCallback(
+    debounce(
+      async () => {
+        if (!validateInputs()) {
           return;
         }
 
-        // Proceed with Firebase Authentication
-        await handleLogin(email, password);
-        ToastAndroid.show('Login successful.', ToastAndroid.SHORT);
-      } catch (error) {
-        console.error('Login error:', error);
-        if (error.code === 'auth/invalid-credential') {
-          ToastAndroid.show('Invalid email or password', ToastAndroid.SHORT);
-        } else if (error.code === 'auth/email-not-verified') {
-          setModalVisible(true);
-          ToastAndroid.show('Please verify your email to log in.', ToastAndroid.LONG);
-        } else {
-          ToastAndroid.show(`Error: ${error.message}`, ToastAndroid.LONG);
+        if (isLoading) return;
+
+        setIsLoading(true);
+        try {
+          // First, check if email exists in database
+          const emailCheck = await checkEmailExists();
+          
+          if (!emailCheck) {
+            ToastAndroid.show('Email not found.', ToastAndroid.SHORT);
+            return;
+          }
+
+          // Proceed with authentication
+          console.log('Attempting login with auth:', !!auth);
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+          const userData = emailCheck.userData;
+
+          // Check for email verification (skipped for admins)
+          const isAdmin = userData?.role === 'AB ADMIN' || userData?.role === 'admin';
+          if (!isAdmin && !user.emailVerified) {
+            const actionCodeSettings = {
+              url: 'https://bayanihan-5ce7e.firebaseapp.com',
+              handleCodeInApp: false,
+            };
+            await sendEmailVerification(user, actionCodeSettings);
+            await signOut(auth);
+            setModalVisible(true);
+            ToastAndroid.show('Please verify your email to log in.', ToastAndroid.LONG);
+            return;
+          }
+
+          // Set user in AuthContext to trigger navigation to AppStack
+          setUser({
+            id: user.uid,
+            contactPerson: userData.contactPerson || user.displayName || 'Unknown',
+            email: user.email,
+            role: userData.role,
+          });
+
+          ToastAndroid.show('Login successful.', ToastAndroid.SHORT);
+        } catch (error) {
+          if (error.code === 'auth/invalid-credential') {
+            ToastAndroid.show('Password does not match.', ToastAndroid.SHORT);
+          } else {
+            ToastAndroid.show(`Error: ${error.message}`, ToastAndroid.LONG);
+            console.error('Login error:', error);
+          }
+        } finally {
+          setIsLoading(false);
         }
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    1000,
-    { leading: true, trailing: false }
+      },
+      1000,
+      { leading: true, trailing: false }
+    ),
+    [email, password, isLoading, auth, database, setUser]
   );
 
   return (
@@ -150,10 +138,7 @@ const LoginScreen = ({ navigation }) => {
       style={styles.gradientContainer}
     >
       <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView
-          style={styles.subContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+        <View style={styles.subContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <Modal
             animationType="slide"
             transparent={true}
@@ -188,29 +173,29 @@ const LoginScreen = ({ navigation }) => {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Email:</Text>
                 <TextInput
-                  style={[styles.input, errors.email && styles.inputError]}
+                  style={[styles.input, emailError && GlobalStyles.inputError]}
                   placeholder="Enter Email"
                   keyboardType="email-address"
                   value={email}
                   onChangeText={(text) => {
                     setEmail(text);
-                    validateEmail(text);
+                    setEmailError('');
                   }}
                   autoCapitalize="none"
                 />
-                {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+                {emailError ? <Text style={GlobalStyles.errorText}>{emailError}</Text> : null}
               </View>
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Password</Text>
                 <View style={styles.passwordContainer}>
                   <TextInput
-                    style={[styles.input, styles.passwordInput, errors.password && styles.inputError]}
+                    style={[styles.input, styles.passwordInput, passwordError && GlobalStyles.inputError]}
                     placeholder="Enter Password"
                     secureTextEntry={!showPassword}
                     value={password}
                     onChangeText={(text) => {
                       setPassword(text);
-                      validatePassword(text);
+                      setPasswordError('');
                     }}
                   />
                   <TouchableOpacity
@@ -224,7 +209,7 @@ const LoginScreen = ({ navigation }) => {
                     />
                   </TouchableOpacity>
                 </View>
-                {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+                {passwordError ? <Text style={GlobalStyles.errorText}>{passwordError}</Text> : null}
                 <TouchableOpacity
                   style={styles.recoverButton}
                   onPress={() => navigation.navigate('RecoveryScreen')}
@@ -235,14 +220,14 @@ const LoginScreen = ({ navigation }) => {
               </View>
               <TouchableOpacity
                 style={[styles.button, isLoading && styles.disabledButton]}
-                onPress={onLogin}
+                onPress={handleLogin}
                 disabled={isLoading}
               >
                 <Text style={styles.buttonText}>{isLoading ? 'Loading...' : 'Log in'}</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
         <View style={styles.termsContainer}>
           <Text style={styles.termsText}>
             By continuing, you agree to the Terms and Conditions and Privacy Policy.
