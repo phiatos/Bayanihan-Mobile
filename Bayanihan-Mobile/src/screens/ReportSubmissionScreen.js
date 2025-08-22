@@ -313,7 +313,7 @@ const ReportSubmissionScreen = () => {
     }
     try {
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU&fields=formatted_address,geometry`
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=AIzaSyAAAu6BeQjIZ7H7beFbAsPWuKuORmh0wrk&fields=formatted_address,geometry`
       );
       const data = await response.json();
       if (data.status === 'OK') {
@@ -339,7 +339,7 @@ const ReportSubmissionScreen = () => {
     if (!searchQuery) return;
     try {
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU`
+        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=AIzaSyAAAu6BeQjIZ7H7beFbAsPWuKuORmh0wrk`
       );
       const data = await response.json();
       if (data.status === 'OK' && data.results.length > 0) {
@@ -765,7 +765,7 @@ const ReportSubmissionScreen = () => {
 
             // Load Google Maps API asynchronously
             const script = document.createElement("script");
-            script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU&libraries=places&callback=initMap";
+            script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyAAAu6BeQjIZ7H7beFbAsPWuKuORmh0wrk&libraries=places&callback=initMap";
             script.async = true;
             script.onerror = () => showError("Failed to load Google Maps API");
             document.head.appendChild(script);

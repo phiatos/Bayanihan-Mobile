@@ -580,7 +580,8 @@ const handleChangePassword = async () => {
 
   return (
     <SafeAreaView style={GlobalStyles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={Platform.OS === 'android'}
+              />
       {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}

@@ -111,6 +111,7 @@ const LoginScreen = ({ navigation }) => {
             email: user.email,
             role: userData.role,
           });
+
           ToastAndroid.show('Login successful.', ToastAndroid.SHORT);
         } catch (error) {
           if (error.code === 'auth/invalid-credential') {

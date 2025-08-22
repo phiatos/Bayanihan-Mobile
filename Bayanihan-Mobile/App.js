@@ -1,3 +1,4 @@
+import 'core-js/stable/array/find-last';
 import React, { useEffect, useCallback, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import AuthStack from './src/navigation/AuthStack';
@@ -8,6 +9,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
 import 'react-native-gesture-handler';
 import * as NavigationBar from 'expo-navigation-bar';
+import { StatusBar } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -26,34 +28,24 @@ function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-  const prepareApp = async () => {
-    try {
-      await SplashScreen.preventAutoHideAsync();
-
-      if (fontsLoaded) setReady(true);
-
-      // optional: small delay to avoid instant flicker
-      await new Promise((res) => setTimeout(res, 100));
-    } catch (e) {
-      console.warn(e);
-    } finally {
-      await SplashScreen.hideAsync(); // always hide splash eventually
+    if (fontsLoaded) {
+      setReady(true);
     }
-  };
+  }, [fontsLoaded]);
 
-  prepareApp();
-}, [fontsLoaded]);
+  useEffect(() => {
+    if (ready) {
+      SplashScreen.hideAsync();
+    }
+  }, [ready]);
 
-if (!ready) {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <ActivityIndicator size="large" color="#000" />
-    </View>
-  );
-}
-
+  if (!ready) {
+    return null;
+  }
 
   return (
+    <>     
+     <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
     <AuthContext.Provider value={{ user, setUser }}>
       <NavigationContainer>
         {user ? (
@@ -63,6 +55,8 @@ if (!ready) {
         )}
       </NavigationContainer>
     </AuthContext.Provider>
+    </>
+
   );
 }
 

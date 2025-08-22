@@ -23,7 +23,6 @@ import Theme from '../constants/theme';
 import { AuthContext } from '../context/AuthContext';
 import GlobalStyles from '../styles/GlobalStyles';
 import { styles } from '../styles/HomeScreenStyles';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { KeyboardAvoidingView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -105,7 +104,7 @@ const HomeScreen = ({ navigation }) => {
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
           query
-        )}&components=country:PH&key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU`
+        )}&components=country:PH&key=AIzaSyAAAu6BeQjIZ7H7beFbAsPWuKuORmh0wrk`
       );
       const data = await response.json();
       if (data.status === 'OK' && data.predictions) {
@@ -203,7 +202,7 @@ const HomeScreen = ({ navigation }) => {
 
       if (placeId) {
         const response = await fetch(
-          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU`
+          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=AIzaSyAAAu6BeQjIZ7H7beFbAsPWuKuORmh0wrk`
         );
         const data = await response.json();
         if (data.status === 'OK' && data.result) {
@@ -219,7 +218,7 @@ const HomeScreen = ({ navigation }) => {
         const response = await fetch(
           `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(
             query
-          )}&components=country:PH&key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU`
+          )}&components=country:PH&key=AIzaSyAAAu6BeQjIZ7H7beFbAsPWuKuORmh0wrk`
         );
         const data = await response.json();
         if (data.status === 'OK' && data.results && data.results.length > 0) {
@@ -346,13 +345,13 @@ const HomeScreen = ({ navigation }) => {
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU&libraries=places"></script>
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAAAu6BeQjIZ7H7beFbAsPWuKuORmh0wrk&libraries=places"></script>
       </head>
       <body>
         <div id="map"></div>
         <script>
           const firebaseConfig = {
-            apiKey: "AIzaSyDJxMv8GCaMvQT2QBW3CdzA3dV5X_T2KqQ",
+            apiKey: "AIzaSyAAAu6BeQjIZ7H7beFbAsPWuKuORmh0wrk",
             authDomain: "bayanihan-5ce7e.firebaseapp.com",
             databaseURL: "https://bayanihan-5ce7e-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "bayanihan-5ce7e",

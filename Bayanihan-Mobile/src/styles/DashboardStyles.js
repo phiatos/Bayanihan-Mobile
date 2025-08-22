@@ -36,7 +36,7 @@ const DashboardStyles = StyleSheet.create({
     paddingLeft: 20,
     fontSize: 18,
     fontFamily: 'Poppins_SemiBold',
-    color: Theme.colors.blue,
+    color: Theme.colors.accent,
     position:'relative'
   },
   noSectionTitle:{

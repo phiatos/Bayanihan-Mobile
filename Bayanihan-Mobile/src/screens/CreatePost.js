@@ -13,11 +13,11 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import GlobalStyles from '../styles/GlobalStyles';
 import Theme from '../constants/theme';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import styles from '../styles/CreatePostStyles';
 import { logActivity } from '../components/logActivity';
 import { logSubmission } from '../components/logSubmission';
+import { Ionicons } from '@expo/vector-icons';
 
 const CreatePost = () => {
   const navigation = useNavigation();
@@ -25,7 +25,7 @@ const CreatePost = () => {
   const { postType: initialPostType, postId, initialData } = route.params || {};
   const [title, setTitle] = useState(initialData?.title || '');
   const [content, setContent] = useState(initialData?.content || '');
-  const [category, setCategory] = useState(initialData?.category || 'discussion');
+  const [category, setCategory] = useState(initialData?.category || ''); // Changed default to empty string for "Select Category"
   const [media, setMedia] = useState([]);
   const [link, setLink] = useState(initialData?.mediaUrl || '');
   const [postType, setPostType] = useState(initialPostType || 'text');
@@ -36,6 +36,7 @@ const CreatePost = () => {
   });
 
   const categories = [
+    { label: 'Select Category', value: '', disabled: true }, // Added default disabled option
     { label: 'Discussion', value: 'discussion' },
     { label: 'Resource', value: 'resource' },
     { label: 'Events', value: 'events' },
@@ -87,7 +88,7 @@ const CreatePost = () => {
 
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: false, // Disable built-in cropping to preserve original dimensions
+          allowsEditing: false,
           allowsMultipleSelection: false,
           quality: 0.8,
           exif: false,
@@ -98,12 +99,10 @@ const CreatePost = () => {
           for (const asset of result.assets) {
             let { uri, fileName: name = 'image.jpg', mimeType = 'image/jpeg', fileSize: size } = asset;
 
-            // Copy file to cache directory
             const cacheUri = `${FileSystem.cacheDirectory}${Date.now()}_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
             await FileSystem.copyAsync({ from: uri, to: cacheUri });
             uri = cacheUri;
 
-            // Verify file accessibility
             const fileInfo = await FileSystem.getInfoAsync(uri);
             if (!fileInfo.exists || !fileInfo.size) {
               console.error(`File does not exist or is empty at URI: ${uri}`);
@@ -117,14 +116,12 @@ const CreatePost = () => {
               continue;
             }
 
-            // Compress image without cropping
             try {
               const manipResult = await ImageManipulator.manipulateAsync(
                 uri,
-                [], // No transformations (e.g., cropping)
+                [],
                 { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
               );
-              // Write base64 to a temporary file
               const tempUri = `${FileSystem.cacheDirectory}${Date.now()}_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
               await FileSystem.writeAsStringAsync(tempUri, manipResult.base64, {
                 encoding: FileSystem.EncodingType.Base64,
@@ -141,7 +138,6 @@ const CreatePost = () => {
             }
           }
           setMedia(newMedia);
-          // Prompt to add more images
           if (newMedia.length < 10) {
             Alert.alert('Add More?', 'Would you like to add another image?', [
               { text: 'No', style: 'cancel' },
@@ -222,10 +218,9 @@ const CreatePost = () => {
       const hasPermission = await requestPermissions();
       if (!hasPermission) return;
 
-      // Allow user to manually crop the image
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true, // Enable manual cropping
+        allowsEditing: true,
         allowsMultipleSelection: false,
         quality: 0.8,
         exif: false,
@@ -234,12 +229,10 @@ const CreatePost = () => {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         uri = result.assets[0].uri;
 
-        // Copy file to cache directory
         const cacheUri = `${FileSystem.cacheDirectory}${Date.now()}_${image.name}`;
         await FileSystem.copyAsync({ from: uri, to: cacheUri });
         uri = cacheUri;
 
-        // Verify file accessibility
         const fileInfo = await FileSystem.getInfoAsync(uri);
         if (!fileInfo.exists || !fileInfo.size) {
           console.error(`File does not exist or is empty at URI: ${uri}`);
@@ -247,14 +240,12 @@ const CreatePost = () => {
           return;
         }
 
-        // Compress the cropped image
         const manipResult = await ImageManipulator.manipulateAsync(
           uri,
-          [], // No additional transformations (user already cropped)
+          [],
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
         );
 
-        // Write base64 to a temporary file
         const tempUri = `${FileSystem.cacheDirectory}${Date.now()}_${image.name}`;
         await FileSystem.writeAsStringAsync(tempUri, manipResult.base64, {
           encoding: FileSystem.EncodingType.Base64,
@@ -286,17 +277,14 @@ const CreatePost = () => {
       try {
         let uri = file.uri;
 
-        // Handle base64 data URI for images
         if (file.uri.startsWith('data:image/')) {
-          const base64String = file.uri.split(',')[1]; // Remove the 'data:image/jpeg;base64,' prefix
-          // Write base64 data to a temporary file
+          const base64String = file.uri.split(',')[1];
           uri = `${FileSystem.cacheDirectory}${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
           await FileSystem.writeAsStringAsync(uri, base64String, {
             encoding: FileSystem.EncodingType.Base64,
           });
         }
 
-        // Verify file accessibility
         const fileInfo = await FileSystem.getInfoAsync(uri);
         if (!fileInfo.exists || !fileInfo.size) {
           throw new Error(`File does not exist or is empty at URI: ${uri}`);
@@ -329,30 +317,40 @@ const CreatePost = () => {
     }
   };
 
-
   const handleSubmit = async () => {
+    // Validation: All fields are blank
+    if (!title.trim() && !content.trim() && !category && media.length === 0 && !link.trim()) {
+      ToastAndroid.show('Please fill required fields.', ToastAndroid.SHORT);
+      return;
+    }
+
+    // Validation: Title and content filled, but no category
+    if (title.trim() && content.trim() && !category) {
+      ToastAndroid.show('Please select a category.', ToastAndroid.SHORT);
+      return;
+    }
+
+    // Validation: Title and category filled, but no content
+    if (title.trim() && category && !content.trim()) {
+      ToastAndroid.show('Please add a content or media to post.', ToastAndroid.SHORT);
+      return;
+    }
+
+    // Validation: Title, category, and content filled, but no media for image/video post
+    if ((postType === 'image' || postType === 'video') && title.trim() && category && content.trim() && media.length === 0) {
+      ToastAndroid.show('Please add a content or media to post.', ToastAndroid.SHORT);
+      return;
+    }
+
+    // Validation: Link post with invalid or empty link
+    if (postType === 'link' && (!link.trim() || !/^https?:\/\//.test(link))) {
+      ToastAndroid.show('Please provide a valid URL starting with http:// or https://.', ToastAndroid.SHORT);
+      return;
+    }
+
     if (!auth || !auth.currentUser) {
       console.error(`No authenticated user or auth not initialized`);
       Alert.alert('Error', 'Authentication not initialized or user not logged in. Please sign out and sign in again.');
-      return;
-    }
-
-    if (!title.trim() || !content.trim()) {
-      // console.error(`Missing title or content`);
-      // Alert.alert('Error', 'Title and content are required.');
-    ToastAndroid.show('Title and content are required.',ToastAndroid.BOTTOM);
-      return;
-    }
-
-    if ((postType === 'image' || postType === 'video') && media.length === 0) {
-      console.error(`No media selected for ${postType}`);
-      Alert.alert('Error', `Please select ${postType === 'video' ? 'a video' : 'at least one image'}.`);
-      return;
-    }
-
-    if (postType === 'link' && (!link.trim() || !/^https?:\/\//.test(link))) {
-      console.error(`Invalid link: ${link}`);
-      Alert.alert('Error', 'Please provide a valid URL starting with http:// or https://.');
       return;
     }
 
@@ -401,20 +399,21 @@ const CreatePost = () => {
       }
 
       if (postId) {
-            const postRef = ref(database, `posts/${postId}`);
-            await update(postRef, postData);
-            await logActivity('Updated a post', postId);
-            await logSubmission('posts', postData, postId);
-            Alert.alert('Success', 'Post updated successfully.');
-          } else {
-            const postsRef = ref(database, 'posts');
-            const newPostRef = push(postsRef);
-            const submissionId = newPostRef.key;
-            await set(newPostRef, postData);
-            await logActivity(`Created a new post in ${category}`, submissionId);
-            await logSubmission('posts', postData, submissionId);
-            Alert.alert('Success', 'Post created successfully.');
-          }
+        const postRef = ref(database, `posts/${postId}`);
+        await update(postRef, postData);
+        await logActivity('Updated a post', postId);
+        await logSubmission('posts', postData, postId);
+        Alert.alert('Success', 'Post updated successfully.');
+      } else {
+        const postsRef = ref(database, 'posts');
+        const newPostRef = push(postsRef);
+        const submissionId = newPostRef.key;
+        await set(newPostRef, postData);
+        await logActivity(`Created a new post in ${category}`, submissionId);
+        await logSubmission('posts', postData, submissionId);
+        // Validation: All fields filled
+        Alert.alert('Success', 'Post created successfully.');
+      }
 
       navigation.goBack();
     } catch (error) {
@@ -484,7 +483,13 @@ const CreatePost = () => {
                 style={styles.picker}
               >
                 {categories.map((cat) => (
-                  <Picker.Item key={cat.value} label={cat.label} value={cat.value} style={styles.pickerItems} />
+                  <Picker.Item
+                    key={cat.value}
+                    label={cat.label}
+                    value={cat.value}
+                    style={styles.pickerItems}
+                    enabled={!cat.disabled} // Disable the "Select Category" option
+                  />
                 ))}
               </Picker>
             </View>

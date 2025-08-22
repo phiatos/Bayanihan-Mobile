@@ -3,11 +3,9 @@ import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/database';
 import React, { useEffect, useState, useRef } from 'react';
-import { ScrollView, Text, TouchableOpacity, View, StatusBar, Animated, Easing, ToastAndroid } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View, StatusBar, Animated, Easing, ToastAndroid, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-
 import styles from '../styles/DashboardStyles';
 import GlobalStyles from '../styles/GlobalStyles';
 import Theme from '../constants/theme';
@@ -177,13 +175,19 @@ const DashboardScreen = ({ navigation }) => {
   }, [navigation]);
 
   return (
-            <LinearGradient
+      <LinearGradient
       colors={['rgba(250, 59, 154, 0.43)', '#FFF9F0']}
       start={{ x: 0.5, y: 1 }}
       end={{ x: 0.5, y: 0 }}
       style={styles.gradientContainer}
     >
       <SafeAreaView style={styles.container}>
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor="transparent"
+          translucent={Platform.OS === 'android'}
+        />
+
         {/* Header */}
         <View style={GlobalStyles.newheaderContainer}>
             <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.headerMenuIcon}>
@@ -214,7 +218,7 @@ const DashboardScreen = ({ navigation }) => {
             end={{ x: 1, y: 1 }}
             style={styles.formCard}
           >
-            <BlurView intensity={25} tint="light" style={styles.metricGradientCard}>
+            <View intensity={25} tint="light" style={styles.metricGradientCard}>
                 {/* Top shadow */}
                 <LinearGradient
                   colors={['rgba(255, 255, 255, 0.3)', 'transparent']}
@@ -253,7 +257,7 @@ const DashboardScreen = ({ navigation }) => {
                   <Text style={[styles.metricValue, { fontFamily: 'Poppins-Bold' }]}>{value}</Text>
                 </View>
               </View>
-            </BlurView>
+            </View>
           </LinearGradient>
           </Animated.View>
         ))}
