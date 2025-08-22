@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { signInAnonymously } from 'firebase/auth';
-import { ref as databaseRef, push, get, serverTimestamp, query, orderByChild, equalTo } from 'firebase/database';
-import React, { useEffect, useState, useRef } from 'react';
+import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
+import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
 import CustomModal from '../components/CustomModal';
@@ -103,40 +103,6 @@ const RDANASummary = () => {
             if (userRole === 'AB ADMIN') {
               console.log('AB ADMIN role detected. Submission allowed.');
               setCanSubmit(true);
-            } else if (userRole === 'ABVN') {
-              console.log('ABVN role detected. Checking organization activations.');
-              if (orgName === '[Unknown Organization]') {
-                console.warn('ABVN user has no organization assigned.');
-                setErrorMessage('Your account is not associated with an organization.');
-                setModalVisible(true);
-                navigation.navigate('Volunteer Dashboard');
-                return;
-              }
-
-              const activationsRef = query(
-                databaseRef(database, 'activations'),
-                orderByChild('organization'),
-                equalTo(orgName)
-              );
-              const activationsSnapshot = await get(activationsRef);
-              let hasActiveActivations = false;
-              activationsSnapshot.forEach((childSnapshot) => {
-                if (childSnapshot.val().status === 'active') {
-                  hasActiveActivations = true;
-                  return true; // Exit loop
-                }
-              });
-
-              if (hasActiveActivations) {
-                console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
-                setCanSubmit(true);
-              } else {
-                console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
-                setErrorMessage('Your organization has no active operations. You cannot submit reports at this time.');
-                setModalVisible(true);
-                navigation.navigate('Volunteer Dashboard');
-                setCanSubmit(false);
-              }
             } else {
               console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
               setErrorMessage('Your role does not permit report submission.');
@@ -233,8 +199,8 @@ const RDANASummary = () => {
     console.log('Authenticated user UID:', user.uid);
 
     if (!canSubmit) {
-      console.error('Submission not allowed due to role or inactive organization');
-      setErrorMessage('Your organization is inactive or you lack permission to submit reports.');
+      console.error('Submission not allowed due to role');
+      setErrorMessage('You lack permission to submit reports.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;

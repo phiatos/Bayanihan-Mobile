@@ -364,8 +364,8 @@ const CommunityBoard = () => {
 
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1, marginTop: 50, marginBottom: 40 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : StatusBar.currentHeight}
+          style={{ flex: 1, marginTop: 50}}
+          keyboardVerticalOffset={0}
         >
           <View style={styles.filterContainer}>
             <TouchableOpacity style={styles.sortButton} onPress={toggleSort}>
@@ -388,7 +388,7 @@ const CommunityBoard = () => {
             renderItem={renderPost}
             keyExtractor={(item) => item.id}
             ListEmptyComponent={<Text style={styles.emptyText}>No posts available.</Text>}
-            contentContainerStyle={styles.flatListContent}
+            contentContainerStyle={GlobalStyles.scrollViewContent}
           />
           <View style={styles.floatingButtonContainer}>
             <TouchableOpacity

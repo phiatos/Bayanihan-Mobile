@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useRef, useState } from 'react';
+import { auth, database } from '../configuration/firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ref as databaseRef, get, query, orderByChild, equalTo } from 'firebase/database';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Dimensions,
   KeyboardAvoidingView,
@@ -78,6 +81,10 @@ const RDANAScreen = () => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
   const [requiredFieldsModalVisible, setRequiredFieldsModalVisible] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [organizationName, setOrganizationName] = useState('[Unknown Organization]');
+  const [canSubmit, setCanSubmit] = useState(false);
   const insets = useSafeAreaInsets();
 
   // Custom error messages for required fields
@@ -304,6 +311,142 @@ const RDANAScreen = () => {
     return sanitized.charAt(0).toUpperCase() + sanitized.slice(1);
   };
 
+  // Organization name and role-based submission check
+useEffect(() => {
+  const checkActiveOperations = async () => {
+    try {
+      // Reset canSubmit to false to ensure fresh check
+      setCanSubmit(false);
+      setModalVisible(false); // Reset modal visibility
+
+      // Load organization name from AsyncStorage
+      const storedOrg = await AsyncStorage.getItem('organizationName');
+      if (storedOrg) {
+        setOrganizationName(storedOrg);
+        console.log('Organization name loaded from storage:', storedOrg);
+      }
+
+      // Check authentication state
+      const user = auth.currentUser;
+      if (!user) {
+        console.warn('No user is logged in');
+        setErrorMessage('User not authenticated. Please log in.');
+        setModalVisible(true);
+        setTimeout(() => {
+          setModalVisible(false);
+          navigation.replace('Login'); // Use replace to prevent back navigation
+        }, 3000);
+        return;
+      }
+
+      console.log('Logged-in user UID:', user.uid);
+      const userRef = databaseRef(database, `users/${user.uid}`);
+      const userSnapshot = await get(userRef);
+      const userData = userSnapshot.val();
+
+      if (!userData) {
+        console.error('User data not found for UID:', user.uid);
+        setErrorMessage('Your user profile is incomplete. Please contact support.');
+        setModalVisible(true);
+        setTimeout(() => {
+          setModalVisible(false);
+          navigation.replace('Volunteer Dashboard');
+        }, 3000);
+        return;
+      }
+
+      // Check for password reset requirement
+      if (userData.password_needs_reset) {
+        setErrorMessage('For security reasons, please change your password.');
+        setModalVisible(true);
+        setTimeout(() => {
+          setModalVisible(false);
+          navigation.replace('Profile');
+        }, 3000);
+        return;
+      }
+
+      const userRole = userData.role;
+      const orgName = userData.organization || '[Unknown Organization]';
+      setOrganizationName(orgName);
+      await AsyncStorage.setItem('organizationName', orgName);
+      console.log('User Role:', userRole, 'Organization:', orgName);
+
+      // Role-based submission eligibility
+      if (userRole === 'AB ADMIN') {
+        console.log('AB ADMIN role detected. Submission allowed.');
+        setCanSubmit(true);
+      } else if (userRole === 'ABVN') {
+        console.log('ABVN role detected. Checking organization activations.');
+        if (orgName === '[Unknown Organization]') {
+          console.warn('ABVN user has no organization assigned.');
+          setErrorMessage('Your account is not associated with an organization.');
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.replace('Volunteer Dashboard');
+          }, 3000);
+          return;
+        }
+
+        const activationsRef = query(
+          databaseRef(database, 'activations'),
+          orderByChild('organization'),
+          equalTo(orgName)
+        );
+        const activationsSnapshot = await get(activationsRef);
+        let hasActiveActivations = false;
+        activationsSnapshot.forEach((childSnapshot) => {
+          if (childSnapshot.val().status === 'active') {
+            hasActiveActivations = true;
+            return true; // Exit loop
+          }
+        });
+
+        if (hasActiveActivations) {
+          console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
+          setCanSubmit(true);
+        } else {
+          console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
+          setErrorMessage('Your organization has no active operations. You cannot submit reports at this time.');
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          }, 3000);
+        }
+      } else {
+        console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
+        setErrorMessage('Your role does not permit report submission.');
+        setModalVisible(true);
+        setTimeout(() => {
+          setModalVisible(false);
+          navigation.replace('Volunteer Dashboard');
+        }, 3000);
+      }
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error in checkActiveOperations:`, error.message);
+      setErrorMessage('Failed to verify permissions: ' + error.message);
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+        navigation.replace('Volunteer Dashboard');
+      }, 3000);
+    }
+  };
+
+  // Run check on screen focus
+  const unsubscribeFocus = navigation.addListener('focus', () => {
+    console.log('RDANA screen focused, checking active operations...');
+    checkActiveOperations();
+  });
+
+  // Initial check on mount
+  checkActiveOperations();
+
+  return () => unsubscribeFocus();
+}, [navigation]);
+
   // Handle TextInput and picker changes
   const handleChange = (field, value) => {
     let sanitizedValue = value;
@@ -372,6 +515,11 @@ const RDANAScreen = () => {
   const cancelDelete = () => {
     setDeleteModalVisible(false);
     setDeleteIndex(null);
+  };
+
+  const handleModalConfirm = () => {
+    setModalVisible(false);
+    navigation.navigate('Volunteer Dashboard');
   };
 
   // Validate municipality inputs
@@ -457,7 +605,7 @@ const RDANAScreen = () => {
         keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollViewContent]}
+          contentContainerStyle={[GlobalStyles.scrollViewContent]}
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
@@ -1038,8 +1186,14 @@ const RDANAScreen = () => {
 
             <View style={{ marginHorizontal: 15 }}>
               <TouchableOpacity
-                style={GlobalStyles.button}
+                style={[GlobalStyles.button, !canSubmit && { opacity: 0.6 }]}
                 onPress={() => {
+                  if (!canSubmit) {
+                    setErrorMessage('You do not have permission to submit reports.');
+                    setModalVisible(true);
+                    return;
+                  }
+
                   const newErrors = {};
                   let allRequiredBlank = true;
 
@@ -1108,6 +1262,7 @@ const RDANAScreen = () => {
 
                   navigation.navigate('RDANASummary', { reportData: completeReportData, affectedMunicipalities });
                 }}
+                disabled={!canSubmit}
               >
                 <Text style={GlobalStyles.buttonText}>Proceed</Text>
               </TouchableOpacity>
@@ -1125,6 +1280,19 @@ const RDANAScreen = () => {
         confirmText="Delete"
         cancelText="Cancel"
         showCancel={true}
+      />
+      <CustomModal
+        visible={modalVisible}
+        title="Error"
+        message={
+          <View style={styles.modalContent}>
+            <Ionicons name="warning-outline" size={60} color="#FF0000" style={styles.modalIcon} />
+            <Text style={styles.modalMessage}>{errorMessage}</Text>
+          </View>
+        }
+        onConfirm={handleModalConfirm}
+        confirmText="OK"
+        showCancel={false}
       />
     </SafeAreaView>
   );

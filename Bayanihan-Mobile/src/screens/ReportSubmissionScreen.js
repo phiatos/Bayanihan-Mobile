@@ -1,13 +1,13 @@
-
 import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ref as databaseRef, get, onValue, query, orderByChild, equalTo } from 'firebase/database';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Alert, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View, StyleSheet, Dimensions, KeyboardAvoidingView, Modal, StatusBar, ToastAndroid, FlatList, Animated } from 'react-native';
+import { Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View, StyleSheet, Dimensions, KeyboardAvoidingView, Modal, StatusBar, ToastAndroid, FlatList, Animated } from 'react-native';
 import * as Location from 'expo-location';
 import WebView from 'react-native-webview';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, database } from '../configuration/firebaseConfig';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReportSubmissionStyles';
@@ -16,6 +16,38 @@ import Theme from '../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { height, width } = Dimensions.get('window');
+
+const CustomModal = ({ visible, title, message, onConfirm, confirmText }) => {
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onConfirm}
+    >
+      <View style={GlobalStyles.modalOverlay}>
+        <View style={GlobalStyles.modalView}>
+          <Text style={GlobalStyles.modalTitle}>{title}</Text>
+          <View style={GlobalStyles.modalContent}>
+            <Ionicons
+              name={title.includes('Success') || title.includes('Saved') ? 'checkmark-circle' : 'warning'}
+              size={60}
+              color={title.includes('Success') || title.includes('Saved') ? '#00BCD4' : '#FF0000'}
+              style={GlobalStyles.modalIcon}
+            />
+            <Text style={GlobalStyles.modalMessage}>{message}</Text>
+          </View>
+          <TouchableOpacity
+            style={GlobalStyles.modalButton}
+            onPress={onConfirm}
+          >
+            <Text style={GlobalStyles.modalButtonText}>{confirmText}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const ReportSubmissionScreen = () => {
   const navigation = useNavigation();
@@ -26,13 +58,21 @@ const ReportSubmissionScreen = () => {
   const [searchBarVisible, setSearchBarVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
+  const [canSubmit, setCanSubmit] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    confirmText: 'OK',
+  });
 
   // Helper functions for formatting
   const formatDate = (date) => {
     if (!date) return '';
     const d = new Date(date);
     const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+    const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
     return `${day}-${month}-${year}`;
   };
@@ -44,7 +84,7 @@ const ReportSubmissionScreen = () => {
     const ampm = hours >= 12 ? 'pm' : 'am';
     hours = hours % 12;
     hours = hours || 12;
-    return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`; // HH:MM AM/PM
+    return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
   };
 
   // Initialize current date
@@ -112,32 +152,190 @@ const ReportSubmissionScreen = () => {
     'TotalMonetaryDonations',
   ];
 
-  // Request location permission
-  const handleRequestPermission = async () => {
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      setPermissionStatus(status);
-      if (status === 'granted') {
-        let loc = await Location.getCurrentPositionAsync({});
-        if (loc.coords.accuracy > 50) {
-          ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
+  // Active operation check
+  useEffect(() => {
+    const checkActiveOperations = async () => {
+      try {
+        setCanSubmit(false);
+        setModalVisible(false);
+
+        const storedOrg = await AsyncStorage.getItem('organizationName');
+        if (storedOrg) {
+          setOrganizationName(storedOrg);
+          console.log('Organization name loaded from storage:', storedOrg);
         }
-        setLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
+
+        const user = auth.currentUser;
+        if (!user) {
+          console.warn('No user is logged in');
+          setModalConfig({
+            title: 'Authentication Error',
+            message: 'User not authenticated. Please log in.',
+            onConfirm: () => {
+              setModalVisible(false);
+            navigation.navigate('Login');
+            },
+            confirmText: 'OK',
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Login');
+          }, 3000);
+          return;
+        }
+
+        console.log('Logged-in user UID:', user.uid);
+        setUserUid(user.uid);
+        const userRef = databaseRef(database, `users/${user.uid}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+
+        if (!userData) {
+          console.error('User data not found for UID:', user.uid);
+          setModalConfig({
+            title: 'Profile Error',
+            message: 'Your user profile is incomplete. Please contact support.',
+            onConfirm: () => {
+              setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+            },
+            confirmText: 'OK',
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          }, 3000);
+          return;
+        }
+
+        if (userData.password_needs_reset) {
+          setModalConfig({
+            title: 'Password Reset Required',
+            message: 'For security reasons, please change your password.',
+            onConfirm: () => {
+              setModalVisible(false);
+              navigation.navigate('Profile');
+            },
+            confirmText: 'OK',
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Profile');
+          }, 3000);
+          return;
+        }
+
+        const userRole = userData.role;
+        const orgName = userData.group || '[Unknown Org]';
+        setOrganizationName(orgName);
+        await AsyncStorage.setItem('organizationName', orgName);
+        console.log('User Role:', userRole, 'Organization:', orgName);
+
+        if (userRole === 'AB ADMIN') {
+          console.log('AB ADMIN role detected. Submission allowed.');
+          setCanSubmit(true);
+        } else if (userRole === 'ABVN') {
+          console.log('ABVN role detected. Checking organization activations.');
+          const activationsRef = query(
+            databaseRef(database, 'activations'),
+            orderByChild('organization'),
+            equalTo(orgName)
+          );
+          const activationsSnapshot = await get(activationsRef);
+          let hasActiveActivations = false;
+          activationsSnapshot.forEach((childSnapshot) => {
+            if (childSnapshot.val().status === 'active') {
+              hasActiveActivations = true;
+              return true;
+            }
+          });
+
+          if (hasActiveActivations) {
+            console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
+            setCanSubmit(true);
+          } else {
+            console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
+            setModalConfig({
+              title: 'No Active Operations',
+              message: 'Your organization has no active operations. You cannot submit reports at this time.',
+              onConfirm: () => {
+                setModalVisible(false);
+                navigation.navigate('Volunteer Dashboard');
+              },
+              confirmText: 'OK',
+            });
+            setModalVisible(true);
+            setTimeout(() => {
+              setModalVisible(false);
+              navigation.navigate('Volunteer Dashboard');
+            }, 3000);
+          }
+                    if (orgName === '[Unknown Org]') {
+            console.warn('ABVN user has no organization assigned.');
+            setModalConfig({
+              title: 'Organization Error',
+              message: 'Your account is not associated with an organization.',
+              onConfirm: () => {
+                setModalVisible(false);
+              navigation.navigate('Volunteer Dashboard');
+              },
+              confirmText: 'OK',
+            });
+            setModalVisible(true);
+            setTimeout(() => {
+              setModalVisible(false);
+              navigation.navigate('Volunteer Dashboard');
+            }, 3000);
+            return;
+          }
+        } else {
+          console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
+          setModalConfig({
+            title: 'Permission Error',
+            message: 'Your role does not permit report submission.',
+            onConfirm: () => {
+              setModalVisible(false);
+              navigation.navigate('Volunteer Dashboard');
+            },
+            confirmText: 'OK',
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          }, 3000);
+        }
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error in checkActiveOperations:`, error.message);
+        setModalConfig({
+          title: 'Error',
+          message: 'Failed to verify permissions: ' + error.message,
+          onConfirm: () => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          },
+          confirmText: 'OK',
         });
-        await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
-        setShowMapModal(true);
-      } else {
-        setPermissionStatus('denied');
-        setShowPermissionModal(true);
+        setModalVisible(true);
+        setTimeout(() => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        }, 3000);
       }
-    } catch (error) {
-      console.error('Permission error:', error);
-      setMapError('Failed to request location permission. Please try again.');
-      setShowPermissionModal(true);
-    }
-  };
+    };
+
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      console.log('ReportSubmissionScreen focused, checking active operations...');
+      checkActiveOperations();
+    });
+
+    checkActiveOperations();
+
+    return () => unsubscribeFocus();
+  }, [navigation]);
 
   // Fetch active activations
   useEffect(() => {
@@ -154,9 +352,10 @@ const ReportSubmissionScreen = () => {
 
             if (userData && userData.group) {
               setOrganizationName(userData.group);
-              console.log('Volunteer group fetched from database for filtering:', userData.group);
+              await AsyncStorage.setItem('organizationName', userData.group);
+              console.log('Volunteer group fetched from database:', userData.group);
             } else {
-              console.warn('User data or group not found in database for UID:', user.uid);
+              console.warn('User data or group not found for UID:', user.uid);
               setOrganizationName('[Unknown Org]');
             }
 
@@ -181,16 +380,29 @@ const ReportSubmissionScreen = () => {
               },
               (error) => {
                 console.error('Error listening for active activations:', error);
-                ToastAndroid.show('Failed to load active operations. Please try again.', ToastAndroid.BOTTOM);
+                ToastAndroid.show('Failed to load active operations.', ToastAndroid.BOTTOM);
               }
             );
           } catch (error) {
             console.error('Error fetching user data:', error.message);
-            ToastAndroid.show('Failed to fetch user group. Please try again.', ToastAndroid.BOTTOM);
+            ToastAndroid.show('Failed to fetch user group.', ToastAndroid.BOTTOM);
           }
         } else {
           console.warn('No user is logged in');
-          navigation.navigate('Login');
+          setModalConfig({
+            title: 'Authentication Error',
+            message: 'User not authenticated. Please log in.',
+            onConfirm: () => {
+              setModalVisible(false);
+              navigation.navigate('Login');
+            },
+            confirmText: 'OK',
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Login');
+          }, 3000);
         }
       },
       (error) => {
@@ -258,6 +470,51 @@ const ReportSubmissionScreen = () => {
     }
   }, [route.params, activeActivations]);
 
+  // Request location permission
+  const handleRequestPermission = async () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      setPermissionStatus(status);
+      if (status === 'granted') {
+        let loc = await Location.getCurrentPositionAsync({});
+        if (loc.coords.accuracy > 50) {
+          ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
+        }
+        setLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+        await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
+        setShowMapModal(true);
+      } else {
+        setPermissionStatus('denied');
+        setShowPermissionModal(true);
+      }
+    } catch (error) {
+      console.error('Permission error:', error);
+      setMapError('Failed to request location permission. Please try again.');
+      setShowPermissionModal(true);
+    }
+  };
+
   // Function to reverse geocode coordinates to a human-readable address
   const reverseGeocode = async (latitude, longitude) => {
     try {
@@ -287,6 +544,24 @@ const ReportSubmissionScreen = () => {
 
   // Toggle search bar visibility with animation
   const toggleSearchBar = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     if (searchBarVisible) {
       Animated.timing(searchAnim, {
         toValue: 0,
@@ -336,6 +611,24 @@ const ReportSubmissionScreen = () => {
 
   // Handle search submission
   const handleSearch = async () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     if (!searchQuery) return;
     try {
       const response = await fetch(
@@ -365,9 +658,27 @@ const ReportSubmissionScreen = () => {
 
   // Handle suggestion selection
   const handleSuggestionSelect = async (item) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     try {
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${item.place_id}&key=AIzaSyBDtlY28p-MvLHRtxnjiibSAadSETvM3VU&fields=formatted_address,geometry`
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${item.place_id}&key=AIzaSyAAAu6BeQjIZ7H7beFbAsPWuKuORmh0wrk&fields=formatted_address,geometry`
       );
       const data = await response.json();
       if (data.status === 'OK') {
@@ -417,6 +728,24 @@ const ReportSubmissionScreen = () => {
 
   // Return to user location
   const returnToUserLocation = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     if (location?.latitude && location?.longitude) {
       const locationData = {
         latitude: location.latitude,
@@ -431,6 +760,24 @@ const ReportSubmissionScreen = () => {
   };
 
   const toggleMapType = (type) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     setMapType(type);
     const script = `
       if (window.map) {
@@ -501,6 +848,24 @@ const ReportSubmissionScreen = () => {
   };
 
   const handleCalamityChange = (value) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     if (value === '') {
       setReportData((prev) => ({
         ...prev,
@@ -548,6 +913,24 @@ const ReportSubmissionScreen = () => {
   };
 
   const handleOpenMap = async () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     if (permissionStatus !== 'granted') {
       await handleRequestPermission();
     } else if (location?.latitude && location?.longitude) {
@@ -564,6 +947,24 @@ const ReportSubmissionScreen = () => {
   };
 
   const handleSubmit = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     const newErrors = {};
 
     requiredFields.forEach((field) => {
@@ -600,10 +1001,13 @@ const ReportSubmissionScreen = () => {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      Alert.alert(
-        'Incomplete Data',
-        `Please fill out the following:\n${Object.values(newErrors).join('\n')}`,
-      );
+      setModalConfig({
+        title: 'Incomplete Data',
+        message: `Please fill out the following:\n${Object.values(newErrors).join('\n')}`,
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
       return;
     }
 
@@ -696,7 +1100,6 @@ const ReportSubmissionScreen = () => {
                 geocoder = new google.maps.Geocoder();
                 singleInfoWindow = new google.maps.InfoWindow();
 
-                // User location marker
                 const userMarker = new google.maps.Marker({
                   position: userLocation,
                   map: map,
@@ -718,7 +1121,6 @@ const ReportSubmissionScreen = () => {
                   userInfoWindow.open(map, userMarker);
                 });
 
-                // Map click handler
                 map.addListener("click", (event) => {
                   clearNonActivationMarkers();
                   const marker = new google.maps.Marker({
@@ -763,7 +1165,6 @@ const ReportSubmissionScreen = () => {
 
             window.clearNonActivationMarkers = clearNonActivationMarkers;
 
-            // Load Google Maps API asynchronously
             const script = document.createElement("script");
             script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyAAAu6BeQjIZ7H7beFbAsPWuKuORmh0wrk&libraries=places&callback=initMap";
             script.async = true;
@@ -787,7 +1188,6 @@ const ReportSubmissionScreen = () => {
   return (
     <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
@@ -826,16 +1226,18 @@ const ReportSubmissionScreen = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.AreaOfOperation && styles.requiredInput]}
                 placeholder="e.g. Purok 2, Brgy. Maligaya, Rosario"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 value={locationName || reportData.AreaOfOperation}
                 onChangeText={(text) => {
                   setLocationName(text);
                   handleChange('AreaOfOperation', text);
                 }}
-                editable={true}
+                editable={canSubmit}
               />
               <TouchableOpacity
-                style={styles.openMap}
+                style={[styles.openMap, !canSubmit && { opacity: 0.6 }]}
                 onPress={handleOpenMap}
+                disabled={!canSubmit}
               >
                 <MaterialIcons name="pin-drop" size={28} style={{ color: 'white' }} />
                 <Text style={styles.openMapText}> Pin Location</Text>
@@ -866,6 +1268,7 @@ const ReportSubmissionScreen = () => {
                     color: reportData.CalamityAreaId ? '#000' : '#999'
                   }}
                   dropdownIconColor="#00BCD4"
+                  enabled={canSubmit}
                 >
                   <Picker.Item label="Select an Active Operation" value=""
                     style={{ fontFamily: 'Poppins_Regular', textAlign: 'center', fontSize: 14 }} />
@@ -889,14 +1292,14 @@ const ReportSubmissionScreen = () => {
               {renderLabel('Completion Time of Intervention', true)}
               <TouchableOpacity
                 style={[GlobalStyles.input, errors.completionTimeOfIntervention && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
-                onPress={() => setShowTimePicker((prev) => ({ ...prev, completionTimeOfIntervention: true }))}
+                onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, completionTimeOfIntervention: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.completionTimeOfIntervention ? '#000' : '#999' }}>
                   {reportData.completionTimeOfIntervention || '--:-- --'}
                 </Text>
                 <Ionicons name="time" size={24} style={{ color: "#00BCD4" }} />
               </TouchableOpacity>
-              {showTimePicker.completionTimeOfIntervention && (
+              {showTimePicker.completionTimeOfIntervention && canSubmit && (
                 <DateTimePicker
                   value={tempDate.completionTimeOfIntervention}
                   mode="time"
@@ -909,14 +1312,14 @@ const ReportSubmissionScreen = () => {
               {renderLabel('Starting Date of Operation', true)}
               <TouchableOpacity
                 style={[GlobalStyles.input, errors.StartDate && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
-                onPress={() => setShowDatePicker((prev) => ({ ...prev, StartDate: true }))}
+                onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, StartDate: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.StartDate ? '#000' : '#999' }}>
                   {reportData.StartDate || 'dd/mm/yyyy'}
                 </Text>
                 <Ionicons name="calendar" size={24} style={{ color: "#00BCD4" }} />
               </TouchableOpacity>
-              {showDatePicker.StartDate && (
+              {showDatePicker.StartDate && canSubmit && (
                 <DateTimePicker
                   value={tempDate.StartDate}
                   mode="date"
@@ -928,14 +1331,14 @@ const ReportSubmissionScreen = () => {
               {renderLabel('Ending Date of Operation', true)}
               <TouchableOpacity
                 style={[GlobalStyles.input, errors.EndDate && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
-                onPress={() => setShowDatePicker((prev) => ({ ...prev, EndDate: true }))}
+                onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, EndDate: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.EndDate ? '#000' : '#999' }}>
                   {reportData.EndDate || 'dd/mm/yyyy'}
                 </Text>
                 <Ionicons name="calendar" size={24} color="#00BCD4" />
               </TouchableOpacity>
-              {showDatePicker.EndDate && (
+              {showDatePicker.EndDate && canSubmit && (
                 <DateTimePicker
                   value={tempDate.EndDate}
                   mode="date"
@@ -948,72 +1351,88 @@ const ReportSubmissionScreen = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.NoOfIndividualsOrFamilies && styles.requiredInput]}
                 placeholder="No. of Individuals or Families"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('NoOfIndividualsOrFamilies', val)}
                 value={reportData.NoOfIndividualsOrFamilies}
                 keyboardType="numeric"
+                editable={canSubmit}
               />
               {errors.NoOfIndividualsOrFamilies && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfIndividualsOrFamilies}</Text>}
               {renderLabel('No. of Relief Packs', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.NoOfFoodPacks && styles.requiredInput]}
                 placeholder="No. of Food Packs"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('NoOfFoodPacks', val)}
                 value={reportData.NoOfFoodPacks}
                 keyboardType="numeric"
+                editable={canSubmit}
               />
               {errors.NoOfFoodPacks && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfFoodPacks}</Text>}
               {renderLabel('No. of Hot Meals/Ready-to-eat Food', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.hotMeals && styles.requiredInput]}
                 placeholder="No. of Hot Meals"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('hotMeals', val)}
                 value={reportData.hotMeals}
                 keyboardType="numeric"
+                editable={canSubmit}
               />
               {errors.hotMeals && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.hotMeals}</Text>}
               {renderLabel('Liters of Water', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.LitersOfWater && styles.requiredInput]}
                 placeholder="Liters of Water"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('LitersOfWater', val)}
                 value={reportData.LitersOfWater}
                 keyboardType="numeric"
+                editable={canSubmit}
               />
               {errors.LitersOfWater && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.LitersOfWater}</Text>}
               {renderLabel('No. of Volunteers Mobilized', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.NoOfVolunteersMobilized && styles.requiredInput]}
                 placeholder="No. of Volunteers Mobilized"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('NoOfVolunteersMobilized', val)}
                 value={reportData.NoOfVolunteersMobilized}
                 keyboardType="numeric"
+                editable={canSubmit}
               />
               {errors.NoOfVolunteersMobilized && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfVolunteersMobilized}</Text>}
               {renderLabel('No. of Organizations Activated', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.NoOfOrganizationsActivated && styles.requiredInput]}
                 placeholder="No. of Organizations Activated"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('NoOfOrganizationsActivated', val)}
                 value={reportData.NoOfOrganizationsActivated}
                 keyboardType="numeric"
+                editable={canSubmit}
               />
               {errors.NoOfOrganizationsActivated && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfOrganizationsActivated}</Text>}
               {renderLabel('Total Value of In-Kind Donations', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.TotalValueOfInKindDonations && styles.requiredInput]}
                 placeholder="Total Value of In-Kind Donations"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('TotalValueOfInKindDonations', val)}
                 value={reportData.TotalValueOfInKindDonations}
                 keyboardType="numeric"
+                editable={canSubmit}
               />
               {errors.TotalValueOfInKindDonations && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.TotalValueOfInKindDonations}</Text>}
               {renderLabel('Total Monetary Donations', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.TotalMonetaryDonations && styles.requiredInput]}
                 placeholder="Total Monetary Donations"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('TotalMonetaryDonations', val)}
                 value={reportData.TotalMonetaryDonations}
                 keyboardType="numeric"
+                editable={canSubmit}
               />
               {errors.TotalMonetaryDonations && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.TotalMonetaryDonations}</Text>}
             </View>
@@ -1024,22 +1443,27 @@ const ReportSubmissionScreen = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.NotesAdditionalInformation && styles.requiredInput, { textAlignVertical: 'top', height: 100 }]}
                 placeholder="Enter Notes/Additional Information"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('NotesAdditionalInformation', val)}
                 value={reportData.NotesAdditionalInformation}
                 multiline
                 numberOfLines={4}
+                editable={canSubmit}
               />
               {errors.NotesAdditionalInformation && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NotesAdditionalInformation}</Text>}
             </View>
 
-            <TouchableOpacity style={[GlobalStyles.button, { marginHorizontal: 10 }]} onPress={handleSubmit}>
+            <TouchableOpacity
+              style={[GlobalStyles.button, { marginHorizontal: 10 }, !canSubmit && { opacity: 0.6 }]}
+              onPress={handleSubmit}
+              disabled={!canSubmit}
+            >
               <Text style={GlobalStyles.buttonText}>Proceed</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Map Modal */}
       <Modal
         visible={showMapModal}
         animationType="slide"
@@ -1180,13 +1604,14 @@ const ReportSubmissionScreen = () => {
                       {searchBarVisible && (
                         <TextInput
                           placeholder="Search for an address"
+                          placeholderTextColor="#777"
                           style={{ flex: 1, fontFamily: 'Poppins_Regular' }}
-                          placeholderTextColor="black"
                           value={searchQuery}
                           onChangeText={handleSearchInput}
                           onSubmitEditing={() => handleSearch()}
                           returnKeyType="search"
                           autoFocus={true}
+                          editable={canSubmit}
                         />
                       )}
                     </Animated.View>
@@ -1200,6 +1625,7 @@ const ReportSubmissionScreen = () => {
                         <TouchableOpacity
                           style={styles.suggestionItem}
                           onPress={() => handleSuggestionSelect(item)}
+                          disabled={!canSubmit}
                         >
                           <Text style={styles.suggestionText}>{item.description}</Text>
                         </TouchableOpacity>
@@ -1207,7 +1633,7 @@ const ReportSubmissionScreen = () => {
                       keyboardShouldPersistTaps="handled"
                     />
                   )}
-                  <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation}>
+                  <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation} disabled={!canSubmit}>
                     <MaterialIcons name="my-location" size={24} color={Theme.colors.white} />
                   </TouchableOpacity>
                 </View>
@@ -1216,6 +1642,7 @@ const ReportSubmissionScreen = () => {
                 <TouchableOpacity
                   style={[styles.mapTypeButton, mapType === 'roadmap' && styles.mapTypeButtonActive]}
                   onPress={() => toggleMapType('roadmap')}
+                  disabled={!canSubmit}
                 >
                   <MaterialIcons
                     name="map"
@@ -1226,6 +1653,7 @@ const ReportSubmissionScreen = () => {
                 <TouchableOpacity
                   style={[styles.mapTypeButton, mapType === 'hybrid' && styles.mapTypeButtonActive]}
                   onPress={() => toggleMapType('hybrid')}
+                  disabled={!canSubmit}
                 >
                   <MaterialIcons
                     name="satellite"
@@ -1238,6 +1666,7 @@ const ReportSubmissionScreen = () => {
                 <TouchableOpacity
                   style={styles.modalButton}
                   onPress={handleMapConfirm}
+                  disabled={!canSubmit}
                 >
                   <Text style={styles.modalButtonText}>Confirm Location</Text>
                 </TouchableOpacity>
@@ -1267,7 +1696,6 @@ const ReportSubmissionScreen = () => {
         </View>
       </Modal>
 
-      {/* Permission Modal */}
       <Modal
         visible={showPermissionModal}
         animationType="slide"
@@ -1334,6 +1762,14 @@ const ReportSubmissionScreen = () => {
           </View>
         </View>
       </Modal>
+
+      <CustomModal
+        visible={modalVisible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        confirmText={modalConfig.confirmText}
+      />
     </SafeAreaView>
   );
 };

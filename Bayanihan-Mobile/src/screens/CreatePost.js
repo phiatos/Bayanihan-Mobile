@@ -472,7 +472,7 @@ const CreatePost = () => {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : StatusBar.currentHeight}
+        keyboardVerticalOffset={0}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <View style={styles.formContainer}>
@@ -513,16 +513,16 @@ const CreatePost = () => {
             {(postType === 'image' || postType === 'video') && (
               <View style={styles.mediaContainer}>
                 <Text style={styles.label}>{postType === 'video' ? 'Video' : 'Image(s)'}</Text>
-                <TouchableOpacity style={styles.mediaButton} onPress={pickMedia}>
-                  <Text style={styles.mediaButtonText}>
+                <TouchableOpacity style={[GlobalStyles.imageUpload, {marginHorizontal: 20}]} onPress={pickMedia}>
+                  <Text style={GlobalStyles.imageUploadText}>
                     {media.length > 0 ? 'Add More Media' : 'Select Media'}
                   </Text>
                 </TouchableOpacity>
-                {media.length > 0 && (
+                {/* {media.length > 0 && (
                   <Text style={styles.mediaInfo}>
                     Selected: {media.map(m => m.name).join(', ')}
                   </Text>
-                )}
+                )} */}
                 {media.length > 0 && postType === 'video' && (
                   <VideoView
                     player={player}
@@ -545,12 +545,12 @@ const CreatePost = () => {
                           resizeMode="contain"
                           onError={(error) => console.error(`Image preview error for ${item.name}:`, error.nativeEvent)}
                         />
-                        <TouchableOpacity
+                        {/* <TouchableOpacity
                           style={styles.cropButton}
                           onPress={() => cropImage(index)}
                         >
                           <Ionicons name="crop-outline" size={20} color={Theme.colors.white} />
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
                         <TouchableOpacity
                           style={styles.removeButton}
                           onPress={() => removeMedia(index)}
@@ -568,7 +568,7 @@ const CreatePost = () => {
               <View style={styles.mediaContainer}>
                 <Text style={styles.label}>Link URL</Text>
                 <TextInput
-                  style={styles.input}
+                  style={styles.inputLink}
                   value={link}
                   onChangeText={setLink}
                   placeholder="Enter URL (e.g., https://example.com)"
@@ -599,7 +599,7 @@ const CreatePost = () => {
             <Ionicons
               name={item.icon}
               size={postType === item.type ? 30 : 24}
-              color={postType === item.type ? Theme.colors.accent : Theme.colors.white}
+              color={postType === item.type ? Theme.colors.accent : Theme.colors.primary}
             />
           </TouchableOpacity>
         ))}

@@ -15,7 +15,8 @@ const Theme = {
     greenHover: '#2fa84e',
     lightBlue: '#e8f0fe',
     accentBlue: '#4A90E2',
-    neonPrimary: '#00BCD4'
+    neonPrimary: '#00BCD4',
+    placeholderColor: '#777'
   },
 };
 

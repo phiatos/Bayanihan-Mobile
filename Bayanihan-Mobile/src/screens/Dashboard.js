@@ -213,7 +213,7 @@ const DashboardScreen = ({ navigation }) => {
             }}
           >
             <LinearGradient
-            colors={['#0fbaba', '#23d7d7', '#18e0e0']}
+            colors={['#13d5d5ff', '#23d7d7', '#6cececff']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.formCard}

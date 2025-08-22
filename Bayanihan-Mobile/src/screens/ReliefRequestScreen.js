@@ -16,6 +16,9 @@ import {
   StatusBar,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
+import { auth, database } from '../configuration/firebaseConfig';
+import { ref as databaseRef, get, query, orderByChild, equalTo } from 'firebase/database';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReliefRequestStyles';
 import Theme from '../constants/theme';
@@ -130,9 +133,210 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     title: '',
     message: '',
   });
+  const [canSubmit, setCanSubmit] = useState(false);
+  const [organizationName, setOrganizationName] = useState('');
   const itemInputRef = useRef(null);
   const flatListRef = useRef(null);
   const insets = useSafeAreaInsets();
+
+  // Active operation check
+  useEffect(() => {
+    const checkActiveOperations = async () => {
+      try {
+        // Reset canSubmit to false to ensure fresh check
+        setCanSubmit(false);
+        setModalVisible(false); // Reset modal visibility
+
+        // Load organization name from AsyncStorage
+        const storedOrg = await AsyncStorage.getItem('organizationName');
+        if (storedOrg) {
+          setOrganizationName(storedOrg);
+          console.log('Organization name loaded from storage:', storedOrg);
+        }
+
+        // Check authentication state
+        const user = auth.currentUser;
+        if (!user) {
+          console.warn('No user is logged in');
+          setModalConfig({
+            title: 'Authentication Error',
+            message: 'User not authenticated. Please log in.',
+            onConfirm: () => {
+              setModalVisible(false);
+              navigation.navigate('Login');
+            },
+            confirmText: 'OK',
+            showCancel: false,
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Login');
+          }, 3000);
+          return;
+        }
+
+        console.log('Logged-in user UID:', user.uid);
+        const userRef = databaseRef(database, `users/${user.uid}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+
+        if (!userData) {
+          console.error('User data not found for UID:', user.uid);
+          setModalConfig({
+            title: 'Profile Error',
+            message: 'Your user profile is incomplete. Please contact support.',
+            onConfirm: () => {
+              setModalVisible(false);
+              navigation.navigate('Volunteer Dashboard');
+            },
+            confirmText: 'OK',
+            showCancel: false,
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          }, 3000);
+          return;
+        }
+
+        // Check for password reset requirement
+        if (userData.password_needs_reset) {
+          setModalConfig({
+            title: 'Password Reset Required',
+            message: 'For security reasons, please change your password.',
+            onConfirm: () => {
+              setModalVisible(false);
+              navigation.navigate('Profile');
+            },
+            confirmText: 'OK',
+            showCancel: false,
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Profile');
+          }, 3000);
+          return;
+        }
+
+        const userRole = userData.role;
+        const orgName = userData.organization || '[Unknown Organization]';
+        setOrganizationName(orgName);
+        await AsyncStorage.setItem('organizationName', orgName);
+        console.log('User Role:', userRole, 'Organization:', orgName);
+
+        // Role-based submission eligibility
+        if (userRole === 'AB ADMIN') {
+          console.log('AB ADMIN role detected. Submission allowed.');
+          setCanSubmit(true);
+        } else if (userRole === 'ABVN') {
+          console.log('ABVN role detected. Checking organization activations.');
+          if (orgName === '[Unknown Organization]') {
+            console.warn('ABVN user has no organization assigned.');
+            setModalConfig({
+              title: 'Organization Error',
+              message: 'Your account is not associated with an organization.',
+              onConfirm: () => {
+                setModalVisible(false);
+                navigation.navigate('Volunteer Dashboard');
+              },
+              confirmText: 'OK',
+              showCancel: false,
+            });
+            setModalVisible(true);
+            setTimeout(() => {
+              setModalVisible(false);
+              navigation.navigate('Volunteer Dashboard');
+            }, 3000);
+            return;
+          }
+
+          const activationsRef = query(
+            databaseRef(database, 'activations'),
+            orderByChild('organization'),
+            equalTo(orgName)
+          );
+          const activationsSnapshot = await get(activationsRef);
+          let hasActiveActivations = false;
+          activationsSnapshot.forEach((childSnapshot) => {
+            if (childSnapshot.val().status === 'active') {
+              hasActiveActivations = true;
+              return true; // Exit loop
+            }
+          });
+
+          if (hasActiveActivations) {
+            console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
+            setCanSubmit(true);
+          } else {
+            console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
+            setModalConfig({
+              title: 'No Active Operations',
+              message: 'Your organization has no active operations. You cannot submit requests at this time.',
+              onConfirm: () => {
+                setModalVisible(false);
+                navigation.navigate('Volunteer Dashboard');
+              },
+              confirmText: 'OK',
+              showCancel: false,
+            });
+            setModalVisible(true);
+            setTimeout(() => {
+              setModalVisible(false);
+              navigation.navigate('Volunteer Dashboard');
+            }, 3000);
+          }
+        } else {
+          console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
+          setModalConfig({
+            title: 'Permission Error',
+            message: 'Your role does not permit request submission.',
+            onConfirm: () => {
+              setModalVisible(false);
+              navigation.navigate('Volunteer Dashboard');
+            },
+            confirmText: 'OK',
+            showCancel: false,
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          }, 3000);
+        }
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error in checkActiveOperations:`, error.message);
+        setModalConfig({
+          title: 'Error',
+          message: 'Failed to verify permissions: ' + error.message,
+          onConfirm: () => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          },
+          confirmText: 'OK',
+          showCancel: false,
+        });
+        setModalVisible(true);
+        setTimeout(() => {
+          setModalVisible(false);
+          navigation.navigate('Volunteer Dashboard');
+        }, 3000);
+      }
+    };
+
+    // Run check on screen focus
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      console.log('ReliefRequest screen focused, checking active operations...');
+      checkActiveOperations();
+    });
+
+    // Initial check on mount
+    checkActiveOperations();
+
+    return () => unsubscribeFocus();
+  }, [navigation]);
 
   useEffect(() => {
     if (route.params?.reportData) {
@@ -269,6 +473,25 @@ const ReliefRequestScreen = ({ navigation, route }) => {
   };
 
   const addButton = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit requests.',
+        onConfirm: () => {
+          setModalVisible(false);
+          navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+        showCancel: false,
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+        navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     const newErrors = {};
     itemInputRequiredFields.forEach((field) => {
       const value = reportData[field];
@@ -342,6 +565,25 @@ const ReliefRequestScreen = ({ navigation, route }) => {
   };
 
   const handleSubmit = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit requests.',
+        onConfirm: () => {
+          setModalVisible(false);
+          navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+        showCancel: false,
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+        navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     const newErrors = {};
     let allRequiredBlank = true;
 
@@ -441,7 +683,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
         keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollViewContent]}
+          contentContainerStyle={[GlobalStyles.scrollViewContent]}
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
@@ -454,6 +696,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.contactPerson && GlobalStyles.inputError]}
                   placeholder="Enter Name"
+                  placeholderTextColor="#777"
                   onChangeText={(val) => handleChange('contactPerson', val)}
                   value={reportData.contactPerson}
                 />
@@ -467,6 +710,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.contactNumber && GlobalStyles.inputError]}
                   placeholder="Enter Mobile Number"
+                  placeholderTextColor="#777"
                   onChangeText={(val) => handleChange('contactNumber', val)}
                   value={reportData.contactNumber}
                   keyboardType="numeric"
@@ -481,6 +725,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.email && GlobalStyles.inputError]}
                   placeholder="Enter Email"
+                  placeholderTextColor="#777"
                   onChangeText={(val) => handleChange('email', val)}
                   value={reportData.email}
                   keyboardType="email-address"
@@ -493,6 +738,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.address && GlobalStyles.inputError]}
                   placeholder="Enter Drop-Off Address"
+                  placeholderTextColor="#777"
                   onChangeText={(val) => handleChange('address', val)}
                   value={reportData.address}
                 />
@@ -504,6 +750,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.city && GlobalStyles.inputError]}
                   placeholder="Enter City"
+                  placeholderTextColor="#777"
                   onChangeText={(val) => handleChange('city', val)}
                   value={reportData.city}
                 />
@@ -538,13 +785,14 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   ref={itemInputRef}
                   placeholder="Select or Type Item"
+                  placeholderTextColor="#777"
                   value={reportData.itemName}
                   onChangeText={(val) => {
                     handleChange('itemName', val);
                   }}
                   onFocus={handleItemFocus}
                   onBlur={handleBlur}
-                  editable={!!reportData.donationCategory}
+                  editable={!!reportData.donationCategory && canSubmit}
                   style={[GlobalStyles.input, errors.itemName && GlobalStyles.inputError]}
                 />
                 {!reportData.donationCategory && (reportData.itemName || errors.itemName) && (
@@ -576,10 +824,11 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.quantity && GlobalStyles.inputError]}
                   placeholder="Enter Quantity"
+                  placeholderTextColor="#777"
                   onChangeText={(val) => handleChange('quantity', val)}
                   value={reportData.quantity}
                   keyboardType="numeric"
-                  editable={!!reportData.donationCategory}
+                  editable={!!reportData.donationCategory && canSubmit}
                 />
                 {!reportData.donationCategory && (reportData.quantity || errors.quantity) && (
                   <Text style={GlobalStyles.errorText}>Please select a Donation Category first.</Text>
@@ -592,9 +841,10 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, styles.textArea, errors.notes && GlobalStyles.inputError]}
                   placeholder="Enter Notes"
+                  placeholderTextColor="#777"
                   onChangeText={(val) => handleChange('notes', val)}
                   value={reportData.notes}
-                  editable={!!reportData.donationCategory}
+                  editable={!!reportData.donationCategory && canSubmit}
                 />
                 {!reportData.donationCategory && reportData.notes && (
                   <Text style={GlobalStyles.errorText}>Please select a Donation Category first.</Text>
@@ -603,7 +853,11 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               {errors.notes && <Text style={GlobalStyles.errorText}>{errors.notes}</Text>}
 
               <View style={GlobalStyles.supplementaryButtonContainer}>
-                <TouchableOpacity style={GlobalStyles.supplementaryButton} onPress={addButton}>
+                <TouchableOpacity
+                  style={[GlobalStyles.supplementaryButton, !canSubmit && { opacity: 0.6 }]}
+                  onPress={addButton}
+                  disabled={!canSubmit}
+                >
                   <Text style={GlobalStyles.supplementaryButtonText}>Add Item</Text>
                 </TouchableOpacity>
               </View>
@@ -655,8 +909,8 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                               </Text>
                             </View>
                             <View style={[styles.cell, { minWidth: 100, alignContent: 'center' }]}>
-                              <TouchableOpacity onPress={() => handleDeleteItem(index)}>
-                                <Ionicons name="trash-outline" size={20} color="#FF0000" />
+                              <TouchableOpacity onPress={() => handleDeleteItem(index)} disabled={!canSubmit}>
+                                <Ionicons name="trash-outline" size={20} color={canSubmit ? '#FF0000' : '#888'} />
                               </TouchableOpacity>
                             </View>
                           </View>
@@ -668,7 +922,11 @@ const ReliefRequestScreen = ({ navigation, route }) => {
               )}
             </View>
             <View style={{ marginHorizontal: 15 }}>
-              <TouchableOpacity style={GlobalStyles.button} onPress={handleSubmit}>
+              <TouchableOpacity
+                style={[GlobalStyles.button, !canSubmit && { opacity: 0.6 }]}
+                onPress={handleSubmit}
+                disabled={!canSubmit}
+              >
                 <Text style={GlobalStyles.buttonText}>Proceed</Text>
               </TouchableOpacity>
             </View>

@@ -77,26 +77,7 @@ const ProfileScreen = () => {
   };
 
   const localStyles = StyleSheet.create({
-    message: {
-      fontSize: 14,
-      color: '#444',
-      lineHeight: 24,
-      fontFamily: 'Poppins_Regular',
-      textAlign: 'center',
-    },
-    icon: {
-      marginBottom: 15,
-    },
-    sectionTitleContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    organizationText: {
-      fontSize: 16,
-      fontFamily: 'Poppins_Regular',
-      color: Theme.colors.text,
-      marginLeft: 8,
-    },
+    
   });
 
   const [customModal, setCustomModal] = useState({
@@ -600,10 +581,10 @@ const handleChangePassword = async () => {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1, marginTop: 50 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : StatusBar.currentHeight}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollViewContent}
+          contentContainerStyle={GlobalStyles.scrollViewContent}
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >

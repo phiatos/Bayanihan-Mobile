@@ -84,7 +84,6 @@ export default StyleSheet.create({
   },
   submission: {
     marginHorizontal: spacing.large,
-    marginBottom: spacing.medium,
   },
   strengthContainer: {
     marginTop: spacing.small,
@@ -188,4 +187,24 @@ export default StyleSheet.create({
     right: 5,
     padding: 10,
   },
+  message: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 24,
+    fontFamily: 'Poppins_Regular',
+    textAlign: 'center',
+ },
+ icon: {
+   marginBottom: 15,
+ },
+sectionTitleContainer: {
+   flexDirection: 'row',
+   alignItems: 'center',
+},
+organizationText: {
+  fontSize: 16,
+ fontFamily: 'Poppins_Regular',
+  color: Theme.colors.text,
+  marginLeft: 8,
+      },
 });

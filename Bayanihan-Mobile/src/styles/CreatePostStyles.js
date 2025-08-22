@@ -103,6 +103,7 @@ export default StyleSheet.create({
     fontSize: 14,
     color: '#00BCD4',
     fontFamily: 'Poppins_SemiBold',
+    paddingHorizontal: 20
   },
   input: {
     padding: spacing.medium,
@@ -114,6 +115,17 @@ export default StyleSheet.create({
   textArea: {
     height: 100,
     textAlignVertical: 'top',
+  },
+  inputLink:{
+    borderWidth: 1,
+    borderColor: Theme.colors.lightBlack,
+    padding: spacing.medium,
+    marginBottom: spacing.medium,
+    backgroundColor: 'transparent',
+    fontFamily: 'Poppins_Regular',
+    fontSize: 14,
+    marginHorizontal: 20,
+    borderRadius: 10
   },
   mediaUpload: {
     borderWidth: 1,
@@ -146,8 +158,8 @@ export default StyleSheet.create({
     height: 100,
   },
   thumbnailPreview: {
-    width: 100,
-    height: 100,
+    width: 'auto',
+    height:  'auto',
     borderRadius: borderRadius.medium,
   },
   cropButton: {
@@ -193,15 +205,14 @@ export default StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: 'transparent',
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    
   },
   navButton: {
-    padding: spacing.small,
+    padding: spacing.medium,
     borderRadius: borderRadius.medium,
   },
   navButtonActive: {

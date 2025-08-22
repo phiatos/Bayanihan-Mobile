@@ -78,8 +78,7 @@ export default StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
-    // paddingTop: HEADER_HEIGHT,
-    minHeight: Dimensions.get('window').height - (STATUS_BAR_HEIGHT),
+    // minHeight: Dimensions.get('window').height - (STATUS_BAR_HEIGHT),
   },
   form: {
     marginHorizontal: 10,
@@ -187,7 +186,7 @@ export default StyleSheet.create({
   },
   submitButtonContainer:{
     position: 'absolute',
-    bottom: 40,
+    bottom: 20,
     width: '100%'
   },
   button: {

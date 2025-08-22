@@ -26,10 +26,7 @@ const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
 const HEADER_HEIGHT = 60; 
 
 export default StyleSheet.create({
-  scrollViewContent: {
-    flexGrow: 1,
-    minHeight: Dimensions.get('window').height - (STATUS_BAR_HEIGHT),
-  },
+
   sectionTitle: {
     fontSize: 18,
     marginBottom: spacing.small,

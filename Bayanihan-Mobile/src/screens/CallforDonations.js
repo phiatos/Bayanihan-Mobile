@@ -15,6 +15,9 @@ import {
   View,
   Modal,
 } from 'react-native';
+import { auth, database } from '../configuration/firebaseConfig';
+import { ref as databaseRef, get, query, orderByChild, equalTo } from 'firebase/database';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import styles from '../styles/CallForDonationsStyles';
 import GlobalStyles from '../styles/GlobalStyles';
 import Theme from '../constants/theme';
@@ -37,9 +40,9 @@ const CustomModal = ({ visible, title, message, onConfirm, confirmText }) => {
           <Text style={GlobalStyles.modalTitle}>{title}</Text>
           <View style={GlobalStyles.modalContent}>
             <Ionicons
-              name="warning"
+              name={title.includes('Success') || title.includes('Saved') ? 'checkmark-circle' : 'warning'}
               size={60}
-              color="#FF0000"
+              color={title.includes('Success') || title.includes('Saved') ? '#00BCD4' : '#FF0000'}
               style={GlobalStyles.modalIcon}
             />
             <Text style={GlobalStyles.modalMessage}>{message}</Text>
@@ -93,6 +96,8 @@ const CallForDonations = () => {
     onConfirm: () => {},
     confirmText: 'OK',
   });
+  const [canSubmit, setCanSubmit] = useState(false);
+  const [organizationName, setOrganizationName] = useState('');
 
   const requiredFields = [
     'donationDrive',
@@ -106,6 +111,198 @@ const CallForDonations = () => {
     'region',
     'street',
   ];
+
+  // Active operation check
+  useEffect(() => {
+    const checkActiveOperations = async () => {
+      try {
+        // Reset canSubmit to false to ensure fresh check
+        setCanSubmit(false);
+        setModalVisible(false); // Reset modal visibility
+
+        // Load organization name from AsyncStorage
+        const storedOrg = await AsyncStorage.getItem('organizationName');
+        if (storedOrg) {
+          setOrganizationName(storedOrg);
+          console.log('Organization name loaded from storage:', storedOrg);
+        }
+
+        // Check authentication state
+        const user = auth.currentUser;
+        if (!user) {
+          console.warn('No user is logged in');
+          setModalConfig({
+            title: 'Authentication Error',
+            message: 'User not authenticated. Please log in.',
+            onConfirm: () => {
+              setModalVisible(false);
+              navigation.navigate('Login');
+            },
+            confirmText: 'OK',
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Login');
+          }, 3000);
+          return;
+        }
+
+        console.log('Logged-in user UID:', user.uid);
+        const userRef = databaseRef(database, `users/${user.uid}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+
+        if (!userData) {
+          console.error('User data not found for UID:', user.uid);
+          setModalConfig({
+            title: 'Profile Error',
+            message: 'Your user profile is incomplete. Please contact support.',
+            onConfirm: () => {
+              setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+            },
+            confirmText: 'OK',
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          }, 3000);
+          return;
+        }
+
+        // Check for password reset requirement
+        if (userData.password_needs_reset) {
+          setModalConfig({
+            title: 'Password Reset Required',
+            message: 'For security reasons, please change your password.',
+            onConfirm: () => {
+              setModalVisible(false);
+              navigation.navigate('Profile');
+            },
+            confirmText: 'OK',
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Profile');
+          }, 3000);
+          return;
+        }
+
+        const userRole = userData.role;
+        const orgName = userData.organization || '[Unknown Organization]';
+        setOrganizationName(orgName);
+        await AsyncStorage.setItem('organizationName', orgName);
+        console.log('User Role:', userRole, 'Organization:', orgName);
+
+        // Role-based submission eligibility
+        if (userRole === 'AB ADMIN') {
+          console.log('AB ADMIN role detected. Submission allowed.');
+          setCanSubmit(true);
+        } else if (userRole === 'ABVN') {
+          console.log('ABVN role detected. Checking organization activations.');
+          if (orgName === '[Unknown Organization]') {
+            console.warn('ABVN user has no organization assigned.');
+            setModalConfig({
+              title: 'Organization Error',
+              message: 'Your account is not associated with an organization.',
+              onConfirm: () => {
+                setModalVisible(false);
+                navigation.navigate('Volunteer Dashboard');
+              },
+              confirmText: 'OK',
+            });
+            setModalVisible(true);
+            setTimeout(() => {
+              setModalVisible(false);
+              navigation.navigate('Volunteer Dashboard');
+            }, 3000);
+            return;
+          }
+
+          const activationsRef = query(
+            databaseRef(database, 'activations'),
+            orderByChild('organization'),
+            equalTo(orgName)
+          );
+          const activationsSnapshot = await get(activationsRef);
+          let hasActiveActivations = false;
+          activationsSnapshot.forEach((childSnapshot) => {
+            if (childSnapshot.val().status === 'active') {
+              hasActiveActivations = true;
+              return true; // Exit loop
+            }
+          });
+
+          if (hasActiveActivations) {
+            console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
+            setCanSubmit(true);
+          } else {
+            console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
+            setModalConfig({
+              title: 'No Active Operations',
+              message: 'Your organization has no active operations. You cannot submit donation drives at this time.',
+              onConfirm: () => {
+                setModalVisible(false);
+                navigation.navigate('Volunteer Dashboard');
+              },
+              confirmText: 'OK',
+            });
+            setModalVisible(true);
+            setTimeout(() => {
+              setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+            }, 3000);
+          }
+        } else {
+          console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
+          setModalConfig({
+            title: 'Permission Error',
+            message: 'Your role does not permit donation drive submission.',
+            onConfirm: () => {
+              setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+            },
+            confirmText: 'OK',
+          });
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          }, 3000);
+        }
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error in checkActiveOperations:`, error.message);
+        setModalConfig({
+          title: 'Error',
+          message: 'Failed to verify permissions: ' + error.message,
+          onConfirm: () => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          },
+          confirmText: 'OK',
+        });
+        setModalVisible(true);
+        setTimeout(() => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        }, 3000);
+      }
+    };
+
+    // Run check on screen focus
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      console.log('CallForDonations screen focused, checking active operations...');
+      checkActiveOperations();
+    });
+
+    // Initial check on mount
+    checkActiveOperations();
+
+    return () => unsubscribeFocus();
+  }, [navigation]);
 
   useEffect(() => {
     console.log('Received route params:', route.params);
@@ -360,6 +557,24 @@ const CallForDonations = () => {
   };
 
   const pickImage = async () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit donation drives.',
+        onConfirm: () => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
       ToastAndroid.show('Permission to access gallery is required!', ToastAndroid.BOTTOM);
@@ -380,6 +595,24 @@ const CallForDonations = () => {
   };
 
   const handleSubmit = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit donation drives.',
+        onConfirm: () => {
+          setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+      }, 3000);
+      return;
+    }
+
     const newErrors = {};
     let allRequiredBlank = true;
 
@@ -462,7 +695,7 @@ const CallForDonations = () => {
         keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollViewContent]}
+          contentContainerStyle={[GlobalStyles.scrollViewContent]}
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
@@ -474,9 +707,11 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.donationDrive && GlobalStyles.inputError]}
                 placeholder="Donation Drive"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('donationDrive', val)}
                 value={formData.donationDrive}
                 autoComplete="off"
+                editable={canSubmit}
               />
               {errors.donationDrive && (
                 <Text style={GlobalStyles.errorText}>{errors.donationDrive}</Text>
@@ -486,10 +721,12 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.contactPerson && GlobalStyles.inputError]}
                 placeholder="Contact Name"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('contactPerson', val)}
                 value={formData.contactPerson}
                 autoComplete="name"
                 textContentType="name"
+                editable={canSubmit}
               />
               {errors.contactPerson && (
                 <Text style={GlobalStyles.errorText}>{errors.contactPerson}</Text>
@@ -499,11 +736,13 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.contactNumber && GlobalStyles.inputError]}
                 placeholder="Contact Number"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('contactNumber', val)}
                 value={formData.contactNumber}
                 keyboardType="numeric"
                 autoComplete="tel"
                 textContentType="telephoneNumber"
+                editable={canSubmit}
               />
               {errors.contactNumber && (
                 <Text style={GlobalStyles.errorText}>{errors.contactNumber}</Text>
@@ -513,10 +752,12 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.accountNumber && GlobalStyles.inputError]}
                 placeholder="Account Number"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('accountNumber', val)}
                 value={formData.accountNumber}
                 keyboardType="numeric"
                 autoComplete="off"
+                editable={canSubmit}
               />
               {errors.accountNumber && (
                 <Text style={GlobalStyles.errorText}>{errors.accountNumber}</Text>
@@ -526,10 +767,12 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.accountName && GlobalStyles.inputError]}
                 placeholder="Account Name"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('accountName', val)}
                 value={formData.accountName}
                 autoComplete="name"
                 textContentType="name"
+                editable={canSubmit}
               />
               {errors.accountName && (
                 <Text style={GlobalStyles.errorText}>{errors.accountName}</Text>
@@ -541,6 +784,7 @@ const CallForDonations = () => {
                   ref={regionInputRef}
                   style={[GlobalStyles.input, errors.region && GlobalStyles.inputError]}
                   placeholder="Enter or Choose Region"
+                  placeholderTextColor="#777"
                   onChangeText={(val) => handleChange('region', val)}
                   value={formData.region}
                   onFocus={handleRegionFocus}
@@ -548,6 +792,7 @@ const CallForDonations = () => {
                   blurOnSubmit={false}
                   autoComplete="address-level1"
                   textContentType="addressState"
+                  editable={canSubmit}
                 />
                 {isRegionDropdownVisible && filteredRegions.length > 0 && (
                   <View style={styles.dropdownContainer}>
@@ -578,6 +823,7 @@ const CallForDonations = () => {
                   ref={provinceInputRef}
                   style={[GlobalStyles.input, errors.province && GlobalStyles.inputError]}
                   placeholder="Enter or Select Province"
+                  placeholderTextColor="#777"
                   onChangeText={(val) => handleChange('province', val)}
                   value={formData.province}
                   onFocus={handleProvinceFocus}
@@ -585,6 +831,7 @@ const CallForDonations = () => {
                   blurOnSubmit={false}
                   autoComplete="address-level1"
                   textContentType="addressState"
+                  editable={canSubmit}
                 />
                 {isProvinceDropdownVisible && filteredProvinces.length > 0 && (
                   <View style={styles.dropdownContainer}>
@@ -615,6 +862,7 @@ const CallForDonations = () => {
                   ref={cityInputRef}
                   style={[GlobalStyles.input, errors.city && GlobalStyles.inputError]}
                   placeholder="Enter or Select City/Municipality"
+                  placeholderTextColor="#777"
                   onChangeText={(val) => handleChange('city', val)}
                   value={formData.city}
                   onFocus={handleCityFocus}
@@ -622,6 +870,7 @@ const CallForDonations = () => {
                   blurOnSubmit={false}
                   autoComplete="address-level2"
                   textContentType="addressCity"
+                  editable={canSubmit}
                 />
                 {isCityDropdownVisible && filteredCities.length > 0 && (
                   <View style={styles.dropdownContainer}>
@@ -652,12 +901,14 @@ const CallForDonations = () => {
                   ref={barangayInputRef}
                   style={[GlobalStyles.input, errors.barangay && GlobalStyles.inputError]}
                   placeholder="Enter or Select Barangay"
+                  placeholderTextColor="#777"
                   onChangeText={(val) => handleChange('barangay', val)}
                   value={formData.barangay}
                   onFocus={handleBarangayFocus}
                   onBlur={handleBBlur}
                   blurOnSubmit={false}
                   autoComplete="address-level3"
+                  editable={canSubmit}
                 />
                 {isBarangayDropdownVisible && filteredBarangays.length > 0 && (
                   <View style={styles.dropdownContainer}>
@@ -686,10 +937,12 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.street && GlobalStyles.inputError]}
                 placeholder="(e.g. 1234 Singkamas St.)"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('street', val)}
                 value={formData.street}
                 autoComplete="street-address"
                 textContentType="streetAddressLine1"
+                editable={canSubmit}
               />
               {errors.street && (
                 <Text style={GlobalStyles.errorText}>{errors.street}</Text>
@@ -699,11 +952,13 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.facebookLink && GlobalStyles.inputError]}
                 placeholder="Facebook Link"
+                placeholderTextColor="#777"
                 onChangeText={(val) => handleChange('facebookLink', val)}
                 value={formData.facebookLink}
                 keyboardType="url"
                 autoComplete="url"
                 textContentType="URL"
+                editable={canSubmit}
               />
               {errors.facebookLink && (
                 <Text style={GlobalStyles.errorText}>{errors.facebookLink}</Text>
@@ -713,6 +968,7 @@ const CallForDonations = () => {
               <TouchableOpacity
                 style={[GlobalStyles.imageUpload, { borderColor: image ? Theme.colors.primary : '#605D67' }]}
                 onPress={pickImage}
+                disabled={!canSubmit}
               >
                 <Text style={[GlobalStyles.imageUploadText, { color: image ? Theme.colors.black : Theme.colors.primary }]}>
                   {image ? 'Image Selected' : 'Tap to Upload Image'}
@@ -720,7 +976,11 @@ const CallForDonations = () => {
               </TouchableOpacity>
             </View>
             <View style={{ marginHorizontal: 15, marginBottom: 10 }}>
-              <TouchableOpacity style={GlobalStyles.button} onPress={handleSubmit}>
+              <TouchableOpacity
+                style={[GlobalStyles.button, !canSubmit && { opacity: 0.6 }]}
+                onPress={handleSubmit}
+                disabled={!canSubmit}
+              >
                 <Text style={GlobalStyles.buttonText}>Proceed</Text>
               </TouchableOpacity>
             </View>
