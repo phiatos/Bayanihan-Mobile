@@ -312,75 +312,31 @@ const RDANAScreen = () => {
   };
 
   // Organization name and role-based submission check
-useEffect(() => {
-  const checkActiveOperations = async () => {
-    try {
-      // Reset canSubmit to false to ensure fresh check
-      setCanSubmit(false);
-      setModalVisible(false); // Reset modal visibility
+  useEffect(() => {
+    const checkActiveOperations = async () => {
+      try {
+        // Reset canSubmit to false to ensure fresh check
+        setCanSubmit(false);
+        setModalVisible(false); // Reset modal visibility
 
-      // Load organization name from AsyncStorage
-      const storedOrg = await AsyncStorage.getItem('organizationName');
-      if (storedOrg) {
-        setOrganizationName(storedOrg);
-        console.log('Organization name loaded from storage:', storedOrg);
-      }
+        // Load organization name from AsyncStorage
+        const storedOrg = await AsyncStorage.getItem('organizationName');
+        if (storedOrg) {
+          setOrganizationName(storedOrg);
+          console.log('Organization name loaded from storage:', storedOrg);
+        }
 
-      // Check authentication state
-      const user = auth.currentUser;
-      if (!user) {
-        console.warn('No user is logged in');
-        setErrorMessage('User not authenticated. Please log in.');
-        setModalVisible(true);
-        setTimeout(() => {
-          setModalVisible(false);
-          navigation.replace('Login'); // Use replace to prevent back navigation
-        }, 3000);
-        return;
-      }
+        // Check authentication state
+        const user = auth.currentUser;
 
-      console.log('Logged-in user UID:', user.uid);
-      const userRef = databaseRef(database, `users/${user.uid}`);
-      const userSnapshot = await get(userRef);
-      const userData = userSnapshot.val();
+        console.log('Logged-in user UID:', user.uid);
+        const userRef = databaseRef(database, `users/${user.uid}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
 
-      if (!userData) {
-        console.error('User data not found for UID:', user.uid);
-        setErrorMessage('Your user profile is incomplete. Please contact support.');
-        setModalVisible(true);
-        setTimeout(() => {
-          setModalVisible(false);
-          navigation.replace('Volunteer Dashboard');
-        }, 3000);
-        return;
-      }
-
-      // Check for password reset requirement
-      if (userData.password_needs_reset) {
-        setErrorMessage('For security reasons, please change your password.');
-        setModalVisible(true);
-        setTimeout(() => {
-          setModalVisible(false);
-          navigation.replace('Profile');
-        }, 3000);
-        return;
-      }
-
-      const userRole = userData.role;
-      const orgName = userData.organization || '[Unknown Organization]';
-      setOrganizationName(orgName);
-      await AsyncStorage.setItem('organizationName', orgName);
-      console.log('User Role:', userRole, 'Organization:', orgName);
-
-      // Role-based submission eligibility
-      if (userRole === 'AB ADMIN') {
-        console.log('AB ADMIN role detected. Submission allowed.');
-        setCanSubmit(true);
-      } else if (userRole === 'ABVN') {
-        console.log('ABVN role detected. Checking organization activations.');
-        if (orgName === '[Unknown Organization]') {
-          console.warn('ABVN user has no organization assigned.');
-          setErrorMessage('Your account is not associated with an organization.');
+        if (!userData) {
+          console.error('User data not found for UID:', user.uid);
+          setErrorMessage('Your user profile is incomplete. Please contact support.');
           setModalVisible(true);
           setTimeout(() => {
             setModalVisible(false);
@@ -389,63 +345,97 @@ useEffect(() => {
           return;
         }
 
-        const activationsRef = query(
-          databaseRef(database, 'activations'),
-          orderByChild('organization'),
-          equalTo(orgName)
-        );
-        const activationsSnapshot = await get(activationsRef);
-        let hasActiveActivations = false;
-        activationsSnapshot.forEach((childSnapshot) => {
-          if (childSnapshot.val().status === 'active') {
-            hasActiveActivations = true;
-            return true; // Exit loop
-          }
-        });
-
-        if (hasActiveActivations) {
-          console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
-          setCanSubmit(true);
-        } else {
-          console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
-          setErrorMessage('Your organization has no active operations. You cannot submit reports at this time.');
+        // Check for password reset requirement
+        if (userData.password_needs_reset) {
+          setErrorMessage('For security reasons, please change your password.');
           setModalVisible(true);
           setTimeout(() => {
             setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+            navigation.replace('Profile');
+          }, 3000);
+          return;
+        }
+
+        const userRole = userData.role;
+        const orgName = userData.organization || '[Unknown Organization]';
+        setOrganizationName(orgName);
+        await AsyncStorage.setItem('organizationName', orgName);
+        console.log('User Role:', userRole, 'Organization:', orgName);
+
+        // Role-based submission eligibility
+        if (userRole === 'AB ADMIN') {
+          console.log('AB ADMIN role detected. Submission allowed.');
+          setCanSubmit(true);
+        } else if (userRole === 'ABVN') {
+          console.log('ABVN role detected. Checking organization activations.');
+          if (orgName === '[Unknown Organization]') {
+            console.warn('ABVN user has no organization assigned.');
+            setErrorMessage('Your account is not associated with an organization.');
+            setModalVisible(true);
+            setTimeout(() => {
+              setModalVisible(false);
+              navigation.replace('Volunteer Dashboard');
+            }, 3000);
+            return;
+          }
+
+          const activationsRef = query(
+            databaseRef(database, 'activations'),
+            orderByChild('organization'),
+            equalTo(orgName)
+          );
+          const activationsSnapshot = await get(activationsRef);
+          let hasActiveActivations = false;
+          activationsSnapshot.forEach((childSnapshot) => {
+            if (childSnapshot.val().status === 'active') {
+              hasActiveActivations = true;
+              return true; // Exit loop
+            }
+          });
+
+          if (hasActiveActivations) {
+            console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
+            setCanSubmit(true);
+          } else {
+            console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
+            setErrorMessage('Your organization has no active operations. You cannot submit reports at this time.');
+            setModalVisible(true);
+            setTimeout(() => {
+              setModalVisible(false);
+              navigation.navigate('Volunteer Dashboard');
+            }, 3000);
+          }
+        } else {
+          console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
+          setErrorMessage('Your role does not permit report submission.');
+          setModalVisible(true);
+          setTimeout(() => {
+            setModalVisible(false);
+            navigation.replace('Volunteer Dashboard');
           }, 3000);
         }
-      } else {
-        console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
-        setErrorMessage('Your role does not permit report submission.');
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error in checkActiveOperations:`, error.message);
+        setErrorMessage('Failed to verify permissions: ' + error.message);
         setModalVisible(true);
         setTimeout(() => {
           setModalVisible(false);
           navigation.replace('Volunteer Dashboard');
         }, 3000);
       }
-    } catch (error) {
-      console.error(`[${new Date().toISOString()}] Error in checkActiveOperations:`, error.message);
-      setErrorMessage('Failed to verify permissions: ' + error.message);
-      setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.replace('Volunteer Dashboard');
-      }, 3000);
-    }
-  };
+    };
 
-  // Run check on screen focus
-  const unsubscribeFocus = navigation.addListener('focus', () => {
-    console.log('RDANA screen focused, checking active operations...');
+    // Run check on screen focus
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      console.log('RDANA screen focused, checking active operations...');
+      checkActiveOperations();
+    });
+
+    // Initial check on mount
     checkActiveOperations();
-  });
 
-  // Initial check on mount
-  checkActiveOperations();
-
-  return () => unsubscribeFocus();
-}, [navigation]);
+    return () => unsubscribeFocus();
+  }, [navigation]);
 
   // Handle TextInput and picker changes
   const handleChange = (field, value) => {
@@ -563,7 +553,7 @@ useEffect(() => {
   const windowHeight = Dimensions.get('window').height;
 
   return (
-    <SafeAreaView style={GlobalStyles.container}>
+    <SafeAreaView style={[GlobalStyles.container, ]}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       {/* Header */}
       <LinearGradient
@@ -617,6 +607,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.Site_Location_Address_Barangay && GlobalStyles.inputError]}
                   placeholder="Enter Affected Barangay"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Site_Location_Address_Barangay', val)}
                   value={reportData.Site_Location_Address_Barangay}
                 />
@@ -628,6 +619,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.Site_Location_Address_City_Municipality && GlobalStyles.inputError]}
                   placeholder="Enter Affected City/Municipality"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Site_Location_Address_City_Municipality', val)}
                   value={reportData.Site_Location_Address_City_Municipality}
                 />
@@ -639,6 +631,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.Site_Location_Address_Province && GlobalStyles.inputError]}
                   placeholder="Enter Affected Province"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Site_Location_Address_Province', val)}
                   value={reportData.Site_Location_Address_Province}
                 />
@@ -650,6 +643,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.Local_Authorities_Persons_Contacted_for_Information && GlobalStyles.inputError]}
                   placeholder="Enter Name"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Local_Authorities_Persons_Contacted_for_Information', val)}
                   value={reportData.Local_Authorities_Persons_Contacted_for_Information}
                 />
@@ -706,6 +700,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.Name_of_the_Organizations_Involved && GlobalStyles.inputError]}
                   placeholder="Enter Organization Name"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Name_of_the_Organizations_Involved', val)}
                   value={reportData.Name_of_the_Organizations_Involved}
                 />
@@ -720,6 +715,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_Barangay && GlobalStyles.inputError]}
                   placeholder="Enter Affected Barangay"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Locations_and_Areas_Affected_Barangay', val)}
                   value={reportData.Locations_and_Areas_Affected_Barangay}
                 />
@@ -731,6 +727,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_City_Municipality && GlobalStyles.inputError]}
                   placeholder="Enter Affected City/Municipality"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Locations_and_Areas_Affected_City_Municipality', val)}
                   value={reportData.Locations_and_Areas_Affected_City_Municipality}
                 />
@@ -742,6 +739,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_Province && GlobalStyles.inputError]}
                   placeholder="Enter Province"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Locations_and_Areas_Affected_Province', val)}
                   value={reportData.Locations_and_Areas_Affected_Province}
                 />
@@ -827,6 +825,7 @@ useEffect(() => {
               <TextInput
                 style={[GlobalStyles.input, { height: 100, textAlignVertical: 'top' }]}
                 placeholder="Enter Summary"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 multiline
                 numberOfLines={4}
                 onChangeText={(val) => handleChange('summary', val)}
@@ -884,6 +883,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.community && GlobalStyles.inputError]}
                   placeholder="Enter Municipalities/Communities"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('community', val)}
                   value={reportData.community}
                 />
@@ -895,6 +895,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.totalPop && GlobalStyles.inputError]}
                   placeholder="Enter Total Population"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('totalPop', val)}
                   value={reportData.totalPop}
                   keyboardType="numeric"
@@ -907,6 +908,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.affected && GlobalStyles.inputError]}
                   placeholder="Enter Affected Population"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('affected', val)}
                   value={reportData.affected}
                   keyboardType="numeric"
@@ -919,6 +921,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.deaths && GlobalStyles.inputError]}
                   placeholder="No. of Deaths"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('deaths', val)}
                   value={reportData.deaths}
                   keyboardType="numeric"
@@ -931,6 +934,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.injured && GlobalStyles.inputError]}
                   placeholder="No. of Injured"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('injured', val)}
                   value={reportData.injured}
                   keyboardType="numeric"
@@ -943,6 +947,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.missing && GlobalStyles.inputError]}
                   placeholder="No. of Missing"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('missing', val)}
                   value={reportData.missing}
                   keyboardType="numeric"
@@ -955,6 +960,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.children && GlobalStyles.inputError]}
                   placeholder="No. of Children"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('children', val)}
                   value={reportData.children}
                   keyboardType="numeric"
@@ -967,6 +973,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.women && GlobalStyles.inputError]}
                   placeholder="No. of Women"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('women', val)}
                   value={reportData.women}
                   keyboardType="numeric"
@@ -979,6 +986,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.seniors && GlobalStyles.inputError]}
                   placeholder="No. of Senior Citizens"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('seniors', val)}
                   value={reportData.seniors}
                   keyboardType="numeric"
@@ -991,6 +999,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.pwd && GlobalStyles.inputError]}
                   placeholder="No. of PWD"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('pwd', val)}
                   value={reportData.pwd}
                   keyboardType="numeric"
@@ -1102,6 +1111,7 @@ useEffect(() => {
               <TextInput
                 style={[GlobalStyles.input]}
                 placeholder="Input Here (Optional)"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('othersStatus', val)}
                 value={reportData.othersStatus}
               />
@@ -1132,6 +1142,7 @@ useEffect(() => {
               <TextInput
                 style={[GlobalStyles.input]}
                 placeholder="Enter Items"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('otherNeeds', val)}
                 value={reportData.otherNeeds}
               />
@@ -1140,6 +1151,7 @@ useEffect(() => {
               <TextInput
                 style={[GlobalStyles.input]}
                 placeholder="Estimated No. of Families to Benefit"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('estQty', val)}
                 value={reportData.estQty}
                 keyboardType="numeric"
@@ -1154,6 +1166,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.responseGroup && GlobalStyles.inputError]}
                   placeholder="Enter Organization's Name"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('responseGroup', val)}
                   value={reportData.responseGroup}
                 />
@@ -1165,6 +1178,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.reliefDeployed && GlobalStyles.inputError]}
                   placeholder="Enter Relief Assistance"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('reliefDeployed', val)}
                   value={reportData.reliefDeployed}
                 />
@@ -1176,6 +1190,7 @@ useEffect(() => {
                 <TextInput
                   style={[GlobalStyles.input, errors.familiesServed && GlobalStyles.inputError]}
                   placeholder="Enter Number of Families"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('familiesServed', val)}
                   value={reportData.familiesServed}
                   keyboardType="numeric"

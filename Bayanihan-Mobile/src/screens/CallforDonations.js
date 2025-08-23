@@ -707,7 +707,7 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.donationDrive && GlobalStyles.inputError]}
                 placeholder="Donation Drive"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('donationDrive', val)}
                 value={formData.donationDrive}
                 autoComplete="off"
@@ -721,7 +721,7 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.contactPerson && GlobalStyles.inputError]}
                 placeholder="Contact Name"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('contactPerson', val)}
                 value={formData.contactPerson}
                 autoComplete="name"
@@ -736,7 +736,7 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.contactNumber && GlobalStyles.inputError]}
                 placeholder="Contact Number"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('contactNumber', val)}
                 value={formData.contactNumber}
                 keyboardType="numeric"
@@ -752,7 +752,7 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.accountNumber && GlobalStyles.inputError]}
                 placeholder="Account Number"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('accountNumber', val)}
                 value={formData.accountNumber}
                 keyboardType="numeric"
@@ -767,7 +767,7 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.accountName && GlobalStyles.inputError]}
                 placeholder="Account Name"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('accountName', val)}
                 value={formData.accountName}
                 autoComplete="name"
@@ -784,7 +784,7 @@ const CallForDonations = () => {
                   ref={regionInputRef}
                   style={[GlobalStyles.input, errors.region && GlobalStyles.inputError]}
                   placeholder="Enter or Choose Region"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('region', val)}
                   value={formData.region}
                   onFocus={handleRegionFocus}
@@ -823,7 +823,7 @@ const CallForDonations = () => {
                   ref={provinceInputRef}
                   style={[GlobalStyles.input, errors.province && GlobalStyles.inputError]}
                   placeholder="Enter or Select Province"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('province', val)}
                   value={formData.province}
                   onFocus={handleProvinceFocus}
@@ -862,7 +862,7 @@ const CallForDonations = () => {
                   ref={cityInputRef}
                   style={[GlobalStyles.input, errors.city && GlobalStyles.inputError]}
                   placeholder="Enter or Select City/Municipality"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('city', val)}
                   value={formData.city}
                   onFocus={handleCityFocus}
@@ -901,7 +901,7 @@ const CallForDonations = () => {
                   ref={barangayInputRef}
                   style={[GlobalStyles.input, errors.barangay && GlobalStyles.inputError]}
                   placeholder="Enter or Select Barangay"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('barangay', val)}
                   value={formData.barangay}
                   onFocus={handleBarangayFocus}
@@ -937,7 +937,7 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.street && GlobalStyles.inputError]}
                 placeholder="(e.g. 1234 Singkamas St.)"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('street', val)}
                 value={formData.street}
                 autoComplete="street-address"
@@ -952,7 +952,7 @@ const CallForDonations = () => {
               <TextInput
                 style={[GlobalStyles.input, errors.facebookLink && GlobalStyles.inputError]}
                 placeholder="Facebook Link"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('facebookLink', val)}
                 value={formData.facebookLink}
                 keyboardType="url"

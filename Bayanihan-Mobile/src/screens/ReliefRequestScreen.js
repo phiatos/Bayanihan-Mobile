@@ -154,27 +154,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
           console.log('Organization name loaded from storage:', storedOrg);
         }
 
-        // Check authentication state
         const user = auth.currentUser;
-        if (!user) {
-          console.warn('No user is logged in');
-          setModalConfig({
-            title: 'Authentication Error',
-            message: 'User not authenticated. Please log in.',
-            onConfirm: () => {
-              setModalVisible(false);
-              navigation.navigate('Login');
-            },
-            confirmText: 'OK',
-            showCancel: false,
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Login');
-          }, 3000);
-          return;
-        }
 
         console.log('Logged-in user UID:', user.uid);
         const userRef = databaseRef(database, `users/${user.uid}`);
@@ -696,7 +676,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.contactPerson && GlobalStyles.inputError]}
                   placeholder="Enter Name"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('contactPerson', val)}
                   value={reportData.contactPerson}
                 />
@@ -710,7 +690,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.contactNumber && GlobalStyles.inputError]}
                   placeholder="Enter Mobile Number"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('contactNumber', val)}
                   value={reportData.contactNumber}
                   keyboardType="numeric"
@@ -725,7 +705,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.email && GlobalStyles.inputError]}
                   placeholder="Enter Email"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('email', val)}
                   value={reportData.email}
                   keyboardType="email-address"
@@ -738,7 +718,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.address && GlobalStyles.inputError]}
                   placeholder="Enter Drop-Off Address"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('address', val)}
                   value={reportData.address}
                 />
@@ -750,7 +730,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.city && GlobalStyles.inputError]}
                   placeholder="Enter City"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('city', val)}
                   value={reportData.city}
                 />
@@ -785,7 +765,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   ref={itemInputRef}
                   placeholder="Select or Type Item"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   value={reportData.itemName}
                   onChangeText={(val) => {
                     handleChange('itemName', val);
@@ -824,7 +804,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, errors.quantity && GlobalStyles.inputError]}
                   placeholder="Enter Quantity"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('quantity', val)}
                   value={reportData.quantity}
                   keyboardType="numeric"
@@ -841,7 +821,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[GlobalStyles.input, styles.textArea, errors.notes && GlobalStyles.inputError]}
                   placeholder="Enter Notes"
-                  placeholderTextColor="#777"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('notes', val)}
                   value={reportData.notes}
                   editable={!!reportData.donationCategory && canSubmit}

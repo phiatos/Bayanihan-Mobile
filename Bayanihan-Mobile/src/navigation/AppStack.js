@@ -317,20 +317,20 @@ const AppStack = () => {
         }}
       />
       <Drawer.Screen
-        name="Relief Request"
-        component={RequestStack}
-        options={{
-          drawerIcon: ({ color }) => (
-            <Ionicons name="cube" size={22} color={color} />
-          ),
-        }}
-      />
-      <Drawer.Screen
         name="Call for Donations"
         component={CallforDonationsStack}
         options={{
           drawerIcon: ({ color }) => (
             <Ionicons name="call" size={22} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Relief Request"
+        component={RequestStack}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="cube" size={22} color={color} />
           ),
         }}
       />

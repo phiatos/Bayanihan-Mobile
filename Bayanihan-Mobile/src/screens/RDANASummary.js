@@ -24,7 +24,6 @@ const RDANASummary = () => {
   const [userUid, setUserUid] = useState(null);
   const [organizationName, setOrganizationName] = useState('[Unknown Organization]');
   const [errorMessage, setErrorMessage] = useState(null);
-  const [canSubmit, setCanSubmit] = useState(false);
 
   // Validate incoming data
   if (!reportData || typeof reportData !== 'object') {
@@ -59,10 +58,11 @@ const RDANASummary = () => {
       .join(' ');
   };
 
-  // Organization name and role-based submission check
+  // Fetch user data and organization name
   useEffect(() => {
     const fetchUserData = async () => {
       try {
+        // Load organization from AsyncStorage
         const storedOrg = await AsyncStorage.getItem('organizationName');
         if (storedOrg) {
           setOrganizationName(storedOrg);
@@ -93,23 +93,10 @@ const RDANASummary = () => {
               return;
             }
 
-            const userRole = userData.role;
             const orgName = userData.organization || '[Unknown Organization]';
             setOrganizationName(orgName);
             await AsyncStorage.setItem('organizationName', orgName);
-            console.log('User Role:', userRole, 'Organization:', orgName);
-
-            // Role-based submission eligibility
-            if (userRole === 'AB ADMIN') {
-              console.log('AB ADMIN role detected. Submission allowed.');
-              setCanSubmit(true);
-            } else {
-              console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
-              setErrorMessage('Your role does not permit report submission.');
-              setModalVisible(true);
-              navigation.navigate('Volunteer Dashboard');
-              setCanSubmit(false);
-            }
+            console.log('Organization:', orgName);
           } else {
             console.warn('No user is logged in');
             setErrorMessage('User not authenticated. Please log in.');
@@ -197,14 +184,6 @@ const RDANASummary = () => {
       return;
     }
     console.log('Authenticated user UID:', user.uid);
-
-    if (!canSubmit) {
-      console.error('Submission not allowed due to role');
-      setErrorMessage('You lack permission to submit reports.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
 
     if (Object.keys(reportData).length === 0 || affectedMunicipalities.length === 0) {
       console.log('Validation failed: Incomplete form data', { reportData, affectedMunicipalities });
@@ -316,20 +295,17 @@ const RDANASummary = () => {
       const submissionId = newReportRef.key;
       await push(submittedRef, reportDataForFirebase);
 
-      // Notify admin
-      const message = `New RDANA report submitted by ${reportData.Local_Authorities_Persons_Contacted_for_Information || 'Unknown'} from ${organizationName} for ${reportData.Type_of_Disaster || 'Disaster'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
-      await notifyAdmin(message, submissionId, reportData.Local_Authorities_Persons_Contacted_for_Information, organizationName);
+      // Notify admin after successful save
+      const message = `New RDANA report "${reportData.Type_of_Disaster || 'N/A'}" submitted by ${reportData.Prepared_By || 'Unknown'} from ${organizationName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      await notifyAdmin(message, submissionId, reportData.Local_Authorities_Persons_Contacted_for_Information || 'Unknown', organizationName);
 
-      await logActivity('Submitted an RDANA Report', submissionId);
-      await logSubmission('rdana/submitted', reportDataForFirebase, submissionId);
-      console.log('Report successfully saved with key:', newReportRef.key);
-
-      // Reset form data
-      setReportData({});
-      setAffectedMunicipalities([]);
+      // Log submission
+      await logSubmission(user.uid, submissionId, 'RDANA', organizationName);
 
       setErrorMessage(null);
       setModalVisible(true);
+      setReportData({});
+      setAffectedMunicipalities([]);
     } catch (error) {
       console.error('Error saving RDANA report to Firebase:', error);
       console.error('Error code:', error.code || 'N/A');
@@ -545,7 +521,7 @@ const RDANASummary = () => {
               <TouchableOpacity
                 style={[GlobalStyles.submitButton, isSubmitting && { opacity: 0.6 }]}
                 onPress={handleSubmit}
-                disabled={isSubmitting || !canSubmit}
+                disabled={isSubmitting}
               >
                 <Text style={GlobalStyles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
               </TouchableOpacity>

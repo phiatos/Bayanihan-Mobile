@@ -3,8 +3,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ref as databaseRef, get, onValue, query, orderByChild, equalTo } from 'firebase/database';
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View, StyleSheet, Dimensions, KeyboardAvoidingView, Modal, StatusBar, ToastAndroid, FlatList, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View, Dimensions, KeyboardAvoidingView, Modal, StatusBar, ToastAndroid, FlatList, Animated } from 'react-native';
 import * as Location from 'expo-location';
 import WebView from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -66,6 +66,8 @@ const ReportSubmissionScreen = () => {
     onConfirm: () => {},
     confirmText: 'OK',
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState(null); // New state for loading errors
 
   // Helper functions for formatting
   const formatDate = (date) => {
@@ -124,7 +126,7 @@ const ReportSubmissionScreen = () => {
   });
   const [errors, setErrors] = useState({});
   const [userUid, setUserUid] = useState(null);
-  const [organizationName, setOrganizationName] = useState('[Unknown Org]');
+  const [organizationName, setOrganizationName] = useState(null);
   const [showMapModal, setShowMapModal] = useState(false);
   const [location, setLocation] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -152,43 +154,43 @@ const ReportSubmissionScreen = () => {
     'TotalMonetaryDonations',
   ];
 
-  // Active operation check
+  // Fetch user and organization data with timeout
   useEffect(() => {
-    const checkActiveOperations = async () => {
-      try {
-        setCanSubmit(false);
-        setModalVisible(false);
+    const fetchUserData = async () => {
+      setIsLoading(true);
+      // Set a timeout to prevent indefinite loading
+      const timeoutId = setTimeout(() => {
+        setLoadingError('Operation timed out while fetching user data.');
+        setIsLoading(false);
+        setModalConfig({
+          title: 'Loading Error',
+          message: 'Failed to load user data due to timeout. Please try again.',
+          onConfirm: () => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          },
+          confirmText: 'OK',
+        });
+        setModalVisible(true);
+      }, 10000); // 10 seconds timeout
 
+      try {
+        // Check AsyncStorage first
         const storedOrg = await AsyncStorage.getItem('organizationName');
         if (storedOrg) {
           setOrganizationName(storedOrg);
-          console.log('Organization name loaded from storage:', storedOrg);
+          console.log('Organization name loaded from AsyncStorage:', storedOrg);
         }
 
         const user = auth.currentUser;
-        if (!user) {
-          console.warn('No user is logged in');
-          setModalConfig({
-            title: 'Authentication Error',
-            message: 'User not authenticated. Please log in.',
-            onConfirm: () => {
-              setModalVisible(false);
-            navigation.navigate('Login');
-            },
-            confirmText: 'OK',
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Login');
-          }, 3000);
-          return;
-        }
 
-        console.log('Logged-in user UID:', user.uid);
         setUserUid(user.uid);
+        console.log('Logged-in user UID:', user.uid);
+
         const userRef = databaseRef(database, `users/${user.uid}`);
-        const userSnapshot = await get(userRef);
+        const userSnapshot = await get(userRef).catch(error => {
+          throw new Error(`Firebase fetch error: ${error.message}`);
+        });
         const userData = userSnapshot.val();
 
         if (!userData) {
@@ -198,7 +200,7 @@ const ReportSubmissionScreen = () => {
             message: 'Your user profile is incomplete. Please contact support.',
             onConfirm: () => {
               setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+              navigation.navigate('Volunteer Dashboard');
             },
             confirmText: 'OK',
           });
@@ -207,8 +209,59 @@ const ReportSubmissionScreen = () => {
             setModalVisible(false);
             navigation.navigate('Volunteer Dashboard');
           }, 3000);
+          clearTimeout(timeoutId);
+          setIsLoading(false);
           return;
         }
+
+        const orgName = userData.group || null;
+        setOrganizationName(orgName);
+        if (orgName) {
+          await AsyncStorage.setItem('organizationName', orgName);
+          console.log('Organization name set:', orgName);
+        } else {
+          console.warn('No organization group found for user');
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error.message);
+        setLoadingError(error.message);
+        setModalConfig({
+          title: 'Error',
+          message: `Failed to fetch user data: ${error.message}`,
+          onConfirm: () => {
+            setModalVisible(false);
+            navigation.navigate('Volunteer Dashboard');
+          },
+          confirmText: 'OK',
+        });
+        setModalVisible(true);
+        setTimeout(() => {
+          setModalVisible(false);
+          navigation.navigate('Volunteer Dashboard');
+        }, 3000);
+      } finally {
+        clearTimeout(timeoutId);
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [navigation]);
+
+  // Check active operations after organization is fetched
+  useEffect(() => {
+    if (!organizationName || isLoading) return;
+
+    const checkActiveOperations = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const userRef = databaseRef(database, `users/${user.uid}`);
+        const userSnapshot = await get(userRef);
+        const userData = userSnapshot.val();
+
+        if (!userData) return;
 
         if (userData.password_needs_reset) {
           setModalConfig({
@@ -229,20 +282,36 @@ const ReportSubmissionScreen = () => {
         }
 
         const userRole = userData.role;
-        const orgName = userData.group || '[Unknown Org]';
-        setOrganizationName(orgName);
-        await AsyncStorage.setItem('organizationName', orgName);
-        console.log('User Role:', userRole, 'Organization:', orgName);
+        console.log('User Role:', userRole, 'Organization:', organizationName);
 
         if (userRole === 'AB ADMIN') {
           console.log('AB ADMIN role detected. Submission allowed.');
           setCanSubmit(true);
         } else if (userRole === 'ABVN') {
-          console.log('ABVN role detected. Checking organization activations.');
+          if (!organizationName) {
+            console.warn('ABVN user has no organization assigned.');
+            setModalConfig({
+              title: 'Organization Error',
+              message: 'Your account is not associated with an organization.',
+              onConfirm: () => {
+                setModalVisible(false);
+                navigation.navigate('Volunteer Dashboard');
+              },
+              confirmText: 'OK',
+            });
+            setModalVisible(true);
+            setTimeout(() => {
+              setModalVisible(false);
+              navigation.navigate('Volunteer Dashboard');
+            }, 3000);
+            return;
+          }
+
+          console.log('ABVN role detected. Checking organization activations for:', organizationName);
           const activationsRef = query(
             databaseRef(database, 'activations'),
             orderByChild('organization'),
-            equalTo(orgName)
+            equalTo(organizationName)
           );
           const activationsSnapshot = await get(activationsRef);
           let hasActiveActivations = false;
@@ -254,10 +323,10 @@ const ReportSubmissionScreen = () => {
           });
 
           if (hasActiveActivations) {
-            console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
+            console.log(`Organization "${organizationName}" has active operations. Submission allowed.`);
             setCanSubmit(true);
           } else {
-            console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
+            console.warn(`Organization "${organizationName}" has no active operations. Submission disabled.`);
             setModalConfig({
               title: 'No Active Operations',
               message: 'Your organization has no active operations. You cannot submit reports at this time.',
@@ -272,24 +341,6 @@ const ReportSubmissionScreen = () => {
               setModalVisible(false);
               navigation.navigate('Volunteer Dashboard');
             }, 3000);
-          }
-                    if (orgName === '[Unknown Org]') {
-            console.warn('ABVN user has no organization assigned.');
-            setModalConfig({
-              title: 'Organization Error',
-              message: 'Your account is not associated with an organization.',
-              onConfirm: () => {
-                setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-              },
-              confirmText: 'OK',
-            });
-            setModalVisible(true);
-            setTimeout(() => {
-              setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-            }, 3000);
-            return;
           }
         } else {
           console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
@@ -322,87 +373,61 @@ const ReportSubmissionScreen = () => {
         setModalVisible(true);
         setTimeout(() => {
           setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+          navigation.navigate('Volunteer Dashboard');
         }, 3000);
       }
     };
 
     const unsubscribeFocus = navigation.addListener('focus', () => {
-      console.log('ReportSubmissionScreen focused, checking active operations...');
-      checkActiveOperations();
+      if (organizationName) {
+        console.log('ReportSubmissionScreen focused, checking active operations...');
+        checkActiveOperations();
+      }
     });
 
-    checkActiveOperations();
+    if (organizationName) {
+      checkActiveOperations();
+    }
 
     return () => unsubscribeFocus();
-  }, [navigation]);
+  }, [navigation, organizationName, isLoading]);
 
   // Fetch active activations
   useEffect(() => {
+    if (!organizationName || isLoading) return;
+
     const unsubscribe = auth.onAuthStateChanged(
       async (user) => {
         if (user) {
           setUserUid(user.uid);
           console.log('Logged-in user UID:', user.uid);
 
-          try {
-            const userRef = databaseRef(database, `users/${user.uid}`);
-            const userSnapshot = await get(userRef);
-            const userData = userSnapshot.val();
-
-            if (userData && userData.group) {
-              setOrganizationName(userData.group);
-              await AsyncStorage.setItem('organizationName', userData.group);
-              console.log('Volunteer group fetched from database:', userData.group);
-            } else {
-              console.warn('User data or group not found for UID:', user.uid);
-              setOrganizationName('[Unknown Org]');
-            }
-
-            const activationsRef = databaseRef(database, 'activations');
-            const activeQuery = query(activationsRef, orderByChild('status'), equalTo('active'));
-            onValue(
-              activeQuery,
-              (snapshot) => {
-                const activeActivations = [];
-                snapshot.forEach((childSnapshot) => {
-                  const activation = { id: childSnapshot.key, ...childSnapshot.val() };
-                  if (organizationName && organizationName !== '[Unknown Org]') {
-                    if (activation.organization === organizationName) {
-                      activeActivations.push(activation);
-                    }
-                  } else {
+          const activationsRef = databaseRef(database, 'activations');
+          const activeQuery = query(activationsRef, orderByChild('status'), equalTo('active'));
+          onValue(
+            activeQuery,
+            (snapshot) => {
+              const activeActivations = [];
+              snapshot.forEach((childSnapshot) => {
+                const activation = { id: childSnapshot.key, ...childSnapshot.val() };
+                if (organizationName) {
+                  if (activation.organization === organizationName) {
                     activeActivations.push(activation);
                   }
-                });
-                setActiveActivations(activeActivations);
-                console.log('Active activations fetched:', activeActivations);
-              },
-              (error) => {
-                console.error('Error listening for active activations:', error);
-                ToastAndroid.show('Failed to load active operations.', ToastAndroid.BOTTOM);
-              }
-            );
-          } catch (error) {
-            console.error('Error fetching user data:', error.message);
-            ToastAndroid.show('Failed to fetch user group.', ToastAndroid.BOTTOM);
-          }
+                } else {
+                  activeActivations.push(activation);
+                }
+              });
+              setActiveActivations(activeActivations);
+              console.log('Active activations fetched:', activeActivations);
+            },
+            (error) => {
+              console.error('Error listening for active activations:', error);
+              ToastAndroid.show('Failed to load active operations.', ToastAndroid.BOTTOM);
+            }
+          );
         } else {
           console.warn('No user is logged in');
-          setModalConfig({
-            title: 'Authentication Error',
-            message: 'User not authenticated. Please log in.',
-            onConfirm: () => {
-              setModalVisible(false);
-              navigation.navigate('Login');
-            },
-            confirmText: 'OK',
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Login');
-          }, 3000);
         }
       },
       (error) => {
@@ -412,7 +437,7 @@ const ReportSubmissionScreen = () => {
     );
 
     return () => unsubscribe();
-  }, [navigation, organizationName]);
+  }, [navigation, organizationName, isLoading]);
 
   // Effect to handle navigation params and generate Report ID
   useEffect(() => {
@@ -478,14 +503,14 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
       setTimeout(() => {
         setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+        navigation.navigate('Volunteer Dashboard');
       }, 3000);
       return;
     }
@@ -550,14 +575,14 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
       setTimeout(() => {
         setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+        navigation.navigate('Volunteer Dashboard');
       }, 3000);
       return;
     }
@@ -617,14 +642,14 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
       setTimeout(() => {
         setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+        navigation.navigate('Volunteer Dashboard');
       }, 3000);
       return;
     }
@@ -664,14 +689,14 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
       setTimeout(() => {
         setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+        navigation.navigate('Volunteer Dashboard');
       }, 3000);
       return;
     }
@@ -734,14 +759,14 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
       setTimeout(() => {
         setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+        navigation.navigate('Volunteer Dashboard');
       }, 3000);
       return;
     }
@@ -766,14 +791,14 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
       setTimeout(() => {
         setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+        navigation.navigate('Volunteer Dashboard');
       }, 3000);
       return;
     }
@@ -854,14 +879,14 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
       setTimeout(() => {
         setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+        navigation.navigate('Volunteer Dashboard');
       }, 3000);
       return;
     }
@@ -919,14 +944,14 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
       setTimeout(() => {
         setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+        navigation.navigate('Volunteer Dashboard');
       }, 3000);
       return;
     }
@@ -953,14 +978,14 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
       setTimeout(() => {
         setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
+        navigation.navigate('Volunteer Dashboard');
       }, 3000);
       return;
     }
@@ -1185,6 +1210,71 @@ const ReportSubmissionScreen = () => {
         </html>
       `;
 
+  // Render loading or error state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={GlobalStyles.container}>
+        <LinearGradient
+          colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+          start={{ x: 1, y: 0.5 }}
+          end={{ x: 1, y: 1 }}
+          style={GlobalStyles.gradientContainer}
+        >
+          <View style={GlobalStyles.newheaderContainer}>
+            <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+              <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+            </TouchableOpacity>
+            <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Reports Submission</Text>
+          </View>
+        </LinearGradient>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 18, color: Theme.colors.primary }}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (loadingError) {
+    return (
+      <SafeAreaView style={GlobalStyles.container}>
+        <LinearGradient
+          colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+          start={{ x: 1, y: 0.5 }}
+          end={{ x: 1, y: 1 }}
+          style={GlobalStyles.gradientContainer}
+        >
+          <View style={GlobalStyles.newheaderContainer}>
+            <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+              <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+            </TouchableOpacity>
+            <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Reports Submission</Text>
+          </View>
+        </LinearGradient>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 18, color: '#ff4444', textAlign: 'center', marginBottom: 20 }}>
+            {loadingError}
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#00BCD4',
+              paddingVertical: 10,
+              paddingHorizontal: 20,
+              borderRadius: 5,
+            }}
+            onPress={() => {
+              setLoadingError(null);
+              setIsLoading(true);
+              // Retry fetching user data
+              navigation.navigate('ReportSubmission');
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
@@ -1224,7 +1314,7 @@ const ReportSubmissionScreen = () => {
               />
               {renderLabel('Area of Operation', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.AreaOfOperation && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.AreaOfOperation && GlobalStyles.inputError]}
                 placeholder="e.g. Purok 2, Brgy. Maligaya, Rosario"
                 placeholderTextColor={Theme.colors.placeholderColor}
                 value={locationName || reportData.AreaOfOperation}
@@ -1242,20 +1332,20 @@ const ReportSubmissionScreen = () => {
                 <MaterialIcons name="pin-drop" size={28} style={{ color: 'white' }} />
                 <Text style={styles.openMapText}> Pin Location</Text>
               </TouchableOpacity>
-              {errors.AreaOfOperation && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.AreaOfOperation}</Text>}
+              {errors.AreaOfOperation && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.AreaOfOperation}</Text>}
               {renderLabel('Date of Report', true)}
-              <View style={[GlobalStyles.input, errors.DateOfReport && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}>
+              <View style={[GlobalStyles.input, errors.DateOfReport && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}>
                 <Text style={{ flex: 1, color: reportData.DateOfReport ? '#000' : '#999' }}>
                   {reportData.DateOfReport || 'dd-mm-yyyy'}
                 </Text>
               </View>
-              {errors.DateOfReport && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.DateOfReport}</Text>}
+              {errors.DateOfReport && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.DateOfReport}</Text>}
             </View>
 
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Relief Operations</Text>
               {renderLabel('Select Calamity', true)}
-              <View style={[GlobalStyles.input, errors.calamityArea && styles.requiredInput, styles.pickerContainer, { height: 45, paddingVertical: 0, alignContent: 'center', justifyContent: 'center', paddingHorizontal: 0 }]}>
+              <View style={[GlobalStyles.input, errors.calamityArea && GlobalStyles.inputError, styles.pickerContainer, { height: 45, paddingVertical: 0, alignContent: 'center', justifyContent: 'center', paddingHorizontal: 0 }]}>
                 <Picker
                   selectedValue={reportData.CalamityAreaId}
                   onValueChange={(value) => handleCalamityChange(value)}
@@ -1291,7 +1381,7 @@ const ReportSubmissionScreen = () => {
               </View>
               {renderLabel('Completion Time of Intervention', true)}
               <TouchableOpacity
-                style={[GlobalStyles.input, errors.completionTimeOfIntervention && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                style={[GlobalStyles.input, errors.completionTimeOfIntervention && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, completionTimeOfIntervention: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.completionTimeOfIntervention ? '#000' : '#999' }}>
@@ -1308,10 +1398,10 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, time) => handleTimeChange('completionTimeOfIntervention', event, time)}
                 />
               )}
-              {errors.completionTimeOfIntervention && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.completionTimeOfIntervention}</Text>}
+              {errors.completionTimeOfIntervention && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.completionTimeOfIntervention}</Text>}
               {renderLabel('Starting Date of Operation', true)}
               <TouchableOpacity
-                style={[GlobalStyles.input, errors.StartDate && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                style={[GlobalStyles.input, errors.StartDate && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, StartDate: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.StartDate ? '#000' : '#999' }}>
@@ -1327,10 +1417,10 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, date) => handleDateChange('StartDate', event, date)}
                 />
               )}
-              {errors.StartDate && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.StartDate}</Text>}
+              {errors.StartDate && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.StartDate}</Text>}
               {renderLabel('Ending Date of Operation', true)}
               <TouchableOpacity
-                style={[GlobalStyles.input, errors.EndDate && styles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
+                style={[GlobalStyles.input, errors.EndDate && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, EndDate: true }))}
               >
                 <Text style={{ flex: 1, color: reportData.EndDate ? '#000' : '#999' }}>
@@ -1346,111 +1436,111 @@ const ReportSubmissionScreen = () => {
                   onChange={(event, val) => handleDateChange('EndDate', event, val)}
                 />
               )}
-              {errors.EndDate && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.EndDate}</Text>}
+              {errors.EndDate && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.EndDate}</Text>}
               {renderLabel('No. of Individuals or Families', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.NoOfIndividualsOrFamilies && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.NoOfIndividualsOrFamilies && GlobalStyles.inputError]}
                 placeholder="No. of Individuals or Families"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('NoOfIndividualsOrFamilies', val)}
                 value={reportData.NoOfIndividualsOrFamilies}
                 keyboardType="numeric"
                 editable={canSubmit}
               />
-              {errors.NoOfIndividualsOrFamilies && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfIndividualsOrFamilies}</Text>}
+              {errors.NoOfIndividualsOrFamilies && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.NoOfIndividualsOrFamilies}</Text>}
               {renderLabel('No. of Relief Packs', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.NoOfFoodPacks && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.NoOfFoodPacks && GlobalStyles.inputError]}
                 placeholder="No. of Food Packs"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('NoOfFoodPacks', val)}
                 value={reportData.NoOfFoodPacks}
                 keyboardType="numeric"
                 editable={canSubmit}
               />
-              {errors.NoOfFoodPacks && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfFoodPacks}</Text>}
+              {errors.NoOfFoodPacks && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.NoOfFoodPacks}</Text>}
               {renderLabel('No. of Hot Meals/Ready-to-eat Food', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.hotMeals && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.hotMeals && GlobalStyles.inputError]}
                 placeholder="No. of Hot Meals"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('hotMeals', val)}
                 value={reportData.hotMeals}
                 keyboardType="numeric"
                 editable={canSubmit}
               />
-              {errors.hotMeals && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.hotMeals}</Text>}
+              {errors.hotMeals && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.hotMeals}</Text>}
               {renderLabel('Liters of Water', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.LitersOfWater && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.LitersOfWater && GlobalStyles.inputError]}
                 placeholder="Liters of Water"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('LitersOfWater', val)}
                 value={reportData.LitersOfWater}
                 keyboardType="numeric"
                 editable={canSubmit}
               />
-              {errors.LitersOfWater && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.LitersOfWater}</Text>}
+              {errors.LitersOfWater && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.LitersOfWater}</Text>}
               {renderLabel('No. of Volunteers Mobilized', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.NoOfVolunteersMobilized && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.NoOfVolunteersMobilized && GlobalStyles.inputError]}
                 placeholder="No. of Volunteers Mobilized"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('NoOfVolunteersMobilized', val)}
                 value={reportData.NoOfVolunteersMobilized}
                 keyboardType="numeric"
                 editable={canSubmit}
               />
-              {errors.NoOfVolunteersMobilized && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfVolunteersMobilized}</Text>}
+              {errors.NoOfVolunteersMobilized && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.NoOfVolunteersMobilized}</Text>}
               {renderLabel('No. of Organizations Activated', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.NoOfOrganizationsActivated && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.NoOfOrganizationsActivated && GlobalStyles.inputError]}
                 placeholder="No. of Organizations Activated"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('NoOfOrganizationsActivated', val)}
                 value={reportData.NoOfOrganizationsActivated}
                 keyboardType="numeric"
                 editable={canSubmit}
               />
-              {errors.NoOfOrganizationsActivated && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NoOfOrganizationsActivated}</Text>}
+              {errors.NoOfOrganizationsActivated && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.NoOfOrganizationsActivated}</Text>}
               {renderLabel('Total Value of In-Kind Donations', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.TotalValueOfInKindDonations && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.TotalValueOfInKindDonations && GlobalStyles.inputError]}
                 placeholder="Total Value of In-Kind Donations"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('TotalValueOfInKindDonations', val)}
                 value={reportData.TotalValueOfInKindDonations}
                 keyboardType="numeric"
                 editable={canSubmit}
               />
-              {errors.TotalValueOfInKindDonations && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.TotalValueOfInKindDonations}</Text>}
+              {errors.TotalValueOfInKindDonations && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.TotalValueOfInKindDonations}</Text>}
               {renderLabel('Total Monetary Donations', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.TotalMonetaryDonations && styles.requiredInput]}
+                style={[GlobalStyles.input, errors.TotalMonetaryDonations && GlobalStyles.inputError]}
                 placeholder="Total Monetary Donations"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('TotalMonetaryDonations', val)}
                 value={reportData.TotalMonetaryDonations}
                 keyboardType="numeric"
                 editable={canSubmit}
               />
-              {errors.TotalMonetaryDonations && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.TotalMonetaryDonations}</Text>}
+              {errors.TotalMonetaryDonations && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.TotalMonetaryDonations}</Text>}
             </View>
 
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Additional Updates</Text>
               {renderLabel('Notes/Additional Information (Optional)', false)}
               <TextInput
-                style={[GlobalStyles.input, errors.NotesAdditionalInformation && styles.requiredInput, { textAlignVertical: 'top', height: 100 }]}
+                style={[GlobalStyles.input, errors.NotesAdditionalInformation && GlobalStyles.inputError, { textAlignVertical: 'top', height: 100 }]}
                 placeholder="Enter Notes/Additional Information"
-                placeholderTextColor="#777"
+                placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('NotesAdditionalInformation', val)}
                 value={reportData.NotesAdditionalInformation}
                 multiline
                 numberOfLines={4}
                 editable={canSubmit}
               />
-              {errors.NotesAdditionalInformation && <Text style={[styles.errorText, { marginTop: 2 }]}>{errors.NotesAdditionalInformation}</Text>}
+              {errors.NotesAdditionalInformation && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.NotesAdditionalInformation}</Text>}
             </View>
 
             <TouchableOpacity
@@ -1604,7 +1694,7 @@ const ReportSubmissionScreen = () => {
                       {searchBarVisible && (
                         <TextInput
                           placeholder="Search for an address"
-                          placeholderTextColor="#777"
+                          placeholderTextColor={Theme.colors.placeholderColor}
                           style={{ flex: 1, fontFamily: 'Poppins_Regular' }}
                           value={searchQuery}
                           onChangeText={handleSearchInput}

@@ -183,8 +183,9 @@ const ReliefSummary = ({ route, navigation }) => {
       const userRequestRef = ref(database, `users/${userUid}/requests/${submissionId}`);
 
       // Notify admin
-      const message = `New relief request submitted by ${contactPerson || 'Unknown'} from ${volunteerOrganization} for ${donationCategory || 'Relief'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
-      await notifyAdmin(message, submissionId, contactPerson, volunteerOrganization);
+      const message = `New relief request submitted by ${contactPerson} from ${volunteerOrganization} for ${donationCategory} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      const requestRefKey = requestRef.key;
+      await notifyAdmin(message, submissionId, requestRefKey, contactPerson, volunteerOrganization);
 
       await Promise.all([
         set(requestRef, newRequest),

@@ -436,14 +436,14 @@ const CreatePost = () => {
   if (!VideoView || !useVideoPlayer) {
     console.error(`VideoView or useVideoPlayer from expo-video is undefined. Ensure expo-video is installed correctly.`);
     return (
-      <SafeAreaView style={[GlobalStyles.container, { marginBottom: 40 }]}>
+      <SafeAreaView style={GlobalStyles.container}>
         <Text>Error: Video component failed to load. Please check expo-video installation (run `npx expo install expo-video`).</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[GlobalStyles.container, { marginBottom: 40 }]}>
+    <SafeAreaView style={GlobalStyles.container}>
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}

@@ -142,18 +142,6 @@ export default StyleSheet.create({
     padding: 5,
     borderRadius: 5,
   },
-    imageContainer: {
-    marginTop: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  image: {
-    width: 250,
-    height: 250,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-  },
 
   // Summary
   fieldContainer: {

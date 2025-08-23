@@ -1,4 +1,6 @@
 import 'core-js/stable/array/find-last';
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
 import React, { useEffect, useCallback, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import AuthStack from './src/navigation/AuthStack';

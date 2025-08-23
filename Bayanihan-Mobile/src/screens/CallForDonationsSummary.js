@@ -274,8 +274,8 @@ const CallForDonationsSummary = () => {
                 {imageState ? (
                   <Image
                     source={{ uri: imageState }}
-                    style={styles.image}
-                    resizeMode="cover"
+                    style={GlobalStyles.image}
+                    resizeMode="contain"
                     onError={(e) => console.error('Image load error:', e.nativeEvent.error)}
                   />
                 ) : (
@@ -332,27 +332,6 @@ const CallForDonationsSummary = () => {
       />
     </SafeAreaView>
   );
-};
-
-const spacing = {
-  xsmall: 5,
-  small: 10,
-  medium: 15,
-  large: 20,
-  xlarge: 30,
-};
-
-const borderRadius = {
-  small: 4,
-  medium: 8,
-  large: 10,
-  xlarge: 20,
-};
-
-const borderWidth = {
-  thin: 1,
-  medium: 2,
-  thick: 3,
 };
 
 export default CallForDonationsSummary;

@@ -666,6 +666,7 @@ const handleChangePassword = async () => {
                 <TextInput
                   style={styles.input}
                   placeholder="Current Password"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   value={currentPassword}
                   onChangeText={setCurrentPassword}
                   secureTextEntry={!showCurrentPassword}
@@ -686,6 +687,7 @@ const handleChangePassword = async () => {
                 <TextInput
                   style={styles.input}
                   placeholder="New Password"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   value={newPassword}
                   onChangeText={handlePasswordInput}
                   secureTextEntry={!showNewPassword}
@@ -706,6 +708,7 @@ const handleChangePassword = async () => {
                 <TextInput
                   style={styles.input}
                   placeholder="Confirm Password"
+                  placeholderTextColor={Theme.colors.placeholderColor}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showConfirmPassword}

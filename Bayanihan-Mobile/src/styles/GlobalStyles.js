@@ -78,12 +78,11 @@ export default StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
-    // minHeight: Dimensions.get('window').height - (STATUS_BAR_HEIGHT),
   },
   form: {
     marginHorizontal: 10,
     marginTop: 20,
-    marginBottom: 40
+    marginBottom: spacing.medium
   },
   formTitle: {
     fontSize: 13,
@@ -136,6 +135,12 @@ export default StyleSheet.create({
     borderColor: 'red',
     borderWidth: 1,
   },
+  imageContainer: {
+    marginTop: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
    imageUpload: {
     borderWidth: 1,
     borderRadius: 10,
@@ -149,8 +154,8 @@ export default StyleSheet.create({
     height: 50,
   },  
   image: {
-    width: 200,
-    height: 150,
+    width: 250,
+    height: 500,
     borderRadius: 10,
     marginTop: 5,
   },
@@ -186,7 +191,7 @@ export default StyleSheet.create({
   },
   submitButtonContainer:{
     position: 'absolute',
-    bottom: 20,
+    bottom: 5,
     width: '100%'
   },
   button: {

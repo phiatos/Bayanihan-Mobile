@@ -33,7 +33,6 @@ export default StyleSheet.create({
   },
    form: {
     marginTop: 20,
-    marginBottom: 40
   },
   section: {
     marginVertical: spacing.small,
