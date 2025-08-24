@@ -9,12 +9,11 @@ const firebaseConfig = {
   authDomain: "bayanihan-5ce7e.firebaseapp.com",
   databaseURL: "https://bayanihan-5ce7e-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "bayanihan-5ce7e",
-  storageBucket: "bayanihan-5ce7e.firebasestorage.app", 
+  storageBucket: "bayanihan-5ce7e.firebasestorage.app",
   messagingSenderId: "593123849917",
   appId: "1:593123849917:web:eb85a63a536eeff78ce9d4",
-  measurementId: "G-ZTQ9VXXVV0",
+  measurementId: "G-ZTQ9VXXVV0"
 };
-// console.log('Firebase Config Values:', firebaseConfig);
 
 let app;
 try {
@@ -29,11 +28,12 @@ let auth, database, storage, db;
 try {
   auth = getAuth(app);
   database = getDatabase(app);
-  storage = getStorage(app); 
+  storage = getStorage(app, 'gs://bayanihan-5ce7e.firebasestorage.app');
   db = getFirestore(app);
   console.log('Firebase Auth:', !!auth);
   console.log('Firebase Database:', !!database);
   console.log('Firebase Storage:', !!storage);
+  console.log('Firebase Storage Bucket:', storage._bucket.bucket);
   console.log('Firebase Firestore:', !!db);
   console.log('Firebase Auth, Database, Storage, and Firestore initialized successfully');
 } catch (error) {

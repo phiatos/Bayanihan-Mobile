@@ -14,40 +14,10 @@ import styles from '../styles/ReportSubmissionStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import Theme from '../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import OperationCustomModal from '../components/OperationCustomModal';
+import useOperationCheck from '../components/useOperationCheck';
 
 const { height, width } = Dimensions.get('window');
-
-const CustomModal = ({ visible, title, message, onConfirm, confirmText }) => {
-  return (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onConfirm}
-    >
-      <View style={GlobalStyles.modalOverlay}>
-        <View style={GlobalStyles.modalView}>
-          <Text style={GlobalStyles.modalTitle}>{title}</Text>
-          <View style={GlobalStyles.modalContent}>
-            <Ionicons
-              name={title.includes('Success') || title.includes('Saved') ? 'checkmark-circle' : 'warning'}
-              size={60}
-              color={title.includes('Success') || title.includes('Saved') ? '#00BCD4' : '#FF0000'}
-              style={GlobalStyles.modalIcon}
-            />
-            <Text style={GlobalStyles.modalMessage}>{message}</Text>
-          </View>
-          <TouchableOpacity
-            style={GlobalStyles.modalButton}
-            onPress={onConfirm}
-          >
-            <Text style={GlobalStyles.modalButtonText}>{confirmText}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-};
 
 const ReportSubmissionScreen = () => {
   const navigation = useNavigation();
@@ -55,21 +25,12 @@ const ReportSubmissionScreen = () => {
   const webViewRef = useRef(null);
   const insets = useSafeAreaInsets();
   const searchAnim = useRef(new Animated.Value(0)).current;
+  const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const [searchBarVisible, setSearchBarVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [canSubmit, setCanSubmit] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalConfig, setModalConfig] = useState({
-    title: '',
-    message: '',
-    onConfirm: () => {},
-    confirmText: 'OK',
-  });
   const [isLoading, setIsLoading] = useState(true);
-  const [loadingError, setLoadingError] = useState(null); // New state for loading errors
-
-  // Helper functions for formatting
+  const [loadingError, setLoadingError] = useState(null);
   const formatDate = (date) => {
     if (!date) return '';
     const d = new Date(date);
@@ -89,7 +50,6 @@ const ReportSubmissionScreen = () => {
     return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
   };
 
-  // Initialize current date
   const currentDate = new Date();
 
   const [reportData, setReportData] = useState({
@@ -126,7 +86,6 @@ const ReportSubmissionScreen = () => {
   });
   const [errors, setErrors] = useState({});
   const [userUid, setUserUid] = useState(null);
-  const [organizationName, setOrganizationName] = useState(null);
   const [showMapModal, setShowMapModal] = useState(false);
   const [location, setLocation] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -154,11 +113,9 @@ const ReportSubmissionScreen = () => {
     'TotalMonetaryDonations',
   ];
 
-  // Fetch user and organization data with timeout
   useEffect(() => {
     const fetchUserData = async () => {
       setIsLoading(true);
-      // Set a timeout to prevent indefinite loading
       const timeoutId = setTimeout(() => {
         setLoadingError('Operation timed out while fetching user data.');
         setIsLoading(false);
@@ -172,56 +129,15 @@ const ReportSubmissionScreen = () => {
           confirmText: 'OK',
         });
         setModalVisible(true);
-      }, 10000); // 10 seconds timeout
+      }, 10000);
 
       try {
-        // Check AsyncStorage first
-        const storedOrg = await AsyncStorage.getItem('organizationName');
-        if (storedOrg) {
-          setOrganizationName(storedOrg);
-          console.log('Organization name loaded from AsyncStorage:', storedOrg);
-        }
-
         const user = auth.currentUser;
-
+        if (!user) {
+          throw new Error('No authenticated user found');
+        }
         setUserUid(user.uid);
         console.log('Logged-in user UID:', user.uid);
-
-        const userRef = databaseRef(database, `users/${user.uid}`);
-        const userSnapshot = await get(userRef).catch(error => {
-          throw new Error(`Firebase fetch error: ${error.message}`);
-        });
-        const userData = userSnapshot.val();
-
-        if (!userData) {
-          console.error('User data not found for UID:', user.uid);
-          setModalConfig({
-            title: 'Profile Error',
-            message: 'Your user profile is incomplete. Please contact support.',
-            onConfirm: () => {
-              setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-            },
-            confirmText: 'OK',
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-          }, 3000);
-          clearTimeout(timeoutId);
-          setIsLoading(false);
-          return;
-        }
-
-        const orgName = userData.group || null;
-        setOrganizationName(orgName);
-        if (orgName) {
-          await AsyncStorage.setItem('organizationName', orgName);
-          console.log('Organization name set:', orgName);
-        } else {
-          console.warn('No organization group found for user');
-        }
       } catch (error) {
         console.error('Error fetching user data:', error.message);
         setLoadingError(error.message);
@@ -248,151 +164,6 @@ const ReportSubmissionScreen = () => {
     fetchUserData();
   }, [navigation]);
 
-  // Check active operations after organization is fetched
-  useEffect(() => {
-    if (!organizationName || isLoading) return;
-
-    const checkActiveOperations = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        const userRef = databaseRef(database, `users/${user.uid}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val();
-
-        if (!userData) return;
-
-        if (userData.password_needs_reset) {
-          setModalConfig({
-            title: 'Password Reset Required',
-            message: 'For security reasons, please change your password.',
-            onConfirm: () => {
-              setModalVisible(false);
-              navigation.navigate('Profile');
-            },
-            confirmText: 'OK',
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Profile');
-          }, 3000);
-          return;
-        }
-
-        const userRole = userData.role;
-        console.log('User Role:', userRole, 'Organization:', organizationName);
-
-        if (userRole === 'AB ADMIN') {
-          console.log('AB ADMIN role detected. Submission allowed.');
-          setCanSubmit(true);
-        } else if (userRole === 'ABVN') {
-          if (!organizationName) {
-            console.warn('ABVN user has no organization assigned.');
-            setModalConfig({
-              title: 'Organization Error',
-              message: 'Your account is not associated with an organization.',
-              onConfirm: () => {
-                setModalVisible(false);
-                navigation.navigate('Volunteer Dashboard');
-              },
-              confirmText: 'OK',
-            });
-            setModalVisible(true);
-            setTimeout(() => {
-              setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-            }, 3000);
-            return;
-          }
-
-          console.log('ABVN role detected. Checking organization activations for:', organizationName);
-          const activationsRef = query(
-            databaseRef(database, 'activations'),
-            orderByChild('organization'),
-            equalTo(organizationName)
-          );
-          const activationsSnapshot = await get(activationsRef);
-          let hasActiveActivations = false;
-          activationsSnapshot.forEach((childSnapshot) => {
-            if (childSnapshot.val().status === 'active') {
-              hasActiveActivations = true;
-              return true;
-            }
-          });
-
-          if (hasActiveActivations) {
-            console.log(`Organization "${organizationName}" has active operations. Submission allowed.`);
-            setCanSubmit(true);
-          } else {
-            console.warn(`Organization "${organizationName}" has no active operations. Submission disabled.`);
-            setModalConfig({
-              title: 'No Active Operations',
-              message: 'Your organization has no active operations. You cannot submit reports at this time.',
-              onConfirm: () => {
-                setModalVisible(false);
-                navigation.navigate('Volunteer Dashboard');
-              },
-              confirmText: 'OK',
-            });
-            setModalVisible(true);
-            setTimeout(() => {
-              setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-            }, 3000);
-          }
-        } else {
-          console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
-          setModalConfig({
-            title: 'Permission Error',
-            message: 'Your role does not permit report submission.',
-            onConfirm: () => {
-              setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-            },
-            confirmText: 'OK',
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-          }, 3000);
-        }
-      } catch (error) {
-        console.error(`[${new Date().toISOString()}] Error in checkActiveOperations:`, error.message);
-        setModalConfig({
-          title: 'Error',
-          message: 'Failed to verify permissions: ' + error.message,
-          onConfirm: () => {
-            setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-          },
-          confirmText: 'OK',
-        });
-        setModalVisible(true);
-        setTimeout(() => {
-          setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
-        }, 3000);
-      }
-    };
-
-    const unsubscribeFocus = navigation.addListener('focus', () => {
-      if (organizationName) {
-        console.log('ReportSubmissionScreen focused, checking active operations...');
-        checkActiveOperations();
-      }
-    });
-
-    if (organizationName) {
-      checkActiveOperations();
-    }
-
-    return () => unsubscribeFocus();
-  }, [navigation, organizationName, isLoading]);
-
-  // Fetch active activations
   useEffect(() => {
     if (!organizationName || isLoading) return;
 
@@ -439,7 +210,6 @@ const ReportSubmissionScreen = () => {
     return () => unsubscribe();
   }, [navigation, organizationName, isLoading]);
 
-  // Effect to handle navigation params and generate Report ID
   useEffect(() => {
     if (route.params?.reportData) {
       setReportData(route.params.reportData);
@@ -495,7 +265,6 @@ const ReportSubmissionScreen = () => {
     }
   }, [route.params, activeActivations]);
 
-  // Request location permission
   const handleRequestPermission = async () => {
     if (!canSubmit) {
       setModalConfig({
@@ -503,15 +272,10 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
@@ -540,7 +304,6 @@ const ReportSubmissionScreen = () => {
     }
   };
 
-  // Function to reverse geocode coordinates to a human-readable address
   const reverseGeocode = async (latitude, longitude) => {
     try {
       const geocodedLocation = await Location.reverseGeocodeAsync({ latitude, longitude });
@@ -567,7 +330,6 @@ const ReportSubmissionScreen = () => {
     }
   };
 
-  // Toggle search bar visibility with animation
   const toggleSearchBar = () => {
     if (!canSubmit) {
       setModalConfig({
@@ -575,15 +337,10 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
@@ -605,7 +362,6 @@ const ReportSubmissionScreen = () => {
     }
   };
 
-  // Fetch place suggestions using Google Places API
   const fetchSuggestions = async (query) => {
     if (!query) {
       setSuggestions([]);
@@ -628,13 +384,11 @@ const ReportSubmissionScreen = () => {
     }
   };
 
-  // Handle search input change
   const handleSearchInput = (text) => {
     setSearchQuery(text);
     fetchSuggestions(text);
   };
 
-  // Handle search submission
   const handleSearch = async () => {
     if (!canSubmit) {
       setModalConfig({
@@ -642,15 +396,10 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
@@ -681,7 +430,6 @@ const ReportSubmissionScreen = () => {
     }
   };
 
-  // Handle suggestion selection
   const handleSuggestionSelect = async (item) => {
     if (!canSubmit) {
       setModalConfig({
@@ -689,15 +437,10 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
@@ -727,7 +470,6 @@ const ReportSubmissionScreen = () => {
     }
   };
 
-  // Update map location in WebView
   const updateMapLocation = (locationData) => {
     const script = `
       if (window.map) {
@@ -751,7 +493,6 @@ const ReportSubmissionScreen = () => {
     webViewRef.current?.injectJavaScript(script);
   };
 
-  // Return to user location
   const returnToUserLocation = () => {
     if (!canSubmit) {
       setModalConfig({
@@ -759,15 +500,10 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
@@ -791,15 +527,10 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
@@ -879,15 +610,10 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
@@ -938,24 +664,6 @@ const ReportSubmissionScreen = () => {
   };
 
   const handleOpenMap = async () => {
-    if (!canSubmit) {
-      setModalConfig({
-        title: 'Permission Error',
-        message: 'You do not have permission to submit reports.',
-        onConfirm: () => {
-          setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
-        },
-        confirmText: 'OK',
-      });
-      setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      }, 3000);
-      return;
-    }
-
     if (permissionStatus !== 'granted') {
       await handleRequestPermission();
     } else if (location?.latitude && location?.longitude) {
@@ -978,15 +686,10 @@ const ReportSubmissionScreen = () => {
         message: 'You do not have permission to submit reports.',
         onConfirm: () => {
           setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
         },
         confirmText: 'OK',
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
@@ -1083,7 +786,7 @@ const ReportSubmissionScreen = () => {
               background: #ff4444;
               color: white;
               padding: 10px;
-              border-radius: 4px;
+              borderRadius: 4px;
               text-align: center;
               z-index: 10;
               display: none;
@@ -1210,7 +913,6 @@ const ReportSubmissionScreen = () => {
         </html>
       `;
 
-  // Render loading or error state
   if (isLoading) {
     return (
       <SafeAreaView style={GlobalStyles.container}>
@@ -1264,7 +966,6 @@ const ReportSubmissionScreen = () => {
             onPress={() => {
               setLoadingError(null);
               setIsLoading(true);
-              // Retry fetching user data
               navigation.navigate('ReportSubmission');
             }}
           >
@@ -1325,9 +1026,8 @@ const ReportSubmissionScreen = () => {
                 editable={canSubmit}
               />
               <TouchableOpacity
-                style={[styles.openMap, !canSubmit && { opacity: 0.6 }]}
+                style={[styles.openMap]}
                 onPress={handleOpenMap}
-                disabled={!canSubmit}
               >
                 <MaterialIcons name="pin-drop" size={28} style={{ color: 'white' }} />
                 <Text style={styles.openMapText}> Pin Location</Text>
@@ -1853,7 +1553,7 @@ const ReportSubmissionScreen = () => {
         </View>
       </Modal>
 
-      <CustomModal
+      <OperationCustomModal
         visible={modalVisible}
         title={modalConfig.title}
         message={modalConfig.message}

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -10,62 +10,19 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Modal,
   Animated,
   ScrollView,
   StatusBar,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
-import { auth, database } from '../configuration/firebaseConfig';
-import { ref as databaseRef, get, query, orderByChild, equalTo } from 'firebase/database';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReliefRequestStyles';
 import Theme from '../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText, showCancel }) => {
-  return (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onCancel || onConfirm}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>{title}</Text>
-          <View style={styles.modalContent}>
-            {typeof message === 'string' ? (
-              <>
-                <Ionicons
-                  name={title.includes('Success') || title.includes('Saved') ? 'checkmark-circle' : 'warning'}
-                  size={60}
-                  color={title.includes('Success') || title.includes('Saved') ? '#00BCD4' : '#FF0000'}
-                  style={styles.modalIcon}
-                />
-                <Text style={styles.modalMessage}>{message}</Text>
-              </>
-            ) : (
-              message
-            )}
-          </View>
-          <View style={styles.modalButtonContainer}>
-            {showCancel && (
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={onCancel}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={onConfirm}>
-              <Text style={styles.modalButtonText}>{confirmText}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
+import OperationCustomModal from '../components/OperationCustomModal';
+import useOperationCheck from '../components/useOperationCheck';
 
 const CustomToast = ({ visible, title, message, onDismiss }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -103,220 +60,33 @@ const CustomToast = ({ visible, title, message, onDismiss }) => {
   );
 };
 
-const ReliefRequestScreen = ({ navigation, route }) => {
+const ReliefRequestScreen = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const [errors, setErrors] = useState({});
   const [reportData, setReportData] = useState({
-    contactPerson: '',
-    contactNumber: '',
-    email: '',
-    address: '',
-    city: '',
-    donationCategory: '',
-    itemName: '',
-    quantity: '',
-    notes: '',
+    contactPerson: route.params?.reportData?.contactPerson || '',
+    contactNumber: route.params?.reportData?.contactNumber || '',
+    email: route.params?.reportData?.email || '',
+    address: route.params?.reportData?.address || '',
+    city: route.params?.reportData?.city || '',
+    donationCategory: route.params?.reportData?.donationCategory || '',
+    itemName: route.params?.reportData?.itemName || '',
+    quantity: route.params?.reportData?.quantity || '',
+    notes: route.params?.reportData?.notes || '',
   });
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(route.params?.addedItems || []);
   const [isItemDropdownVisible, setIsItemDropdownVisible] = useState(false);
   const [filteredItems, setFilteredItems] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalConfig, setModalConfig] = useState({
-    title: '',
-    message: '',
-    onConfirm: () => {},
-    onCancel: null,
-    confirmText: 'OK',
-    showCancel: false,
-  });
   const [toastVisible, setToastVisible] = useState(false);
   const [toastConfig, setToastConfig] = useState({
     title: '',
     message: '',
   });
-  const [canSubmit, setCanSubmit] = useState(false);
-  const [organizationName, setOrganizationName] = useState('');
   const itemInputRef = useRef(null);
   const flatListRef = useRef(null);
   const insets = useSafeAreaInsets();
-
-  // Active operation check
-  useEffect(() => {
-    const checkActiveOperations = async () => {
-      try {
-        // Reset canSubmit to false to ensure fresh check
-        setCanSubmit(false);
-        setModalVisible(false); // Reset modal visibility
-
-        // Load organization name from AsyncStorage
-        const storedOrg = await AsyncStorage.getItem('organizationName');
-        if (storedOrg) {
-          setOrganizationName(storedOrg);
-          console.log('Organization name loaded from storage:', storedOrg);
-        }
-
-        const user = auth.currentUser;
-
-        console.log('Logged-in user UID:', user.uid);
-        const userRef = databaseRef(database, `users/${user.uid}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val();
-
-        if (!userData) {
-          console.error('User data not found for UID:', user.uid);
-          setModalConfig({
-            title: 'Profile Error',
-            message: 'Your user profile is incomplete. Please contact support.',
-            onConfirm: () => {
-              setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-            },
-            confirmText: 'OK',
-            showCancel: false,
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-          }, 3000);
-          return;
-        }
-
-        // Check for password reset requirement
-        if (userData.password_needs_reset) {
-          setModalConfig({
-            title: 'Password Reset Required',
-            message: 'For security reasons, please change your password.',
-            onConfirm: () => {
-              setModalVisible(false);
-              navigation.navigate('Profile');
-            },
-            confirmText: 'OK',
-            showCancel: false,
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Profile');
-          }, 3000);
-          return;
-        }
-
-        const userRole = userData.role;
-        const orgName = userData.organization || '[Unknown Organization]';
-        setOrganizationName(orgName);
-        await AsyncStorage.setItem('organizationName', orgName);
-        console.log('User Role:', userRole, 'Organization:', orgName);
-
-        // Role-based submission eligibility
-        if (userRole === 'AB ADMIN') {
-          console.log('AB ADMIN role detected. Submission allowed.');
-          setCanSubmit(true);
-        } else if (userRole === 'ABVN') {
-          console.log('ABVN role detected. Checking organization activations.');
-          if (orgName === '[Unknown Organization]') {
-            console.warn('ABVN user has no organization assigned.');
-            setModalConfig({
-              title: 'Organization Error',
-              message: 'Your account is not associated with an organization.',
-              onConfirm: () => {
-                setModalVisible(false);
-                navigation.navigate('Volunteer Dashboard');
-              },
-              confirmText: 'OK',
-              showCancel: false,
-            });
-            setModalVisible(true);
-            setTimeout(() => {
-              setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-            }, 3000);
-            return;
-          }
-
-          const activationsRef = query(
-            databaseRef(database, 'activations'),
-            orderByChild('organization'),
-            equalTo(orgName)
-          );
-          const activationsSnapshot = await get(activationsRef);
-          let hasActiveActivations = false;
-          activationsSnapshot.forEach((childSnapshot) => {
-            if (childSnapshot.val().status === 'active') {
-              hasActiveActivations = true;
-              return true; // Exit loop
-            }
-          });
-
-          if (hasActiveActivations) {
-            console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
-            setCanSubmit(true);
-          } else {
-            console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
-            setModalConfig({
-              title: 'No Active Operations',
-              message: 'Your organization has no active operations. You cannot submit requests at this time.',
-              onConfirm: () => {
-                setModalVisible(false);
-                navigation.navigate('Volunteer Dashboard');
-              },
-              confirmText: 'OK',
-              showCancel: false,
-            });
-            setModalVisible(true);
-            setTimeout(() => {
-              setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-            }, 3000);
-          }
-        } else {
-          console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
-          setModalConfig({
-            title: 'Permission Error',
-            message: 'Your role does not permit request submission.',
-            onConfirm: () => {
-              setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-            },
-            confirmText: 'OK',
-            showCancel: false,
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-          }, 3000);
-        }
-      } catch (error) {
-        console.error(`[${new Date().toISOString()}] Error in checkActiveOperations:`, error.message);
-        setModalConfig({
-          title: 'Error',
-          message: 'Failed to verify permissions: ' + error.message,
-          onConfirm: () => {
-            setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-          },
-          confirmText: 'OK',
-          showCancel: false,
-        });
-        setModalVisible(true);
-        setTimeout(() => {
-          setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
-        }, 3000);
-      }
-    };
-
-    // Run check on screen focus
-    const unsubscribeFocus = navigation.addListener('focus', () => {
-      console.log('ReliefRequest screen focused, checking active operations...');
-      checkActiveOperations();
-    });
-
-    // Initial check on mount
-    checkActiveOperations();
-
-    return () => unsubscribeFocus();
-  }, [navigation]);
 
   useEffect(() => {
     if (route.params?.reportData) {
@@ -390,20 +160,20 @@ const ReliefRequestScreen = ({ navigation, route }) => {
     if (field === 'donationCategory') {
       setReportData((prevData) => ({ ...prevData, itemName: '' }));
       setFilteredItems(itemSuggestions[value] || []);
-      setIsItemDropdownVisible(false); // Keep dropdown hidden until user interacts with itemName
+      setIsItemDropdownVisible(false);
     }
 
     if (field === 'itemName' && reportData.donationCategory) {
       const suggestions = itemSuggestions[reportData.donationCategory] || [];
       if (value.trim() === '') {
         setFilteredItems(suggestions);
-        setIsItemDropdownVisible(false); // Hide dropdown if input is empty
+        setIsItemDropdownVisible(false);
       } else {
         const filtered = suggestions.filter((item) =>
           item.toLowerCase().includes(value.toLowerCase())
         );
         setFilteredItems(filtered);
-        setIsItemDropdownVisible(true); // Show dropdown when typing
+        setIsItemDropdownVisible(true);
       }
     }
   };
@@ -457,18 +227,11 @@ const ReliefRequestScreen = ({ navigation, route }) => {
       setModalConfig({
         title: 'Permission Error',
         message: 'You do not have permission to submit requests.',
-        onConfirm: () => {
-          setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
-        },
+        onConfirm: () => setModalVisible(false),
         confirmText: 'OK',
         showCancel: false,
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
@@ -549,25 +312,17 @@ const ReliefRequestScreen = ({ navigation, route }) => {
       setModalConfig({
         title: 'Permission Error',
         message: 'You do not have permission to submit requests.',
-        onConfirm: () => {
-          setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
-        },
+        onConfirm: () => setModalVisible(false),
         confirmText: 'OK',
         showCancel: false,
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
     const newErrors = {};
     let allRequiredBlank = true;
 
-    // Check required contact fields
     contactRequiredFields.forEach((field) => {
       const value = reportData[field];
       if (value === null || (typeof value === 'string' && value.trim() === '')) {
@@ -578,12 +333,10 @@ const ReliefRequestScreen = ({ navigation, route }) => {
       }
     });
 
-    // Validate phone number
     if (reportData.contactNumber && !/^[0-9]{11}$/.test(reportData.contactNumber)) {
       newErrors.contactNumber = 'Phone number must be 11 digits';
     }
 
-    // Validate email
     if (reportData.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(reportData.email)) {
       newErrors.email = 'Email is not valid';
     }
@@ -642,7 +395,6 @@ const ReliefRequestScreen = ({ navigation, route }) => {
   return (
     <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
@@ -914,7 +666,7 @@ const ReliefRequestScreen = ({ navigation, route }) => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <CustomModal
+      <OperationCustomModal
         visible={modalVisible}
         title={modalConfig.title}
         message={modalConfig.message}

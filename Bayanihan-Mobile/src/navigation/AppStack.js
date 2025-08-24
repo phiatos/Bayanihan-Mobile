@@ -4,8 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { signOut } from 'firebase/auth';
 import { Alert, Platform } from 'react-native';
-import { auth, database } from '../configuration/firebaseConfig';
-import { ref as databaseRef, get, query, orderByChild, equalTo } from 'firebase/database';
+import { auth } from '../configuration/firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -126,108 +125,6 @@ const AppStack = () => {
     return () => clearTimeout(timeout);
   };
 
-  // Navigation interceptor for active operation check
-  const checkActiveOperation = async (navigation, targetScreen) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.warn('No user is logged in');
-        Alert.alert('Error', 'User not authenticated. Please log in.', [
-          { text: 'OK', onPress: () => navigation.replace('Login') },
-        ], { cancelable: false });
-        return false;
-      }
-
-      console.log('Logged-in user UID:', user.uid);
-      const userRef = databaseRef(database, `users/${user.uid}`);
-      const userSnapshot = await get(userRef);
-      const userData = userSnapshot.val();
-
-      if (!userData) {
-        console.error('User data not found for UID:', user.uid);
-        Alert.alert('Error', 'Your user profile is incomplete. Please contact support.', [
-          { text: 'OK', onPress: () => navigation.replace('Volunteer Dashboard') },
-        ], { cancelable: false });
-        return false;
-      }
-
-      // Check for password reset requirement
-      if (userData.password_needs_reset) {
-        Alert.alert('Error', 'For security reasons, please change your password.', [
-          { text: 'OK', onPress: () => navigation.replace('Profile') },
-        ], { cancelable: false });
-        return false;
-      }
-
-      const userRole = userData.role;
-      const orgName = userData.organization || '[Unknown Organization]';
-      await AsyncStorage.setItem('organizationName', orgName);
-      console.log('User Role:', userRole, 'Organization:', orgName);
-
-      // Define screens that require active operation check
-      const restrictedScreens = [
-        'RDANA',
-        'Relief Request',
-        'Call for Donations',
-        'Reports Submission',
-      ];
-
-      // Allow navigation to non-restricted screens or for AB ADMIN
-      if (!restrictedScreens.includes(targetScreen) || userRole === 'AB ADMIN') {
-        console.log(`Navigation to ${targetScreen} allowed. Role: ${userRole}`);
-        return true;
-      }
-
-      // For ABVN, check active operations
-      if (userRole === 'ABVN') {
-        if (orgName === '[Unknown Organization]') {
-          console.warn('ABVN user has no organization assigned.');
-          Alert.alert('Error', 'Your account is not associated with an organization.', [
-            { text: 'OK', onPress: () => navigation.replace('Volunteer Dashboard') },
-          ], { cancelable: false });
-          return false;
-        }
-
-        const activationsRef = query(
-          databaseRef(database, 'activations'),
-          orderByChild('organization'),
-          equalTo(orgName)
-        );
-        const activationsSnapshot = await get(activationsRef);
-        let hasActiveActivations = false;
-        activationsSnapshot.forEach((childSnapshot) => {
-          if (childSnapshot.val().status === 'active') {
-            hasActiveActivations = true;
-            return true; // Exit loop
-          }
-        });
-
-        if (hasActiveActivations) {
-          console.log(`Organization "${orgName}" has active operations. Navigation to ${targetScreen} allowed.`);
-          return true;
-        } else {
-          console.warn(`Organization "${orgName}" has no active operations. Navigation to ${targetScreen} blocked.`);
-          Alert.alert('Error', 'Your organization has no active operations. You cannot access this feature at this time.', [
-            { text: 'OK', onPress: () => navigation.replace('Volunteer Dashboard') },
-          ], { cancelable: false });
-          return false;
-        }
-      }
-
-      console.warn(`Unsupported role: ${userRole}. Navigation to ${targetScreen} blocked.`);
-      Alert.alert('Error', 'Your role does not permit access to this feature.', [
-        { text: 'OK', onPress: () => navigation.replace('Volunteer Dashboard') },
-      ], { cancelable: false });
-      return false;
-    } catch (error) {
-      console.error(`[${new Date().toISOString()}] Error in checkActiveOperation:`, error.message);
-      Alert.alert('Error', 'Failed to verify permissions: ' + error.message, [
-        { text: 'OK', onPress: () => navigation.replace('Volunteer Dashboard') },
-      ], { cancelable: false });
-      return false;
-    }
-  };
-
   useEffect(() => {
     // Set up inactivity timer
     return resetInactivityTimer({ navigate: () => {} });
@@ -252,24 +149,6 @@ const AppStack = () => {
       }}
       initialRouteName="Volunteer Dashboard"
       useLegacyImplementation={false}
-      screenListeners={{
-        beforeRemove: ({ data: { action }, preventDefault, target }) => {
-          // Handle navigation actions (e.g., drawer selection)
-          if (action.type === 'NAVIGATE') {
-            const targetScreen = action.payload.name;
-
-            // Perform active operation check asynchronously
-            checkActiveOperation(({ navigate }) => navigate(targetScreen), targetScreen).then((canNavigate) => {
-              if (!canNavigate) {
-                preventDefault(); // Prevent navigation to the target screen
-              }
-            });
-
-            // Prevent navigation immediately to allow async check to complete
-            preventDefault();
-          }
-        },
-      }}
     >
       <Drawer.Screen
         name="Disaster Map"

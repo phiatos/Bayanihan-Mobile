@@ -13,10 +13,8 @@ import {
   ToastAndroid,
   TouchableOpacity,
   View,
-  Modal,
 } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
-import { ref as databaseRef, get, query, orderByChild, equalTo } from 'firebase/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import styles from '../styles/CallForDonationsStyles';
 import GlobalStyles from '../styles/GlobalStyles';
@@ -26,38 +24,8 @@ import provinces from '../data/province.json';
 import cities from '../data/city.json';
 import barangays from '../data/barangay.json';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const CustomModal = ({ visible, title, message, onConfirm, confirmText }) => {
-  return (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onConfirm}
-    >
-      <View style={GlobalStyles.modalOverlay}>
-        <View style={GlobalStyles.modalView}>
-          <Text style={GlobalStyles.modalTitle}>{title}</Text>
-          <View style={GlobalStyles.modalContent}>
-            <Ionicons
-              name={title.includes('Success') || title.includes('Saved') ? 'checkmark-circle' : 'warning'}
-              size={60}
-              color={title.includes('Success') || title.includes('Saved') ? '#00BCD4' : '#FF0000'}
-              style={GlobalStyles.modalIcon}
-            />
-            <Text style={GlobalStyles.modalMessage}>{message}</Text>
-          </View>
-          <TouchableOpacity
-            style={GlobalStyles.modalButton}
-            onPress={onConfirm}
-          >
-            <Text style={GlobalStyles.modalButtonText}>{confirmText}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-};
+import OperationCustomModal from '../components/OperationCustomModal';
+import useOperationCheck from '../components/useOperationCheck';
 
 const CallForDonations = () => {
   const navigation = useNavigation();
@@ -89,15 +57,7 @@ const CallForDonations = () => {
   const [isBarangayDropdownVisible, setIsBarangayDropdownVisible] = useState(false);
   const [filteredBarangays, setFilteredBarangays] = useState([]);
   const barangayInputRef = useRef(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalConfig, setModalConfig] = useState({
-    title: '',
-    message: '',
-    onConfirm: () => {},
-    confirmText: 'OK',
-  });
-  const [canSubmit, setCanSubmit] = useState(false);
-  const [organizationName, setOrganizationName] = useState('');
+  const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
 
   const requiredFields = [
     'donationDrive',
@@ -112,198 +72,6 @@ const CallForDonations = () => {
     'street',
   ];
 
-  // Active operation check
-  useEffect(() => {
-    const checkActiveOperations = async () => {
-      try {
-        // Reset canSubmit to false to ensure fresh check
-        setCanSubmit(false);
-        setModalVisible(false); // Reset modal visibility
-
-        // Load organization name from AsyncStorage
-        const storedOrg = await AsyncStorage.getItem('organizationName');
-        if (storedOrg) {
-          setOrganizationName(storedOrg);
-          console.log('Organization name loaded from storage:', storedOrg);
-        }
-
-        // Check authentication state
-        const user = auth.currentUser;
-        if (!user) {
-          console.warn('No user is logged in');
-          setModalConfig({
-            title: 'Authentication Error',
-            message: 'User not authenticated. Please log in.',
-            onConfirm: () => {
-              setModalVisible(false);
-              navigation.navigate('Login');
-            },
-            confirmText: 'OK',
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Login');
-          }, 3000);
-          return;
-        }
-
-        console.log('Logged-in user UID:', user.uid);
-        const userRef = databaseRef(database, `users/${user.uid}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val();
-
-        if (!userData) {
-          console.error('User data not found for UID:', user.uid);
-          setModalConfig({
-            title: 'Profile Error',
-            message: 'Your user profile is incomplete. Please contact support.',
-            onConfirm: () => {
-              setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-            },
-            confirmText: 'OK',
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-          }, 3000);
-          return;
-        }
-
-        // Check for password reset requirement
-        if (userData.password_needs_reset) {
-          setModalConfig({
-            title: 'Password Reset Required',
-            message: 'For security reasons, please change your password.',
-            onConfirm: () => {
-              setModalVisible(false);
-              navigation.navigate('Profile');
-            },
-            confirmText: 'OK',
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Profile');
-          }, 3000);
-          return;
-        }
-
-        const userRole = userData.role;
-        const orgName = userData.organization || '[Unknown Organization]';
-        setOrganizationName(orgName);
-        await AsyncStorage.setItem('organizationName', orgName);
-        console.log('User Role:', userRole, 'Organization:', orgName);
-
-        // Role-based submission eligibility
-        if (userRole === 'AB ADMIN') {
-          console.log('AB ADMIN role detected. Submission allowed.');
-          setCanSubmit(true);
-        } else if (userRole === 'ABVN') {
-          console.log('ABVN role detected. Checking organization activations.');
-          if (orgName === '[Unknown Organization]') {
-            console.warn('ABVN user has no organization assigned.');
-            setModalConfig({
-              title: 'Organization Error',
-              message: 'Your account is not associated with an organization.',
-              onConfirm: () => {
-                setModalVisible(false);
-                navigation.navigate('Volunteer Dashboard');
-              },
-              confirmText: 'OK',
-            });
-            setModalVisible(true);
-            setTimeout(() => {
-              setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-            }, 3000);
-            return;
-          }
-
-          const activationsRef = query(
-            databaseRef(database, 'activations'),
-            orderByChild('organization'),
-            equalTo(orgName)
-          );
-          const activationsSnapshot = await get(activationsRef);
-          let hasActiveActivations = false;
-          activationsSnapshot.forEach((childSnapshot) => {
-            if (childSnapshot.val().status === 'active') {
-              hasActiveActivations = true;
-              return true; // Exit loop
-            }
-          });
-
-          if (hasActiveActivations) {
-            console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
-            setCanSubmit(true);
-          } else {
-            console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
-            setModalConfig({
-              title: 'No Active Operations',
-              message: 'Your organization has no active operations. You cannot submit donation drives at this time.',
-              onConfirm: () => {
-                setModalVisible(false);
-                navigation.navigate('Volunteer Dashboard');
-              },
-              confirmText: 'OK',
-            });
-            setModalVisible(true);
-            setTimeout(() => {
-              setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-            }, 3000);
-          }
-        } else {
-          console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
-          setModalConfig({
-            title: 'Permission Error',
-            message: 'Your role does not permit donation drive submission.',
-            onConfirm: () => {
-              setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-            },
-            confirmText: 'OK',
-          });
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-          }, 3000);
-        }
-      } catch (error) {
-        console.error(`[${new Date().toISOString()}] Error in checkActiveOperations:`, error.message);
-        setModalConfig({
-          title: 'Error',
-          message: 'Failed to verify permissions: ' + error.message,
-          onConfirm: () => {
-            setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-          },
-          confirmText: 'OK',
-        });
-        setModalVisible(true);
-        setTimeout(() => {
-          setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-        }, 3000);
-      }
-    };
-
-    // Run check on screen focus
-    const unsubscribeFocus = navigation.addListener('focus', () => {
-      console.log('CallForDonations screen focused, checking active operations...');
-      checkActiveOperations();
-    });
-
-    // Initial check on mount
-    checkActiveOperations();
-
-    return () => unsubscribeFocus();
-  }, [navigation]);
-
   useEffect(() => {
     console.log('Received route params:', route.params);
     if (route.params?.formData) {
@@ -316,6 +84,17 @@ const CallForDonations = () => {
   }, [route.params]);
 
   const handleChange = (field, value) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit donation drives.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setFormData({ ...formData, [field]: value });
 
     if (value.trim() !== '') {
@@ -422,6 +201,17 @@ const CallForDonations = () => {
   };
 
   const handleRegionSelect = (region) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit donation drives.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setFormData({ ...formData, region, province: '', city: '', barangay: '' });
     setErrors((prev) => {
       const newErrors = { ...prev };
@@ -441,6 +231,17 @@ const CallForDonations = () => {
   };
 
   const handleRegionFocus = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit donation drives.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setIsRegionDropdownVisible(true);
     setFilteredRegions(regions || []);
     console.log('Region dropdown opened, regions:', regions);
@@ -455,6 +256,17 @@ const CallForDonations = () => {
   };
 
   const handleProvinceSelect = (province) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit donation drives.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setFormData({ ...formData, province, city: '', barangay: '' });
     setErrors((prev) => {
       const newErrors = { ...prev };
@@ -472,6 +284,17 @@ const CallForDonations = () => {
   };
 
   const handleProvinceFocus = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit donation drives.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     const selectedRegion = regions.find((r) => r.region_name === formData.region);
     const regionCode = selectedRegion ? selectedRegion.region_code : '';
     const filtered = regionCode
@@ -490,6 +313,17 @@ const CallForDonations = () => {
   };
 
   const handleCitySelect = (city) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit donation drives.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setFormData({ ...formData, city, barangay: '' });
     setErrors((prev) => {
       const newErrors = { ...prev };
@@ -506,6 +340,17 @@ const CallForDonations = () => {
   };
 
   const handleCityFocus = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit donation drives.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     const selectedProvince = provinces.find((p) => p.province_name === formData.province);
     const provinceCode = selectedProvince ? selectedProvince.province_code : '';
     const filtered = provinceCode
@@ -524,6 +369,17 @@ const CallForDonations = () => {
   };
 
   const handleBarangaySelect = (barangay) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit donation drives.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setFormData({ ...formData, barangay });
     setErrors((prev) => {
       const newErrors = { ...prev };
@@ -539,6 +395,17 @@ const CallForDonations = () => {
   };
 
   const handleBarangayFocus = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit donation drives.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     const selectedCity = cities.find((c) => c.city_name === formData.city);
     const cityCode = selectedCity ? selectedCity.city_code : '';
     const filtered = cityCode
@@ -561,17 +428,10 @@ const CallForDonations = () => {
       setModalConfig({
         title: 'Permission Error',
         message: 'You do not have permission to submit donation drives.',
-        onConfirm: () => {
-          setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-        },
+        onConfirm: () => setModalVisible(false),
         confirmText: 'OK',
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
@@ -599,17 +459,10 @@ const CallForDonations = () => {
       setModalConfig({
         title: 'Permission Error',
         message: 'You do not have permission to submit donation drives.',
-        onConfirm: () => {
-          setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-        },
+        onConfirm: () => setModalVisible(false),
         confirmText: 'OK',
       });
       setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-      }, 3000);
       return;
     }
 
@@ -653,7 +506,7 @@ const CallForDonations = () => {
     if (Object.keys(newErrors).length > 0) {
       setModalConfig({
         title: 'Incomplete Data',
-        message: 'Please fill in all required fields.',
+        message: `Please fill in the following required fields:\n${Object.values(newErrors).join('\n')}`,
         onConfirm: () => setModalVisible(false),
         confirmText: 'OK',
       });
@@ -800,8 +653,9 @@ const CallForDonations = () => {
                       {filteredRegions.map((item) => (
                         <TouchableOpacity
                           key={item.id}
-                          style={styles.dropdownItem}
+                          style={[styles.dropdownItem, !canSubmit && { opacity: 0.6 }]}
                           onPress={() => handleRegionSelect(item.region_name)}
+                          disabled={!canSubmit}
                         >
                           <Text style={styles.dropdownItemText}>{item.region_name}</Text>
                         </TouchableOpacity>
@@ -839,8 +693,9 @@ const CallForDonations = () => {
                       {filteredProvinces.map((item) => (
                         <TouchableOpacity
                           key={item.province_code}
-                          style={styles.dropdownItem}
+                          style={[styles.dropdownItem, !canSubmit && { opacity: 0.6 }]}
                           onPress={() => handleProvinceSelect(item.province_name)}
+                          disabled={!canSubmit}
                         >
                           <Text style={styles.dropdownItemText}>{item.province_name}</Text>
                         </TouchableOpacity>
@@ -878,8 +733,9 @@ const CallForDonations = () => {
                       {filteredCities.map((item) => (
                         <TouchableOpacity
                           key={item.city_code}
-                          style={styles.dropdownItem}
+                          style={[styles.dropdownItem, !canSubmit && { opacity: 0.6 }]}
                           onPress={() => handleCitySelect(item.city_name)}
+                          disabled={!canSubmit}
                         >
                           <Text style={styles.dropdownItemText}>{item.city_name}</Text>
                         </TouchableOpacity>
@@ -916,8 +772,9 @@ const CallForDonations = () => {
                       {filteredBarangays.map((item) => (
                         <TouchableOpacity
                           key={item.brgy_code}
-                          style={styles.dropdownItem}
+                          style={[styles.dropdownItem, !canSubmit && { opacity: 0.6 }]}
                           onPress={() => handleBarangaySelect(item.brgy_name)}
+                          disabled={!canSubmit}
                         >
                           <Text style={styles.dropdownItemText}>{item.brgy_name}</Text>
                         </TouchableOpacity>
@@ -966,7 +823,7 @@ const CallForDonations = () => {
 
               {renderLabel('Upload Donation Image', false)}
               <TouchableOpacity
-                style={[GlobalStyles.imageUpload, { borderColor: image ? Theme.colors.primary : '#605D67' }]}
+                style={[GlobalStyles.imageUpload, { borderColor: image ? Theme.colors.primary : '#605D67' }, !canSubmit && { opacity: 0.6 }]}
                 onPress={pickImage}
                 disabled={!canSubmit}
               >
@@ -988,7 +845,7 @@ const CallForDonations = () => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <CustomModal
+      <OperationCustomModal
         visible={modalVisible}
         title={modalConfig.title}
         message={modalConfig.message}

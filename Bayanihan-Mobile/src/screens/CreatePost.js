@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, ScrollView, Image, StatusBar, SafeAreaView, ToastAndroid } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, ScrollView, Image, SafeAreaView, ToastAndroid } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { ref, push, set, update, onValue, serverTimestamp } from 'firebase/database';
 import { auth, database, storage } from '../configuration/firebaseConfig';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -23,20 +23,58 @@ const CreatePost = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { postType: initialPostType, postId, initialData } = route.params || {};
+  console.log('CreatePost received params:', { postType: initialPostType, postId, initialData });
+
   const [title, setTitle] = useState(initialData?.title || '');
   const [content, setContent] = useState(initialData?.content || '');
-  const [category, setCategory] = useState(initialData?.category || ''); // Changed default to empty string for "Select Category"
-  const [media, setMedia] = useState([]);
-  const [link, setLink] = useState(initialData?.mediaUrl || '');
-  const [postType, setPostType] = useState(initialPostType || 'text');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const videoRef = useRef(null);
-  const player = useVideoPlayer(media.length > 0 && postType === 'video' ? { uri: media[0].uri } : null, player => {
-    videoRef.current = player;
+  const [category, setCategory] = useState(initialData?.category || '');
+  const [media, setMedia] = useState(() => {
+    console.log('Initializing media state with initialData:', initialData);
+    if (initialData?.mediaType === 'image') {
+      const mediaItems = [];
+      if (initialData?.mediaUrls && initialData.mediaUrls.length > 0) {
+        mediaItems.push(...initialData.mediaUrls.map(url => ({
+          uri: url,
+          name: url.split('/').pop() || 'image.jpg',
+          mimeType: 'image/jpeg',
+        })));
+      } else if (initialData?.mediaUrl) {
+        mediaItems.push({
+          uri: initialData.mediaUrl,
+          name: initialData.mediaUrl.split('/').pop() || 'image.jpg',
+          mimeType: 'image/jpeg',
+        });
+      }
+      console.log('Image media initialized:', mediaItems);
+      return mediaItems;
+    } else if (initialData?.mediaType === 'video' && initialData?.mediaUrl) {
+      const videoMedia = [{
+        uri: initialData.mediaUrl,
+        name: initialData.mediaUrl.split('/').pop() || 'video.mp4',
+        mimeType: 'video/mp4',
+        thumbnailUri: initialData.thumbnailUrl || '',
+      }];
+      console.log('Video media initialized:', videoMedia);
+      return videoMedia;
+    }
+    return [];
   });
+  const [link, setLink] = useState(initialData?.mediaUrl && initialData.mediaType === 'link' ? initialData.mediaUrl : '');
+  const [postType, setPostType] = useState(initialPostType || initialData?.mediaType || 'text');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const playerRef = useRef(null);
+
+  const player = useVideoPlayer(
+    media.length > 0 && postType === 'video' && media[0].uri && media[0].uri.startsWith('https://') ? { uri: media[0].uri } : null,
+    (player) => {
+      playerRef.current = player;
+      console.log('Video player initialized for:', media[0]?.uri);
+    }
+  );
 
   const categories = [
-    { label: 'Select Category', value: '', disabled: true }, // Added default disabled option
+    { label: 'Select Category', value: '', disabled: true },
     { label: 'Discussion', value: 'discussion' },
     { label: 'Resource', value: 'resource' },
     { label: 'Events', value: 'events' },
@@ -44,21 +82,46 @@ const CreatePost = () => {
   ];
 
   useEffect(() => {
-    if (postType === 'video' || postType === 'image') {
-      pickMedia();
-    }
+    console.log('Media state updated:', media);
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      if (!user) {
+        console.log('User session expired');
+        Alert.alert('Error', 'Session expired. Please sign in again.');
+        navigation.navigate('Login');
+      }
+    });
 
     return () => {
-      if (videoRef.current && postType === 'video' && media.length > 0) {
-        videoRef.current.pause();
-        videoRef.current.seekTo(0);
+      unsubscribe();
+      media.forEach(async (file) => {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(file.uri);
+          if (fileInfo.exists && file.uri.startsWith(FileSystem.cacheDirectory)) {
+            await FileSystem.deleteAsync(file.uri);
+            console.log(`Cleaned up cached file: ${file.uri}`);
+          }
+          if (file.thumbnailUri && file.thumbnailUri.startsWith(FileSystem.cacheDirectory)) {
+            await FileSystem.deleteAsync(file.thumbnailUri);
+            console.log(`Cleaned up cached thumbnail: ${file.thumbnailUri}`);
+          }
+        } catch (error) {
+          console.error(`Error cleaning up file ${file.uri}:`, error);
+        }
+      });
+      if (playerRef.current && typeof playerRef.current.pause === 'function') {
+        try {
+          playerRef.current.pause();
+          console.log('Video player paused during cleanup');
+        } catch (error) {
+        }
       }
     };
-  }, [postType]);
+  }, [media]);
 
   const requestPermissions = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log('Media library permission status:', status);
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Please grant permission to access your media library.');
         return false;
@@ -66,84 +129,70 @@ const CreatePost = () => {
       return true;
     } catch (error) {
       console.error('Error requesting permissions:', error);
-      Alert.alert('Error', 'Failed to request media library permissions. Please check your app settings.');
+      Alert.alert('Error', 'Failed to request media library permissions.');
       return false;
     }
   };
 
   const pickMedia = async () => {
     try {
+      console.log('Picking media for postType:', postType);
       if (postType === 'image') {
-        if (!ImagePicker.MediaTypeOptions?.Images) {
-          console.error('ImagePicker.MediaTypeOptions.Images is undefined. Ensure expo-image-picker is installed correctly.');
-          Alert.alert(
-            'Error',
-            'Image picker module is not properly initialized. Please try reinstalling expo-image-picker or check your project configuration (run `npx expo install expo-image-picker` and `npx expo prebuild --clean`).'
-          );
-          return;
-        }
-
         const hasPermission = await requestPermissions();
         if (!hasPermission) return;
 
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: false,
-          allowsMultipleSelection: false,
+          allowsMultipleSelection: true,
           quality: 0.8,
           exif: false,
         });
+        console.log('ImagePicker result:', result);
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
-          const newMedia = [...media];
+          const newMedia = [];
           for (const asset of result.assets) {
             let { uri, fileName: name = 'image.jpg', mimeType = 'image/jpeg', fileSize: size } = asset;
 
-            const cacheUri = `${FileSystem.cacheDirectory}${Date.now()}_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-            await FileSystem.copyAsync({ from: uri, to: cacheUri });
-            uri = cacheUri;
+            console.log('Selected image URI:', uri);
+            console.log('File details:', { uri, name, mimeType, size });
 
             const fileInfo = await FileSystem.getInfoAsync(uri);
+            console.log('Original file info:', fileInfo);
             if (!fileInfo.exists || !fileInfo.size) {
-              console.error(`File does not exist or is empty at URI: ${uri}`);
+              console.error(`Original file does not exist or is empty at URI: ${uri}`);
               Alert.alert('Error', `Selected image "${name}" is inaccessible or empty.`);
               continue;
             }
 
             if (size > 20 * 1024 * 1024) {
-              console.error(`File size exceeds 20MB: ${size} bytes for ${name}`);
               Alert.alert('Error', `Image "${name}" exceeds 20MB limit.`);
               continue;
             }
 
-            try {
-              const manipResult = await ImageManipulator.manipulateAsync(
-                uri,
-                [],
-                { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-              );
-              const tempUri = `${FileSystem.cacheDirectory}${Date.now()}_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-              await FileSystem.writeAsStringAsync(tempUri, manipResult.base64, {
-                encoding: FileSystem.EncodingType.Base64,
-              });
-              newMedia.push({
-                uri: tempUri,
-                name,
-                mimeType: 'image/jpeg',
-              });
-            } catch (error) {
-              console.error(`Error compressing image ${name}:`, error);
-              Alert.alert('Error', `Failed to compress image "${name}": ${error.message}`);
+            const manipResult = await ImageManipulator.manipulateAsync(
+              uri,
+              [],
+              { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+            );
+            console.log('Manipulated image URI:', manipResult.uri);
+            const manipFileInfo = await FileSystem.getInfoAsync(manipResult.uri);
+            console.log('Manipulated file info:', manipFileInfo);
+            if (!manipFileInfo.exists || !manipFileInfo.size) {
+              console.error(`Manipulated image is inaccessible or empty at URI: ${manipResult.uri}`);
+              Alert.alert('Error', `Failed to process image "${name}". Please try another image.`);
               continue;
             }
+
+            newMedia.push({
+              uri: manipResult.uri,
+              name,
+              mimeType: 'image/jpeg',
+            });
           }
           setMedia(newMedia);
-          if (newMedia.length < 10) {
-            Alert.alert('Add More?', 'Would you like to add another image?', [
-              { text: 'No', style: 'cancel' },
-              { text: 'Yes', onPress: pickMedia },
-            ]);
-          }
+          console.log('Updated media state:', newMedia);
         }
       } else if (postType === 'video') {
         const result = await DocumentPicker.getDocumentAsync({
@@ -151,210 +200,245 @@ const CreatePost = () => {
           copyToCacheDirectory: true,
           multiple: false,
         });
+        console.log('DocumentPicker result:', result);
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
-          const newMedia = [];
-          for (const asset of result.assets) {
-            let { uri, name, mimeType, size } = asset;
+          const asset = result.assets[0];
+          let { uri, name, mimeType, size } = asset;
 
-            const cacheUri = `${FileSystem.cacheDirectory}${Date.now()}_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-            await FileSystem.copyAsync({ from: uri, to: cacheUri });
-            uri = cacheUri;
+          console.log('Selected video URI:', uri);
+          console.log('File details:', { uri, name, mimeType, size });
 
-            const fileInfo = await FileSystem.getInfoAsync(uri);
-            if (!fileInfo.exists || !fileInfo.size) {
-              console.error(`File does not exist or is empty at URI: ${uri}`);
-              Alert.alert('Error', `Selected video "${name}" is inaccessible or empty.`);
-              continue;
-            }
+          const cacheUri = `${FileSystem.cacheDirectory}${Date.now()}_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          await FileSystem.copyAsync({ from: uri, to: cacheUri });
+          uri = cacheUri;
 
-            if (size > 20 * 1024 * 1024) {
-              console.error(`File size exceeds 20MB: ${size} bytes for ${name}`);
-              Alert.alert('Error', `Video "${name}" exceeds 20MB limit.`);
-              continue;
-            }
+          const fileInfo = await FileSystem.getInfoAsync(uri);
+          console.log('Cached file info:', fileInfo);
+          if (!fileInfo.exists || !fileInfo.size) {
+            console.error(`File does not exist or is empty at URI: ${uri}`);
+            Alert.alert('Error', `Selected video "${name}" is inaccessible or empty.`);
+            return;
+          }
 
-            newMedia.push({ uri, name, mimeType });
-            try {
-              const { uri: thumbnailUri } = await VideoThumbnails.getThumbnailAsync(uri, { time: 1000 });
-              const thumbnailInfo = await FileSystem.getInfoAsync(thumbnailUri);
-              if (!thumbnailInfo.exists || !thumbnailInfo.size) {
-                console.error(`Thumbnail does not exist or is empty at URI: ${thumbnailUri}`);
-                Alert.alert('Error', `Generated thumbnail for "${name}" is inaccessible or empty.`);
-                continue;
-              }
-              newMedia[newMedia.length - 1].thumbnailUri = thumbnailUri;
-            } catch (error) {
-              console.error(`Error generating thumbnail for ${name}:`, error);
-              Alert.alert('Error', `Failed to generate thumbnail for "${name}": ${error.message}`);
-            }
+          if (size > 20 * 1024 * 1024) {
+            Alert.alert('Error', `Video "${name}" exceeds 20MB limit.`);
+            return;
+          }
+
+          const newMedia = [{ uri, name, mimeType }];
+          try {
+            const { uri: thumbnailUri } = await VideoThumbnails.getThumbnailAsync(uri, { time: 1000 });
+            console.log('Thumbnail URI:', thumbnailUri);
+            newMedia[0].thumbnailUri = thumbnailUri;
+          } catch (error) {
+            console.error(`Error generating thumbnail for ${name}:`, error);
+            Alert.alert('Error', `Failed to generate thumbnail for "${name}".`);
           }
           setMedia(newMedia);
+          console.log('Updated media state:', newMedia);
         }
       }
     } catch (error) {
-      console.error(`Error picking media:`, error);
-      Alert.alert(
-        'Error',
-        `Failed to pick media: ${error.message}. Please try reinstalling expo-image-picker (run \`npx expo install expo-image-picker\`) and rebuilding the project (\`npx expo prebuild --clean\`).`
-      );
+      console.error('Error picking media:', error);
+      Alert.alert('Error', `Failed to pick media: ${error.message}`);
     }
   };
 
-  const cropImage = async (index) => {
+  const deleteFromStorage = async (file, index) => {
     try {
-      const image = media[index];
-      let uri = image.uri;
-
-      if (!ImagePicker.MediaTypeOptions?.Images) {
-        console.error('ImagePicker.MediaTypeOptions.Images is undefined. Ensure expo-image-picker is installed correctly.');
-        Alert.alert(
-          'Error',
-          'Image picker module is not properly initialized. Please try reinstalling expo-image-picker or check your project configuration (run `npx expo install expo-image-picker` and `npx expo prebuild --clean`).'
-        );
+      console.log(`Attempting to move media to deleted: ${file.uri}`);
+      if (!auth.currentUser) {
+        throw new Error('User not authenticated');
+      }
+      if (!file.uri.startsWith('https://')) {
+        console.log(`Media ${file.name} is not in Firebase Storage, skipping storage deletion`);
         return;
       }
 
-      const hasPermission = await requestPermissions();
-      if (!hasPermission) return;
+      const originalPath = file.uri.split('/o/')[1].split('?')[0];
+      const fileName = file.name || originalPath.split('/').pop();
+      const deletedPath = `deleted/${auth.currentUser.uid}/${Date.now()}_${fileName}`;
+      const originalRef = storageRef(storage, decodeURIComponent(originalPath));
+      const deletedRef = storageRef(storage, deletedPath);
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        allowsMultipleSelection: false,
-        quality: 0.8,
-        exif: false,
-      });
+      console.log(`Copying ${originalPath} to ${deletedPath}`);
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+      await uploadBytesResumable(deletedRef, blob, { contentType: file.mimeType });
+      console.log(`Media ${fileName} copied to ${deletedPath}`);
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        uri = result.assets[0].uri;
+      try {
+        await deleteObject(originalRef);
+        console.log(`Media ${fileName} deleted from ${originalPath}`);
+      } catch (error) {
+        console.warn(`Failed to delete original media ${fileName} from ${originalPath}:`, error);
+      }
 
-        const cacheUri = `${FileSystem.cacheDirectory}${Date.now()}_${image.name}`;
-        await FileSystem.copyAsync({ from: uri, to: cacheUri });
-        uri = cacheUri;
+      if (postType === 'video' && file.thumbnailUri && file.thumbnailUri.startsWith('https://')) {
+        const thumbPath = file.thumbnailUri.split('/o/')[1].split('?')[0];
+        const thumbName = file.thumbnailUri.split('/').pop() || 'thumbnail.jpg';
+        const deletedThumbPath = `deleted/${auth.currentUser.uid}/${Date.now()}_${thumbName}`;
+        const thumbRef = storageRef(storage, decodeURIComponent(thumbPath));
+        const deletedThumbRef = storageRef(storage, deletedThumbPath);
 
-        const fileInfo = await FileSystem.getInfoAsync(uri);
-        if (!fileInfo.exists || !fileInfo.size) {
-          console.error(`File does not exist or is empty at URI: ${uri}`);
-          Alert.alert('Error', `Cropped image "${image.name}" is inaccessible or empty.`);
-          return;
+        console.log(`Copying thumbnail ${thumbPath} to ${deletedThumbPath}`);
+        const thumbResponse = await fetch(file.thumbnailUri);
+        const thumbBlob = await thumbResponse.blob();
+        await uploadBytesResumable(deletedThumbRef, thumbBlob, { contentType: 'image/jpeg' });
+        console.log(`Thumbnail ${thumbName} copied to ${deletedThumbPath}`);
+
+        try {
+          await deleteObject(thumbRef);
+          console.log(`Thumbnail ${thumbName} deleted from ${thumbPath}`);
+        } catch (error) {
+          console.warn(`Failed to delete original thumbnail ${thumbName} from ${thumbPath}:`, error);
         }
-
-        const manipResult = await ImageManipulator.manipulateAsync(
-          uri,
-          [],
-          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-        );
-
-        const tempUri = `${FileSystem.cacheDirectory}${Date.now()}_${image.name}`;
-        await FileSystem.writeAsStringAsync(tempUri, manipResult.base64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        const newMedia = [...media];
-        newMedia[index] = {
-          uri: tempUri,
-          name: image.name,
-          mimeType: 'image/jpeg',
-        };
-        setMedia(newMedia);
       }
     } catch (error) {
-      console.error(`Error cropping image at index ${index}:`, error);
-      Alert.alert(
-        'Error',
-        `Failed to crop image: ${error.message}. Please try reinstalling expo-image-picker (run \`npx expo install expo-image-picker\`) and rebuilding the project (\`npx expo prebuild --clean\`).`
-      );
+      console.error(`Error moving media ${file.name} to deleted:`, error);
+      throw error;
     }
   };
 
   const removeMedia = (index) => {
-    setMedia(media.filter((_, i) => i !== index));
+    const file = media[index];
+    Alert.alert(
+      'Remove Media',
+      `Are you sure you want to remove the picture?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (file.uri.startsWith('https://')) {
+                await deleteFromStorage(file, index);
+              }
+              setMedia(media.filter((_, i) => i !== index));
+              console.log('Media removed, new media state:', media.filter((_, i) => i !== index));
+              ToastAndroid.show('Media removed successfully.', ToastAndroid.SHORT);
+            } catch (error) {
+              console.error('Error removing media:', error);
+              ToastAndroid.show('Failed to remove media: ' + error.message, ToastAndroid.LONG);
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const uploadMedia = async (file, path, retries = 3) => {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        let uri = file.uri;
+  const uploadMedia = async (file, path) => {
+    try {
+      console.log('Starting upload for:', file.name, 'to:', path);
+      console.log('Current user UID:', auth.currentUser ? auth.currentUser.uid : 'No user');
 
-        if (file.uri.startsWith('data:image/')) {
-          const base64String = file.uri.split(',')[1];
-          uri = `${FileSystem.cacheDirectory}${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-          await FileSystem.writeAsStringAsync(uri, base64String, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-        }
-
-        const fileInfo = await FileSystem.getInfoAsync(uri);
-        if (!fileInfo.exists || !fileInfo.size) {
-          throw new Error(`File does not exist or is empty at URI: ${uri}`);
-        }
-
-        if (!storage) {
-          throw new Error('Firebase Storage is not initialized.');
-        }
-
-        const response = await fetch(uri);
-        const blob = await response.blob();
-
-        if (!blob.size) {
-          throw new Error('Blob is empty');
-        }
-
-        const storageReference = storageRef(storage, path);
-        const metadata = {
-          contentType: file.mimeType || (path.endsWith('.jpg') ? 'image/jpeg' : 'video/mp4'),
-        };
-        const uploadResult = await uploadBytes(storageReference, blob, metadata);
-        return await getDownloadURL(storageReference);
-      } catch (error) {
-        console.error(`Error uploading media to ${path} (attempt ${attempt}):`, error);
-        if (attempt === retries) {
-          throw new Error(`Upload failed after ${retries} attempts: ${error.code || 'unknown'} - ${error.message}`);
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!auth.currentUser) {
+        throw new Error('User not authenticated. Please sign in.');
       }
+
+      const { uri, name, mimeType } = file;
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      console.log('File info:', fileInfo);
+      if (!fileInfo.exists || !fileInfo.size) {
+        throw new Error(`File "${name}" does not exist or is empty at URI: ${uri}`);
+      }
+      if (fileInfo.size > 20 * 1024 * 1024) {
+        throw new Error(`File "${name}" exceeds 20MB limit.`);
+      }
+
+      const response = await fetch(uri);
+      console.log('Fetch response:', response.ok, response.status);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`);
+      }
+      const blob = await response.blob();
+      console.log('Blob size:', blob.size, 'for:', name);
+      if (!blob.size) {
+        throw new Error(`Blob for "${name}" is empty.`);
+      }
+
+      const contentType = mimeType || (path.endsWith('.jpg') || path.endsWith('.jpeg') ? 'image/jpeg' :
+                                      path.endsWith('.png') ? 'image/png' :
+                                      path.endsWith('.mp4') ? 'video/mp4' :
+                                      path.endsWith('.webm') ? 'video/webm' : 'application/octet-stream');
+      const metadata = { contentType };
+      console.log('Content type:', contentType);
+
+      const storageReference = storageRef(storage, path);
+      console.log('Storage reference:', storageReference.toString());
+      const uploadTask = uploadBytesResumable(storageReference, blob, metadata);
+      return await new Promise((resolve, reject) => {
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log(`Upload progress for "${name}": ${progress.toFixed(2)}%`);
+            setUploadProgress(progress);
+          },
+          (error) => {
+            console.error(`Upload failed for "${name}":`, error);
+            switch (error.code) {
+              case 'storage/unauthorized':
+                reject(new Error('Unauthorized to upload to this path. Check Firebase Storage rules.'));
+                break;
+              case 'storage/quota-exceeded':
+                reject(new Error('Storage quota exceeded. Contact support or reduce file size.'));
+                break;
+              case 'storage/canceled':
+                reject(new Error('Upload was canceled.'));
+                break;
+              case 'storage/unknown':
+                reject(new Error('Unknown error occurred during upload. Check network or Firebase configuration.'));
+                break;
+              case 'storage/invalid-bucket-name':
+                reject(new Error('Invalid bucket name. Verify the bucket exists in Google Cloud Console.'));
+                break;
+              default:
+                reject(error);
+            }
+          },
+          async () => {
+            try {
+              const downloadURL = await getDownloadURL(storageReference);
+              console.log(`Upload successful for "${name}". Download URL:`, downloadURL);
+              resolve(downloadURL);
+            } catch (error) {
+              console.error('Error getting download URL:', error);
+              reject(new Error(`Failed to get download URL: ${error.message}`));
+            }
+          }
+        );
+      });
+    } catch (error) {
+      console.error(`Error uploading media "${file.name}" to ${path}:`, error);
+      throw error;
     }
   };
 
   const handleSubmit = async () => {
-    // Validation: All fields are blank
+    console.log('handleSubmit called with:', { postType, title, content, category, mediaLength: media.length, link });
     if (!title.trim() && !content.trim() && !category && media.length === 0 && !link.trim()) {
-      ToastAndroid.show('Please fill required fields.', ToastAndroid.SHORT);
+      ToastAndroid.show('Please fill at least one field (title, content, media, or link).', ToastAndroid.SHORT);
       return;
     }
-
-    // Validation: Title and content filled, but no category
-    if (title.trim() && content.trim() && !category) {
-      ToastAndroid.show('Please select a category.', ToastAndroid.SHORT);
+    if ((postType === 'image' || postType === 'video') && media.length === 0 && !initialData?.mediaUrls && !initialData?.mediaUrl) {
+      ToastAndroid.show(`Please select ${postType === 'image' ? 'image(s)' : 'a video'}.`, ToastAndroid.SHORT);
       return;
     }
-
-    // Validation: Title and category filled, but no content
-    if (title.trim() && category && !content.trim()) {
-      ToastAndroid.show('Please add a content or media to post.', ToastAndroid.SHORT);
-      return;
-    }
-
-    // Validation: Title, category, and content filled, but no media for image/video post
-    if ((postType === 'image' || postType === 'video') && title.trim() && category && content.trim() && media.length === 0) {
-      ToastAndroid.show('Please add a content or media to post.', ToastAndroid.SHORT);
-      return;
-    }
-
-    // Validation: Link post with invalid or empty link
     if (postType === 'link' && (!link.trim() || !/^https?:\/\//.test(link))) {
       ToastAndroid.show('Please provide a valid URL starting with http:// or https://.', ToastAndroid.SHORT);
       return;
     }
-
     if (!auth || !auth.currentUser) {
-      console.error(`No authenticated user or auth not initialized`);
-      Alert.alert('Error', 'Authentication not initialized or user not logged in. Please sign out and sign in again.');
+      console.error('No authenticated user');
+      Alert.alert('Error', 'User not authenticated. Please sign out and sign in again.');
       return;
     }
 
     setIsSubmitting(true);
+    setUploadProgress(0);
 
     try {
       const userRef = ref(database, `users/${auth.currentUser.uid}`);
@@ -364,6 +448,7 @@ const CreatePost = () => {
       const userData = userSnapshot.val() || {};
       const userName = userData.contactPerson || userData.displayName || 'Anonymous';
       const organization = userData.organization || '';
+      console.log('User data:', { userName, organization });
 
       const postData = {
         title: title.trim(),
@@ -376,21 +461,53 @@ const CreatePost = () => {
         mediaType: postType,
       };
 
+      // Clear media references if no media is present
+      if (postType === 'image' && media.length === 0) {
+        postData.mediaUrls = [];
+        console.log('Cleared mediaUrls for image post');
+      }
+      if (postType === 'video' && media.length === 0) {
+        postData.mediaUrl = '';
+        postData.thumbnailUrl = '';
+        console.log('Cleared mediaUrl and thumbnailUrl for video post');
+      }
+
+      console.log('Attempting to upload media for postType:', postType);
       if (postType === 'image' && media.length > 0) {
         postData.mediaUrls = [];
-        for (let i = 0; i < media.length; i++) {
-          const imagePath = `image_posts/${auth.currentUser.uid}/${Date.now()}_${media[i].name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-          const downloadURL = await uploadMedia(media[i], imagePath);
+        for (const file of media) {
+          if (file.uri.startsWith('https://')) {
+            postData.mediaUrls.push(file.uri);
+            continue;
+          }
+          const imagePath = `image_posts/${auth.currentUser.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          console.log('Uploading image to:', imagePath);
+          const downloadURL = await uploadMedia(file, imagePath);
           postData.mediaUrls.push(downloadURL);
         }
       }
 
       if (postType === 'video' && media.length > 0) {
-        const mediaPath = `video_posts/${auth.currentUser.uid}/${Date.now()}_${media[0].name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-        postData.mediaUrl = await uploadMedia(media[0], mediaPath);
-        if (media[0].thumbnailUri) {
-          const thumbnailPath = `video_posts/${auth.currentUser.uid}/thumbnails/${Date.now()}_thumbnail.jpg`;
-          postData.thumbnailUrl = await uploadMedia({ uri: media[0].thumbnailUri, name: 'thumbnail.jpg', mimeType: 'image/jpeg' }, thumbnailPath);
+        const file = media[0];
+        if (!file.uri.startsWith('https://')) {
+          const mediaPath = `video_posts/${auth.currentUser.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          console.log('Uploading video to:', mediaPath);
+          const downloadURL = await uploadMedia(file, mediaPath);
+          postData.mediaUrl = downloadURL;
+          if (file.thumbnailUri && !file.thumbnailUri.startsWith('https://')) {
+            const thumbnailPath = `video_posts/${auth.currentUser.uid}/thumbnails/${Date.now()}_thumbnail.jpg`;
+            console.log('Uploading thumbnail to:', thumbnailPath);
+            const thumbnailURL = await uploadMedia(
+              { uri: file.thumbnailUri, name: 'thumbnail.jpg', mimeType: 'image/jpeg' },
+              thumbnailPath
+            );
+            postData.thumbnailUrl = thumbnailURL;
+          } else if (file.thumbnailUri) {
+            postData.thumbnailUrl = file.thumbnailUri;
+          }
+        } else {
+          postData.mediaUrl = file.uri;
+          postData.thumbnailUrl = file.thumbnailUri || '';
         }
       }
 
@@ -399,45 +516,45 @@ const CreatePost = () => {
       }
 
       if (postId) {
-        const postRef = ref(database, `posts/${postId}`);
+        const postRef = ref(database, `posts/submitted/${postId}`);
         await update(postRef, postData);
         await logActivity('Updated a post', postId);
-        await logSubmission('posts', postData, postId);
-        Alert.alert('Success', 'Post updated successfully.');
+        await logSubmission('posts/submitted', postData, postId);
+        console.log(`Post ${postId} updated in posts/submitted with data:`, postData);
+        ToastAndroid.show('Post updated successfully.', ToastAndroid.SHORT);
       } else {
-        const postsRef = ref(database, 'posts');
+        const postsRef = ref(database, 'posts/submitted');
         const newPostRef = push(postsRef);
         const submissionId = newPostRef.key;
         await set(newPostRef, postData);
         await logActivity(`Created a new post in ${category}`, submissionId);
-        await logSubmission('posts', postData, submissionId);
-        // Validation: All fields filled
-        Alert.alert('Success', 'Post created successfully.');
+        await logSubmission('posts/submitted', postData, submissionId);
+        console.log(`Post ${submissionId} created in posts/submitted with data:`, postData);
+        ToastAndroid.show('Post created successfully.', ToastAndroid.SHORT);
       }
 
       navigation.goBack();
     } catch (error) {
-      console.error(`Error creating/updating post:`, error);
+      console.error('Error creating/updating post:', error);
       Alert.alert('Error', `Failed to create/update post: ${error.message}`);
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
   const handlePostTypeChange = (newPostType) => {
+    console.log('Changing post type to:', newPostType);
     setPostType(newPostType);
     setMedia([]);
     setLink('');
-    if (newPostType === 'video' || newPostType === 'image') {
-      pickMedia();
-    }
   };
 
   if (!VideoView || !useVideoPlayer) {
-    console.error(`VideoView or useVideoPlayer from expo-video is undefined. Ensure expo-video is installed correctly.`);
+    console.error('VideoView or useVideoPlayer is undefined');
     return (
       <SafeAreaView style={GlobalStyles.container}>
-        <Text>Error: Video component failed to load. Please check expo-video installation (run `npx expo install expo-video`).</Text>
+        <Text>Error: Video component failed to load.</Text>
       </SafeAreaView>
     );
   }
@@ -450,13 +567,13 @@ const CreatePost = () => {
         end={{ x: 1, y: 1 }}
         style={styles.gradientContainer}
       >
-        <View style={styles.headerContainer}>
+        <View style={GlobalStyles.newheaderContainer}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={GlobalStyles.headerMenuIcon}>
             <Ionicons name="arrow-back" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>
+          {/* <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.white }]}>
             {postId ? 'Edit Post' : 'Create Post'}
-          </Text>
+          </Text> */}
           <TouchableOpacity
             style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
             onPress={handleSubmit}
@@ -471,10 +588,10 @@ const CreatePost = () => {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
+        style={{ flex: 1, marginTop: 70 }}
         keyboardVerticalOffset={0}
       >
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ScrollView contentContainerStyle={styles.scrollViewContent}>
           <View style={styles.formContainer}>
             <View style={styles.categoryPicker}>
               <Picker
@@ -488,7 +605,7 @@ const CreatePost = () => {
                     label={cat.label}
                     value={cat.value}
                     style={styles.pickerItems}
-                    enabled={!cat.disabled} // Disable the "Select Category" option
+                    enabled={!cat.disabled}
                   />
                 ))}
               </Picker>
@@ -513,27 +630,39 @@ const CreatePost = () => {
             {(postType === 'image' || postType === 'video') && (
               <View style={styles.mediaContainer}>
                 <Text style={styles.label}>{postType === 'video' ? 'Video' : 'Image(s)'}</Text>
-                <TouchableOpacity style={[GlobalStyles.imageUpload, {marginHorizontal: 20}]} onPress={pickMedia}>
-                  <Text style={GlobalStyles.imageUploadText}>
-                    {media.length > 0 ? 'Add More Media' : 'Select Media'}
-                  </Text>
-                </TouchableOpacity>
-                {/* {media.length > 0 && (
-                  <Text style={styles.mediaInfo}>
-                    Selected: {media.map(m => m.name).join(', ')}
-                  </Text>
-                )} */}
-                {media.length > 0 && postType === 'video' && (
-                  <VideoView
-                    player={player}
-                    style={styles.videoPreview}
-                    contentFit="contain"
-                    nativeControls
-                    onError={(error) => {
-                      console.error(`Video playback error:`, error);
-                      Alert.alert('Error', 'Failed to play video. Ensure the video format is supported (e.g., MP4).');
-                    }}
-                  />
+                {postType === 'image' && media.length === 0 && (
+                  <TouchableOpacity style={styles.imageUpload} onPress={pickMedia}>
+                    <Text style={styles.imageUploadText}>Select Images</Text>
+                  </TouchableOpacity>
+                )}
+                {postType === 'video' && (
+                  <TouchableOpacity style={styles.imageUpload} onPress={pickMedia}>
+                    <Text style={styles.imageUploadText}>
+                      {media.length > 0 ? 'Replace Video' : 'Select Video'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {media.length > 0 && postType === 'video' && media[0].uri && (
+                  <View style={styles.mediaPreview}>
+                    <VideoView
+                      player={player}
+                      style={styles.videoPreview}
+                      contentFit="contain"
+                      nativeControls
+                      posterSource={media[0].thumbnailUri ? { uri: media[0].thumbnailUri } : undefined}
+                      onError={(error) => {
+                        console.error('Video playback error:', error);
+                        Alert.alert('Error', 'Failed to play video.');
+                      }}
+                      onLoad={() => console.log('Video preview loaded for:', media[0].uri)}
+                    />
+                    <TouchableOpacity
+                      style={styles.removeButton}
+                      onPress={() => removeMedia(0)}
+                    >
+                      <Ionicons name="trash-outline" size={20} color={Theme.colors.white} />
+                    </TouchableOpacity>
+                  </View>
                 )}
                 {media.length > 0 && postType === 'image' && (
                   <View style={styles.mediaPreviewContainer}>
@@ -543,14 +672,11 @@ const CreatePost = () => {
                           source={{ uri: item.uri }}
                           style={styles.thumbnailPreview}
                           resizeMode="contain"
-                          onError={(error) => console.error(`Image preview error for ${item.name}:`, error.nativeEvent)}
+                          onError={(error) => {
+                            console.error(`Image preview error for ${item.name}:`, error.nativeEvent);
+                            Alert.alert('Error', `Failed to load image: ${item.name}`);
+                          }}
                         />
-                        {/* <TouchableOpacity
-                          style={styles.cropButton}
-                          onPress={() => cropImage(index)}
-                        >
-                          <Ionicons name="crop-outline" size={20} color={Theme.colors.white} />
-                        </TouchableOpacity> */}
                         <TouchableOpacity
                           style={styles.removeButton}
                           onPress={() => removeMedia(index)}
@@ -580,6 +706,17 @@ const CreatePost = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {isSubmitting && (
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBarBackground}>
+            <View
+              style={[styles.progressBarFill, { width: `${uploadProgress}%` }]}
+            />
+          </View>
+          <Text style={styles.progressText}>{`${uploadProgress.toFixed(0)}%`}</Text>
+        </View>
+      )}
 
       <View style={styles.navbar}>
         {[

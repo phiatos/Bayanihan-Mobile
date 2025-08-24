@@ -23,7 +23,8 @@ import { ScrollView } from 'react-native-gesture-handler';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/RDANAStyles';
 import Theme from '../constants/theme';
-import CustomModal from '../components/CustomModal';
+import OperationCustomModal from '../components/OperationCustomModal';
+import useOperationCheck from '../components/useOperationCheck';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -81,10 +82,7 @@ const RDANAScreen = () => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
   const [requiredFieldsModalVisible, setRequiredFieldsModalVisible] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(null);
-  const [organizationName, setOrganizationName] = useState('[Unknown Organization]');
-  const [canSubmit, setCanSubmit] = useState(false);
+  const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const insets = useSafeAreaInsets();
 
   // Custom error messages for required fields
@@ -311,134 +309,19 @@ const RDANAScreen = () => {
     return sanitized.charAt(0).toUpperCase() + sanitized.slice(1);
   };
 
-  // Organization name and role-based submission check
-  useEffect(() => {
-    const checkActiveOperations = async () => {
-      try {
-        // Reset canSubmit to false to ensure fresh check
-        setCanSubmit(false);
-        setModalVisible(false); // Reset modal visibility
-
-        // Load organization name from AsyncStorage
-        const storedOrg = await AsyncStorage.getItem('organizationName');
-        if (storedOrg) {
-          setOrganizationName(storedOrg);
-          console.log('Organization name loaded from storage:', storedOrg);
-        }
-
-        // Check authentication state
-        const user = auth.currentUser;
-
-        console.log('Logged-in user UID:', user.uid);
-        const userRef = databaseRef(database, `users/${user.uid}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val();
-
-        if (!userData) {
-          console.error('User data not found for UID:', user.uid);
-          setErrorMessage('Your user profile is incomplete. Please contact support.');
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.replace('Volunteer Dashboard');
-          }, 3000);
-          return;
-        }
-
-        // Check for password reset requirement
-        if (userData.password_needs_reset) {
-          setErrorMessage('For security reasons, please change your password.');
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.replace('Profile');
-          }, 3000);
-          return;
-        }
-
-        const userRole = userData.role;
-        const orgName = userData.organization || '[Unknown Organization]';
-        setOrganizationName(orgName);
-        await AsyncStorage.setItem('organizationName', orgName);
-        console.log('User Role:', userRole, 'Organization:', orgName);
-
-        // Role-based submission eligibility
-        if (userRole === 'AB ADMIN') {
-          console.log('AB ADMIN role detected. Submission allowed.');
-          setCanSubmit(true);
-        } else if (userRole === 'ABVN') {
-          console.log('ABVN role detected. Checking organization activations.');
-          if (orgName === '[Unknown Organization]') {
-            console.warn('ABVN user has no organization assigned.');
-            setErrorMessage('Your account is not associated with an organization.');
-            setModalVisible(true);
-            setTimeout(() => {
-              setModalVisible(false);
-              navigation.replace('Volunteer Dashboard');
-            }, 3000);
-            return;
-          }
-
-          const activationsRef = query(
-            databaseRef(database, 'activations'),
-            orderByChild('organization'),
-            equalTo(orgName)
-          );
-          const activationsSnapshot = await get(activationsRef);
-          let hasActiveActivations = false;
-          activationsSnapshot.forEach((childSnapshot) => {
-            if (childSnapshot.val().status === 'active') {
-              hasActiveActivations = true;
-              return true; // Exit loop
-            }
-          });
-
-          if (hasActiveActivations) {
-            console.log(`Organization "${orgName}" has active operations. Submission allowed.`);
-            setCanSubmit(true);
-          } else {
-            console.warn(`Organization "${orgName}" has no active operations. Submission disabled.`);
-            setErrorMessage('Your organization has no active operations. You cannot submit reports at this time.');
-            setModalVisible(true);
-            setTimeout(() => {
-              setModalVisible(false);
-              navigation.navigate('Volunteer Dashboard');
-            }, 3000);
-          }
-        } else {
-          console.warn(`Unsupported role: ${userRole}. Submission disabled.`);
-          setErrorMessage('Your role does not permit report submission.');
-          setModalVisible(true);
-          setTimeout(() => {
-            setModalVisible(false);
-            navigation.replace('Volunteer Dashboard');
-          }, 3000);
-        }
-      } catch (error) {
-        console.error(`[${new Date().toISOString()}] Error in checkActiveOperations:`, error.message);
-        setErrorMessage('Failed to verify permissions: ' + error.message);
-        setModalVisible(true);
-        setTimeout(() => {
-          setModalVisible(false);
-          navigation.replace('Volunteer Dashboard');
-        }, 3000);
-      }
-    };
-
-    // Run check on screen focus
-    const unsubscribeFocus = navigation.addListener('focus', () => {
-      console.log('RDANA screen focused, checking active operations...');
-      checkActiveOperations();
-    });
-
-    // Initial check on mount
-    checkActiveOperations();
-
-    return () => unsubscribeFocus();
-  }, [navigation]);
-
   // Handle TextInput and picker changes
   const handleChange = (field, value) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     let sanitizedValue = value;
     if (typeof value === 'string' && field !== 'Type_of_Disaster' && !field.includes('Date') && !field.includes('Time') && !field.includes('Status')) {
       sanitizedValue = sanitizeInput(value, field);
@@ -460,6 +343,17 @@ const RDANAScreen = () => {
 
   // Handle date picker changes
   const handleDateChange = (field, event, selectedDate) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setShowDatePicker((prev) => ({ ...prev, [field]: false }));
     if (selectedDate) {
       setTempDate((prev) => ({ ...prev, [field]: selectedDate }));
@@ -470,6 +364,17 @@ const RDANAScreen = () => {
 
   // Handle time picker changes
   const handleTimeChange = (field, event, selectedTime) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setShowTimePicker((prev) => ({ ...prev, [field]: false }));
     if (selectedTime) {
       setTempDate((prev) => ({ ...prev, [field]: selectedTime }));
@@ -480,6 +385,17 @@ const RDANAScreen = () => {
 
   // Handle checklist selection for needs
   const handleNeedsSelect = (field) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setChecklist((prev) => {
       const newChecklist = { ...prev, [field]: !prev[field] };
       const value = newChecklist[field] ? 'Yes' : 'No';
@@ -490,6 +406,17 @@ const RDANAScreen = () => {
 
   // Handle delete municipality
   const handleDelete = (index) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setDeleteIndex(index);
     setDeleteModalVisible(true);
   };
@@ -505,11 +432,6 @@ const RDANAScreen = () => {
   const cancelDelete = () => {
     setDeleteModalVisible(false);
     setDeleteIndex(null);
-  };
-
-  const handleModalConfirm = () => {
-    setModalVisible(false);
-    navigation.navigate('Volunteer Dashboard');
   };
 
   // Validate municipality inputs
@@ -553,7 +475,7 @@ const RDANAScreen = () => {
   const windowHeight = Dimensions.get('window').height;
 
   return (
-    <SafeAreaView style={[GlobalStyles.container, ]}>
+    <SafeAreaView style={[GlobalStyles.container]}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       {/* Header */}
       <LinearGradient
@@ -569,25 +491,6 @@ const RDANAScreen = () => {
           <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>RDANA</Text>
         </View>
       </LinearGradient>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={requiredFieldsModalVisible}
-        onRequestClose={() => setRequiredFieldsModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalText}>Please fill in required fields.</Text>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => setRequiredFieldsModalVisible(false)}
-            >
-              <Text style={styles.modalButtonText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -610,6 +513,7 @@ const RDANAScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Site_Location_Address_Barangay', val)}
                   value={reportData.Site_Location_Address_Barangay}
+                  editable={canSubmit}
                 />
               </View>
               {errors.Site_Location_Address_Barangay && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Barangay}</Text>}
@@ -622,6 +526,7 @@ const RDANAScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Site_Location_Address_City_Municipality', val)}
                   value={reportData.Site_Location_Address_City_Municipality}
+                  editable={canSubmit}
                 />
               </View>
               {errors.Site_Location_Address_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_City_Municipality}</Text>}
@@ -634,6 +539,7 @@ const RDANAScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Site_Location_Address_Province', val)}
                   value={reportData.Site_Location_Address_Province}
+                  editable={canSubmit}
                 />
               </View>
               {errors.Site_Location_Address_Province && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Province}</Text>}
@@ -646,6 +552,7 @@ const RDANAScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Local_Authorities_Persons_Contacted_for_Information', val)}
                   value={reportData.Local_Authorities_Persons_Contacted_for_Information}
+                  editable={canSubmit}
                 />
               </View>
               {errors.Local_Authorities_Persons_Contacted_for_Information && <Text style={GlobalStyles.errorText}>{errors.Local_Authorities_Persons_Contacted_for_Information}</Text>}
@@ -654,14 +561,14 @@ const RDANAScreen = () => {
               <View ref={(ref) => (inputContainerRefs.Date_of_Information_Gathered = ref)}>
                 <TouchableOpacity
                   style={[GlobalStyles.input, errors.Date_of_Information_Gathered && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
-                  onPress={() => setShowDatePicker((prev) => ({ ...prev, Date_of_Information_Gathered: true }))}
+                  onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, Date_of_Information_Gathered: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Date_of_Information_Gathered ? '#000' : '#999' }}>
                     {reportData.Date_of_Information_Gathered || 'dd/mm/yyyy'}
                   </Text>
                   <Ionicons name="calendar" size={24} color="#00BCD4" />
                 </TouchableOpacity>
-                {showDatePicker.Date_of_Information_Gathered && (
+                {showDatePicker.Date_of_Information_Gathered && canSubmit && (
                   <DateTimePicker
                     value={tempDate.Date_of_Information_Gathered || new Date()}
                     mode="date"
@@ -676,14 +583,14 @@ const RDANAScreen = () => {
               <View ref={(ref) => (inputContainerRefs.Time_of_Information_Gathered = ref)}>
                 <TouchableOpacity
                   style={[GlobalStyles.input, errors.Time_of_Information_Gathered && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
-                  onPress={() => setShowTimePicker((prev) => ({ ...prev, Time_of_Information_Gathered: true }))}
+                  onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, Time_of_Information_Gathered: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Time_of_Information_Gathered ? '#000' : '#999' }}>
                     {reportData.Time_of_Information_Gathered || '--:-- --'}
                   </Text>
                   <Ionicons name="time" size={24} color="#00BCD4" />
                 </TouchableOpacity>
-                {showTimePicker.Time_of_Information_Gathered && (
+                {showTimePicker.Time_of_Information_Gathered && canSubmit && (
                   <DateTimePicker
                     value={tempDate.Time_of_Information_Gathered || new Date()}
                     mode="time"
@@ -703,6 +610,7 @@ const RDANAScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Name_of_the_Organizations_Involved', val)}
                   value={reportData.Name_of_the_Organizations_Involved}
+                  editable={canSubmit}
                 />
               </View>
               {errors.Name_of_the_Organizations_Involved && <Text style={GlobalStyles.errorText}>{errors.Name_of_the_Organizations_Involved}</Text>}
@@ -718,6 +626,7 @@ const RDANAScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Locations_and_Areas_Affected_Barangay', val)}
                   value={reportData.Locations_and_Areas_Affected_Barangay}
+                  editable={canSubmit}
                 />
               </View>
               {errors.Locations_and_Areas_Affected_Barangay && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Barangay}</Text>}
@@ -730,6 +639,7 @@ const RDANAScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Locations_and_Areas_Affected_City_Municipality', val)}
                   value={reportData.Locations_and_Areas_Affected_City_Municipality}
+                  editable={canSubmit}
                 />
               </View>
               {errors.Locations_and_Areas_Affected_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_City_Municipality}</Text>}
@@ -742,6 +652,7 @@ const RDANAScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('Locations_and_Areas_Affected_Province', val)}
                   value={reportData.Locations_and_Areas_Affected_Province}
+                  editable={canSubmit}
                 />
               </View>
               {errors.Locations_and_Areas_Affected_Province && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Province}</Text>}
@@ -763,6 +674,7 @@ const RDANAScreen = () => {
                     textAlign: 'center',
                   }}
                   dropdownIconColor="#00BCD4"
+                  enabled={canSubmit}
                 >
                   {disasterTypes.map((option) => (
                     <Picker.Item
@@ -780,14 +692,14 @@ const RDANAScreen = () => {
               <View ref={(ref) => (inputContainerRefs.Date_of_Occurrence = ref)}>
                 <TouchableOpacity
                   style={[GlobalStyles.input, errors.Date_of_Occurrence && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
-                  onPress={() => setShowDatePicker((prev) => ({ ...prev, Date_of_Occurrence: true }))}
+                  onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, Date_of_Occurrence: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Date_of_Occurrence ? '#000' : '#999' }}>
                     {reportData.Date_of_Occurrence || 'dd/mm/yyyy'}
                   </Text>
                   <Ionicons name="calendar" size={24} color="#00BCD4" />
                 </TouchableOpacity>
-                {showDatePicker.Date_of_Occurrence && (
+                {showDatePicker.Date_of_Occurrence && canSubmit && (
                   <DateTimePicker
                     value={tempDate.Date_of_Occurrence || new Date()}
                     mode="date"
@@ -802,14 +714,14 @@ const RDANAScreen = () => {
               <View ref={(ref) => (inputContainerRefs.Time_of_Occurrence = ref)}>
                 <TouchableOpacity
                   style={[GlobalStyles.input, errors.Time_of_Occurrence && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
-                  onPress={() => setShowTimePicker((prev) => ({ ...prev, Time_of_Occurrence: true }))}
+                  onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, Time_of_Occurrence: true }))}
                 >
                   <Text style={{ flex: 1, color: reportData.Time_of_Occurrence ? '#000' : '#999' }}>
                     {reportData.Time_of_Occurrence || '--:-- --'}
                   </Text>
                   <Ionicons name="time" size={24} color="#00BCD4" />
                 </TouchableOpacity>
-                {showTimePicker.Time_of_Occurrence && (
+                {showTimePicker.Time_of_Occurrence && canSubmit && (
                   <DateTimePicker
                     value={tempDate.Time_of_Occurrence || new Date()}
                     mode="time"
@@ -830,6 +742,7 @@ const RDANAScreen = () => {
                 numberOfLines={4}
                 onChangeText={(val) => handleChange('summary', val)}
                 value={reportData.summary}
+                editable={canSubmit}
               />
               {errors.summary && <Text style={GlobalStyles.errorText}>{errors.summary}</Text>}
             </View>
@@ -869,6 +782,7 @@ const RDANAScreen = () => {
                         <TouchableOpacity
                           style={[styles.tableCell, { minWidth: 80, alignItems: 'center' }]}
                           onPress={() => handleDelete(index)}
+                          disabled={!canSubmit}
                         >
                           <Ionicons name="trash" size={20} color="red" />
                         </TouchableOpacity>
@@ -886,6 +800,7 @@ const RDANAScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('community', val)}
                   value={reportData.community}
+                  editable={canSubmit}
                 />
               </View>
               {errors.community && <Text style={GlobalStyles.errorText}>{errors.community}</Text>}
@@ -899,6 +814,7 @@ const RDANAScreen = () => {
                   onChangeText={(val) => handleChange('totalPop', val)}
                   value={reportData.totalPop}
                   keyboardType="numeric"
+                  editable={canSubmit}
                 />
               </View>
               {errors.totalPop && <Text style={GlobalStyles.errorText}>{errors.totalPop}</Text>}
@@ -912,6 +828,7 @@ const RDANAScreen = () => {
                   onChangeText={(val) => handleChange('affected', val)}
                   value={reportData.affected}
                   keyboardType="numeric"
+                  editable={canSubmit}
                 />
               </View>
               {errors.affected && <Text style={GlobalStyles.errorText}>{errors.affected}</Text>}
@@ -925,6 +842,7 @@ const RDANAScreen = () => {
                   onChangeText={(val) => handleChange('deaths', val)}
                   value={reportData.deaths}
                   keyboardType="numeric"
+                  editable={canSubmit}
                 />
               </View>
               {errors.deaths && <Text style={GlobalStyles.errorText}>{errors.deaths}</Text>}
@@ -938,6 +856,7 @@ const RDANAScreen = () => {
                   onChangeText={(val) => handleChange('injured', val)}
                   value={reportData.injured}
                   keyboardType="numeric"
+                  editable={canSubmit}
                 />
               </View>
               {errors.injured && <Text style={GlobalStyles.errorText}>{errors.injured}</Text>}
@@ -951,6 +870,7 @@ const RDANAScreen = () => {
                   onChangeText={(val) => handleChange('missing', val)}
                   value={reportData.missing}
                   keyboardType="numeric"
+                  editable={canSubmit}
                 />
               </View>
               {errors.missing && <Text style={GlobalStyles.errorText}>{errors.missing}</Text>}
@@ -964,6 +884,7 @@ const RDANAScreen = () => {
                   onChangeText={(val) => handleChange('children', val)}
                   value={reportData.children}
                   keyboardType="numeric"
+                  editable={canSubmit}
                 />
               </View>
               {errors.children && <Text style={GlobalStyles.errorText}>{errors.children}</Text>}
@@ -977,6 +898,7 @@ const RDANAScreen = () => {
                   onChangeText={(val) => handleChange('women', val)}
                   value={reportData.women}
                   keyboardType="numeric"
+                  editable={canSubmit}
                 />
               </View>
               {errors.women && <Text style={GlobalStyles.errorText}>{errors.women}</Text>}
@@ -990,6 +912,7 @@ const RDANAScreen = () => {
                   onChangeText={(val) => handleChange('seniors', val)}
                   value={reportData.seniors}
                   keyboardType="numeric"
+                  editable={canSubmit}
                 />
               </View>
               {errors.seniors && <Text style={GlobalStyles.errorText}>{errors.seniors}</Text>}
@@ -1003,53 +926,69 @@ const RDANAScreen = () => {
                   onChangeText={(val) => handleChange('pwd', val)}
                   value={reportData.pwd}
                   keyboardType="numeric"
+                  editable={canSubmit}
                 />
               </View>
               {errors.pwd && <Text style={GlobalStyles.errorText}>{errors.pwd}</Text>}
 
               <View style={GlobalStyles.supplementaryButtonContainer}>
-                <TouchableOpacity style={GlobalStyles.supplementaryButton} onPress={() => {
-                  const { isValid, newErrors } = validateMunicipalityInputs();
-                  if (!isValid) {
-                    setErrors(newErrors);
-                    ToastAndroid.show('Please fill out the Initial Effects fields before adding an entry.', ToastAndroid.SHORT);
-                    return;
-                  }
+                <TouchableOpacity
+                  style={[GlobalStyles.supplementaryButton, !canSubmit && { opacity: 0.6 }]}
+                  onPress={() => {
+                    if (!canSubmit) {
+                      setModalConfig({
+                        title: 'Permission Error',
+                        message: 'You do not have permission to submit reports.',
+                        onConfirm: () => setModalVisible(false),
+                        confirmText: 'OK',
+                      });
+                      setModalVisible(true);
+                      return;
+                    }
 
-                  const newMunicipality = {
-                    community: reportData.community,
-                    totalPop: reportData.totalPop,
-                    affected: reportData.affected,
-                    deaths: reportData.deaths,
-                    injured: reportData.injured,
-                    missing: reportData.missing,
-                    children: reportData.children,
-                    women: reportData.women,
-                    seniors: reportData.seniors,
-                    pwd: reportData.pwd,
-                  };
+                    const { isValid, newErrors } = validateMunicipalityInputs();
+                    if (!isValid) {
+                      setErrors(newErrors);
+                      ToastAndroid.show('Please fill out the Initial Effects fields before adding an entry.', ToastAndroid.SHORT);
+                      return;
+                    }
 
-                  setAffectedMunicipalities((prev) => [...prev, newMunicipality]);
-                  ToastAndroid.show('Municipality Saved', ToastAndroid.SHORT);
-                  setReportData((prev) => ({
-                    ...prev,
-                    community: '',
-                    totalPop: '',
-                    affected: '',
-                    deaths: '',
-                    injured: '',
-                    missing: '',
-                    children: '',
-                    women: '',
-                    seniors: '',
-                    pwd: '',
-                  }));
-                  setErrors((prev) => {
-                    const newErrors = { ...prev };
-                    municipalityFields.forEach((field) => delete newErrors[field]);
-                    return newErrors;
-                  });
-                }}>
+                    const newMunicipality = {
+                      community: reportData.community,
+                      totalPop: reportData.totalPop,
+                      affected: reportData.affected,
+                      deaths: reportData.deaths,
+                      injured: reportData.injured,
+                      missing: reportData.missing,
+                      children: reportData.children,
+                      women: reportData.women,
+                      seniors: reportData.seniors,
+                      pwd: reportData.pwd,
+                    };
+
+                    setAffectedMunicipalities((prev) => [...prev, newMunicipality]);
+                    ToastAndroid.show('Municipality Saved', ToastAndroid.SHORT);
+                    setReportData((prev) => ({
+                      ...prev,
+                      community: '',
+                      totalPop: '',
+                      affected: '',
+                      deaths: '',
+                      injured: '',
+                      missing: '',
+                      children: '',
+                      women: '',
+                      seniors: '',
+                      pwd: '',
+                    }));
+                    setErrors((prev) => {
+                      const newErrors = { ...prev };
+                      municipalityFields.forEach((field) => delete newErrors[field]);
+                      return newErrors;
+                    });
+                  }}
+                  disabled={!canSubmit}
+                >
                   <Text style={GlobalStyles.supplementaryButtonText}>Add Row</Text>
                 </TouchableOpacity>
               </View>
@@ -1092,6 +1031,7 @@ const RDANAScreen = () => {
                           textAlign: 'center',
                         }}
                         dropdownIconColor="#00BCD4"
+                        enabled={canSubmit}
                       >
                         {currentItemOptions.map((option) => (
                           <Picker.Item
@@ -1114,6 +1054,7 @@ const RDANAScreen = () => {
                 placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('othersStatus', val)}
                 value={reportData.othersStatus}
+                editable={canSubmit}
               />
               {errors.othersStatus && <Text style={GlobalStyles.errorText}>{errors.othersStatus}</Text>}
             </View>
@@ -1131,6 +1072,7 @@ const RDANAScreen = () => {
                   key={field}
                   onPress={() => handleNeedsSelect(field)}
                   style={styles.checkboxContainer}
+                  disabled={!canSubmit}
                 >
                   <View style={styles.checkboxBox}>
                     {checklist[field] && <Ionicons name="checkmark" style={styles.checkmark} />}
@@ -1145,6 +1087,7 @@ const RDANAScreen = () => {
                 placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('otherNeeds', val)}
                 value={reportData.otherNeeds}
+                editable={canSubmit}
               />
               {errors.otherNeeds && <Text style={GlobalStyles.errorText}>{errors.otherNeeds}</Text>}
               {renderLabel('Estimated Quantity', false)}
@@ -1155,6 +1098,7 @@ const RDANAScreen = () => {
                 onChangeText={(val) => handleChange('estQty', val)}
                 value={reportData.estQty}
                 keyboardType="numeric"
+                editable={canSubmit}
               />
               {errors.estQty && <Text style={GlobalStyles.errorText}>{errors.estQty}</Text>}
             </View>
@@ -1169,6 +1113,7 @@ const RDANAScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('responseGroup', val)}
                   value={reportData.responseGroup}
+                  editable={canSubmit}
                 />
               </View>
               {errors.responseGroup && <Text style={GlobalStyles.errorText}>{errors.responseGroup}</Text>}
@@ -1181,6 +1126,7 @@ const RDANAScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('reliefDeployed', val)}
                   value={reportData.reliefDeployed}
+                  editable={canSubmit}
                 />
               </View>
               {errors.reliefDeployed && <Text style={GlobalStyles.errorText}>{errors.reliefDeployed}</Text>}
@@ -1194,6 +1140,7 @@ const RDANAScreen = () => {
                   onChangeText={(val) => handleChange('familiesServed', val)}
                   value={reportData.familiesServed}
                   keyboardType="numeric"
+                  editable={canSubmit}
                 />
               </View>
               {errors.familiesServed && <Text style={GlobalStyles.errorText}>{errors.familiesServed}</Text>}
@@ -1204,7 +1151,12 @@ const RDANAScreen = () => {
                 style={[GlobalStyles.button, !canSubmit && { opacity: 0.6 }]}
                 onPress={() => {
                   if (!canSubmit) {
-                    setErrorMessage('You do not have permission to submit reports.');
+                    setModalConfig({
+                      title: 'Permission Error',
+                      message: 'You do not have permission to submit reports.',
+                      onConfirm: () => setModalVisible(false),
+                      confirmText: 'OK',
+                    });
                     setModalVisible(true);
                     return;
                   }
@@ -1224,7 +1176,13 @@ const RDANAScreen = () => {
 
                   // Check if all required fields are blank
                   if (allRequiredBlank) {
-                    setRequiredFieldsModalVisible(true);
+                    setModalConfig({
+                      title: 'Incomplete Data',
+                      message: 'Please fill in required fields.',
+                      onConfirm: () => setModalVisible(false),
+                      confirmText: 'OK',
+                    });
+                    setModalVisible(true);
                     return;
                   }
 
@@ -1249,7 +1207,13 @@ const RDANAScreen = () => {
                   if (Object.keys(newErrors).length > 0) {
                     setErrors(newErrors);
                     if (!allRequiredBlank) {
-                      ToastAndroid.show('Please fill in required fields.', ToastAndroid.SHORT);
+                      setModalConfig({
+                        title: 'Incomplete Data',
+                        message: `Please fill in the following:\n${Object.values(newErrors).join('\n')}`,
+                        onConfirm: () => setModalVisible(false),
+                        confirmText: 'OK',
+                      });
+                      setModalVisible(true);
                     }
                     return;
                   }
@@ -1286,7 +1250,7 @@ const RDANAScreen = () => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <CustomModal
+      <OperationCustomModal
         visible={deleteModalVisible}
         title="Confirm Delete"
         message="Are you sure you want to delete this municipality?"
@@ -1296,18 +1260,12 @@ const RDANAScreen = () => {
         cancelText="Cancel"
         showCancel={true}
       />
-      <CustomModal
+      <OperationCustomModal
         visible={modalVisible}
-        title="Error"
-        message={
-          <View style={styles.modalContent}>
-            <Ionicons name="warning-outline" size={60} color="#FF0000" style={styles.modalIcon} />
-            <Text style={styles.modalMessage}>{errorMessage}</Text>
-          </View>
-        }
-        onConfirm={handleModalConfirm}
-        confirmText="OK"
-        showCancel={false}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        confirmText={modalConfig.confirmText}
       />
     </SafeAreaView>
   );

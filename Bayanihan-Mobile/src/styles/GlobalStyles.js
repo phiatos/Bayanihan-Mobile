@@ -121,7 +121,6 @@ export default StyleSheet.create({
     borderColor: '#605D67',
     borderRadius: borderRadius.large,
     padding: spacing.small,
-    marginBottom: spacing.small,
     fontFamily: 'Poppins_Regular',
     fontSize: 14,
     color: Theme.colors.black,
@@ -152,6 +151,7 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_Regular',
     borderColor: Theme.colors.primary,
     height: 50,
+    
   },  
   image: {
     width: 250,
