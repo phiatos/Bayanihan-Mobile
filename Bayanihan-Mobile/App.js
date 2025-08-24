@@ -45,6 +45,13 @@ function App() {
     return null;
   }
 
+  useEffect(() => {
+    NavigationBar.setBackgroundColorAsync('transparent');
+
+    NavigationBar.setButtonStyleAsync('dark'); 
+  }, []);
+
+
   return (
     <>     
      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />

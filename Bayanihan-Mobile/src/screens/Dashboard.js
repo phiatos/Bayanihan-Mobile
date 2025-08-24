@@ -182,12 +182,7 @@ const DashboardScreen = ({ navigation }) => {
       style={styles.gradientContainer}
     >
       <SafeAreaView style={styles.container}>
-        <StatusBar
-          barStyle="dark-content"
-          backgroundColor="transparent"
-          translucent={Platform.OS === 'android'}
-        />
-
+       
         {/* Header */}
         <View style={GlobalStyles.newheaderContainer}>
             <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.headerMenuIcon}>

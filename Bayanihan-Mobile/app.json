@@ -34,12 +34,8 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
-
       ],
       "package": "com.firebase.bayanihan"
     },
@@ -51,8 +47,8 @@
       [
         "expo-location",
         {
-        "locationAlwaysAndWhenInUsePermission": "Allow Bayanihan to use your location."        
-      }
+          "locationAlwaysAndWhenInUsePermission": "Allow Bayanihan to use your location."
+        }
       ],
       "expo-build-properties",
       "expo-video",
@@ -61,14 +57,20 @@
     "jsEngine": "hermes",
     "extra": {
       "eas": {
-        "projectId": "b2922363-ee56-45ca-b956-cc0ba90e8b25"
+        "projectId": "095ea5f5-79a3-4edf-af68-856ddae7e769"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/b2922363-ee56-45ca-b956-cc0ba90e8b25"
+    "updates": {},
+     "androidStatusBar": {
+      "translucent": true,
+      "backgroundColor": "#00000000"
+    },
+    "androidNavigationBar": {
+      "visible": "immersive",
+      "backgroundColor": "#00000000"
     }
   }
 }

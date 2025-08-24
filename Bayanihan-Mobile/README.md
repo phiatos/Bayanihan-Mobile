@@ -45,10 +45,10 @@ paste these at the package.json:
     "@react-navigation/stack": "^7.3.2",
     "@xmldom/xmldom": "^0.9.8",
     "axios": "^1.9.0",
+    "core-js": "^3.45.1",
     "date-fns": "^4.1.0",
     "expo": "~53.0.20",
     "expo-av": "~15.1.7",
-    "expo-blur": "~14.1.5",
     "expo-build-properties": "~0.14.8",
     "expo-constants": "^17.1.6",
     "expo-document-picker": "~13.1.6",
@@ -59,10 +59,10 @@ paste these at the package.json:
     "expo-image-picker": "~16.1.4",
     "expo-linear-gradient": "~14.1.5",
     "expo-location": "~18.1.6",
-    "expo-navigation-bar": "~4.2.7",
+    "expo-navigation-bar": "~4.2.8",
     "expo-splash-screen": "~0.30.9",
     "expo-status-bar": "~2.2.3",
-    "expo-system-ui": "~5.0.10",
+    "expo-system-ui": "~5.0.11",
     "expo-updates": "~0.28.17",
     "expo-video": "~2.2.2",
     "expo-video-thumbnails": "~9.1.3",
@@ -70,6 +70,10 @@ paste these at the package.json:
     "glob": "^11.0.3",
     "lodash": "^4.17.21",
     "lottie-react-native": "7.2.2",
+    "metro": "0.82.0",
+    "metro-cache": "0.82.0",
+    "metro-config": "0.82.0",
+    "metro-resolver": "0.82.0",
     "moti": "^0.30.0",
     "react": "19.0.0",
     "react-datepicker": "^8.3.0",
@@ -81,7 +85,11 @@ paste these at the package.json:
     "react-native-fontawesome": "^7.0.0",
     "react-native-geocoding": "^0.5.0",
     "react-native-gesture-handler": "~2.24.0",
+    "react-native-get-random-values": "~1.11.0",
+    "react-native-linking": "^0.0.0",
+    "react-native-maps": "1.20.1",
     "react-native-permissions": "^5.4.0",
+    "react-native-popup-menu": "^0.18.0",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
@@ -96,7 +104,7 @@ paste these at the package.json:
     "@babel/core": "^7.20.0",
     "@react-native-community/cli": "latest",
     "@types/react": "~19.0.10",
-    "expo": "^53.0.20",
+    "expo": "53.0.22",
     "typescript": "~5.8.3"
   },
   "expo": {
@@ -124,5 +132,6 @@ paste these at the package.json:
   },
   "private": true
 }
+
 
  ```
