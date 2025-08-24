@@ -1,15 +1,15 @@
+import 'react-native-gesture-handler';
+import 'react-native-reanimated';
 import 'core-js/stable/array/find-last';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import AuthStack from './src/navigation/AuthStack';
 import AppStack from './src/navigation/AppStack';
 import { useFonts } from 'expo-font';
 import { AuthContext } from './src/context/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
-import 'react-native-reanimated';
-import 'react-native-gesture-handler';
 import * as NavigationBar from 'expo-navigation-bar';
 import { StatusBar } from 'react-native';
 
@@ -17,7 +17,6 @@ SplashScreen.preventAutoHideAsync();
 
 function App() {
   const [user, setUser] = useState(undefined);
-
   const [fontsLoaded] = useFonts({
     Poppins_Regular: require('./assets/fonts/Poppins/Poppins-Regular.ttf'),
     Poppins_SemiBold: require('./assets/fonts/Poppins/Poppins-SemiBold.ttf'),
@@ -30,40 +29,32 @@ function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (fontsLoaded) {
-      setReady(true);
-    }
+    if (fontsLoaded) setReady(true);
   }, [fontsLoaded]);
 
   useEffect(() => {
     if (ready) {
       SplashScreen.hideAsync();
-      NavigationBar.setBackgroundColorAsync('transparent');
-
-      NavigationBar.setButtonStyleAsync('dark'); 
+      NavigationBar.setBackgroundColorAsync('#00000000');
+      NavigationBar.setButtonStyleAsync('dark');
     }
   }, [ready]);
 
-  if (!ready) {
-    return null;
-  }
-
-
+  if (!ready) return null;
 
   return (
-    <>     
-     <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-    <AuthContext.Provider value={{ user, setUser }}>
-      <NavigationContainer>
-        {user ? (
-          <AppStack onSignOut={() => setUser(undefined)} />
-        ) : (
-          <AuthStack />
-        )}
-      </NavigationContainer>
-    </AuthContext.Provider>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <AuthContext.Provider value={{ user, setUser }}>
+        <NavigationContainer>
+          {user ? (
+            <AppStack onSignOut={() => setUser(undefined)} />
+          ) : (
+            <AuthStack />
+          )}
+        </NavigationContainer>
+      </AuthContext.Provider>
     </>
-
   );
 }
 
