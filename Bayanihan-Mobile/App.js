@@ -38,6 +38,9 @@ function App() {
   useEffect(() => {
     if (ready) {
       SplashScreen.hideAsync();
+      NavigationBar.setBackgroundColorAsync('transparent');
+
+      NavigationBar.setButtonStyleAsync('dark'); 
     }
   }, [ready]);
 
@@ -45,11 +48,6 @@ function App() {
     return null;
   }
 
-  useEffect(() => {
-    NavigationBar.setBackgroundColorAsync('transparent');
-
-    NavigationBar.setButtonStyleAsync('dark'); 
-  }, []);
 
 
   return (
