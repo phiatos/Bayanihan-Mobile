@@ -65,7 +65,7 @@ export default StyleSheet.create({
     margin: spacing.small,
     marginLeft: 160,
     borderWidth: borderWidth.thin,
-    borderColor: '#ccc',
+    borderColor: Theme.colors.primary,
     borderRadius: borderRadius.medium,
     backgroundColor: '#fff',
     justifyContent: 'center',
@@ -73,6 +73,7 @@ export default StyleSheet.create({
   },
   picker: {
     textAlign: 'center',
+    fontFamily: 'Poppins_Regular',
   },
   pickerItems: {
     fontFamily: 'Poppins_Regular',

@@ -51,7 +51,6 @@ export default StyleSheet.create({
     justifyContent: 'center', 
     height: 40,
     elevation: 3,
-    color:  Theme.colors.accentBlue
   },
   picker: {
     textAlign: 'center',
