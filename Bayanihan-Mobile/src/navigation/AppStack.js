@@ -24,6 +24,7 @@ import CustomDrawer from '../components/CustomDrawer';
 import CreatePost from '../screens/CreatePost';
 import TransactionScreen from '../screens/TransactionScreen';
 import TransactionDetailsScreen from '../screens/TransactionDetailsScreen';
+import CommentSection from '../screens/CommentSection';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -65,6 +66,7 @@ const CommunityBoardStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="CommunityBoard" component={CommunityBoard} />
     <Stack.Screen name="CreatePost" component={CreatePost} />
+    <Stack.Screen name="CommentSection" component={CommentSection} />
   </Stack.Navigator>
 );
 

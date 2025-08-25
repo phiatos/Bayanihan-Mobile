@@ -181,7 +181,7 @@ export default StyleSheet.create({
   },
   progressContainer: {
     padding: 10,
-    backgroundColor: Theme.colors.white,
+    backgroundColor:'transparent',
     alignItems: 'center',
   },
   progressBarBackground: {
@@ -202,4 +202,32 @@ export default StyleSheet.create({
     fontSize: 14,
     color: Theme.colors.black,
   },
+
+  readOnlyLabel: {
+  fontFamily: 'Poppins_SemiBold',
+  fontSize: 20,
+  color: Theme.colors.grey,
+  marginTop: 12,
+    marginLeft: 15
+},
+readOnlyText: {
+  fontFamily: 'Poppins_Regular',
+  fontSize: 14,
+  color: Theme.colors.black,
+  marginTop: 4,
+  backgroundColor: Theme.colors.lightGrey,
+  borderRadius: 8,
+  marginLeft: 15
+
+},
+sharedInfo: {
+  fontFamily: 'Poppins_Regular',
+  fontSize: 12,
+  color: Theme.colors.accent,
+  marginBottom: 12,
+  marginLeft: 15
+},
+navButtonDisabled: {
+  opacity: 0.5,
+},
 });

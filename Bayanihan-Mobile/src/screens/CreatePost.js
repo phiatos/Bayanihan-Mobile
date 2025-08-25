@@ -22,15 +22,16 @@ import { Ionicons } from '@expo/vector-icons';
 const CreatePost = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { postType: initialPostType, postId, initialData } = route.params || {};
-  console.log('CreatePost received params:', { postType: initialPostType, postId, initialData });
-
+  const { postType: initialPostType, postId, initialData, isShared } = route.params || {};
+  console.log('CreatePost received params:', { postType: initialPostType, postId, initialData, isShared });
+  const [inputHeight, setInputHeight] = useState(0);
   const [title, setTitle] = useState(initialData?.title || '');
   const [content, setContent] = useState(initialData?.content || '');
   const [category, setCategory] = useState(initialData?.category || '');
+  const [shareCaption, setShareCaption] = useState(initialData?.shareCaption || '');
   const [media, setMedia] = useState(() => {
     console.log('Initializing media state with initialData:', initialData);
-    if (initialData?.mediaType === 'image') {
+    if (!isShared && initialData?.mediaType === 'image') {
       const mediaItems = [];
       if (initialData?.mediaUrls && initialData.mediaUrls.length > 0) {
         mediaItems.push(...initialData.mediaUrls.map(url => ({
@@ -47,7 +48,7 @@ const CreatePost = () => {
       }
       console.log('Image media initialized:', mediaItems);
       return mediaItems;
-    } else if (initialData?.mediaType === 'video' && initialData?.mediaUrl) {
+    } else if (!isShared && initialData?.mediaType === 'video' && initialData?.mediaUrl) {
       const videoMedia = [{
         uri: initialData.mediaUrl,
         name: initialData.mediaUrl.split('/').pop() || 'video.mp4',
@@ -66,10 +67,12 @@ const CreatePost = () => {
   const playerRef = useRef(null);
 
   const player = useVideoPlayer(
-    media.length > 0 && postType === 'video' && media[0].uri && media[0].uri.startsWith('https://') ? { uri: media[0].uri } : null,
+    isShared && initialData?.originalMediaType === 'video' && initialData?.originalMediaUrl && initialData.originalMediaUrl.startsWith('https://')
+      ? { uri: initialData.originalMediaUrl }
+      : (!isShared && media.length > 0 && postType === 'video' && media[0].uri && media[0].uri.startsWith('https://') ? { uri: media[0].uri } : null),
     (player) => {
       playerRef.current = player;
-      console.log('Video player initialized for:', media[0]?.uri);
+      console.log('Video player initialized for:', isShared ? initialData?.originalMediaUrl : media[0]?.uri);
     }
   );
 
@@ -113,6 +116,7 @@ const CreatePost = () => {
           playerRef.current.pause();
           console.log('Video player paused during cleanup');
         } catch (error) {
+          console.error('Error pausing video player during cleanup:', error);
         }
       }
     };
@@ -135,6 +139,11 @@ const CreatePost = () => {
   };
 
   const pickMedia = async () => {
+    if (isShared) {
+      console.log('Media upload disabled for shared posts');
+      ToastAndroid.show('Media uploads are not allowed for shared posts.', ToastAndroid.SHORT);
+      return;
+    }
     try {
       console.log('Picking media for postType:', postType);
       if (postType === 'image') {
@@ -418,16 +427,21 @@ const CreatePost = () => {
   };
 
   const handleSubmit = async () => {
-    console.log('handleSubmit called with:', { postType, title, content, category, mediaLength: media.length, link });
-    if (!title.trim() && !content.trim() && !category && media.length === 0 && !link.trim()) {
+    console.log('handleSubmit called with:', { postType, title, content, category, mediaLength: media.length, link, isShared, shareCaption });
+    if (isShared) {
+      if (!shareCaption.trim()) {
+        ToastAndroid.show('Please provide a caption for the shared post.', ToastAndroid.SHORT);
+        return;
+      }
+    } else if (!title.trim() && !content.trim() && !category && media.length === 0 && !link.trim()) {
       ToastAndroid.show('Please fill at least one field (title, content, media, or link).', ToastAndroid.SHORT);
       return;
     }
-    if ((postType === 'image' || postType === 'video') && media.length === 0 && !initialData?.mediaUrls && !initialData?.mediaUrl) {
+    if (!isShared && (postType === 'image' || postType === 'video') && media.length === 0 && !initialData?.mediaUrls && !initialData?.mediaUrl) {
       ToastAndroid.show(`Please select ${postType === 'image' ? 'image(s)' : 'a video'}.`, ToastAndroid.SHORT);
       return;
     }
-    if (postType === 'link' && (!link.trim() || !/^https?:\/\//.test(link))) {
+    if (!isShared && postType === 'link' && (!link.trim() || !/^https?:\/\//.test(link))) {
       ToastAndroid.show('Please provide a valid URL starting with http:// or https://.', ToastAndroid.SHORT);
       return;
     }
@@ -450,69 +464,93 @@ const CreatePost = () => {
       const organization = userData.organization || '';
       console.log('User data:', { userName, organization });
 
-      const postData = {
-        title: title.trim(),
-        content: content.trim(),
-        category,
-        userName,
-        organization,
-        timestamp: serverTimestamp(),
-        userId: auth.currentUser.uid,
-        mediaType: postType,
-      };
+      let postData;
+      if (isShared) {
+        postData = {
+          userId: auth.currentUser.uid,
+          userName,
+          organization,
+          timestamp: serverTimestamp(),
+          isShared: true,
+          shareCaption: shareCaption.trim(),
+          originalTitle: initialData.originalTitle || '',
+          originalContent: initialData.originalContent || '',
+          originalCategory: initialData.originalCategory || '',
+          originalMediaUrl: initialData.originalMediaUrl || '',
+          originalMediaUrls: initialData.originalMediaUrls || [],
+          originalMediaType: initialData.originalMediaType || 'text',
+          originalThumbnailUrl: initialData.originalThumbnailUrl || '',
+          originalUserId: initialData.originalUserId || '',
+          originalUserName: initialData.originalUserName || 'Anonymous',
+          originalOrganization: initialData.originalOrganization || '',
+          originalTimestamp: initialData.originalTimestamp || 0,
+          mediaType: 'text',
+        };
+      } else {
+        postData = {
+          title: title.trim(),
+          content: content.trim(),
+          category,
+          userName,
+          organization,
+          timestamp: serverTimestamp(),
+          userId: auth.currentUser.uid,
+          mediaType: postType,
+        };
 
-      // Clear media references if no media is present
-      if (postType === 'image' && media.length === 0) {
-        postData.mediaUrls = [];
-        console.log('Cleared mediaUrls for image post');
-      }
-      if (postType === 'video' && media.length === 0) {
-        postData.mediaUrl = '';
-        postData.thumbnailUrl = '';
-        console.log('Cleared mediaUrl and thumbnailUrl for video post');
-      }
-
-      console.log('Attempting to upload media for postType:', postType);
-      if (postType === 'image' && media.length > 0) {
-        postData.mediaUrls = [];
-        for (const file of media) {
-          if (file.uri.startsWith('https://')) {
-            postData.mediaUrls.push(file.uri);
-            continue;
-          }
-          const imagePath = `image_posts/${auth.currentUser.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-          console.log('Uploading image to:', imagePath);
-          const downloadURL = await uploadMedia(file, imagePath);
-          postData.mediaUrls.push(downloadURL);
+        // Clear media references if no media is present
+        if (postType === 'image' && media.length === 0) {
+          postData.mediaUrls = [];
+          console.log('Cleared mediaUrls for image post');
         }
-      }
-
-      if (postType === 'video' && media.length > 0) {
-        const file = media[0];
-        if (!file.uri.startsWith('https://')) {
-          const mediaPath = `video_posts/${auth.currentUser.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-          console.log('Uploading video to:', mediaPath);
-          const downloadURL = await uploadMedia(file, mediaPath);
-          postData.mediaUrl = downloadURL;
-          if (file.thumbnailUri && !file.thumbnailUri.startsWith('https://')) {
-            const thumbnailPath = `video_posts/${auth.currentUser.uid}/thumbnails/${Date.now()}_thumbnail.jpg`;
-            console.log('Uploading thumbnail to:', thumbnailPath);
-            const thumbnailURL = await uploadMedia(
-              { uri: file.thumbnailUri, name: 'thumbnail.jpg', mimeType: 'image/jpeg' },
-              thumbnailPath
-            );
-            postData.thumbnailUrl = thumbnailURL;
-          } else if (file.thumbnailUri) {
-            postData.thumbnailUrl = file.thumbnailUri;
-          }
-        } else {
-          postData.mediaUrl = file.uri;
-          postData.thumbnailUrl = file.thumbnailUri || '';
+        if (postType === 'video' && media.length === 0) {
+          postData.mediaUrl = '';
+          postData.thumbnailUrl = '';
+          console.log('Cleared mediaUrl and thumbnailUrl for video post');
         }
-      }
 
-      if (postType === 'link') {
-        postData.mediaUrl = link.trim();
+        console.log('Attempting to upload media for postType:', postType);
+        if (postType === 'image' && media.length > 0) {
+          postData.mediaUrls = [];
+          for (const file of media) {
+            if (file.uri.startsWith('https://')) {
+              postData.mediaUrls.push(file.uri);
+              continue;
+            }
+            const imagePath = `image_posts/${auth.currentUser.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            console.log('Uploading image to:', imagePath);
+            const downloadURL = await uploadMedia(file, imagePath);
+            postData.mediaUrls.push(downloadURL);
+          }
+        }
+
+        if (postType === 'video' && media.length > 0) {
+          const file = media[0];
+          if (!file.uri.startsWith('https://')) {
+            const mediaPath = `video_posts/${auth.currentUser.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            console.log('Uploading video to:', mediaPath);
+            const downloadURL = await uploadMedia(file, mediaPath);
+            postData.mediaUrl = downloadURL;
+            if (file.thumbnailUri && !file.thumbnailUri.startsWith('https://')) {
+              const thumbnailPath = `video_posts/${auth.currentUser.uid}/thumbnails/${Date.now()}_thumbnail.jpg`;
+              console.log('Uploading thumbnail to:', thumbnailPath);
+              const thumbnailURL = await uploadMedia(
+                { uri: file.thumbnailUri, name: 'thumbnail.jpg', mimeType: 'image/jpeg' },
+                thumbnailPath
+              );
+              postData.thumbnailUrl = thumbnailURL;
+            } else if (file.thumbnailUri) {
+              postData.thumbnailUrl = file.thumbnailUri;
+            }
+          } else {
+            postData.mediaUrl = file.uri;
+            postData.thumbnailUrl = file.thumbnailUri || '';
+          }
+        }
+
+        if (postType === 'link') {
+          postData.mediaUrl = link.trim();
+        }
       }
 
       if (postId) {
@@ -527,7 +565,7 @@ const CreatePost = () => {
         const newPostRef = push(postsRef);
         const submissionId = newPostRef.key;
         await set(newPostRef, postData);
-        await logActivity(`Created a new post in ${category}`, submissionId);
+        await logActivity(`Created a new post in ${postData.category || 'shared post'}`, submissionId);
         await logSubmission('posts/submitted', postData, submissionId);
         console.log(`Post ${submissionId} created in posts/submitted with data:`, postData);
         ToastAndroid.show('Post created successfully.', ToastAndroid.SHORT);
@@ -544,6 +582,11 @@ const CreatePost = () => {
   };
 
   const handlePostTypeChange = (newPostType) => {
+    if (isShared) {
+      console.log('Post type change disabled for shared posts');
+      ToastAndroid.show('Post type cannot be changed for shared posts.', ToastAndroid.SHORT);
+      return;
+    }
     console.log('Changing post type to:', newPostType);
     setPostType(newPostType);
     setMedia([]);
@@ -571,9 +614,6 @@ const CreatePost = () => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={GlobalStyles.headerMenuIcon}>
             <Ionicons name="arrow-back" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          {/* <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.white }]}>
-            {postId ? 'Edit Post' : 'Create Post'}
-          </Text> */}
           <TouchableOpacity
             style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
             onPress={handleSubmit}
@@ -592,116 +632,172 @@ const CreatePost = () => {
         keyboardVerticalOffset={0}
       >
         <ScrollView contentContainerStyle={styles.scrollViewContent}>
-          <View style={styles.formContainer}>
-            <View style={styles.categoryPicker}>
-              <Picker
-                selectedValue={category}
-                onValueChange={(itemValue) => setCategory(itemValue)}
-                style={styles.picker}
-              >
-                {categories.map((cat) => (
-                  <Picker.Item
-                    key={cat.value}
-                    label={cat.label}
-                    value={cat.value}
-                    style={styles.pickerItems}
-                    enabled={!cat.disabled}
-                  />
-                ))}
-              </Picker>
-            </View>
-            <TextInput
-              style={[styles.input, { fontSize: 20, fontFamily: 'Poppins_SemiBold' }]}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="Title"
-              placeholderTextColor={Theme.colors.placeholder}
-            />
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={content}
-              onChangeText={setContent}
-              placeholder="What's on your mind?"
-              placeholderTextColor={Theme.colors.placeholder}
-              multiline
-              numberOfLines={4}
-            />
-
-            {(postType === 'image' || postType === 'video') && (
-              <View style={styles.mediaContainer}>
-                <Text style={styles.label}>{postType === 'video' ? 'Video' : 'Image(s)'}</Text>
-                {postType === 'image' && media.length === 0 && (
-                  <TouchableOpacity style={styles.imageUpload} onPress={pickMedia}>
-                    <Text style={styles.imageUploadText}>Select Images</Text>
-                  </TouchableOpacity>
+          <View style={[styles.formContainer, {marginBottom: 50}]}>
+            {isShared ? (
+              <>
+                <Text style={styles.sharedInfo}>
+                  Sharing post from {initialData?.originalUserName || 'Anonymous'} ({initialData?.originalOrganization || 'No organization'})
+                </Text>
+                <TextInput
+                  style={[styles.textArea, { height: Math.max(40, inputHeight), marginLeft: 10 }]} 
+                  value={shareCaption}
+                  onChangeText={setShareCaption}
+                  placeholder="Add a caption for your shared post"
+                  placeholderTextColor={Theme.colors.placeholder}
+                  multiline
+                  maxLength={500}
+                  onContentSizeChange={(event) =>
+                    setInputHeight(event.nativeEvent.contentSize.height)
+                  }/>
+                <Text style={styles.readOnlyLabel}>{initialData?.originalTitle || 'No title'}</Text>
+                <Text style={styles.readOnlyText}>{initialData?.originalContent || 'No content'}</Text>
+                {initialData?.originalMediaType === 'image' && (initialData?.originalMediaUrl || (initialData?.originalMediaUrls && initialData.originalMediaUrls.length > 0)) && (
+                  <View style={styles.mediaPreviewContainer}>
+                    {(initialData.originalMediaUrls || [initialData.originalMediaUrl]).filter(url => url).map((url, index) => (
+                      <Image
+                        key={index}
+                        source={{ uri: url }}
+                        style={styles.thumbnailPreview}
+                        resizeMode="contain"
+                        onError={(error) => {
+                          console.error(`Image load error for shared post, url ${url}:`, error.nativeEvent);
+                          ToastAndroid.show('Failed to load image.', ToastAndroid.SHORT);
+                        }}
+                      />
+                    ))}
+                  </View>
                 )}
-                {postType === 'video' && (
-                  <TouchableOpacity style={styles.imageUpload} onPress={pickMedia}>
-                    <Text style={styles.imageUploadText}>
-                      {media.length > 0 ? 'Replace Video' : 'Select Video'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {media.length > 0 && postType === 'video' && media[0].uri && (
+                {initialData?.originalMediaType === 'video' && initialData?.originalMediaUrl && (
                   <View style={styles.mediaPreview}>
                     <VideoView
                       player={player}
                       style={styles.videoPreview}
                       contentFit="contain"
                       nativeControls
-                      posterSource={media[0].thumbnailUri ? { uri: media[0].thumbnailUri } : undefined}
+                      posterSource={initialData.originalThumbnailUrl ? { uri: initialData.originalThumbnailUrl } : undefined}
                       onError={(error) => {
-                        console.error('Video playback error:', error);
-                        Alert.alert('Error', 'Failed to play video.');
+                        console.error('Video playback error for shared post:', error);
+                        ToastAndroid.show('Failed to play video.', ToastAndroid.SHORT);
                       }}
-                      onLoad={() => console.log('Video preview loaded for:', media[0].uri)}
+                      onLoad={() => console.log('Video preview loaded for shared post:', initialData.originalMediaUrl)}
                     />
-                    <TouchableOpacity
-                      style={styles.removeButton}
-                      onPress={() => removeMedia(0)}
-                    >
-                      <Ionicons name="trash-outline" size={20} color={Theme.colors.white} />
-                    </TouchableOpacity>
                   </View>
                 )}
-                {media.length > 0 && postType === 'image' && (
-                  <View style={styles.mediaPreviewContainer}>
-                    {media.map((item, index) => (
-                      <View key={index} style={styles.mediaPreview}>
-                        <Image
-                          source={{ uri: item.uri }}
-                          style={styles.thumbnailPreview}
-                          resizeMode="contain"
+                {initialData?.originalMediaType === 'link' && initialData?.originalMediaUrl && (
+                  <Text style={styles.readOnlyText}>{initialData.originalMediaUrl}</Text>
+                )}
+              </>
+            ) : (
+              <>
+                <View style={styles.categoryPicker}>
+                  <Picker
+                    selectedValue={category}
+                    onValueChange={(itemValue) => setCategory(itemValue)}
+                    style={styles.picker}
+                  >
+                    {categories.map((cat) => (
+                      <Picker.Item
+                        key={cat.value}
+                        label={cat.label}
+                        value={cat.value}
+                        style={styles.pickerItems}
+                        enabled={!cat.disabled}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+                <TextInput
+                  style={[styles.input, { fontSize: 20, fontFamily: 'Poppins_SemiBold' }]}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="Title"
+                  placeholderTextColor={Theme.colors.placeholder}
+                />
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={content}
+                  onChangeText={setContent}
+                  placeholder="What's on your mind?"
+                  placeholderTextColor={Theme.colors.placeholder}
+                  multiline
+                  numberOfLines={4}
+                />
+                {(postType === 'image' || postType === 'video') && (
+                  <View style={styles.mediaContainer}>
+                    <Text style={styles.label}>{postType === 'video' ? 'Video' : 'Image(s)'}</Text>
+                    {postType === 'image' && media.length === 0 && (
+                      <TouchableOpacity style={styles.imageUpload} onPress={pickMedia}>
+                        <Text style={styles.imageUploadText}>Select Images</Text>
+                      </TouchableOpacity>
+                    )}
+                    {postType === 'video' && (
+                      <TouchableOpacity style={styles.imageUpload} onPress={pickMedia}>
+                        <Text style={styles.imageUploadText}>
+                          {media.length > 0 ? 'Replace Video' : 'Select Video'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {media.length > 0 && postType === 'video' && media[0].uri && (
+                      <View style={styles.mediaPreview}>
+                        <VideoView
+                          player={player}
+                          style={styles.videoPreview}
+                          contentFit="contain"
+                          nativeControls
+                          posterSource={media[0].thumbnailUri ? { uri: media[0].thumbnailUri } : undefined}
                           onError={(error) => {
-                            console.error(`Image preview error for ${item.name}:`, error.nativeEvent);
-                            Alert.alert('Error', `Failed to load image: ${item.name}`);
+                            console.error('Video playback error:', error);
+                            Alert.alert('Error', 'Failed to play video.');
                           }}
+                          onLoad={() => console.log('Video preview loaded for:', media[0].uri)}
                         />
                         <TouchableOpacity
                           style={styles.removeButton}
-                          onPress={() => removeMedia(index)}
+                          onPress={() => removeMedia(0)}
                         >
                           <Ionicons name="trash-outline" size={20} color={Theme.colors.white} />
                         </TouchableOpacity>
                       </View>
-                    ))}
+                    )}
+                    {media.length > 0 && postType === 'image' && (
+                      <View style={styles.mediaPreviewContainer}>
+                        {media.map((item, index) => (
+                          <View key={index} style={styles.mediaPreview}>
+                            <Image
+                              source={{ uri: item.uri }}
+                              style={styles.thumbnailPreview}
+                              resizeMode="contain"
+                              onError={(error) => {
+                                console.error(`Image preview error for ${item.name}:`, error.nativeEvent);
+                                Alert.alert('Error', `Failed to load image: ${item.name}`);
+                              }}
+                            />
+                            <TouchableOpacity
+                              style={styles.removeButton}
+                              onPress={() => removeMedia(index)}
+                            >
+                              <Ionicons name="trash-outline" size={20} color={Theme.colors.white} />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 )}
-              </View>
-            )}
-
-            {postType === 'link' && (
-              <View style={styles.mediaContainer}>
-                <Text style={styles.label}>Link URL</Text>
-                <TextInput
-                  style={styles.inputLink}
-                  value={link}
-                  onChangeText={setLink}
-                  placeholder="Enter URL (e.g., https://example.com)"
-                  placeholderTextColor={Theme.colors.placeholder}
-                  keyboardType="url"
-                />
-              </View>
+                {postType === 'link' && (
+                  <View style={styles.mediaContainer}>
+                    <Text style={styles.label}>Link URL</Text>
+                    <TextInput
+                      style={styles.inputLink}
+                      value={link}
+                      onChangeText={setLink}
+                      placeholder="Enter URL (e.g., https://example.com)"
+                      placeholderTextColor={Theme.colors.placeholder}
+                      keyboardType="url"
+                    />
+                  </View>
+                )}
+              </>
             )}
           </View>
         </ScrollView>
@@ -730,8 +826,10 @@ const CreatePost = () => {
             style={[
               styles.navButton,
               postType === item.type && styles.navButtonActive,
+              isShared && styles.navButtonDisabled,
             ]}
             onPress={() => handlePostTypeChange(item.type)}
+            disabled={isShared}
           >
             <Ionicons
               name={item.icon}

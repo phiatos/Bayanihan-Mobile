@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, StatusBar, ToastAndroid, Linking, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, ToastAndroid, Linking } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref, onValue, query, orderByChild, remove, set, serverTimestamp } from 'firebase/database';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -250,10 +250,9 @@ const CommunityBoard = () => {
           onPress: async () => {
             try {
               const deletedPostRef = ref(database, `posts/deleted/${user.uid}/${postId}`);
-              const submittedPostRef = ref(database, `posts/submitted/${postId}`);
               await set(deletedPostRef, { ...postData, deletedAt: serverTimestamp() });
               console.log(`Post ${postId} copied to posts/deleted/${user.uid}/${postId}`);
-              await remove(submittedPostRef);
+              await remove(ref(database, `posts/submitted/${postId}`));
               console.log(`Post ${postId} removed from posts/submitted`);
               ToastAndroid.show('Post moved to deleted posts.', ToastAndroid.BOTTOM);
             } catch (error) {
@@ -298,6 +297,39 @@ const CommunityBoard = () => {
     }
   };
 
+  const handleSharePost = (post) => {
+    if (!user) {
+      ToastAndroid.show('Please log in to share a post.', ToastAndroid.BOTTOM);
+      navigation.navigate('Login');
+      return;
+    }
+    if (!post || !post.id) {
+      console.error('Invalid postData for sharing:', { post });
+      ToastAndroid.show('Invalid post data.', ToastAndroid.BOTTOM);
+      return;
+    }
+
+    const shareData = {
+      title: post.title || '',
+      content: post.content || '',
+      category: post.category || '',
+      mediaUrl: post.mediaUrl || '',
+      mediaUrls: post.mediaUrls || [],
+      mediaType: post.mediaType || 'text',
+      thumbnailUrl: post.thumbnailUrl || '',
+      originalUserId: post.userId,
+      originalUserName: post.userName || 'Anonymous',
+      originalOrganization: post.organization || '',
+      isShared: true,
+    };
+    console.log(`Navigating to CreatePost for sharing post ${post.id}:`, shareData);
+    navigation.navigate('CreatePost', {
+      postType: post.mediaType || 'text',
+      postId: null, // New post, not editing
+      initialData: shareData,
+    });
+  };
+
   const isEditable = (post) => {
     if (!post || !user) {
       console.log('Post or user is null, not editable:', { postId: post?.id, userId: user?.uid });
@@ -312,7 +344,7 @@ const CommunityBoard = () => {
     return editable;
   };
 
-  const renderPost = ({ item }) => {
+  const renderPost = useCallback(({ item }) => {
     if (!item) {
       console.error('Invalid post item');
       return null;
@@ -322,16 +354,7 @@ const CommunityBoard = () => {
       console.error(`VideoView or useVideoPlayer is undefined for post: ${item.id}. Ensure expo-video is installed correctly.`);
       return (
         <View style={styles.postContainer}>
-          <View style={styles.postHeader}>
-            <View>
-              <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
-              <Text style={styles.postMeta}>
-                {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
-              </Text>
-              {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
-              {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
-            </View>
-            {item.userId === user?.uid && isEditable(item) && (
+          {item.userId === user?.uid && isEditable(item) && (
               <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
                 <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
                   <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
@@ -360,12 +383,22 @@ const CommunityBoard = () => {
                 </MenuOptions>
               </Menu>
             )}
+          <View style={styles.postHeader}>
+            <View>
+              <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
+              <Text style={styles.postMeta}>
+                {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
+              </Text>
+              {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
+              {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
+            </View>
+            
           </View>
           {item.title && <Text style={styles.postTitle}>{item.title}</Text>}
           {item.content && <Text style={styles.postContent}>{item.content}</Text>}
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Video Unavailable</Text>
-            <Text style={styles.errorSubText}>Please ensure expo-video is installed correctly (run `npx expo install expo-video`) or try viewing on another device.</Text>
+            <Text style={styles.errorSubText}>Error</Text>
             {item.thumbnailUrl && (
               <Image
                 source={{ uri: item.thumbnailUrl }}
@@ -375,51 +408,69 @@ const CommunityBoard = () => {
               />
             )}
           </View>
+          <View style={styles.postActions}>
+            <TouchableOpacity
+              style={styles.postbuttons}
+              onPress={() => navigation.navigate('CommentSection', { postId: item.id, postData: item })}
+            >
+              <Ionicons name="chatbubble-outline" size={20} color={Theme.colors.accentBlue} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.postbuttons}
+              onPress={() => handleSharePost(item)}
+            >
+              <Ionicons name="share-outline" size={20} color={Theme.colors.accentBlue} />
+            </TouchableOpacity>
+          </View>
         </View>
       );
     }
 
     return (
       <View style={styles.postContainer}>
-        <View style={styles.postHeader}>
-          <View>
-            <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
-            <Text style={styles.postMeta}>
-              {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
-            </Text>
-            {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
-            {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
-          </View>
-          {item.userId === user?.uid && isEditable(item) && (
-            <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
-              <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
-                <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
-              </MenuTrigger>
-              <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
-                <MenuOption
-                  onSelect={() => {
-                    console.log('Edit post clicked for:', item.id);
-                    handleEditPost(item);
-                  }}
-                  text="Edit Post"
-                  customStyles={{
-                    optionText: styles.menuText,
-                  }}
-                />
-                <MenuOption
-                  onSelect={() => {
-                    console.log('Delete post clicked for:', item.id);
-                    handleDeletePost(item.id, item);
-                  }}
-                  text="Delete Post"
-                  customStyles={{
-                    optionText: [styles.menuText, { color: 'red' }],
-                  }}
-                />
-              </MenuOptions>
-            </Menu>
-          )}
+        <View style={[styles.postHeader, { flexDirection: "row", alignItems: "center", justifyContent: "space-between",}]}>
+        {/* Left side: user info */}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
+          <Text style={styles.postMeta}>
+            {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
+          </Text>
+          {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
+          {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
         </View>
+
+        {/* Right side: menu */}
+        {item.userId === user?.uid && isEditable(item) && (
+          <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
+            <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
+              <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
+            </MenuTrigger>
+            <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
+              <MenuOption
+                onSelect={() => {
+                  console.log('Edit post clicked for:', item.id);
+                  handleEditPost(item);
+                }}
+                text="Edit Post"
+                customStyles={{
+                  optionText: styles.menuText,
+                }}
+              />
+              <MenuOption
+                onSelect={() => {
+                  console.log('Delete post clicked for:', item.id);
+                  handleDeletePost(item.id, item);
+                }}
+                text="Delete Post"
+                customStyles={{
+                  optionText: [styles.menuText, { color: 'red' }],
+                }}
+              />
+            </MenuOptions>
+          </Menu>
+        )}
+      </View>
+
         {item.title && <Text style={styles.postTitle}>{item.title}</Text>}
         {item.content && <Text style={styles.postContent}>{item.content}</Text>}
         {item.mediaUrl && item.mediaType === 'image' && (
@@ -452,9 +503,23 @@ const CommunityBoard = () => {
             <Text style={styles.linkText}>{item.mediaUrl}</Text>
           </TouchableOpacity>
         )}
+        <View style={styles.postActions}>
+          <TouchableOpacity
+            style={styles.postbuttons}
+            onPress={() => navigation.navigate('CommentSection', { postId: item.id, postData: item })}
+          >
+            <Ionicons name="chatbubble-outline" size={20} color={Theme.colors.accentBlue} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.postbuttons}
+            onPress={() => handleSharePost(item)}
+          >
+            <Ionicons name="share-outline" size={20} color={Theme.colors.accentBlue} />
+          </TouchableOpacity>
+        </View>
       </View>
     );
-  };
+  }, [user, navigation]);
 
   const actions = [
     { type: 'text', color: Theme.colors.lightBlue, emoji: 'text-outline', border: Theme.colors.accentBlue, action: () => navigation.navigate('CreatePost', { postType: 'text' }) },
@@ -519,7 +584,17 @@ const CommunityBoard = () => {
                 style={styles.picker}
               >
                 {categories.map((category) => (
-                  <Picker.Item key={category.value} label={category.label} value={category.value} style={styles.pickerItems} />
+                  <Picker.Item
+                    key={category.value}
+                    label={category.label}
+                    value={category.value}
+                    style={{
+                      fontFamily: 'Poppins_Regular',
+                      fontSize: 13,
+                      color: Theme.colors.black,
+                      textAlign: 'center',
+                    }}
+                  />
                 ))}
               </Picker>
             </View>

@@ -180,6 +180,110 @@ export default StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.large,
   },
+    actionButtonContainer: {
+    position: 'absolute',
+    bottom: spacing.large,
+    right: spacing.large,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+
+  postbuttons: {
+    borderRadius: 100,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: spacing.xsmall,
+    borderWidth: 2,
+    borderColor: 'transparent', // Fix: Remove weird border color
+    zIndex: 25,
+  },
+  emptyText: {
+    fontFamily: 'Poppins_Regular',
+    color: Theme.colors.black,
+    textAlign: 'center',
+    marginTop: spacing.large,
+  },
+  postActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: spacing.small,
+    gap: spacing.medium,
+  },
+  commentSection: {
+    flex: 1,
+    paddingHorizontal: spacing.medium,
+    marginTop: spacing.small,
+  },
+  commentInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.medium,
+  },
+  commentInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Theme.colors.grey,
+    borderRadius: borderRadius.xlarge,
+    padding: spacing.small,
+    fontFamily: 'Poppins_Regular',
+    fontSize: 14,
+    backgroundColor: Theme.colors.white,
+  },
+  commentButton: {
+    marginLeft: spacing.small,
+    padding: spacing.small,
+    borderRadius: borderRadius.xlarge,
+    backgroundColor: Theme.colors.lightGrey,
+  },
+  commentButtonActive: {
+    backgroundColor: Theme.colors.lightBlue,
+  },
+  commentContainer: {
+    marginBottom: spacing.small,
+    padding: spacing.small,
+    backgroundColor: Theme.colors.white,
+    borderRadius: borderRadius.medium,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  commentUser: {
+    fontFamily: 'Poppins_SemiBold',
+    fontSize: 14,
+    color: Theme.colors.black,
+  },
+  commentMeta: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 12,
+    color: Theme.colors.grey,
+  },
+  commentContent: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 14,
+    color: Theme.colors.black,
+    marginTop: spacing.xsmall,
+  },
+  commentList: {
+    flexGrow: 1,
+  },
+  emptyCommentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.xlarge * 3, // Center vertically
+  },
+  emptyCommentText: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 16,
+    color: Theme.colors.grey,
+    textAlign: 'center',
+    marginTop: spacing.medium,
+  },
 
   // Modal
   menuContainer: {
