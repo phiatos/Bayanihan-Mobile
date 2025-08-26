@@ -310,23 +310,25 @@ const CommunityBoard = () => {
     }
 
     const shareData = {
-      title: post.title || '',
-      content: post.content || '',
-      category: post.category || '',
-      mediaUrl: post.mediaUrl || '',
-      mediaUrls: post.mediaUrls || [],
-      mediaType: post.mediaType || 'text',
-      thumbnailUrl: post.thumbnailUrl || '',
+      originalTitle: post.title || '',
+      originalContent: post.content || '',
+      originalCategory: post.category || '',
+      originalMediaUrl: post.mediaUrl || '',
+      originalMediaUrls: post.mediaUrls || [],
+      originalMediaType: post.mediaType || 'text',
+      originalThumbnailUrl: post.thumbnailUrl || '',
       originalUserId: post.userId,
       originalUserName: post.userName || 'Anonymous',
       originalOrganization: post.organization || '',
+      originalTimestamp: post.timestamp || 0,
       isShared: true,
     };
     console.log(`Navigating to CreatePost for sharing post ${post.id}:`, shareData);
     navigation.navigate('CreatePost', {
-      postType: post.mediaType || 'text',
+      postType: 'text', // Shared posts are treated as text posts with a caption
       postId: null, // New post, not editing
       initialData: shareData,
+      isShared: true,
     });
   };
 
@@ -428,49 +430,45 @@ const CommunityBoard = () => {
 
     return (
       <View style={styles.postContainer}>
-        <View style={[styles.postHeader, { flexDirection: "row", alignItems: "center", justifyContent: "space-between",}]}>
-        {/* Left side: user info */}
-        <View style={{ flex: 1 }}>
-          <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
-          <Text style={styles.postMeta}>
-            {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
-          </Text>
-          {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
-          {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
-        </View>
-
-        {/* Right side: menu */}
-        {item.userId === user?.uid && isEditable(item) && (
-          <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
-            <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
-              <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
-            </MenuTrigger>
-            <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
-              <MenuOption
-                onSelect={() => {
-                  console.log('Edit post clicked for:', item.id);
-                  handleEditPost(item);
-                }}
-                text="Edit Post"
-                customStyles={{
-                  optionText: styles.menuText,
-                }}
-              />
-              <MenuOption
-                onSelect={() => {
-                  console.log('Delete post clicked for:', item.id);
-                  handleDeletePost(item.id, item);
-                }}
-                text="Delete Post"
-                customStyles={{
-                  optionText: [styles.menuText, { color: 'red' }],
-                }}
-              />
-            </MenuOptions>
-          </Menu>
-        )}
+        <View style={[styles.postHeader, {flexDirection: "row", alignItems: "center", justifyContent: "space-between",}]}>
+           <View style={{ flex: 1 }}>
+        <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
+        <Text style={styles.postMeta}>
+          {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
+        </Text>
+        {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
+        {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
       </View>
-
+          {item.userId === user?.uid && isEditable(item) && (
+            <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
+              <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
+                <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
+              </MenuTrigger>
+              <MenuOptions customStyles={{ optionsContainer: styles.menuContainer}}>
+                <MenuOption
+                  onSelect={() => {
+                    console.log('Edit post clicked for:', item.id);
+                    handleEditPost(item);
+                  }}
+                  text="Edit Post"
+                  customStyles={{
+                    optionText: styles.menuText,
+                  }}
+                />
+                <MenuOption
+                  onSelect={() => {
+                    console.log('Delete post clicked for:', item.id);
+                    handleDeletePost(item.id, item);
+                  }}
+                  text="Delete Post"
+                  customStyles={{
+                    optionText: [styles.menuText, { color: 'red' }],
+                  }}
+                />
+              </MenuOptions>
+            </Menu>
+          )}
+        </View>
         {item.title && <Text style={styles.postTitle}>{item.title}</Text>}
         {item.content && <Text style={styles.postContent}>{item.content}</Text>}
         {item.mediaUrl && item.mediaType === 'image' && (

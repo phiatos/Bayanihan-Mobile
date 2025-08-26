@@ -35,34 +35,32 @@ export default StyleSheet.create({
   sortButton: {
     padding: spacing.small,
     borderWidth: 1,
-    borderColor:Theme.colors.accent,
+    borderColor: Theme.colors.accent,
     borderRadius: borderRadius.medium,
     textAlign: 'center',
     elevation: 5,
-    backgroundColor: Theme.colors.lightBg
+    backgroundColor: Theme.colors.lightBg,
   },
   categoryPicker: {
     flex: 1,
     marginLeft: spacing.medium,
     borderWidth: 1,
-    borderColor: Theme.colors.accentBlue,
+    borderColor: Theme.colors.primary,
     borderRadius: borderRadius.medium,
     backgroundColor: Theme.colors.lightBg,
-    justifyContent: 'center', 
+    justifyContent: 'center',
     height: 40,
     elevation: 3,
   },
   picker: {
     textAlign: 'center',
     fontFamily: 'Poppins_Regular',
-    
   },
   pickerItems: {
     fontFamily: 'Poppins_Regular',
     fontSize: 13,
     color: Theme.colors.black,
     textAlign: 'center',
-    
   },
   postContainer: {
     backgroundColor: '#fff',
@@ -119,12 +117,16 @@ export default StyleSheet.create({
     marginBottom: spacing.medium,
   },
   menuContainer: {
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.medium,
-    padding: spacing.small,
-    marginBottom: spacing.medium,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    backgroundColor: Theme.colors.white,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    padding: 5,
+    minWidth: 150,
+    marginTop: 5,
   },
   menuItem: {
     padding: spacing.small,
@@ -133,6 +135,8 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_Regular',
     fontSize: 14,
     color: Theme.colors.black,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
   },
   floatingButtonContainer: {
     position: 'absolute',
@@ -180,14 +184,6 @@ export default StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.large,
   },
-    actionButtonContainer: {
-    position: 'absolute',
-    bottom: spacing.large,
-    right: spacing.large,
-    alignItems: 'center',
-    zIndex: 20,
-  },
-
   postbuttons: {
     borderRadius: 100,
     width: 40,
@@ -196,14 +192,8 @@ export default StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: spacing.xsmall,
     borderWidth: 2,
-    borderColor: 'transparent', // Fix: Remove weird border color
+    borderColor: 'transparent',
     zIndex: 25,
-  },
-  emptyText: {
-    fontFamily: 'Poppins_Regular',
-    color: Theme.colors.black,
-    textAlign: 'center',
-    marginTop: spacing.large,
   },
   postActions: {
     flexDirection: 'row',
@@ -275,7 +265,7 @@ export default StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.xlarge * 3, // Center vertically
+    marginTop: spacing.xlarge * 3,
   },
   emptyCommentText: {
     fontFamily: 'Poppins_Regular',
@@ -284,29 +274,8 @@ export default StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.medium,
   },
-
-  // Modal
-  menuContainer: {
-    backgroundColor: Theme.colors.white,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-    padding: 5,
-    minWidth: 150,
-    marginTop: 5, 
-  },
   menuTrigger: {
-    padding: 5, 
-  },
-  menuText: {
-    fontFamily: 'Poppins_Regular',
-    fontSize: 14,
-    color: Theme.colors.black,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+    padding: 5,
   },
   linkText: {
     fontFamily: 'Poppins_Regular',

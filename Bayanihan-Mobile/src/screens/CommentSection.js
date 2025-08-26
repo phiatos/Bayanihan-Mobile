@@ -17,8 +17,8 @@ const CommentSection = () => {
   const { postId, postData } = route.params || {};
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
-  const [replyInputVisible, setReplyInputVisible] = useState({});
-  const [replyText, setReplyText] = useState({});
+  const [replyToCommentId, setReplyToCommentId] = useState(null);
+  const [replyToUsername, setReplyToUsername] = useState(null);
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState({ contactPerson: 'Anonymous', organization: '' });
   const commentInputRef = useRef(null);
@@ -67,8 +67,9 @@ const CommentSection = () => {
       console.log(`CommentSection: Comments snapshot for post ${postId}:`, commentsData ? Object.keys(commentsData).length + ' comments' : 'no comments');
       if (commentsData) {
         const commentArray = Object.entries(commentsData).map(([id, comment]) => ({ id, ...comment }));
-        console.log('CommentSection: Comment array:', commentArray);
+        console.log('CommentSection: Raw comment array:', commentArray);
         const commentTree = buildCommentTree(commentArray);
+        console.log('CommentSection: Comment tree:', commentTree);
         setComments(commentTree);
       } else {
         setComments([]);
@@ -110,46 +111,63 @@ const CommentSection = () => {
   };
 
   const buildCommentTree = (comments) => {
+    console.log('CommentSection: Building comment tree with comments:', comments);
     const tree = [];
     const lookup = {};
 
+    // Initialize lookup with all comments
     comments.forEach((comment) => {
       lookup[comment.id] = { ...comment, replies: [] };
     });
 
-    comments.forEach((comment) => {
+    // Process each comment
+    comments.forEach((comment, index) => {
+      console.log(`CommentSection: Processing comment ${index + 1}:`, comment);
       if (comment.parentCommentId && lookup[comment.parentCommentId]) {
-        lookup[comment.parentCommentId].replies.push(lookup[comment.id]);
+        // Find the top-level parent for this comment
+        let parent = lookup[comment.parentCommentId];
+        while (parent.parentCommentId && lookup[parent.parentCommentId]) {
+          parent = lookup[parent.parentCommentId];
+        }
+        // Add as reply to the top-level parent
+        parent.replies.push(lookup[comment.id]);
+        console.log(`CommentSection: Added comment ${comment.id} as reply to top-level parent ${parent.id}`);
+      } else if (!comment.parentCommentId) {
+        tree.push(lookup[comment.id]);
+        console.log(`CommentSection: Added comment ${comment.id} to top-level tree`);
       } else {
+        console.log(`CommentSection: Comment ${comment.id} has invalid parentCommentId ${comment.parentCommentId}, treating as top-level`);
         tree.push(lookup[comment.id]);
       }
     });
 
-    tree.sort((a, b) => b.timestamp - a.timestamp);
+    // Sort top-level comments and replies
+    tree.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     Object.values(lookup).forEach((comment) => {
       if (comment.replies) {
-        comment.replies.sort((a, b) => b.timestamp - a.timestamp);
+        comment.replies.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
       }
     });
 
+    console.log('CommentSection: Final comment tree:', tree);
     return tree;
   };
 
-  const toggleReplyInput = (commentId) => {
-    setReplyInputVisible((prev) => ({
-      ...prev,
-      [commentId]: !prev[commentId],
-    }));
+  const handleReplyClick = (commentId, username) => {
+    setReplyToCommentId(commentId);
+    setReplyToUsername(username || 'Anonymous');
+    setNewComment(`@${username || 'Anonymous'} `);
+    commentInputRef.current?.focus();
   };
 
-  const handleAddComment = async (parentCommentId = null) => {
+  const handleAddComment = async () => {
     if (!user) {
       ToastAndroid.show('Please log in to comment.', ToastAndroid.BOTTOM);
       navigation.navigate('Login');
       return;
     }
 
-    const commentText = parentCommentId ? replyText[parentCommentId]?.trim() : newComment.trim();
+    const commentText = newComment.trim();
     if (!commentText) {
       ToastAndroid.show('Comment cannot be empty.', ToastAndroid.BOTTOM);
       return;
@@ -169,17 +187,14 @@ const CommentSection = () => {
         organization: userData.organization,
         content: commentText,
         timestamp: serverTimestamp(),
-        parentCommentId: parentCommentId || null,
+        parentCommentId: replyToCommentId || null,
       };
       await set(newCommentRef, commentData);
       console.log(`CommentSection: Comment added to post ${postId}:`, commentData);
-      if (parentCommentId) {
-        setReplyText((prev) => ({ ...prev, [parentCommentId]: '' }));
-        setReplyInputVisible((prev) => ({ ...prev, [parentCommentId]: false }));
-      } else {
-        setNewComment('');
-        commentInputRef.current?.clear();
-      }
+      setNewComment('');
+      setReplyToCommentId(null);
+      setReplyToUsername(null);
+      commentInputRef.current?.clear();
       ToastAndroid.show('Comment posted.', ToastAndroid.BOTTOM);
     } catch (error) {
       console.error(`CommentSection: Error adding comment to post ${postId}:`, error);
@@ -261,12 +276,28 @@ const CommentSection = () => {
     }
   };
 
-  const renderComment = ({ item, index }, level = 0) => {
+  const renderCommentContent = (content) => {
+    const usernameMatch = content.match(/^@([^\s]+)\s*/);
+    if (usernameMatch) {
+      const username = usernameMatch[0];
+      const restOfContent = content.slice(username.length);
+      return (
+        <Text style={styles.commentContent}>
+          <Text style={styles.usernameHighlight}>{username}</Text>
+          {restOfContent}
+        </Text>
+      );
+    }
+    return <Text style={styles.commentContent}>{content}</Text>;
+  };
+
+  const renderComment = ({ item }) => {
     if (!item) {
       console.error('CommentSection: Invalid comment item');
       return null;
     }
 
+    console.log('CommentSection: Rendering comment:', item);
     const canDelete = user && (item.userId === user.uid || postData?.userId === user.uid);
 
     return (
@@ -274,12 +305,12 @@ const CommentSection = () => {
         <View style={styles.commentHeader}>
           <View>
             <Text style={styles.commentUser}>{item.userName || 'Anonymous'}</Text>
-              <View style={{ flexDirection: 'row' }}>
-            <Text style={styles.commentMeta}>
-              {item.organization || 'No organization'} • 
-            </Text>
-            <Text style={styles.commentTime}>{item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Just now'}</Text>
-          </View>
+            <View style={{ flexDirection: 'row' }}>
+              <Text style={styles.commentMeta}>
+                {item.organization || 'No organization'} • 
+              </Text>
+              <Text style={styles.commentTime}>{item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Just now'}</Text>
+            </View>
           </View>
           {canDelete && (
             <Menu>
@@ -301,48 +332,63 @@ const CommentSection = () => {
             </Menu>
           )}
         </View>
-        <Text style={styles.commentContent}>{item.content || item.text || 'No content'}</Text>
+        {renderCommentContent(item.content || item.text || 'No content')}
         <View style={styles.commentActions}>
           <TouchableOpacity
             style={styles.replyButton}
-            onPress={() => toggleReplyInput(item.id)}
+            onPress={() => handleReplyClick(item.id, item.userName)}
           >
             <Ionicons name="chatbubbles-outline" size={20} color={Theme.colors.blue} />
             <Text style={styles.replyText}>Reply</Text>
           </TouchableOpacity>
         </View>
-        {replyInputVisible[item.id] && (
-          <View style={styles.replyContainer}>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.commentInput, { paddingRight: 40 }]}
-                placeholder="Add a reply..."
-                value={replyText[item.id] || ''}
-                onChangeText={(text) => setReplyText((prev) => ({ ...prev, [item.id]: text }))}
-                multiline
-                maxLength={500}
-              />
-              <TouchableOpacity
-                style={styles.inputSendButton}
-                onPress={() => handleAddComment(item.id)}
-                disabled={!replyText[item.id]?.trim()}
-              >
-                <Ionicons
-                  name="send"
-                  size={20}
-                  color={Theme.colors.primary}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
         {item.replies && item.replies.length > 0 && (
-          <FlatList
-            data={item.replies}
-            renderItem={(props) => renderComment(props, level + 1)}
-            keyExtractor={(item) => item.id}
-            style={styles.repliesContainer}
-          />
+          <View style={styles.repliesWrapper}>
+            {item.replies.map((reply) => (
+              <View key={reply.id} style={[styles.replyContainer, { marginLeft: 20, borderLeftWidth: 2, borderLeftColor: Theme.colors.primary, paddingLeft: 10 }]}>
+                <View style={styles.commentHeader}>
+                  <View>
+                    <Text style={styles.commentUser}>{reply.userName || 'Anonymous'}</Text>
+                    <View style={{ flexDirection: 'row' }}>
+                      <Text style={styles.commentMeta}>
+                        {reply.organization || 'No organization'} • 
+                      </Text>
+                      <Text style={styles.commentTime}>{reply.timestamp ? new Date(reply.timestamp).toLocaleString() : 'Just now'}</Text>
+                    </View>
+                  </View>
+                  {canDelete && (
+                    <Menu>
+                      <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
+                        <Ionicons name="ellipsis-vertical" size={16} color={Theme.colors.black} />
+                      </MenuTrigger>
+                      <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
+                        <MenuOption
+                          onSelect={() => {
+                            console.log('CommentSection: Delete comment clicked for:', reply.id);
+                            handleDeleteComment(reply.id);
+                          }}
+                          text="Delete Comment"
+                          customStyles={{
+                            optionText: [styles.menuText, { color: Theme.colors.red }],
+                          }}
+                        />
+                      </MenuOptions>
+                    </Menu>
+                  )}
+                </View>
+                {renderCommentContent(reply.content || reply.text || 'No content')}
+                <View style={styles.commentActions}>
+                  <TouchableOpacity
+                    style={styles.replyButton}
+                    onPress={() => handleReplyClick(reply.id, reply.userName)}
+                  >
+                    <Ionicons name="chatbubbles-outline" size={20} color={Theme.colors.blue} />
+                    <Text style={styles.replyText}>Reply</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
         )}
       </View>
     );
@@ -366,16 +412,16 @@ const CommentSection = () => {
         </LinearGradient>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1, marginTop: 100 }}
+          style={{ flex: 1, marginTop: 80 }}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
         >
           <FlatList
             data={comments}
-            renderItem={(props) => renderComment(props, 0)}
-            keyExtractor={(item) => item.id}
+            renderItem={renderComment}
+            keyExtractor={(item) => item.id.toString()}
             ListEmptyComponent={
               <View style={styles.emptyCommentContainer}>
-                <Ionicons name="chatbubble-outline" size={50} color={Theme.colors.grey} />
+                <Ionicons name="chatbubble-outline" size={50} color={Theme.colors.primary} />
                 <Text style={styles.emptyCommentText}>
                   Be the first to reply in this {toSentenceCase(postData?.category || 'post')}
                 </Text>
@@ -388,7 +434,7 @@ const CommentSection = () => {
               <TextInput
                 ref={commentInputRef}
                 style={[styles.commentInput, { paddingRight: 40 }]}
-                placeholder="Add a comment..."
+                placeholder={replyToUsername ? `Reply to ${replyToUsername}...` : 'Add a comment...'}
                 value={newComment}
                 onChangeText={setNewComment}
                 multiline
@@ -396,7 +442,7 @@ const CommentSection = () => {
               />
               <TouchableOpacity
                 style={styles.inputSendButton}
-                onPress={() => handleAddComment()}
+                onPress={handleAddComment}
                 disabled={!newComment.trim()}
               >
                 <Ionicons

@@ -87,7 +87,8 @@ export default StyleSheet.create({
   formTitle: {
     fontSize: 13,
     color: Theme.colors.primary,
-    marginBottom: 5,
+    marginBottom: 2,
+    marginTop: 10,
     fontFamily: 'Poppins_Bold',
   },
   section:{
@@ -166,7 +167,7 @@ export default StyleSheet.create({
   supplementaryButtonContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingHorizontal: 10,
+    padding: 10,
   },
   supplementaryButton: {
     paddingVertical: 8,

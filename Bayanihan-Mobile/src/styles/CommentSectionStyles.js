@@ -16,6 +16,8 @@ const borderRadius = {
   xlarge: 20,
 };
 
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
+
 export default StyleSheet.create({
   commentSection: {
     flex: 1,
@@ -43,13 +45,13 @@ export default StyleSheet.create({
     color: Theme.colors.black,
     paddingVertical: spacing.small,
     paddingHorizontal: spacing.medium,
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   inputSendButton: {
-    padding: spacing.xsmall,
-      marginLeft: spacing.small,
-      justifyContent: 'center',
-      alignItems: 'center',
+    position: 'absolute',
+    right: 10,
+    top: '50%',
+    transform: [{ translateY: -10 }],
   },
   commentButton: {
     marginLeft: spacing.small,
@@ -61,32 +63,38 @@ export default StyleSheet.create({
     backgroundColor: Theme.colors.lightBlue,
   },
   commentContainer: {
-    margin: spacing.medium,
-    padding: spacing.small,
+    marginBottom: spacing.medium,
+    padding: spacing.medium,
     backgroundColor: Theme.colors.white,
     borderRadius: borderRadius.medium,
-    elevation: 5,
+    marginHorizontal: 10,
+    elevation: 10, // Android shadow
+    shadowColor: Theme.colors.black, // iOS shadow
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,  
   },
   commentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: spacing.xsmall,
   },
   commentUser: {
     fontFamily: 'Poppins_SemiBold',
     fontSize: 14,
-    color: Theme.colors.primary,
+    color: Theme.colors.accent,
   },
   commentMeta: {
     fontFamily: 'Poppins_Regular',
     fontSize: 12,
-    color: Theme.colors.primary,
+    color: Theme.colors.grey,
   },
-  commentTime:{
-  fontFamily: 'Poppins_Regular',
+  commentTime: {
+    fontFamily: 'Poppins_Regular',
     fontSize: 12,
-    color: Theme.colors.black,
-    paddingLeft: 5
+    color: Theme.colors.grey,
+    marginLeft: spacing.xsmall,
   },
   commentContent: {
     fontFamily: 'Poppins_Regular',
@@ -94,10 +102,15 @@ export default StyleSheet.create({
     color: Theme.colors.black,
     marginTop: spacing.xsmall,
   },
+  usernameHighlight: {
+    fontFamily: 'Poppins_SemiBold',
+    fontSize: 14,
+    color: Theme.colors.primary,
+  },
   commentList: {
     flexGrow: 1,
-    paddingBottom: spacing.large,
-    alignContent:'center'
+    marginTop: spacing.large,
+    marginBottom: 80
   },
   emptyCommentContainer: {
     flex: 1,
@@ -108,7 +121,7 @@ export default StyleSheet.create({
   emptyCommentText: {
     fontFamily: 'Poppins_Regular',
     fontSize: 16,
-    color: Theme.colors.grey,
+    color: Theme.colors.primary,
     textAlign: 'center',
     marginTop: spacing.medium,
   },
@@ -124,15 +137,15 @@ export default StyleSheet.create({
   },
   replyText: {
     fontFamily: 'Poppins_Regular',
-    fontSize: 14,
-    color: Theme.colors.accentBlue,
+    fontSize: 12,
+    color: Theme.colors.blue,
     marginLeft: spacing.xsmall,
   },
   replyContainer: {
     marginTop: spacing.small,
-    marginLeft: spacing.medium,
+    paddingVertical: spacing.small,
   },
-  repliesContainer: {
+  repliesWrapper: {
     marginTop: spacing.small,
   },
   menuContainer: {
@@ -145,8 +158,6 @@ export default StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
-    borderWidth: 1,
-    borderColor: Theme.colors.lightGrey,
   },
   menuTrigger: {
     padding: spacing.xsmall,
