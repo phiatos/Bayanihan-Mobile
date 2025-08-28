@@ -84,53 +84,56 @@ const AppStack = () => {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      await AsyncStorage.removeItem('user_session'); // Clear session
       setUser(null);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Sign out error:`, error);
     }
   };
 
-  // const resetInactivityTimer = (navigation) => {
-  //   let timeout;
-  //   const INACTIVITY_TIME = 1000 * 60 * 60 * 24; // 24 hours
-  //   const checkInactivity = () => {
-  //     Alert.alert(
-  //       'Are you still there?',
-  //       "You've been inactive for a while. Do you want to continue?",
-  //       [
-  //         {
-  //           text: 'Stay Logged In',
-  //           onPress: () => resetInactivityTimer(navigation),
-  //         },
-  //         {
-  //           text: 'Log Out',
-  //           onPress: async () => {
-  //             try {
-  //               await signOut(auth);
-  //               setUser(null);
-  //               navigation.replace('Login'); // Use replace to prevent back navigation
-  //             } catch (error) {
-  //               console.error(`[${new Date().toISOString()}] Error signing out:`, error);
-  //             }
-  //           },
-  //         },
-  //       ],
-  //       { cancelable: false }
-  //     );
-  //   };
+  // Optional: Inactivity timer for 1-hour session expiry
+  /*
+  const resetInactivityTimer = () => {
+    let timeout;
+    const INACTIVITY_TIME = 1000 * 60 * 60; // 1 hour
+    const checkInactivity = () => {
+      Alert.alert(
+        'Are you still there?',
+        "You've been inactive for a while. Do you want to continue?",
+        [
+          {
+            text: 'Stay Logged In',
+            onPress: () => resetInactivityTimer(),
+          },
+          {
+            text: 'Log Out',
+            onPress: async () => {
+              try {
+                await signOut(auth);
+                await AsyncStorage.removeItem('user_session');
+                setUser(null);
+              } catch (error) {
+                console.error(`[${new Date().toISOString()}] Error signing out:`, error);
+              }
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    };
 
-  //   if (Platform.OS !== 'web') {
-  //     clearTimeout(timeout);
-  //     timeout = setTimeout(checkInactivity, INACTIVITY_TIME);
-  //   }
+    if (Platform.OS !== 'web') {
+      clearTimeout(timeout);
+      timeout = setTimeout(checkInactivity, INACTIVITY_TIME);
+    }
 
-  //   return () => clearTimeout(timeout);
-  // };
+    return () => clearTimeout(timeout);
+  };
 
-  // useEffect(() => {
-  //   // Set up inactivity timer
-  //   return resetInactivityTimer({ navigate: () => {} });
-  // }, []);
+  useEffect(() => {
+    return resetInactivityTimer();
+  }, []);
+  */
 
   return (
     <Drawer.Navigator

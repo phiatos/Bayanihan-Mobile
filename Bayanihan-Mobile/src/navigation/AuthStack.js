@@ -1,11 +1,10 @@
-import React, { useContext, useRef, useEffect } from 'react';
+import React, { useContext } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RecoveryScreen from '../screens/RecoveryScreen';
 import AppStack from './AppStack';
 import { AuthContext } from '../context/AuthContext';
-// import LottieView from 'lottie-react-native';
 
 const Stack = createNativeStackNavigator();
 
