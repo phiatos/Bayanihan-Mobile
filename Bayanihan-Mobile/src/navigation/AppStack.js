@@ -90,47 +90,47 @@ const AppStack = () => {
     }
   };
 
-  const resetInactivityTimer = (navigation) => {
-    let timeout;
-    const INACTIVITY_TIME = 1000 * 60 * 60 * 24; // 24 hours
-    const checkInactivity = () => {
-      Alert.alert(
-        'Are you still there?',
-        "You've been inactive for a while. Do you want to continue?",
-        [
-          {
-            text: 'Stay Logged In',
-            onPress: () => resetInactivityTimer(navigation),
-          },
-          {
-            text: 'Log Out',
-            onPress: async () => {
-              try {
-                await signOut(auth);
-                setUser(null);
-                navigation.replace('Login'); // Use replace to prevent back navigation
-              } catch (error) {
-                console.error(`[${new Date().toISOString()}] Error signing out:`, error);
-              }
-            },
-          },
-        ],
-        { cancelable: false }
-      );
-    };
+  // const resetInactivityTimer = (navigation) => {
+  //   let timeout;
+  //   const INACTIVITY_TIME = 1000 * 60 * 60 * 24; // 24 hours
+  //   const checkInactivity = () => {
+  //     Alert.alert(
+  //       'Are you still there?',
+  //       "You've been inactive for a while. Do you want to continue?",
+  //       [
+  //         {
+  //           text: 'Stay Logged In',
+  //           onPress: () => resetInactivityTimer(navigation),
+  //         },
+  //         {
+  //           text: 'Log Out',
+  //           onPress: async () => {
+  //             try {
+  //               await signOut(auth);
+  //               setUser(null);
+  //               navigation.replace('Login'); // Use replace to prevent back navigation
+  //             } catch (error) {
+  //               console.error(`[${new Date().toISOString()}] Error signing out:`, error);
+  //             }
+  //           },
+  //         },
+  //       ],
+  //       { cancelable: false }
+  //     );
+  //   };
 
-    if (Platform.OS !== 'web') {
-      clearTimeout(timeout);
-      timeout = setTimeout(checkInactivity, INACTIVITY_TIME);
-    }
+  //   if (Platform.OS !== 'web') {
+  //     clearTimeout(timeout);
+  //     timeout = setTimeout(checkInactivity, INACTIVITY_TIME);
+  //   }
 
-    return () => clearTimeout(timeout);
-  };
+  //   return () => clearTimeout(timeout);
+  // };
 
-  useEffect(() => {
-    // Set up inactivity timer
-    return resetInactivityTimer({ navigate: () => {} });
-  }, []);
+  // useEffect(() => {
+  //   // Set up inactivity timer
+  //   return resetInactivityTimer({ navigate: () => {} });
+  // }, []);
 
   return (
     <Drawer.Navigator

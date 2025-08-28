@@ -1,4 +1,3 @@
-
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import React, { useContext, useEffect, useRef, useState } from 'react';
@@ -9,13 +8,14 @@ import {
   ImageBackground,
   Modal,
   SafeAreaView,
-  ScrollView,
   Text,
   TextInput,
   ToastAndroid,
   TouchableOpacity,
   View,
-  StatusBar
+  StatusBar,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import WebView from 'react-native-webview';
@@ -26,19 +26,20 @@ import { styles } from '../styles/HomeScreenStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { KeyboardAvoidingView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getDatabase, ref, get } from 'firebase/database'; 
+import { getDatabase, ref, get } from 'firebase/database';
 const { height, width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
   const [location, setLocation] = useState(null);
   const [permissionStatus, setPermissionStatus] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [hasShownModal, setHasShownModal] = useState(false); 
+  const [hasShownModal, setHasShownModal] = useState(false);
   const [searchBarVisible, setSearchBarVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [activations, setActivations] = useState([]);
   const [mapType, setMapType] = useState('hybrid');
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(height)).current;
   const searchAnim = useRef(new Animated.Value(0)).current;
   const { user } = useContext(AuthContext);
@@ -52,26 +53,32 @@ const HomeScreen = ({ navigation }) => {
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
 
   useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hasShownModal && !permissionStatus) {
       setModalVisible(true);
-      setHasShownModal(true); // Mark modal as shown for this session
+      setHasShownModal(true);
     }
   }, [hasShownModal, permissionStatus]);
 
   useEffect(() => {
-    if (modalVisible) {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: height,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }
+    Animated.timing(slideAnim, {
+      toValue: modalVisible ? 0 : height,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   }, [modalVisible]);
 
   useEffect(() => {
@@ -116,7 +123,6 @@ const HomeScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Autocomplete Error:', error);
       ToastAndroid.show('Failed to fetch suggestions. Please check your internet connection.', ToastAndroid.SHORT);
-
     }
   };
 
@@ -227,7 +233,7 @@ const HomeScreen = ({ navigation }) => {
           placeName = place.name;
           formattedAddress = place.formatted_address;
         } else {
-          ToastAndroid.show('No results found for the search query.',ToastAndroid.BOTTOM);
+          ToastAndroid.show('No results found for the search query.', ToastAndroid.BOTTOM);
           console.warn('Text Search API failed:', data.status);
           return;
         }
@@ -262,7 +268,7 @@ const HomeScreen = ({ navigation }) => {
       setSuggestions([]);
     } catch (error) {
       console.error('Search error:', error);
-      ToastAndroid.show('Failed to search for the location. Please check your internet connection and try again.',ToastAndroid.BOTTOM);
+      ToastAndroid.show('Failed to search for the location. Please check your internet connection and try again.', ToastAndroid.BOTTOM);
     }
   };
 
@@ -273,14 +279,14 @@ const HomeScreen = ({ navigation }) => {
 
   const returnToUserLocation = async () => {
     if (permissionStatus !== 'granted') {
-      ToastAndroid.show('Please enable location access to return to your current location.',ToastAndroid.BOTTOM);
+      ToastAndroid.show('Please enable location access to return to your current location.', ToastAndroid.BOTTOM);
       return;
     }
 
     try {
       let loc = await Location.getCurrentPositionAsync({});
       if (loc.coords.accuracy > 50) {
-        ToastAndroid.show('Your location accuracy is low. The pin may not be precise.',ToastAndroid.BOTTOM);
+        ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
       }
       setLocation({
         latitude: loc.coords.latitude,
@@ -325,7 +331,7 @@ const HomeScreen = ({ navigation }) => {
       webViewRef.current?.injectJavaScript(script);
     } catch (error) {
       console.error('Return to user location error:', error);
-      ToastAndroid.show('Failed to return to your location. Please try again.',ToastAndroid.BOTTOM);
+      ToastAndroid.show('Failed to return to your location. Please try again.', ToastAndroid.BOTTOM);
     }
   };
 
@@ -600,7 +606,7 @@ const HomeScreen = ({ navigation }) => {
     `
       : null;
 
-      const getUserName = () => {
+  const getUserName = () => {
     if (!user) return 'Unknown User';
     if (contactPerson) {
       return contactPerson;
@@ -672,143 +678,137 @@ const HomeScreen = ({ navigation }) => {
       setIsLoading(false);
     }
   }, [user?.id]);
-      
+
   return (
-    <SafeAreaView style={GlobalStyles.container}>
-      {/* Map Container */}
-         <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
+    <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       {permissionStatus === 'granted' && location && mapHtml ? (
-          <KeyboardAvoidingView style={styles.subContainer}>
-        <View style={{ flex: 1,}}>
-          <WebView
-            ref={webViewRef}
-            style={styles.map}
-            source={{ html: mapHtml }}
-            originWhitelist={['*']}
-            onError={(syntheticEvent) => {
-              const { nativeEvent } = syntheticEvent;
-              console.error('WebView error:', nativeEvent);
-              ToastAndroid.show('Failed to load the map. Please check your API key and internet connection.',ToastAndroid.BOTTOM);
-            }}
-            onMessage={(event) => {
-              console.log('WebView message:', event.nativeEvent.data);
-            }}
-          />
-          {/* Header */}
-          <View blurAmount={20} tint="light" style={styles.headerContainer} >
-            <LinearGradient
-              colors={['rgba(185, 185, 185, 0.12)', 'rgba(77, 77, 77, 0.2)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.formCard}
-            >
-              <View style={styles.headerContent}>
-                <TouchableOpacity
-                  onPress={() => navigation.openDrawer()}
-                  style={styles.headerMenuIcon}
-                >
-                  <Ionicons name="menu" size={32} color={Theme.colors.white} />
-                </TouchableOpacity>
-                <View style={styles.headerUserContainer}>
-                <Text style={styles.userName}>{getUserName()}</Text>
-                  <ImageBackground
-                    source={{ uri: 'https://via.placeholder.com/35' }}
-                    style={{ width: 35, height: 35 }}
-                    imageStyle={{ borderRadius: 25 }}
-                  />
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-         
-          {/* Other Overlays */}
-          <View style={styles.overlayContainer}>
-            <View style={styles.searchWrapper}>
-              <Animated.View
-                style={[
-                  styles.searchContainer,
-                  {
-                    borderRadius: searchBarVisible ? 30 : '100%',
-                    width: searchBarVisible ? '100%' : 45 ,
-                    height: searchBarVisible ? '100%' : 45,
-                    paddingLeft: searchBarVisible ? 0 : 1
-                  },
-                ]}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.subContainer]}
+          keyboardVerticalOffset={0}
+        >
+          <View style={{ flex: 1 }}>
+            <WebView
+              ref={webViewRef}
+              style={styles.map}
+              source={{ html: mapHtml }}
+              originWhitelist={['*']}
+              onError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.error('WebView error:', nativeEvent);
+                ToastAndroid.show('Failed to load the map. Please check your API key and internet connection.', ToastAndroid.BOTTOM);
+              }}
+              onMessage={(event) => {
+                console.log('WebView message:', event.nativeEvent.data);
+              }}
+            />
+            {/* Header */}
+            <View blurAmount={20} tint="light" style={styles.headerContainer}>
+              <LinearGradient
+                colors={['rgba(185, 185, 185, 0.12)', 'rgba(77, 77, 77, 0.2)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.formCard}
               >
-                <TouchableOpacity
-                  onPress={() => {
-                    if (searchBarVisible) {
-                      handleSearch();
-                    } else {
-                      toggleSearchBar();
-                    }
-                  }}
-                >
-                  <Feather
-                    name="search"
-                    size={20}
-                    style={[
-                      styles.searchIcon,
-                      {
-                        color: Theme.colors.primary,
-                        paddingLeft: searchBarVisible ? 15 : 8,
-                        paddingRight: searchBarVisible ? 5 : 0,
-                      },
-                    ]}
-                  />
-                </TouchableOpacity>
-                <Animated.View
-                  style={{
-                    flex: searchBarVisible ? 1 : 0,
-                    opacity: searchAnim,
-                    transform: [
-                      {
-                        translateX: searchAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [20, 0],
-                        }),
-                      },
-                    ],
-                  }}
-                >
-                  {searchBarVisible && (
-                    <TextInput
-                      placeholder="Search"
-                      style={{ flex: 1, fontFamily: 'Poppins_Regular' }}
-                      placeholderTextColor="black"
-                      value={searchQuery}
-                      onChangeText={handleSearchInput}
-                      onSubmitEditing={() => handleSearch()}
-                      returnKeyType="search"
-                      autoFocus={true}
+                <View style={styles.headerContent}>
+                  <TouchableOpacity
+                    onPress={() => navigation.openDrawer()}
+                    style={styles.headerMenuIcon}
+                  >
+                    <Ionicons name="menu" size={32} color={Theme.colors.white} />
+                  </TouchableOpacity>
+                  <View style={styles.headerUserContainer}>
+                    <Text style={styles.userName}>{getUserName()}</Text>
+                    <ImageBackground
+                      source={{ uri: 'https://via.placeholder.com/35' }}
+                      style={{ width: 35, height: 35 }}
+                      imageStyle={{ borderRadius: 25 }}
                     />
-                  )}
-                </Animated.View>
-              </Animated.View>
-              {searchBarVisible && suggestions.length > 0 && (
-                <FlatList
-                  data={suggestions}
-                  keyExtractor={(item) => item.place_id}
-                  style={styles.suggestionsContainer}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={styles.suggestionItem}
-                      onPress={() => handleSuggestionSelect(item)}
-                    >
-                      <Text style={styles.suggestionText}>{item.description}</Text>
-                    </TouchableOpacity>
-                  )}
-                  keyboardShouldPersistTaps="handled"
-                />
-              )}
-              <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation}>
-              <MaterialIcons name="my-location" size={24} color={Theme.colors.white} />
-            </TouchableOpacity>
+                  </View>
+                </View>
+              </LinearGradient>
             </View>
-            
-        </View>
-        <View style={styles.mapTypeButtonsContainer}>
+            {/* Other Overlays */}
+            <View style={styles.overlayContainer}>
+              <View style={styles.searchWrapper}>
+                <Animated.View
+                  style={[
+                    styles.searchContainer,
+                    {
+                      borderRadius: searchBarVisible ? 30 : '100%',
+                      width: searchBarVisible ? '100%' : 45,
+                      height: searchBarVisible ? '100%' : 45,
+                      paddingLeft: searchBarVisible ? 0 : 1,
+                    },
+                  ]}
+                >
+                  <TouchableOpacity
+                    onPress={toggleSearchBar}
+                  >
+                    <Feather
+                      name="search"
+                      size={20}
+                      style={[
+                        styles.searchIcon,
+                        {
+                          color: Theme.colors.primary,
+                          paddingLeft: searchBarVisible ? 15 : 8,
+                          paddingRight: searchBarVisible ? 5 : 0,
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                  <Animated.View
+                    style={{
+                      flex: searchBarVisible ? 1 : 0,
+                      opacity: searchAnim,
+                      transform: [
+                        {
+                          translateX: searchAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [20, 0],
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    {searchBarVisible && (
+                      <TextInput
+                        placeholder="Search"
+                        style={{ flex: 1, fontFamily: 'Poppins_Regular' }}
+                        placeholderTextColor="black"
+                        value={searchQuery}
+                        onChangeText={handleSearchInput}
+                        onSubmitEditing={() => handleSearch()}
+                        returnKeyType="search"
+                        autoFocus={true}
+                      />
+                    )}
+                  </Animated.View>
+                </Animated.View>
+                {searchBarVisible && suggestions.length > 0 && (
+                  <FlatList
+                    data={suggestions}
+                    keyExtractor={(item) => item.place_id}
+                    style={styles.suggestionsContainer}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.suggestionItem}
+                        onPress={() => handleSuggestionSelect(item)}
+                      >
+                        <Text style={styles.suggestionText}>{item.description}</Text>
+                      </TouchableOpacity>
+                    )}
+                    keyboardShouldPersistTaps="handled"
+                  />
+                )}
+                <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation}>
+                  <MaterialIcons name="my-location" size={24} color={Theme.colors.white} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={[styles.mapTypeButtonsContainer, { paddingBottom: insets.bottom }]}>
               <TouchableOpacity
                 style={[styles.mapTypeButton, mapType === 'roadmap' && styles.mapTypeButtonActive]}
                 onPress={() => toggleMapType('roadmap')}
@@ -849,33 +849,24 @@ const HomeScreen = ({ navigation }) => {
           </View>
         </KeyboardAvoidingView>
       ) : (
-        <SafeAreaView style={GlobalStyles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      <LinearGradient
-        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
-        start={{ x: 1, y: 0.5 }}
-        end={{ x: 1, y: 1 }}
-        style={GlobalStyles.gradientContainer}
-      >
-        <View style={GlobalStyles.newheaderContainer}>
-          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
-            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
-          </TouchableOpacity>
-            <View style={styles.headerUserContainer}>
-            <Text style={[styles.userName, {color: Theme.colors.primary, marginLeft: 70}]}>{getUserName()}</Text>   
+        <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
+          <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+          <LinearGradient
+            colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+            start={{ x: 1, y: 0.5 }}
+            end={{ x: 1, y: 1 }}
+            style={GlobalStyles.gradientContainer}
+          >
+            <View style={GlobalStyles.newheaderContainer}>
+              <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+                <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+              </TouchableOpacity>
+              <View style={styles.headerUserContainer}>
+                <Text style={[styles.userName, { color: Theme.colors.primary, marginLeft: 70 }]}>{getUserName()}</Text>
+              </View>
             </View>
-            </View>
-            </LinearGradient>
-        
+          </LinearGradient>
           <View style={{ paddingHorizontal: 20, marginTop: 100 }}>
-            {/* <View style={styles.searchContainer}>
-              <Feather name="search" size={24} style={{ marginHorizontal: 10 }} color={Theme.colors.primary} />
-              <TextInput
-                placeholder="Search"
-                style={{ flex: 1,     fontFamily: 'Poppins_Regular', }}
-                placeholderTextColor= {Theme.colors.lightBlack}
-              />
-            </View> */}
             {permissionStatus === 'denied' && (
               <View style={styles.permissionDeniedContainer}>
                 <MaterialIcons
@@ -895,37 +886,36 @@ const HomeScreen = ({ navigation }) => {
           </View>
         </SafeAreaView>
       )}
-
       <Modal
         animationType="none"
         transparent={true}
         visible={modalVisible}
         onRequestClose={closeModal}
       >
-          <View style={styles.modalOverlay}>
-            <Animated.View
-              style={[
-                styles.modalContainer,
-                {
-                  transform: [{ translateY: slideAnim }],
-                },
-              ]}
-            >
-              <MaterialIcons name="location-pin" size={84} style={{ color: '#EE5757' }} />
-              <Text style={styles.permissionDeniedHeader}>Where Are You?</Text>
-              <Text style={styles.permissionDeniedText}>
-                Let Bayanihan access your location to show position on the map.
-              </Text>
-              <View style={styles.permissionButtons}>
-                <TouchableOpacity style={styles.retryButton} onPress={handleRequestPermission}>
-                  <Text style={styles.retryButtonText}>Allow Location Access</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
-                  <Text style={styles.closeButtonText}>Not Now</Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          </View>
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            style={[
+              styles.modalContainer,
+              {
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <MaterialIcons name="location-pin" size={84} style={{ color: '#EE5757' }} />
+            <Text style={styles.permissionDeniedHeader}>Where Are You?</Text>
+            <Text style={styles.permissionDeniedText}>
+              Let Bayanihan access your location to show position on the map.
+            </Text>
+            <View style={styles.permissionButtons}>
+              <TouchableOpacity style={styles.retryButton} onPress={handleRequestPermission}>
+                <Text style={styles.retryButtonText}>Allow Location Access</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
+                <Text style={styles.closeButtonText}>Not Now</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
       </Modal>
     </SafeAreaView>
   );

@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
 import { getFirestore } from 'firebase/firestore';
@@ -16,29 +17,28 @@ const firebaseConfig = {
 };
 
 let app;
-try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  console.log('Firebase app initialized:', app.name);
-} catch (error) {
-  console.error('Firebase initialization failed:', error.message);
-  throw error;
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
 }
 
-let auth, database, storage, db;
+let auth;
 try {
-  auth = getAuth(app);
-  database = getDatabase(app);
-  storage = getStorage(app, 'gs://bayanihan-5ce7e.firebasestorage.app');
-  db = getFirestore(app);
-  console.log('Firebase Auth:', !!auth);
-  console.log('Firebase Database:', !!database);
-  console.log('Firebase Storage:', !!storage);
-  console.log('Firebase Storage Bucket:', storage._bucket.bucket);
-  console.log('Firebase Firestore:', !!db);
-  console.log('Firebase Auth, Database, Storage, and Firestore initialized successfully');
-} catch (error) {
-  console.error('Failed to initialize Firebase services:', error.message);
-  throw error;
+  if (!app.authInstance) {
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+    app.authInstance = auth; 
+  } else {
+    auth = getAuth(app);
+  }
+} catch (e) {
+  auth = getAuth(app); 
 }
+
+const database = getDatabase(app);
+const storage = getStorage(app);
+const db = getFirestore(app);
 
 export { app, auth, database, storage, db };

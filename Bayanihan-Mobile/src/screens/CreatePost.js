@@ -18,12 +18,13 @@ import styles from '../styles/CreatePostStyles';
 import { logActivity } from '../components/logActivity';
 import { logSubmission } from '../components/logSubmission';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
 
 const CreatePost = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const { postType: initialPostType, postId, initialData, isShared } = route.params || {};
-  console.log('CreatePost received params:', { postType: initialPostType, postId, initialData, isShared });
   const [inputHeight, setInputHeight] = useState(40);
   const [title, setTitle] = useState(initialData?.title || '');
   const [content, setContent] = useState(initialData?.content || '');
@@ -425,159 +426,169 @@ const CreatePost = () => {
     }
   };
 
-const handleSubmit = async () => {
-  console.log('handleSubmit called with:', { postType, title, content, category, mediaLength: media.length, link, isShared, shareCaption });
-  if (isShared) {
-    if (!shareCaption.trim()) {
+  const handleSubmit = async () => {
+    console.log('handleSubmit called with:', { postType, title, content, category, mediaLength: media.length, link, isShared, shareCaption });
+    
+    // Validation for non-shared posts
+    if (!isShared) {
+      if (!title.trim()) {
+        ToastAndroid.show('Please provide a title.', ToastAndroid.SHORT);
+        return;
+      }
+      if (!category) {
+        ToastAndroid.show('Please select a category.', ToastAndroid.SHORT);
+        return;
+      }
+      if ((postType === 'image' || postType === 'video') && media.length === 0 && !initialData?.mediaUrls && !initialData?.mediaUrl) {
+        ToastAndroid.show(`Please select ${postType === 'image' ? 'image(s)' : 'a video'}.`, ToastAndroid.SHORT);
+        return;
+      }
+      if (postType === 'link' && (!link.trim() || !/^https?:\/\//.test(link))) {
+        ToastAndroid.show('Please provide a valid URL starting with http:// or https://.', ToastAndroid.SHORT);
+        return;
+      }
+    } 
+    // Validation for shared posts
+    else if (!shareCaption.trim()) {
       ToastAndroid.show('Please provide a caption for the shared post.', ToastAndroid.SHORT);
       return;
     }
-  } else if (!title.trim() && !content.trim() && !category && media.length === 0 && !link.trim()) {
-    ToastAndroid.show('Please fill at least one field (title, content, media, or link).', ToastAndroid.SHORT);
-    return;
-  }
-  if (!isShared && (postType === 'image' || postType === 'video') && media.length === 0 && !initialData?.mediaUrls && !initialData?.mediaUrl) {
-    ToastAndroid.show(`Please select ${postType === 'image' ? 'image(s)' : 'a video'}.`, ToastAndroid.SHORT);
-    return;
-  }
-  if (!isShared && postType === 'link' && (!link.trim() || !/^https?:\/\//.test(link))) {
-    ToastAndroid.show('Please provide a valid URL starting with http:// or https://.', ToastAndroid.SHORT);
-    return;
-  }
-  if (!auth || !auth.currentUser) {
-    console.error('No authenticated user');
-    Alert.alert('Error', 'User not authenticated. Please sign out and sign in again.');
-    return;
-  }
 
-  setIsSubmitting(true);
-  setUploadProgress(0);
-
-  try {
-    const userRef = ref(database, `users/${auth.currentUser.uid}`);
-    const userSnapshot = await new Promise((resolve, reject) => {
-      onValue(userRef, resolve, reject, { onlyOnce: true });
-    });
-    const userData = userSnapshot.val() || {};
-    const userName = userData.contactPerson || userData.displayName || 'Anonymous';
-    const organization = userData.organization || '';
-    console.log('User data:', { userName, organization });
-
-    let postData;
-    if (isShared) {
-      postData = {
-        userId: auth.currentUser.uid,
-        userName,
-        organization,
-        timestamp: serverTimestamp(),
-        isShared: true,
-        shareCaption: shareCaption.trim(),
-        title: initialData?.originalTitle || '',
-        content: initialData?.originalContent || '',
-        category: initialData?.originalCategory || '',
-        mediaType: initialData?.originalMediaType || 'text',
-        mediaUrls: initialData?.originalMediaUrls && initialData.originalMediaUrls.length > 0 ? initialData.originalMediaUrls : [],
-        mediaUrl: initialData?.originalMediaUrl || '',
-        thumbnailUrl: initialData?.originalThumbnailUrl || '',
-        originalUserId: initialData?.originalUserId || '',
-        originalUserName: initialData?.originalUserName || 'Anonymous',
-        originalOrganization: initialData?.originalOrganization || '',
-        originalTimestamp: initialData?.originalTimestamp || 0,
-      };
-    } else {
-      postData = {
-        title: title.trim(),
-        content: content.trim(),
-        category,
-        userName,
-        organization,
-        timestamp: serverTimestamp(),
-        userId: auth.currentUser.uid,
-        mediaType: postType,
-      };
-
-      // Clear media references if no media is present
-      if (postType === 'image' && media.length === 0) {
-        postData.mediaUrls = [];
-        console.log('Cleared mediaUrls for image post');
-      }
-      if (postType === 'video' && media.length === 0) {
-        postData.mediaUrl = '';
-        postData.thumbnailUrl = '';
-        console.log('Cleared mediaUrl and thumbnailUrl for video post');
-      }
-
-      console.log('Attempting to upload media for postType:', postType);
-      if (postType === 'image' && media.length > 0) {
-        postData.mediaUrls = [];
-        for (const file of media) {
-          if (file.uri.startsWith('https://')) {
-            postData.mediaUrls.push(file.uri);
-            continue;
-          }
-          const imagePath = `image_posts/${auth.currentUser.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-          console.log('Uploading image to:', imagePath);
-          const downloadURL = await uploadMedia(file, imagePath);
-          postData.mediaUrls.push(downloadURL);
-        }
-      }
-
-      if (postType === 'video' && media.length > 0) {
-        const file = media[0];
-        if (!file.uri.startsWith('https://')) {
-          const mediaPath = `video_posts/${auth.currentUser.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-          console.log('Uploading video to:', mediaPath);
-          const downloadURL = await uploadMedia(file, mediaPath);
-          postData.mediaUrl = downloadURL;
-          if (file.thumbnailUri && !file.thumbnailUri.startsWith('https://')) {
-            const thumbnailPath = `video_posts/${auth.currentUser.uid}/thumbnails/${Date.now()}_thumbnail.jpg`;
-            console.log('Uploading thumbnail to:', thumbnailPath);
-            const thumbnailURL = await uploadMedia(
-              { uri: file.thumbnailUri, name: 'thumbnail.jpg', mimeType: 'image/jpeg' },
-              thumbnailPath
-            );
-            postData.thumbnailUrl = thumbnailURL;
-          } else if (file.thumbnailUri) {
-            postData.thumbnailUrl = file.thumbnailUri;
-          }
-        } else {
-          postData.mediaUrl = file.uri;
-          postData.thumbnailUrl = file.thumbnailUri || '';
-        }
-      }
-
-      if (postType === 'link') {
-        postData.mediaUrl = link.trim();
-      }
+    if (!auth || !auth.currentUser) {
+      console.error('No authenticated user');
+      Alert.alert('Error', 'User not authenticated. Please sign out and sign in again.');
+      return;
     }
 
-    if (postId) {
-      const postRef = ref(database, `posts/submitted/${postId}`);
-      await update(postRef, postData);
-      await logActivity('Updated a post', postId);
-      await logSubmission('posts/submitted', postData, postId);
-      console.log(`Post ${postId} updated in posts/submitted with data:`, postData);
-      ToastAndroid.show('Post updated successfully.', ToastAndroid.SHORT);
-    } else {
-      const postsRef = ref(database, 'posts/submitted');
-      const newPostRef = push(postsRef);
-      const submissionId = newPostRef.key;
-      await set(newPostRef, postData);
-      await logActivity(`Created a new post in ${postData.category || 'shared post'}`, submissionId);
-      await logSubmission('posts/submitted', postData, submissionId);
-      console.log(`Post ${submissionId} created in posts/submitted with data:`, postData);
-      ToastAndroid.show('Post created successfully.', ToastAndroid.SHORT);
-    }
-
-    navigation.goBack();
-  } catch (error) {
-    console.error('Error creating/updating post:', error);
-    Alert.alert('Error', `Failed to create/update post: ${error.message}`);
-  } finally {
-    setIsSubmitting(false);
+    setIsSubmitting(true);
     setUploadProgress(0);
-  }
-};
+
+    try {
+      const userRef = ref(database, `users/${auth.currentUser.uid}`);
+      const userSnapshot = await new Promise((resolve, reject) => {
+        onValue(userRef, resolve, reject, { onlyOnce: true });
+      });
+      const userData = userSnapshot.val() || {};
+      const userName = userData.contactPerson || userData.displayName || 'Anonymous';
+      const organization = userData.organization || '';
+      console.log('User data:', { userName, organization });
+
+      let postData;
+      if (isShared) {
+        postData = {
+          userId: auth.currentUser.uid,
+          userName,
+          organization,
+          timestamp: serverTimestamp(),
+          isShared: true,
+          shareCaption: shareCaption.trim(),
+          title: initialData?.originalTitle || '',
+          content: initialData?.originalContent || '',
+          category: initialData?.originalCategory || '',
+          mediaType: initialData?.originalMediaType || 'text',
+          mediaUrls: initialData?.originalMediaUrls && initialData.originalMediaUrls.length > 0 ? initialData.originalMediaUrls : [],
+          mediaUrl: initialData?.originalMediaUrl || '',
+          thumbnailUrl: initialData?.originalThumbnailUrl || '',
+          originalUserId: initialData?.originalUserId || '',
+          originalUserName: initialData?.originalUserName || 'Anonymous',
+          originalOrganization: initialData?.originalOrganization || '',
+          originalTimestamp: initialData?.originalTimestamp || 0,
+        };
+      } else {
+        postData = {
+          title: title.trim(),
+          content: content.trim(),
+          category,
+          userName,
+          organization,
+          timestamp: serverTimestamp(),
+          userId: auth.currentUser.uid,
+          mediaType: postType,
+        };
+
+        // Clear media references if no media is present
+        if (postType === 'image' && media.length === 0) {
+          postData.mediaUrls = [];
+          console.log('Cleared mediaUrls for image post');
+        }
+        if (postType === 'video' && media.length === 0) {
+          postData.mediaUrl = '';
+          postData.thumbnailUrl = '';
+          console.log('Cleared mediaUrl and thumbnailUrl for video post');
+        }
+
+        console.log('Attempting to upload media for postType:', postType);
+        if (postType === 'image' && media.length > 0) {
+          postData.mediaUrls = [];
+          for (const file of media) {
+            if (file.uri.startsWith('https://')) {
+              postData.mediaUrls.push(file.uri);
+              continue;
+            }
+            const imagePath = `image_posts/${auth.currentUser.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            console.log('Uploading image to:', imagePath);
+            const downloadURL = await uploadMedia(file, imagePath);
+            postData.mediaUrls.push(downloadURL);
+          }
+        }
+
+        if (postType === 'video' && media.length > 0) {
+          const file = media[0];
+          if (!file.uri.startsWith('https://')) {
+            const mediaPath = `video_posts/${auth.currentUser.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            console.log('Uploading video to:', mediaPath);
+            const downloadURL = await uploadMedia(file, mediaPath);
+            postData.mediaUrl = downloadURL;
+            if (file.thumbnailUri && !file.thumbnailUri.startsWith('https://')) {
+              const thumbnailPath = `video_posts/${auth.currentUser.uid}/thumbnails/${Date.now()}_thumbnail.jpg`;
+              console.log('Uploading thumbnail to:', thumbnailPath);
+              const thumbnailURL = await uploadMedia(
+                { uri: file.thumbnailUri, name: 'thumbnail.jpg', mimeType: 'image/jpeg' },
+                thumbnailPath
+              );
+              postData.thumbnailUrl = thumbnailURL;
+            } else if (file.thumbnailUri) {
+              postData.thumbnailUrl = file.thumbnailUri;
+            }
+          } else {
+            postData.mediaUrl = file.uri;
+            postData.thumbnailUrl = file.thumbnailUri || '';
+          }
+        }
+
+        if (postType === 'link') {
+          postData.mediaUrl = link.trim();
+        }
+      }
+
+      if (postId) {
+        const postRef = ref(database, `posts/submitted/${postId}`);
+        await update(postRef, postData);
+        await logActivity('Updated a post', postId);
+        await logSubmission('posts/submitted', postData, postId);
+        console.log(`Post ${postId} updated in posts/submitted with data:`, postData);
+        ToastAndroid.show('Post updated successfully.', ToastAndroid.SHORT);
+      } else {
+        const postsRef = ref(database, 'posts/submitted');
+        const newPostRef = push(postsRef);
+        const submissionId = newPostRef.key;
+        await set(newPostRef, postData);
+        await logActivity(`Created a new post in ${postData.category || 'shared post'}`, submissionId);
+        await logSubmission('posts/submitted', postData, submissionId);
+        console.log(`Post ${submissionId} created in posts/submitted with data:`, postData);
+        ToastAndroid.show('Post created successfully.', ToastAndroid.SHORT);
+      }
+
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error creating/updating post:', error);
+      Alert.alert('Error', `Failed to create/update post: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+      setUploadProgress(0);
+    }
+  };
+
   const handlePostTypeChange = (newPostType) => {
     if (isShared) {
       console.log('Post type change disabled for shared posts');
@@ -600,7 +611,7 @@ const handleSubmit = async () => {
   }
 
   return (
-    <SafeAreaView style={GlobalStyles.container}>
+    <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
@@ -616,7 +627,7 @@ const handleSubmit = async () => {
             onPress={handleSubmit}
             disabled={isSubmitting}
           >
-            <Text style={styles.submitButtonText}>
+            <Text style={[styles.submitButtonText, isSubmitting && { color: Theme.colors.primary }]}>
               {isSubmitting ? 'Submitting...' : postId ? 'Update' : 'Post'}
             </Text>
           </TouchableOpacity>
@@ -626,10 +637,12 @@ const handleSubmit = async () => {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1, marginTop: 70 }}
-        keyboardVerticalOffset={0}
-      >
-        <ScrollView contentContainerStyle={styles.scrollViewContent}>
-          <View style={[styles.formContainer, {marginBottom: 50}]}>
+        keyboardVerticalOffset={Platform.OS === 'ios' ? -50 : -30}     
+        >
+        <ScrollView
+          contentContainerStyle={[styles.scrollViewContent, { paddingBottom: insets.bottom + 30 }]}
+        >
+          <View style={[styles.formContainer, { marginBottom: 50 }]}>
             {isShared ? (
               <>
                 <Text style={styles.sharedInfo}>
@@ -645,7 +658,8 @@ const handleSubmit = async () => {
                   maxLength={500}
                   onContentSizeChange={(event) =>
                     setInputHeight(event.nativeEvent.contentSize.height)
-                  }/>
+                  }
+                />
                 <View style={[styles.sharedPostContainer, { backgroundColor: Theme.colors.lightGrey, padding: 10, borderRadius: 8 }]}>
                   <Text style={[styles.readOnlyLabel, { color: Theme.colors.black }]}>{initialData?.originalTitle || 'No title'}</Text>
                   <Text style={[styles.readOnlyText, { color: Theme.colors.black }]}>{initialData?.originalContent || 'No content'}</Text>
@@ -801,7 +815,7 @@ const handleSubmit = async () => {
       </KeyboardAvoidingView>
 
       {isSubmitting && (
-        <View style={styles.progressContainer}>
+        <View style={[styles.progressContainer, { bottom: insets.bottom + 60 }]}>
           <View style={styles.progressBarBackground}>
             <View
               style={[styles.progressBarFill, { width: `${uploadProgress}%` }]}
@@ -811,7 +825,7 @@ const handleSubmit = async () => {
         </View>
       )}
 
-      <View style={styles.navbar}>
+      <View style={[styles.navbar, { bottom: insets.bottom, paddingBottom: 10 }]}>
         {[
           { type: 'text', icon: 'text-outline' },
           { type: 'image', icon: 'image-outline' },

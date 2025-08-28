@@ -82,7 +82,6 @@ export default StyleSheet.create({
   form: {
     marginHorizontal: 10,
     marginTop: 20,
-    marginBottom: spacing.medium
   },
   formTitle: {
     fontSize: 13,

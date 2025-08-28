@@ -4,6 +4,7 @@ import Theme from '../constants/theme';
 export const styles = StyleSheet.create({
   gradientContainer: {
     flex: 1,
+    borderRadius: 15,
   },
   container: {
     flex: 1,
@@ -31,17 +32,13 @@ export const styles = StyleSheet.create({
   },
   formContainer: {
     width: 320,
-    height: 450,
+    height: 400,
     marginVertical: 'auto',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 15,
-    backgroundColor: 'rgba(148, 163, 208, 0.06)',
-    shadowColor: Theme.colors.black, // iOS shadow
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
+    borderRadius: 15,    
   },
   contentContainer: {
     paddingHorizontal: 10,
@@ -50,11 +47,11 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.3,
   },
   welcomeText: {
-    fontSize: 25,
-    textAlign: 'center',
-    fontFamily: 'Poppins_SemiBold',
-    color: Theme.colors.primary,
-    paddingBottom: 40,
+    fontSize: 40,
+    textAlign: 'left',
+    fontFamily: 'Poppins_Bold',
+    color: Theme.colors.accent,
+    paddingBottom: 30,
   },
   inputContainer: {
     width: 300,
@@ -63,21 +60,24 @@ export const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontFamily: 'Poppins_Bold',
-    color: Theme.colors.black,
+    color: Theme.colors.primary,
     marginBottom: 5,
     alignSelf: 'flex-start',
   },
   input: {
-    borderColor: '#ccc',
+    borderColor:'rgba(86, 82, 82, 0.24)',
     borderWidth: 2,
     borderRadius: 10,
     paddingLeft: 10,
     fontSize: 15,
     color: Theme.colors.lightBlack,
-    backgroundColor: 'rgba(255, 255, 255, 0.73)',
+    backgroundColor: Theme.colors.white,
     fontFamily: 'Poppins_Regular',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.24)',
+    elevation: 1,
+    shadowColor: Theme.colors.black, // iOS shadow
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -129,7 +129,7 @@ export const styles = StyleSheet.create({
   termsContainer: {
     width: '100%',
     position: 'absolute',
-    bottom: 30,
+    bottom: 50,
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -141,7 +141,6 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     color: Theme.colors.black,
     fontFamily: 'Poppins_Regular',
-    marginTop: 250,
   },
   modalOverlay: {
     flex: 1,

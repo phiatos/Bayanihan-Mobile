@@ -413,8 +413,8 @@ const CommentSection = () => {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1, marginTop: 80 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-        >
+          keyboardVerticalOffset={Platform.OS === 'ios' ? -50 : -30}     
+          >
           <FlatList
             data={comments}
             renderItem={renderComment}

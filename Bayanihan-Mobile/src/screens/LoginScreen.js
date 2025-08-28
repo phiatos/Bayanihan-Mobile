@@ -137,13 +137,8 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    <LinearGradient
-      colors={['rgba(250, 59, 154, 0.43)', '#FFF9F0']}
-      start={{ x: 0.5, y: 1 }}
-      end={{ x: 0.5, y: 0 }}
-      style={styles.gradientContainer}
-    >
-      <SafeAreaView style={styles.container}>
+    
+      <SafeAreaView style={[styles.container, {backgroundColor: Theme.colors.lightBg}]}>
         <View style={styles.subContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <Modal
             animationType="slide"
@@ -175,7 +170,7 @@ const LoginScreen = ({ navigation }) => {
 
           <View style={styles.formContainer}>
             <View style={styles.contentContainer}>
-              <Text style={styles.welcomeText}>Welcome Back!</Text>
+              <Text style={styles.welcomeText}>Login</Text>
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Email:</Text>
                 <TextInput
@@ -240,7 +235,7 @@ const LoginScreen = ({ navigation }) => {
           </Text>
         </View>
       </SafeAreaView>
-    </LinearGradient>
+    // </LinearGradient>
   );
 };
 

@@ -68,7 +68,7 @@ export default StyleSheet.create({
     backgroundColor: Theme.colors.white,
     borderRadius: borderRadius.medium,
     marginHorizontal: 10,
-    elevation: 10, // Android shadow
+    elevation: 5, // Android shadow
     shadowColor: Theme.colors.black, // iOS shadow
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.3,

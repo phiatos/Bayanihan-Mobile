@@ -38,15 +38,19 @@ const CustomDrawer = (props) => {
     }
   };
 
-  const getUserName = () => {
-    if (contactPerson) {
-      return contactPerson;
-    }
-    if (firstName || lastName) {
-      return `${firstName || ''} ${lastName || ''}`.trim();
-    }
-    return 'Unknown User';
-  };
+const getUserName = () => {
+  if (user?.firstName || user?.lastName) {
+    return `${user.firstName || ''} ${user.lastName || ''}`.trim();
+  }
+  if (user?.contactPerson) {
+    return user.contactPerson;
+  }
+  if (user?.displayName) {
+    return user.displayName;
+  }
+  return "Unknown User";
+};
+
 
   const getDisplayText = () => {
     if (!user) {
