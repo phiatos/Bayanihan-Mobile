@@ -80,11 +80,7 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    // <LinearGradient
-    //   colors={['#E0F7FA', '#80DEEA']}
-    //   style={styles.container}
-    // >
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: Theme.colors.lightBg }]}>
         <KeyboardAvoidingView
           style={styles.subContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -177,12 +173,13 @@ const LoginScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
-        <View style={styles.termsContainer}>
+          <View style={styles.termsContainer}>
           <Text style={styles.termsText}>
             By continuing, you agree to the Terms and Conditions and Privacy Policy.
           </Text>
         </View>
+        </KeyboardAvoidingView>
+        
       </SafeAreaView>
     // </LinearGradient>
   );
