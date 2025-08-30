@@ -176,11 +176,19 @@ const CommentSection = () => {
     try {
       const commentsRef = ref(database, `posts/submitted/${postId}/comments`);
       const newCommentRef = push(commentsRef);
+      // Separate username and content
+      let content = commentText;
+      let taggedUsername = null;
+      if (replyToUsername && commentText.startsWith(`@${replyToUsername}`)) {
+        taggedUsername = replyToUsername;
+        content = commentText.slice(`@${replyToUsername}`.length).trim();
+      }
       const commentData = {
         userId: user.uid,
         userName: userData.contactPerson,
         organization: userData.organization,
-        content: commentText,
+        content: content || commentText, // Use content without username if tagged
+        taggedUsername: taggedUsername, // Store tagged username separately
         timestamp: serverTimestamp(),
         parentCommentId: replyToCommentId || null,
       };
@@ -209,7 +217,7 @@ const CommentSection = () => {
     }
 
     try {
-      const commentRef = ref(database, `posts/submitted/${postId}/comments/${commentId}`);
+      const commentRef = ref(database, `posts/${postId}/comments/${commentId}`);
       const snapshot = await new Promise((resolve, reject) => {
         onValue(commentRef, resolve, reject, { onlyOnce: true });
       });
@@ -231,7 +239,7 @@ const CommentSection = () => {
               try {
                 const subCommentsSnapshot = await new Promise((resolve, reject) => {
                   onValue(
-                    ref(database, `posts/submitted/${postId}/comments`),
+                    ref(database, `posts/${postId}/comments`),
                     snapshot => {
                       const comments = snapshot.val();
                       if (comments) {
@@ -250,7 +258,7 @@ const CommentSection = () => {
                 const subComments = subCommentsSnapshot.val();
                 if (subComments && Object.keys(subComments).length > 0) {
                   for (const subCommentId of Object.keys(subComments)) {
-                    await remove(ref(database, `posts/submitted/${postId}/comments/${subCommentId}`));
+                    await remove(ref(database, `posts/${postId}/comments/${subCommentId}`));
                   }
                 }
 
@@ -271,15 +279,12 @@ const CommentSection = () => {
     }
   };
 
-  const renderCommentContent = (content) => {
-    const usernameMatch = content.match(/^@([^\s]+)\s*/);
-    if (usernameMatch) {
-      const username = usernameMatch[0];
-      const restOfContent = content.slice(username.length);
+  const renderCommentContent = (content, taggedUsername) => {
+    if (taggedUsername) {
       return (
         <Text style={styles.commentContent}>
-          <Text style={styles.usernameHighlight}>{username}</Text>
-          {restOfContent}
+          <Text style={styles.usernameHighlight}>@{taggedUsername}</Text>
+          {content ? ` ${content}` : ''}
         </Text>
       );
     }
@@ -327,7 +332,7 @@ const CommentSection = () => {
             </Menu>
           )}
         </View>
-        {renderCommentContent(item.content || item.text || 'No content')}
+        {renderCommentContent(item.content || item.text || 'No content', item.taggedUsername)}
         <View style={styles.commentActions}>
           <TouchableOpacity
             style={styles.replyButton}
@@ -371,7 +376,7 @@ const CommentSection = () => {
                     </Menu>
                   )}
                 </View>
-                {renderCommentContent(reply.content || reply.text || 'No content')}
+                {renderCommentContent(reply.content || reply.text || 'No content', reply.taggedUsername)}
                 <View style={styles.commentActions}>
                   <TouchableOpacity
                     style={styles.replyButton}
@@ -405,11 +410,7 @@ const CommentSection = () => {
             <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Comments</Text>
           </View>
         </LinearGradient>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : null}
-          style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -30}
-        >
+        <View style={{ flex: 1, paddingTop: 80, position: 'relative' }}>
           <FlatList
             data={comments}
             renderItem={renderComment}
@@ -424,37 +425,45 @@ const CommentSection = () => {
             }
             contentContainerStyle={styles.commentList}
           />
-          <View style={[styles.commentInputContainer, {
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            paddingBottom: Platform.OS === 'ios' ? 20 : 10,
-          }]}>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                ref={commentInputRef}
-                style={[styles.commentInput, { paddingRight: 40 }]}
-                placeholder={replyToUsername ? `Reply to ${replyToUsername}...` : 'Add a comment...'}
-                value={newComment}
-                onChangeText={setNewComment}
-                multiline
-                maxLength={500}
-              />
-              <TouchableOpacity
-                style={styles.inputSendButton}
-                onPress={handleAddComment}
-                disabled={!newComment.trim()}
-              >
-                <Ionicons
-                  name="send"
-                  size={20}
-                  color={Theme.colors.primary}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : null}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 10}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: Theme.colors.lightBg,
+            }}
+          >
+            <View style={[styles.commentInputContainer, {
+              paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+            }]}>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  ref={commentInputRef}
+                  style={[styles.commentInput, { paddingRight: 40 }]}
+                  placeholder={replyToUsername ? `Reply to ${replyToUsername}...` : 'Add a comment...'}
+                  value={newComment}
+                  onChangeText={setNewComment}
+                  multiline
+                  maxLength={500}
                 />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.inputSendButton}
+                  onPress={handleAddComment}
+                  disabled={!newComment.trim()}
+                >
+                  <Ionicons
+                    name="send"
+                    size={20}
+                    color={Theme.colors.primary}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
     </MenuProvider>
   );

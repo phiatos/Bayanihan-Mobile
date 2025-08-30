@@ -28,7 +28,7 @@ export default StyleSheet.create({
     backgroundColor: Theme.colors.lightBg,
     borderTopWidth: 1,
     borderTopColor: '#b9b9b9',
-    zIndex: 1000, // Ensure it stays above other elements
+    zIndex: 1000,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -74,8 +74,6 @@ export default StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
-    marginTop: 100
-
   },
   commentHeader: {
     flexDirection: 'row',
@@ -111,13 +109,14 @@ export default StyleSheet.create({
     color: Theme.colors.primary,
   },
   commentList: {
-    flexGrow: 1,
-    paddingBottom: spacing.large + 60, // Extra padding to avoid overlap with input
+    paddingTop: spacing.large,
+    paddingBottom: spacing.large + 60, // Extra padding to ensure comments end above input
   },
   emptyCommentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    alignContent: 'center',
     marginTop: spacing.xlarge * 3,
   },
   emptyCommentText: {

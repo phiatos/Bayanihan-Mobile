@@ -24,22 +24,23 @@ const borderWidth = {
   thick: 3,
 };
 
-const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 0 : StatusBar.currentHeight || 0; // Use 0 for iOS as safeAreaInsets will handle it
 const HEADER_HEIGHT = 50;
-const NAVIGATION_BAR_HEIGHT = 45; // This can be adjusted based on your navigation bar height
+const NAVIGATION_BAR_HEIGHT = 45;
 
 export const styles = StyleSheet.create({
   subContainer: {
-    display: 'flex',
-    flex: 1,
-    marginBottom: 40
+    flex: 1, // Remove display: 'flex' as it's redundant in React Native
+    // Removed marginBottom: 40 to allow map to reach bottom edge
   },
   map: {
     flex: 1,
+    width: '100%', // Explicitly set to ensure edge-to-edge
+    height: '100%', // Explicitly set to ensure edge-to-edge
   },
   headerContainer: {
     position: 'absolute',
-    top: STATUS_BAR_HEIGHT,
+    top: 0, // Adjusted to use safeAreaInsets.top in component
     left: 0,
     right: 0,
     height: HEADER_HEIGHT,
@@ -48,7 +49,6 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    display: 'flex',
     zIndex: 1000,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 20,
@@ -60,7 +60,6 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.3)',
     borderWidth: 1,
     borderRadius: 20,
-    display: 'flex',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
@@ -87,7 +86,7 @@ export const styles = StyleSheet.create({
   },
   overlayContainer: {
     position: 'absolute',
-    top: STATUS_BAR_HEIGHT + HEADER_HEIGHT + 10,
+    top: HEADER_HEIGHT + 10, // Adjusted to use safeAreaInsets.top in component
     left: 0,
     right: 0,
     zIndex: 900,
@@ -118,7 +117,7 @@ export const styles = StyleSheet.create({
   },
   searchIcon: {
     paddingVertical: 10,
-    marginLeft: 2, 
+    marginLeft: 2,
   },
   suggestionsContainer: {
     position: 'absolute',
@@ -166,7 +165,7 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     right: 20,
-    bottom: 10,
+    bottom: 10, // Adjusted to use safeAreaInsets.bottom in component
     flexDirection: 'row',
     justifyContent: 'center',
     padding: 10,
