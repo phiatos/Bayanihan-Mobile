@@ -199,6 +199,7 @@ export default StyleSheet.create({
     padding: spacing.medium,
     borderRadius: borderRadius.large,
     marginTop: spacing.small,
+    marginBottom: 10,
     shadowColor: Theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

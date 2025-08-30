@@ -115,21 +115,17 @@ const CommentSection = () => {
     const tree = [];
     const lookup = {};
 
-    // Initialize lookup with all comments
     comments.forEach((comment) => {
       lookup[comment.id] = { ...comment, replies: [] };
     });
 
-    // Process each comment
     comments.forEach((comment, index) => {
       console.log(`CommentSection: Processing comment ${index + 1}:`, comment);
       if (comment.parentCommentId && lookup[comment.parentCommentId]) {
-        // Find the top-level parent for this comment
         let parent = lookup[comment.parentCommentId];
         while (parent.parentCommentId && lookup[parent.parentCommentId]) {
           parent = lookup[parent.parentCommentId];
         }
-        // Add as reply to the top-level parent
         parent.replies.push(lookup[comment.id]);
         console.log(`CommentSection: Added comment ${comment.id} as reply to top-level parent ${parent.id}`);
       } else if (!comment.parentCommentId) {
@@ -141,7 +137,6 @@ const CommentSection = () => {
       }
     });
 
-    // Sort top-level comments and replies
     tree.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     Object.values(lookup).forEach((comment) => {
       if (comment.replies) {
@@ -396,7 +391,7 @@ const CommentSection = () => {
 
   return (
     <MenuProvider>
-      <SafeAreaView style={GlobalStyles.container}>
+      <SafeAreaView style={[GlobalStyles.container, { paddingBottom: 0 }]}>
         <LinearGradient
           colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
           start={{ x: 1, y: 0.5 }}
@@ -411,10 +406,10 @@ const CommentSection = () => {
           </View>
         </LinearGradient>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1, marginTop: 80 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? -50 : -30}     
-          >
+          behavior={Platform.OS === 'ios' ? 'padding' : null}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -30}
+        >
           <FlatList
             data={comments}
             renderItem={renderComment}
@@ -429,7 +424,13 @@ const CommentSection = () => {
             }
             contentContainerStyle={styles.commentList}
           />
-          <View style={styles.commentInputContainer}>
+          <View style={[styles.commentInputContainer, {
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+          }]}>
             <View style={styles.inputWrapper}>
               <TextInput
                 ref={commentInputRef}

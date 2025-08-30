@@ -57,7 +57,8 @@ const ReportSubmissionScreen = () => {
     AreaOfOperation: '',
     DateOfReport: formatDate(currentDate),
     calamityArea: '',
-    CalamityAreaId: '',
+    CalamityType: '',
+    CalamityName: '',
     completionTimeOfIntervention: '',
     StartDate: '',
     EndDate: '',
@@ -100,6 +101,8 @@ const ReportSubmissionScreen = () => {
     'AreaOfOperation',
     'DateOfReport',
     'calamityArea',
+    'CalamityType',
+    'CalamityName',
     'completionTimeOfIntervention',
     'StartDate',
     'EndDate',
@@ -240,19 +243,24 @@ const ReportSubmissionScreen = () => {
           setLocationName(route.params.reportData.AreaOfOperation);
         }
       }
-      if (route.params?.reportData?.CalamityAreaId) {
+      if (route.params?.reportData?.calamityArea) {
         const savedActivation = activeActivations.find(
-          (activation) => activation.id === route.params.reportData.CalamityAreaId
+          (activation) => {
+            let displayCalamity = activation.calamityType;
+            if (activation.calamityType === 'Typhoon' && activation.typhoonName) {
+              displayCalamity += ` (${activation.typhoonName})`;
+            }
+            return `${displayCalamity} (by ${activation.organization})` === route.params.reportData.calamityArea;
+          }
         );
         if (savedActivation) {
-          let displayCalamity = savedActivation.calamityType;
-          if (savedActivation.calamityType === 'Typhoon' && savedActivation.typhoonName) {
-            displayCalamity += ` (${savedActivation.typhoonName})`;
-          }
           setReportData(prev => ({
             ...prev,
-            calamityArea: `${displayCalamity} (by ${savedActivation.organization})`,
-            CalamityAreaId: savedActivation.id,
+            calamityArea: route.params.reportData.calamityArea,
+            CalamityType: savedActivation.calamityType,
+            CalamityName: savedActivation.calamityType === 'Typhoon' && savedActivation.typhoonName
+              ? savedActivation.typhoonName
+              : savedActivation.calamityType,
           }));
         }
       }
@@ -621,23 +629,26 @@ const ReportSubmissionScreen = () => {
       setReportData((prev) => ({
         ...prev,
         calamityArea: '',
-        CalamityAreaId: '',
-        AreaOfOperation: reportData.AreaOfOperation,
+        CalamityType: '',
+        CalamityName: '',
       }));
-      setLocationName(reportData.AreaOfOperation);
     } else {
-      const selectedActivation = activeActivations.find((activation) => activation.id === value);
-      if (selectedActivation) {
-        let displayCalamity = selectedActivation.calamityType;
-        if (selectedActivation.calamityType === 'Typhoon' && selectedActivation.typhoonName) {
-          displayCalamity += ` (${selectedActivation.typhoonName})`;
+      const selectedActivation = activeActivations.find((activation) => {
+        let displayCalamity = activation.calamityType;
+        if (activation.calamityType === 'Typhoon' && activation.typhoonName) {
+          displayCalamity += ` (${activation.typhoonName})`;
         }
+        return `${displayCalamity} (by ${activation.organization})` === value;
+      });
+      if (selectedActivation) {
         setReportData((prev) => ({
           ...prev,
-          calamityArea: `${displayCalamity} (by ${selectedActivation.organization})`,
-          CalamityAreaId: selectedActivation.id,
+          calamityArea: value,
+          CalamityType: selectedActivation.calamityType,
+          CalamityName: selectedActivation.calamityType === 'Typhoon' && selectedActivation.typhoonName
+            ? selectedActivation.typhoonName
+            : selectedActivation.calamityType,
         }));
-        setLocationName(reportData.AreaOfOperation);
       }
     }
   };
@@ -1047,7 +1058,7 @@ const ReportSubmissionScreen = () => {
               {renderLabel('Select Calamity', true)}
               <View style={[GlobalStyles.input, errors.calamityArea && GlobalStyles.inputError, styles.pickerContainer, { height: 45, paddingVertical: 0, alignContent: 'center', justifyContent: 'center', paddingHorizontal: 0 }]}>
                 <Picker
-                  selectedValue={reportData.CalamityAreaId}
+                  selectedValue={reportData.calamityArea}
                   onValueChange={(value) => handleCalamityChange(value)}
                   style={{
                     fontFamily: 'Poppins_Regular',
@@ -1055,7 +1066,7 @@ const ReportSubmissionScreen = () => {
                     height: 68,
                     width: '100%',
                     textAlign: 'center',
-                    color: reportData.CalamityAreaId ? '#000' : '#999'
+                    color: reportData.calamityArea ? '#000' : '#999'
                   }}
                   dropdownIconColor="#00BCD4"
                   enabled={canSubmit}
@@ -1068,17 +1079,19 @@ const ReportSubmissionScreen = () => {
                       displayCalamity += ` (${activation.typhoonName})`;
                     }
                     const organizationName = activation.organization || 'Unknown Organization';
+                    const calamityValue = `${displayCalamity} (by ${organizationName})`;
                     return (
                       <Picker.Item
                         style={{ fontFamily: 'Poppins_Regular', textAlign: 'center', fontSize: 14 }}
                         key={activation.id}
-                        label={`${displayCalamity} (by ${organizationName})`}
-                        value={activation.id}
+                        label={calamityValue}
+                        value={calamityValue}
                       />
                     );
                   })}
                 </Picker>
               </View>
+              {errors.calamityArea && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.calamityArea}</Text>}
               {renderLabel('Completion Time of Intervention', true)}
               <TouchableOpacity
                 style={[GlobalStyles.input, errors.completionTimeOfIntervention && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
@@ -1533,21 +1546,6 @@ const ReportSubmissionScreen = () => {
                 fontSize: 16,
                 fontWeight: 'bold',
               }}>Allow Location</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{
-                backgroundColor: '#FF4444',
-                paddingVertical: 10,
-                paddingHorizontal: 20,
-                borderRadius: 5,
-              }}
-              onPress={() => setShowPermissionModal(false)}
-            >
-              <Text style={{
-                color: '#fff',
-                fontSize: 16,
-                fontWeight: 'bold',
-              }}>No Thanks</Text>
             </TouchableOpacity>
           </View>
         </View>

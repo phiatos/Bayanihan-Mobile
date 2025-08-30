@@ -562,20 +562,20 @@ const CreatePost = () => {
       }
 
       if (postId) {
-        const postRef = ref(database, `posts/submitted/${postId}`);
+        const postRef = ref(database, `posts/${postId}`);
         await update(postRef, postData);
         await logActivity('Updated a post', postId);
-        await logSubmission('posts/submitted', postData, postId);
-        console.log(`Post ${postId} updated in posts/submitted with data:`, postData);
+        await logSubmission('posts', postData, postId);
+        console.log(`Post ${postId} updated in posts/ with data:`, postData);
         ToastAndroid.show('Post updated successfully.', ToastAndroid.SHORT);
       } else {
-        const postsRef = ref(database, 'posts/submitted');
+        const postsRef = ref(database, 'posts/');
         const newPostRef = push(postsRef);
         const submissionId = newPostRef.key;
         await set(newPostRef, postData);
         await logActivity(`Created a new post in ${postData.category || 'shared post'}`, submissionId);
-        await logSubmission('posts/submitted', postData, submissionId);
-        console.log(`Post ${submissionId} created in posts/submitted with data:`, postData);
+        await logSubmission('posts/', postData, submissionId);
+        console.log(`Post ${submissionId} created in posts/ with data:`, postData);
         ToastAndroid.show('Post created successfully.', ToastAndroid.SHORT);
       }
 

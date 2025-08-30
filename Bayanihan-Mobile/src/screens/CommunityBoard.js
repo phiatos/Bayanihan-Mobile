@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { Menu, MenuOptions, MenuOption, MenuTrigger, MenuProvider } from 'react-native-popup-menu';
 import styles from '../styles/CommunityBoardStyles';
+import useOperationCheck from '../components/useOperationCheck';
 
 const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
   const [retryCount, setRetryCount] = useState(0);
@@ -176,7 +177,7 @@ const CommunityBoard = () => {
       console.log('No user, skipping posts fetch');
       return;
     }
-    const postsRef = query(ref(database, 'posts/submitted'), orderByChild('timestamp'));
+    const postsRef = query(ref(database, 'posts'), orderByChild('timestamp'));
     const unsubscribe = onValue(postsRef, (snapshot) => {
       const postsData = snapshot.val();
       console.log('Posts snapshot received:', postsData ? Object.keys(postsData).length + ' posts' : 'no posts');
@@ -252,8 +253,8 @@ const CommunityBoard = () => {
               const deletedPostRef = ref(database, `posts/deleted/${user.uid}/${postId}`);
               await set(deletedPostRef, { ...postData, deletedAt: serverTimestamp() });
               console.log(`Post ${postId} copied to posts/deleted/${user.uid}/${postId}`);
-              await remove(ref(database, `posts/submitted/${postId}`));
-              console.log(`Post ${postId} removed from posts/submitted`);
+              await remove(ref(database, `posts/${postId}`));
+              console.log(`Post ${postId} removed from posts`);
               ToastAndroid.show('Post moved to deleted posts.', ToastAndroid.BOTTOM);
             } catch (error) {
               console.error(`Error moving post ${postId} to deleted:`, error);

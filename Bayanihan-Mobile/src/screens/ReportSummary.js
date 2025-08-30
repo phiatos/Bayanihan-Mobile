@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
 import React, { useState, useEffect } from 'react';
-import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import { auth, database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
@@ -15,16 +15,20 @@ import { logSubmission } from '../components/logSubmission';
 const ReportSummary = () => {
   const route = useRoute();
   const [reportData, setReportData] = useState(route.params?.reportData || {});
-  const { userUid } = route.params || {};
+  const { userUid, organizationName: orgNameFromParams } = route.params || {};
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [organizationName, setOrganizationName] = useState('Loading...');
+  const [organizationName, setOrganizationName] = useState(orgNameFromParams || 'Loading...');
 
-  // Fetch organization name from Firebase
+  // Fetch organization name from Firebase if not provided in route params
   useEffect(() => {
     const fetchOrganizationName = async () => {
+      if (orgNameFromParams) {
+        setOrganizationName(orgNameFromParams);
+        return;
+      }
       if (!userUid) {
         console.warn('No user UID provided');
         setOrganizationName('');
@@ -50,7 +54,7 @@ const ReportSummary = () => {
     };
 
     fetchOrganizationName();
-  }, [userUid]);
+  }, [userUid, orgNameFromParams]);
 
   const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
     try {
@@ -84,12 +88,18 @@ const ReportSummary = () => {
         throw new Error('Database reference is not available');
       }
 
+      // Use CalamityType and CalamityName from reportData
+      const CalamityName = reportData.CalamityName || 'Unknown Calamity';
+      const CalamityType = reportData.CalamityType || 'Unknown Type';
+      const calamityArea = `${CalamityType} - ${CalamityName} (by ${organizationName})`;
+
       const newReport = {
         reportID: reportData.reportID || `REPORTS-${Math.floor(100000 + Math.random() * 900000)}`,
         AreaOfOperation: reportData.AreaOfOperation || '',
         DateOfReport: reportData.DateOfReport || '',
-        calamityArea: reportData.calamityArea || '',
-        TimeOfIntervention: reportData.completionTimeOfIntervention || '',
+        CalamityName: CalamityName,
+        CalamityType: CalamityType,
+        TimeOfIntervention: reportData.completionTimeOfIntervention || reportData.TimeOfIntervention || '',
         StartDate: reportData.StartDate || '',
         EndDate: reportData.EndDate || '',
         NoOfIndividualsOrFamilies: parseInt(reportData.NoOfIndividualsOrFamilies) || 0,
@@ -100,25 +110,32 @@ const ReportSummary = () => {
         NoOfOrganizationsActivated: parseInt(reportData.NoOfOrganizationsActivated) || 0,
         TotalValueOfInKindDonations: parseInt(reportData.TotalValueOfInKindDonations) || 0,
         TotalMonetaryDonations: parseInt(reportData.TotalMonetaryDonations) || 0,
-        NotesAdditionalInformation: reportData.NotesAdditionalInformation || '',
+        NotesAdditionalInformation: reportData.NotesAdditionalInformation || 'No additional notes',
         status: 'Pending',
         userUid: userUid,
+        VolunteerGroupName: organizationName || 'Not Assigned',
         timestamp: serverTimestamp(),
         organization: organizationName,
+        coordinates: reportData.coordinates || null,
       };
 
-      const reportRef = databaseRef(database, 'reports/submitted');
+      const reportRef = databaseRef(database, 'reports/verification');
       const newReportRef = push(reportRef);
       const submissionId = newReportRef.key;
 
-      // Notify admin
-      const message = `New report submitted by ${reportData.contactPerson || 'Unknown'} from ${organizationName} for ${reportData.calamityArea || 'Calamity Area'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      // Notify admin with detailed message using CalamityName
+      const message = `New report submitted by ${reportData.contactPerson || 'Unknown'} from ${organizationName} for ${CalamityName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
       await notifyAdmin(message, submissionId, reportData.contactPerson, organizationName);
 
+      // Save to reports/verification
       await push(reportRef, newReport);
+
+      // Also save to reports/submitted for logging
+      await push(databaseRef(database, 'reports/submitted'), newReport);
+
       await logActivity('Submitted a report', submissionId);
       await logSubmission('reports/submitted', newReport, submissionId);
-      console.log('Report saved successfully to reports/submitted');
+      console.log('Report saved successfully to Firebase');
 
       // Reset form data
       setReportData({});
@@ -134,45 +151,39 @@ const ReportSummary = () => {
     }
   };
 
-  const handleConfirm = () => {
+  const handleCancel  = () => {
     setModalVisible(false);
-    if (!errorMessage) {
-      // SUCCESS: Reset the navigation stack and go to the Volunteer Dashboard
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'Volunteer Dashboard' }],
-        })
-      );
-    } else {
-      // ERROR: Navigate to ReportSubmission to allow retry
-      navigation.navigate('ReportSubmission', { reportData });
-    }
-  };
-
-  const handleCancel = () => {
-    setModalVisible(false);
-    if (errorMessage) {
-      navigation.navigate('ReportSubmission', { reportData });
-    }
+    navigation.navigate('ReportSubmission', { reportData });
   };
 
   const handleBack = () => {
     navigation.navigate('ReportSubmission', { reportData });
   };
 
+  const handleSuccessConfirm = () => {
+          setModalVisible(true);
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'Volunteer Dashboard' }],
+      })
+    );
+  };
+
+
   const formatLabel = (key) => {
-    let label = key.replace(/([A-Z])/g, ' $1').toLowerCase();
+    let label = key.replace(/([A-Z])/g, ' $1').trim();
     // Add period after "no" in specific fields
-    if (['no of individuals or families', 'no of food packs', 'no of hot meals', 'no of volunteers mobilized', 'no of organizations activated'].includes(label)) {
-      label = label.replace('no ', 'no. ');
+    if (['no of individuals or families', 'no of food packs', 'no of hot meals', 'no of volunteers mobilized', 'no of organizations activated'].includes(label.toLowerCase())) {
+      label = label.replace(/no /i, 'No. ');
     }
-    return label;
+    // Capitalize first letter of each word
+    return label.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   const formatDateDisplay = (dateStr) => {
     if (!dateStr) return 'N/A';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
       return dateStr;
     }
     const date = new Date(dateStr);
@@ -231,7 +242,7 @@ const ReportSummary = () => {
             <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
             <View style={GlobalStyles.summarySection}>
               <Text style={GlobalStyles.summarySectionTitle}>Basic Information</Text>
-              {['reportID', 'AreaOfOperation', 'DateOfReport'].map((field) => (
+              {['reportID', 'AreaOfOperation', 'DateOfReport',].map((field) => (
                 <View key={field} style={styles.fieldContainer}>
                   <Text style={styles.label}>{formatLabel(field)}</Text>
                   <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
@@ -244,11 +255,19 @@ const ReportSummary = () => {
               {['calamityArea', 'completionTimeOfIntervention', 'StartDate', 'EndDate', 'NoOfIndividualsOrFamilies', 'NoOfFoodPacks', 'hotMeals', 'LitersOfWater', 'NoOfVolunteersMobilized', 'NoOfOrganizationsActivated', 'TotalValueOfInKindDonations', 'TotalMonetaryDonations'].map((field) => (
                 <View key={field} style={styles.fieldContainer}>
                   <Text style={styles.label}>{formatLabel(field)}</Text>
-                  <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+                  <Text style={styles.value}>
+                    {reportData[field]
+                      ? (field === 'completionTimeOfIntervention'
+                          ? formatTimeDisplay(reportData[field])
+                          : ['StartDate', 'EndDate'].includes(field)
+                            ? formatDateDisplay(reportData[field])
+                            : reportData[field])
+                      : 'N/A'}
+                  </Text>
                 </View>
               ))}
             </View>
-            
+
             <View style={GlobalStyles.summarySection}>
               <Text style={GlobalStyles.summarySectionTitle}>Additional Updates</Text>
               <View style={styles.fieldContainer}>
@@ -277,7 +296,7 @@ const ReportSummary = () => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <CustomModal
+       <CustomModal
         visible={modalVisible}
         title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
@@ -305,7 +324,7 @@ const ReportSummary = () => {
             )}
           </View>
         }
-        onConfirm={handleConfirm}
+        onConfirm={handleSuccessConfirm}
         onCancel={handleCancel}
         confirmText={errorMessage ? 'Retry' : 'Proceed'}
         showCancel={false}

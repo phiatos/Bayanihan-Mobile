@@ -28,6 +28,7 @@ export default StyleSheet.create({
     backgroundColor: Theme.colors.lightBg,
     borderTopWidth: 1,
     borderTopColor: '#b9b9b9',
+    zIndex: 1000, // Ensure it stays above other elements
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -68,11 +69,13 @@ export default StyleSheet.create({
     backgroundColor: Theme.colors.white,
     borderRadius: borderRadius.medium,
     marginHorizontal: 10,
-    elevation: 5, // Android shadow
-    shadowColor: Theme.colors.black, // iOS shadow
+    elevation: 5,
+    shadowColor: Theme.colors.black,
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.3,
-    shadowRadius: 5,  
+    shadowRadius: 5,
+    marginTop: 100
+
   },
   commentHeader: {
     flexDirection: 'row',
@@ -109,8 +112,7 @@ export default StyleSheet.create({
   },
   commentList: {
     flexGrow: 1,
-    marginTop: spacing.large,
-    marginBottom: 80
+    paddingBottom: spacing.large + 60, // Extra padding to avoid overlap with input
   },
   emptyCommentContainer: {
     flex: 1,
