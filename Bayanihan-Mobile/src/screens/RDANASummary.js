@@ -4,7 +4,7 @@ import { ref as databaseRef, push, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { database } from '../configuration/firebaseConfig';
-import OperationCustomModal from '../components/OperationCustomModal';
+import OperationCustomModal from '../components/OperationCustomModal'; // Updated to OperationCustomModal
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/RDANAStyles';
 import Theme from '../constants/theme';
@@ -12,58 +12,56 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { logActivity } from '../components/logActivity';
 import { logSubmission } from '../components/logSubmission';
 import { useAuth } from '../context/AuthContext';
+import CustomModal from '../components/CustomModal';
 
 const RDANASummary = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { user, loading } = useAuth();
-  const { reportData: initialReportData = {}, affectedMunicipalities: initialMunicipalities = [], organizationName: routeOrganizationName = '' } = route.params || {};
+  const { user } = useAuth(); // Get user from AuthContext
+  const { reportData: initialReportData = {}, affectedMunicipalities: initialMunicipalities = [], organizationName = 'Admin' } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [affectedMunicipalities, setAffectedMunicipalities] = useState(initialMunicipalities);
   const [modalVisible, setModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  // Use user.role to determine organizationName for admins
-  const organizationName = user && user.role === 'AB ADMIN' ? 'Admin' : (routeOrganizationName || 'Unknown');
-
+  // Validate incoming data
   if (!reportData || typeof reportData !== 'object') {
-    console.warn(`[${new Date().toISOString()}] Invalid reportData received:`, reportData);
+    console.warn('Invalid reportData received:', reportData);
     Alert.alert('Error', 'Invalid report data. Please return and fill the form again.');
     return null;
   }
 
   if (!Array.isArray(affectedMunicipalities)) {
-    console.warn(`[${new Date().toISOString()}] Invalid affectedMunicipalities received:`, affectedMunicipalities);
+    console.warn('Invalid affectedMunicipalities received:', affectedMunicipalities);
     Alert.alert('Error', 'Invalid municipalities data.');
     return null;
   }
 
+  // Helper function to sanitize keys for Firebase (preserve single underscores)
   const sanitizeKey = (key) => {
     return key
-      .replace(/[.#$/[\]]/g, '_')
-      .replace(/\s+/g, '_')
-      .replace(/[^a-zA-Z0-9_]/g, '')
-      .replace(/_+/g, '_');
+      .replace(/[.#$/[\]]/g, '_') // Replace invalid Firebase characters
+      .replace(/\s+/g, '_') // Replace spaces with underscore
+      .replace(/[^a-zA-Z0-9_]/g, '') // Remove other special characters
+      .replace(/_+/g, '_'); // Collapse multiple underscores to single
   };
 
+  // Format label for display
   const formatLabel = (key) => {
     return key
-      .replace(/_/g, ' ')
-      .replace(/([A-Z])/g, ' $1')
+      .replace(/_/g, ' ') // Replace underscores with spaces
+      .replace(/([A-Z])/g, ' $1') // Add space before capital letters
       .trim()
       .split(' ')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
   };
 
+  // Check user authentication
   useEffect(() => {
-    if (loading) {
-      console.log(`[${new Date().toISOString()}] Auth context is still loading`);
-      return;
-    }
-    if (!user || !user.id) {
-      console.warn(`[${new Date().toISOString()}] No user is logged in`);
+    if (!user) {
+      console.warn('No user is logged in');
       setErrorMessage('User not authenticated. Please log in.');
       setModalVisible(true);
       setTimeout(() => {
@@ -72,12 +70,15 @@ const RDANASummary = () => {
       }, 3000);
       return;
     }
-    console.log(`[${new Date().toISOString()}] Logged-in user:`, { id: user.id, role: user.role, organizationName });
-  }, [user, loading, navigation, organizationName]);
 
+    console.log('Logged-in user ID:', user.id);
+    console.log('Rendering with organizationName:', organizationName);
+  }, [user, navigation, organizationName]);
+
+  // Debug lifeline data in reportData
   useEffect(() => {
-    console.log(`[${new Date().toISOString()}] Received reportData:`, reportData);
-    console.log(`[${new Date().toISOString()}] Lifeline data:`, {
+    console.log('Received reportData:', reportData);
+    console.log('Lifeline data:', {
       residentialHousesStatus: reportData.residentialhousesStatus,
       transportationAndMobilityStatus: reportData.transportationandmobilityStatus,
       electricityPowerGridStatus: reportData.electricitypowergridStatus,
@@ -90,10 +91,6 @@ const RDANASummary = () => {
   }, [reportData]);
 
   const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
-    if (!database) {
-      console.warn(`[${new Date().toISOString()}] Cannot notify admin: Database not initialized`);
-      return false;
-    }
     try {
       const notificationRef = databaseRef(database, 'notifications');
       await push(notificationRef, {
@@ -103,45 +100,33 @@ const RDANASummary = () => {
         volunteerOrganization,
         timestamp: serverTimestamp(),
       });
-      console.log(`[${new Date().toISOString()}] Admin notified successfully:`, message);
-      return true;
+      console.log('Admin notified successfully:', message);
     } catch (error) {
-      console.warn(`[${new Date().toISOString()}] Failed to notify admin:`, error.message);
-      return false;
+      console.error('Failed to notify admin:', error.message);
     }
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    if (!user || !user.id) {
-      console.error(`[${new Date().toISOString()}] No authenticated user or user ID found`);
+    if (!user) {
+      console.error('No authenticated user found');
       setErrorMessage('User not authenticated. Please log in.');
       setModalVisible(true);
       setIsSubmitting(false);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Login');
-      }, 3000);
       return;
     }
-    if (loading) {
-      console.warn(`[${new Date().toISOString()}] Auth context is still loading, cannot submit`);
-      setErrorMessage('Authentication is still loading. Please try again.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-    console.log(`[${new Date().toISOString()}] Authenticated user:`, { id: user.id, role: user.role });
+    console.log('Authenticated user ID:', user.id);
 
     if (Object.keys(reportData).length === 0 || affectedMunicipalities.length === 0) {
-      console.log(`[${new Date().toISOString()}] Validation failed: Incomplete form data`, { reportData, affectedMunicipalities });
+      console.log('Validation failed: Incomplete form data', { reportData, affectedMunicipalities });
       setErrorMessage('Form data is incomplete. Please ensure all fields are filled correctly.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
-    console.log(`[${new Date().toISOString()}] Form data validated successfully`);
+    console.log('Form data validated successfully');
 
+    // Priority needs
     const priorityNeeds = [];
     if (reportData.reliefPacks === 'Yes') priorityNeeds.push('Relief Packs');
     if (reportData.hotMeals === 'Yes') priorityNeeds.push('Hot Meals');
@@ -150,6 +135,7 @@ const RDANASummary = () => {
     if (reportData.ricePacks === 'Yes') priorityNeeds.push('Rice Packs');
     if (reportData.otherNeeds) priorityNeeds.push(reportData.otherNeeds);
 
+    // Needs checklist
     const needsChecklist = [
       { item: 'Relief Packs', needed: reportData.reliefPacks === 'Yes' },
       { item: 'Hot Meals', needed: reportData.hotMeals === 'Yes' },
@@ -159,6 +145,7 @@ const RDANASummary = () => {
       ...(reportData.otherNeeds ? [{ item: reportData.otherNeeds, needed: true }] : []),
     ];
 
+    // Structure status
     const structureStatus = [
       { structure: 'Residential Houses', status: reportData.residentialhousesStatus || 'N/A' },
       { structure: 'Transportation and Mobility', status: reportData.transportationandmobilityStatus || 'N/A' },
@@ -170,6 +157,7 @@ const RDANASummary = () => {
       { structure: 'Others', status: reportData.othersStatus || 'N/A' },
     ];
 
+    // Profile data
     const profile = {
       Site_Location_Address_Barangay: reportData.Site_Location_Address_Barangay || '',
       Site_Location_Address_City_Municipality: reportData.Site_Location_Address_City_Municipality || '',
@@ -186,6 +174,7 @@ const RDANASummary = () => {
       Locations_and_Areas_Affected_Province: reportData.Locations_and_Areas_Affected_Province || '',
     };
 
+    // Firebase data structure
     const reportDataForFirebase = {
       rdanaId: `RDANA-${Math.floor(100 + Math.random() * 900)}`,
       dateTime: new Date().toISOString(),
@@ -225,12 +214,12 @@ const RDANASummary = () => {
       responseGroup: reportData.responseGroup || '',
       reliefDeployed: reportData.reliefDeployed || '',
       familiesServed: reportData.familiesServed || '',
-      userUid: user.id,
+      userUid: user.id, // Use user.id
       status: 'Submitted',
       timestamp: serverTimestamp(),
     };
 
-    console.log(`[${new Date().toISOString()}] Prepared report data:`, JSON.stringify(reportDataForFirebase, null, 2));
+    console.log('Prepared report data:', JSON.stringify(reportDataForFirebase, null, 2));
 
     try {
       const submittedRef = databaseRef(database, 'rdana/submitted');
@@ -238,34 +227,21 @@ const RDANASummary = () => {
       const submissionId = newReportRef.key;
       await push(submittedRef, reportDataForFirebase);
 
-      const contactPerson = user.role === 'AB ADMIN' ? `${user.firstName} ${user.lastName}` : (reportData.Prepared_By || 'Unknown');
-      const message = `New RDANA report "${reportData.Type_of_Disaster || 'N/A'}" submitted by ${contactPerson} from ${organizationName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
-      const notifySuccess = await notifyAdmin(message, submissionId, contactPerson, organizationName);
+      // Notify admin after successful save
+      const message = `New RDANA report "${reportData.Type_of_Disaster || 'N/A'}" submitted by ${reportData.Prepared_By || 'Unknown'} from ${organizationName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      await notifyAdmin(message, submissionId, reportData.Local_Authorities_Persons_Contacted_for_Information || 'Unknown', organizationName);
 
-      const logSuccess = await logSubmission(user.id, submissionId, 'RDANA', organizationName);
-      if (!logSuccess) {
-        console.warn(`[${new Date().toISOString()}] Submission saved to Firebase, but logging to submission_history failed`);
-        setErrorMessage('Report submitted successfully, but failed to log submission.');
-        setModalVisible(true);
-      } else {
-        const activitySuccess = await logActivity(user.id, 'RDANA', `Submitted RDANA report ${submissionId} for ${organizationName}`, submissionId);
-        if (!activitySuccess) {
-          console.warn(`[${new Date().toISOString()}] Submission logged, but activity logging failed`);
-          setErrorMessage('Report submitted successfully, but failed to log activity.');
-          setModalVisible(true);
-        }
-      }
+      // Log submission
+      await logSubmission(user.id, submissionId, 'RDANA', organizationName);
 
-      if (notifySuccess && logSuccess) {
-        setErrorMessage(null);
-        setModalVisible(true);
-        setReportData({});
-        setAffectedMunicipalities([]);
-      }
+      setErrorMessage(null);
+      setModalVisible(true);
+      setReportData({});
+      setAffectedMunicipalities([]);
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] Error saving RDANA report to Firebase:`, error);
-      console.error(`[${new Date().toISOString()}] Error code:`, error.code || 'N/A');
-      console.error(`[${new Date().toISOString()}] Error message:`, error.message);
+      console.error('Error saving RDANA report to Firebase:', error);
+      console.error('Error code:', error.code || 'N/A');
+      console.error('Error message:', error.message);
       setErrorMessage(`Failed to submit RDANA report: ${error.message}`);
       setModalVisible(true);
     } finally {
@@ -274,9 +250,10 @@ const RDANASummary = () => {
   };
 
   const handleConfirm = () => {
-    console.log(`[${new Date().toISOString()}] Confirm button pressed, closing modal`);
+    console.log('Confirm button pressed, closing modal');
     setModalVisible(false);
     if (!errorMessage) {
+      // Reset navigation stack to Volunteer Dashboard
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -289,7 +266,7 @@ const RDANASummary = () => {
   };
 
   const handleCancel = () => {
-    console.log(`[${new Date().toISOString()}] Cancel button pressed`);
+    console.log('Cancel button pressed');
     setModalVisible(false);
     if (errorMessage) {
       navigation.navigate('Login');
@@ -319,6 +296,7 @@ const RDANASummary = () => {
   return (
     <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
@@ -346,6 +324,7 @@ const RDANASummary = () => {
           <View style={GlobalStyles.form}>
             <Text style={GlobalStyles.subheader}>Summary</Text>
             <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
+            {/* Profile of the Disaster */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Profile of the Disaster</Text>
               {[
@@ -364,6 +343,7 @@ const RDANASummary = () => {
               ))}
             </View>
 
+            {/* Modality */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Modality</Text>
               {[
@@ -382,6 +362,7 @@ const RDANASummary = () => {
               ))}
             </View>
 
+            {/* Initial Effects */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Initial Effects</Text>
               <Text style={styles.sectionSubtitle}>Affected Municipalities</Text>
@@ -409,6 +390,7 @@ const RDANASummary = () => {
               )}
             </View>
 
+            {/* Status of Lifelines */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities</Text>
               {[
@@ -428,6 +410,7 @@ const RDANASummary = () => {
               ))}
             </View>
 
+            {/* Initial Needs Assessment */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Initial Needs Assessment Checklist</Text>
               {[
@@ -448,6 +431,7 @@ const RDANASummary = () => {
               ))}
             </View>
 
+            {/* Initial Response Actions */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Initial Response Actions</Text>
               {[
@@ -467,9 +451,9 @@ const RDANASummary = () => {
                 <Text style={GlobalStyles.backButtonText}>Back</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[GlobalStyles.submitButton, isSubmitting || loading ? { opacity: 0.6 } : {}]}
+                style={[GlobalStyles.submitButton, isSubmitting && { opacity: 0.6 }]}
                 onPress={handleSubmit}
-                disabled={isSubmitting || loading}
+                disabled={isSubmitting}
               >
                 <Text style={GlobalStyles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
               </TouchableOpacity>
@@ -477,20 +461,22 @@ const RDANASummary = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-      <OperationCustomModal
+
+      
+      <CustomModal
         visible={modalVisible}
         title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
-          <View style={styles.modalContent}>
+          <View style={GlobalStyles.modalContent}>
             {errorMessage ? (
               <>
-                <Ionicons name="warning-outline" size={60} color="#FF0000" style={styles.modalIcon} />
-                <Text style={styles.modalMessage}>{errorMessage}</Text>
+                <Ionicons name="warning-outline" size={60} color={Theme.colors.red} style={GlobalStyles.modalIcon} />
+                <Text style={GlobalStyles.modalMessage}>{errorMessage}</Text>
               </>
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={60} color="#00BCD4" style={styles.modalIcon} />
-                <Text style={styles.modalMessage}>Your RDANA report has been successfully submitted!</Text>
+                <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={GlobalStyles.modalIcon} />
+                <Text style={GlobalStyles.modalMessage}>Your RDANA report has been successfully submitted!</Text>
               </>
             )}
           </View>
