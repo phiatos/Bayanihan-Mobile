@@ -326,8 +326,8 @@ const CommunityBoard = () => {
     };
     console.log(`Navigating to CreatePost for sharing post ${post.id}:`, shareData);
     navigation.navigate('CreatePost', {
-      postType: 'text', // Shared posts are treated as text posts with a caption
-      postId: null, // New post, not editing
+      postType: 'text', 
+      postId: null, 
       initialData: shareData,
       isShared: true,
     });
