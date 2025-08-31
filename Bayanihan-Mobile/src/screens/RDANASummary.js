@@ -22,7 +22,7 @@ const RDANASummary = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userUid, setUserUid] = useState(null);
-  const [organizationName, setOrganizationName] = useState('[Unknown Organization]');
+  const [organizationName, setOrganizationName] = useState('Admin');
   const [errorMessage, setErrorMessage] = useState(null);
 
   // Validate incoming data
@@ -93,7 +93,7 @@ const RDANASummary = () => {
               return;
             }
 
-            const orgName = userData.organization || '[Unknown Organization]';
+            const orgName = userData.organization || 'Admin';
             setOrganizationName(orgName);
             await AsyncStorage.setItem('organizationName', orgName);
             console.log('Organization:', orgName);

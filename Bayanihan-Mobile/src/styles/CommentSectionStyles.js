@@ -24,6 +24,7 @@ export default StyleSheet.create({
     paddingHorizontal: spacing.medium,
   },
   commentInputContainer: {
+    
     padding: spacing.medium,
     backgroundColor: Theme.colors.lightBg,
     borderTopWidth: 1,

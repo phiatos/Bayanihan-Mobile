@@ -1078,7 +1078,7 @@ const ReportSubmissionScreen = () => {
                     if (activation.calamityType === 'Typhoon' && activation.typhoonName) {
                       displayCalamity += ` (${activation.typhoonName})`;
                     }
-                    const organizationName = activation.organization || 'Unknown Organization';
+                    const organizationName = activation.organization || 'Admin';
                     const calamityValue = `${displayCalamity} (by ${organizationName})`;
                     return (
                       <Picker.Item

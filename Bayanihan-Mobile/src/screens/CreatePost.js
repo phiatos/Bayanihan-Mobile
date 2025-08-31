@@ -469,7 +469,7 @@ const CreatePost = () => {
         onValue(userRef, resolve, reject, { onlyOnce: true });
       });
       const userData = userSnapshot.val() || {};
-      const userName = userData.contactPerson || userData.displayName || 'Anonymous';
+      const userName = userData.contactPerson || `${userData.firstName || 'Anonymous'} ${userData.lastName || ''}`.trim() || 'Anonymous';
       const organization = userData.organization || '';
       console.log('User data:', { userName, organization });
 

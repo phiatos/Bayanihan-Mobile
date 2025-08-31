@@ -39,12 +39,12 @@ const CallForDonationsSummary = () => {
             setOrganizationName(userData.organization);
           } else {
             console.warn('No organization found for user:', user.uid);
-            setOrganizationName('Unknown Organization');
+            setOrganizationName('Admin');
             ToastAndroid.show('No organization found in your profile. Using default name.', ToastAndroid.BOTTOM);
           }
         } catch (error) {
           console.error('Error fetching organization name:', error.message);
-          setOrganizationName('Unknown Organization');
+          setOrganizationName('Admin');
           ToastAndroid.show('Failed to fetch organization name: ' + error.message, ToastAndroid.BOTTOM);
         }
       } else {

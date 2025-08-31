@@ -73,7 +73,6 @@ const CallForDonations = () => {
   ];
 
   useEffect(() => {
-    console.log('Received route params:', route.params);
     if (route.params?.formData) {
       setFormData(route.params.formData);
     }

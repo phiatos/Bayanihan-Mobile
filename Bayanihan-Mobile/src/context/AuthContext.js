@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
             } else {
               const userObject = {
                 id: currentUser.uid,
-                contactPerson: userData.contactPerson || currentUser.displayName || 'Unknown',
+                contactPerson: userData.contactPerson || `${userData.firstName} ${userData.lastName || ''}`.trim(),
                 email: currentUser.email,
                 role: userData.role,
                 organization: userData.organization,
@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
       console.log('AuthContext: Cleaning up auth state listener');
       unsubscribe();
     };
-  }, []); // Remove `user` from dependencies to avoid re-running unnecessarily
+  }, []);
 
   const authContextValue = {
     user,

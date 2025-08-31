@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, ToastAndroid, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, ToastAndroid, SafeAreaView, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { ref, onValue, push, remove, set, serverTimestamp } from 'firebase/database';
 import { auth, database } from '../configuration/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { Menu, MenuOptions, MenuOption, MenuTrigger, MenuProvider } from 'react-
 import { LinearGradient } from 'expo-linear-gradient';
 import GlobalStyles from '../styles/GlobalStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const CommentSection = () => {
   const navigation = useNavigation();
@@ -22,6 +23,9 @@ const CommentSection = () => {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState({ contactPerson: 'Anonymous', organization: '' });
   const commentInputRef = useRef(null);
+  const flatListRef = useRef(null);
+  const insets = useSafeAreaInsets();
+  const HEADER_HEIGHT = 60; // Adjust based on your header height
 
   const toSentenceCase = (str) => {
     if (!str) return 'post';
@@ -61,7 +65,7 @@ const CommentSection = () => {
       return;
     }
 
-    const commentsRef = ref(database, `posts/submitted/${postId}/comments`);
+    const commentsRef = ref(database, `posts/${postId}/comments`);
     const unsubscribe = onValue(commentsRef, (snapshot) => {
       const commentsData = snapshot.val();
       console.log(`CommentSection: Comments snapshot for post ${postId}:`, commentsData ? Object.keys(commentsData).length + ' comments' : 'no comments');
@@ -81,6 +85,18 @@ const CommentSection = () => {
 
     return () => unsubscribe();
   }, [postId, navigation]);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      if (flatListRef.current && comments.length > 0) {
+        flatListRef.current.scrollToEnd({ animated: true });
+      }
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+    };
+  }, [comments]);
 
   const fetchUserData = async (uid) => {
     try {
@@ -153,6 +169,9 @@ const CommentSection = () => {
     setReplyToUsername(username || 'Anonymous');
     setNewComment(`@${username || 'Anonymous'} `);
     commentInputRef.current?.focus();
+    if (flatListRef.current) {
+      flatListRef.current.scrollToEnd({ animated: true });
+    }
   };
 
   const handleAddComment = async () => {
@@ -174,9 +193,8 @@ const CommentSection = () => {
     }
 
     try {
-      const commentsRef = ref(database, `posts/submitted/${postId}/comments`);
+      const commentsRef = ref(database, `posts/${postId}/comments`);
       const newCommentRef = push(commentsRef);
-      // Separate username and content
       let content = commentText;
       let taggedUsername = null;
       if (replyToUsername && commentText.startsWith(`@${replyToUsername}`)) {
@@ -187,8 +205,8 @@ const CommentSection = () => {
         userId: user.uid,
         userName: userData.contactPerson,
         organization: userData.organization,
-        content: content || commentText, // Use content without username if tagged
-        taggedUsername: taggedUsername, // Store tagged username separately
+        content: content || commentText,
+        taggedUsername: taggedUsername,
         timestamp: serverTimestamp(),
         parentCommentId: replyToCommentId || null,
       };
@@ -199,6 +217,11 @@ const CommentSection = () => {
       setReplyToUsername(null);
       commentInputRef.current?.clear();
       ToastAndroid.show('Comment posted.', ToastAndroid.BOTTOM);
+      if (flatListRef.current) {
+        setTimeout(() => {
+          flatListRef.current.scrollToEnd({ animated: true });
+        }, 100);
+      }
     } catch (error) {
       console.error(`CommentSection: Error adding comment to post ${postId}:`, error);
       ToastAndroid.show('Failed to post comment: ' + error.message, ToastAndroid.BOTTOM);
@@ -396,22 +419,23 @@ const CommentSection = () => {
 
   return (
     <MenuProvider>
-      <SafeAreaView style={[GlobalStyles.container, { paddingBottom: 0 }]}>
+      <SafeAreaView style={[GlobalStyles.container, { paddingTop: 0, paddingBottom: 0 }]}>
         <LinearGradient
           colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
           start={{ x: 1, y: 0.5 }}
           end={{ x: 1, y: 1 }}
           style={GlobalStyles.gradientContainer}
         >
-          <View style={GlobalStyles.newheaderContainer}>
+          <View style={[GlobalStyles.newheaderContainer, { paddingTop: insets.top }]}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={GlobalStyles.headerMenuIcon}>
               <Ionicons name="arrow-back" size={32} color={Theme.colors.primary} />
             </TouchableOpacity>
             <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Comments</Text>
           </View>
         </LinearGradient>
-        <View style={{ flex: 1, paddingTop: 80, position: 'relative' }}>
+        <View style={{ flex: 1, paddingTop: HEADER_HEIGHT + insets.top }}>
           <FlatList
+            ref={flatListRef}
             data={comments}
             renderItem={renderComment}
             keyExtractor={(item) => item.id.toString()}
@@ -423,11 +447,11 @@ const CommentSection = () => {
                 </Text>
               </View>
             }
-            contentContainerStyle={styles.commentList}
+            contentContainerStyle={[styles.commentList, { paddingBottom: insets.bottom + 60 }]}
           />
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : null}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 10}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + HEADER_HEIGHT : insets.bottom + 10}
             style={{
               position: 'absolute',
               bottom: 0,
@@ -437,7 +461,7 @@ const CommentSection = () => {
             }}
           >
             <View style={[styles.commentInputContainer, {
-              paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+              paddingBottom: insets.bottom + 10,
             }]}>
               <View style={styles.inputWrapper}>
                 <TextInput
@@ -457,7 +481,7 @@ const CommentSection = () => {
                   <Ionicons
                     name="send"
                     size={20}
-                    color={Theme.colors.primary}
+                    color={newComment.trim() ? Theme.colors.accent : Theme.colors.primary}
                   />
                 </TouchableOpacity>
               </View>

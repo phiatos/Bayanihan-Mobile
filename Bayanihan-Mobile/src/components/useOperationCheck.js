@@ -68,17 +68,13 @@ const useOperationCheck = () => {
         }
 
         const userRole = userData.role;
-        const orgName = userData.organization || userData.group || storedOrg || '[Unknown Organization]';
+        const orgName = userData.organization || userData.group || storedOrg || 'Admin';
         setOrganizationName(orgName);
         await AsyncStorage.setItem('organizationName', orgName);
 
         if (userRole === 'AB ADMIN') {
           setCanSubmit(true);
         } else if (userRole === 'ABVN') {
-          if (orgName === '[Unknown Organization]') {
-            showErrorModal('Organization Error', 'Your account is not associated with an organization.');
-            return;
-          }
 
           const activationsRef = query(
             databaseRef(database, 'activations'),

@@ -40,7 +40,7 @@ export const styles = StyleSheet.create({
   },
   headerContainer: {
     position: 'absolute',
-    top: 0, // Adjusted to use safeAreaInsets.top in component
+    top: 40, // Adjusted to use safeAreaInsets.top in component
     left: 0,
     right: 0,
     height: HEADER_HEIGHT,
@@ -86,7 +86,7 @@ export const styles = StyleSheet.create({
   },
   overlayContainer: {
     position: 'absolute',
-    top: HEADER_HEIGHT + 10, // Adjusted to use safeAreaInsets.top in component
+    top: HEADER_HEIGHT + 40, // Adjusted to use safeAreaInsets.top in component
     left: 0,
     right: 0,
     zIndex: 900,
@@ -165,7 +165,7 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     right: 20,
-    bottom: 10, // Adjusted to use safeAreaInsets.bottom in component
+    bottom: 0, // Adjusted to use safeAreaInsets.bottom in component
     flexDirection: 'row',
     justifyContent: 'center',
     padding: 10,

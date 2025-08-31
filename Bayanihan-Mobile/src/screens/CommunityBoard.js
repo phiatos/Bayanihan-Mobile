@@ -216,7 +216,7 @@ const CommunityBoard = () => {
       });
       const userData = snapshot.val() || {};
       const data = {
-        contactPerson: userData.contactPerson || userData.displayName || 'Anonymous',
+        contactPerson: userData.contactPerson || `${userData.firstName || 'Anonymous'} ${userData.lastName || ''}`.trim() || 'Anonymous',
         organization: userData.organization || '',
       };
       await AsyncStorage.setItem(`userData:${uid}`, JSON.stringify(data));
@@ -335,14 +335,12 @@ const CommunityBoard = () => {
 
   const isEditable = (post) => {
     if (!post || !user) {
-      console.log('Post or user is null, not editable:', { postId: post?.id, userId: user?.uid });
       return false;
     }
     const ONE_DAY = 24 * 60 * 60 * 1000;
     const now = Date.now();
     const editable = post.userId === user.uid && (now - post.timestamp) <= ONE_DAY;
     if (!editable) {
-      console.log(`Post ${post.id} is not editable: userId=${post.userId}, currentUser=${user.uid}, timestamp=${post.timestamp}, now=${now}`);
     }
     return editable;
   };
@@ -390,7 +388,7 @@ const CommunityBoard = () => {
             <View>
               <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
               <Text style={styles.postMeta}>
-                {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
+                {item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
               </Text>
               {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
               {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
@@ -435,7 +433,7 @@ const CommunityBoard = () => {
            <View style={{ flex: 1 }}>
         <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
         <Text style={styles.postMeta}>
-          {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
+          {item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
         </Text>
         {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
         {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
@@ -560,7 +558,7 @@ const CommunityBoard = () => {
           style={GlobalStyles.gradientContainer}
         >
           <View style={GlobalStyles.newheaderContainer}>
-            <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+            <TouchableOpacity onPress={() => navigation.openDrawer()} vérificationstyle={GlobalStyles.headerMenuIcon}>
               <Ionicons name="menu" size={32} color={Theme.colors.primary} />
             </TouchableOpacity>
             <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Community Board</Text>
