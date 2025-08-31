@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, ToastAndroid, TouchableOpacity, View, Text } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, ToastAndroid, TouchableOpacity, View, Text } from 'react-native';
 import * as FileSystem from 'expo-file-system';
-import { auth, database } from '../configuration/firebaseConfig';
+import { database } from '../configuration/firebaseConfig';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
@@ -12,54 +13,48 @@ import styles from '../styles/CallForDonationsStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { logActivity } from '../components/logActivity';
 import { logSubmission } from '../components/logSubmission';
+import useOperationCheck from '../components/useOperationCheck'; // Import useOperationCheck
+import OperationCustomModal from '../components/OperationCustomModal';
 
 const CallForDonationsSummary = () => {
   const route = useRoute();
   const { formData = {}, image = null } = route.params || {};
   const navigation = useNavigation();
+  const { user } = useAuth(); // Use AuthContext
+  const { canSubmit, organizationName, modalVisible: opModalVisible, setModalVisible: setOpModalVisible, modalConfig: opModalConfig } = useOperationCheck(); // Use useOperationCheck
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [userUid, setUserUid] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [organizationName, setOrganizationName] = useState('Loading...');
   const [formDataState, setFormDataState] = useState(formData);
   const [imageState, setImageState] = useState(image);
 
   useEffect(() => {
     console.log('Received params in CallForDonationsSummary:', { formData, image });
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        setUserUid(user.uid);
-        console.log('Logged-in user UID:', user.uid);
-        try {
-          const userRef = databaseRef(database, `users/${user.uid}`);
-          const snapshot = await get(userRef);
-          const userData = snapshot.val();
-          if (userData && userData.organization) {
-            setOrganizationName(userData.organization);
-          } else {
-            console.warn('No organization found for user:', user.uid);
-            setOrganizationName('Admin');
-            ToastAndroid.show('No organization found in your profile. Using default name.', ToastAndroid.BOTTOM);
-          }
-        } catch (error) {
-          console.error('Error fetching organization name:', error.message);
-          setOrganizationName('Admin');
-          ToastAndroid.show('Failed to fetch organization name: ' + error.message, ToastAndroid.BOTTOM);
-        }
-      } else {
-        console.warn('No user is logged in');
-        setErrorMessage('Please log in to submit a donation.');
-        setModalVisible(true);
-      }
-    }, (error) => {
-      console.error('Auth state listener error:', error.message);
-      setErrorMessage('Authentication error: ' + error.message);
+    if (!user) {
+      console.warn('No user is logged in');
+      setErrorMessage('Please log in to submit a donation.');
       setModalVisible(true);
-    });
+      return;
+    }
 
-    return () => unsubscribe();
-  }, []);
+    // Check password_needs_reset (fetch from database since not in AuthContext)
+    const checkUserData = async () => {
+      try {
+        const userRef = databaseRef(database, `users/${user.id}`);
+        const snapshot = await get(userRef);
+        const userData = snapshot.val();
+        if (userData?.password_needs_reset) {
+          ToastAndroid.show('Please change your password.', ToastAndroid.BOTTOM);
+          navigation.navigate('Profile');
+        }
+      } catch (error) {
+        console.error('Error checking user data:', error);
+        ToastAndroid.show('Failed to load user data.', ToastAndroid.BOTTOM);
+      }
+    };
+
+    checkUserData();
+  }, [user, navigation]);
 
   const formatLabel = (key) => {
     return (
@@ -108,15 +103,13 @@ const CallForDonationsSummary = () => {
   };
 
   const handleSubmit = async () => {
-    if (!auth.currentUser) {
-      console.error('No authenticated user found');
-      setErrorMessage('Please log in to submit a donation.');
-      setModalVisible(true);
+    if (!canSubmit) {
+      setOpModalVisible(true); // Use useOperationCheck's modal
       return;
     }
-    if (!userUid) {
-      console.error('No user UID available. Cannot submit donation.');
-      setErrorMessage('User not authenticated. Please log in again.');
+    if (!user) {
+      console.error('No authenticated user found');
+      setErrorMessage('Please log in to submit a donation.');
       setModalVisible(true);
       return;
     }
@@ -125,7 +118,6 @@ const CallForDonationsSummary = () => {
 
     try {
       console.log('Submitting donation with formData:', formDataState, 'and image URI:', imageState);
-      console.log('Database object:', database);
       let imageBase64 = '';
       if (imageState) {
         imageBase64 = await getBase64Image(imageState);
@@ -156,7 +148,7 @@ const CallForDonationsSummary = () => {
         facebookLink: formDataState.facebookLink || 'N/A',
         image: imageBase64 || '',
         status: 'Pending',
-        userUid: userUid,
+        userUid: user.id,
         timestamp: serverTimestamp(),
       };
 
@@ -231,13 +223,13 @@ const CallForDonationsSummary = () => {
           <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
             <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={[GlobalStyles.headerTitle]}>Call for Donations </Text>
+          <Text style={[GlobalStyles.headerTitle]}>Call for Donations</Text>
         </View>
       </LinearGradient>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 80 }}
+        style={{ flex: 1, marginTop: 80}}
         keyboardVerticalOffset={0}
       >
         <ScrollView
@@ -287,7 +279,11 @@ const CallForDonationsSummary = () => {
               <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack} disabled={isLoading}>
                 <Text style={GlobalStyles.backButtonText}>Back</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={GlobalStyles.submitButton} onPress={handleSubmit} disabled={isLoading}>
+              <TouchableOpacity
+                style={[GlobalStyles.submitButton, !canSubmit && { opacity: 0.6 }]}
+                onPress={handleSubmit}
+                disabled={isLoading || !canSubmit}
+              >
                 <Text style={GlobalStyles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
               </TouchableOpacity>
             </View>
@@ -299,16 +295,16 @@ const CallForDonationsSummary = () => {
         visible={modalVisible}
         title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
-          <View style={styles.modalContent}>
+          <View style={GlobalStyles.modalContent}>
             {errorMessage ? (
               <>
                 <Ionicons
                   name="warning-outline"
                   size={60}
-                  color="#FF0000"
-                  style={styles.modalIcon}
+                  color={Theme.colors.red}
+                  style={GlobalStyles.modalIcon}
                 />
-                <Text style={styles.modalMessage}>{errorMessage}</Text>
+                <Text style={GlobalStyles.modalMessage}>{errorMessage}</Text>
               </>
             ) : (
               <>
@@ -316,9 +312,9 @@ const CallForDonationsSummary = () => {
                   name="checkmark-circle"
                   size={60}
                   color={Theme.colors.primary}
-                  style={styles.modalIcon}
+                  style={GlobalStyles.modalIcon}
                 />
-                <Text style={styles.modalMessage}>
+                <Text style={GlobalStyles.modalMessage}>
                   Your donation request has been successfully submitted!
                 </Text>
               </>
@@ -329,6 +325,15 @@ const CallForDonationsSummary = () => {
         onCancel={handleCancel}
         confirmText={errorMessage ? 'Retry' : 'Proceed'}
         showCancel={false}
+      />
+
+      <CustomModal
+        visible={opModalVisible}
+        title={opModalConfig.title}
+        message={opModalConfig.message}
+        onConfirm={opModalConfig.onConfirm}
+        confirmText={opModalConfig.confirmText}
+        showCancel={opModalConfig.showCancel}
       />
     </SafeAreaView>
   );

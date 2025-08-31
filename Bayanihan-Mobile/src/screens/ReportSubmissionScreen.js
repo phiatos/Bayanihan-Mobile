@@ -8,7 +8,8 @@ import { Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, 
 import * as Location from 'expo-location';
 import WebView from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { auth, database } from '../configuration/firebaseConfig';
+import { database } from '../configuration/firebaseConfig';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReportSubmissionStyles';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,6 +26,7 @@ const ReportSubmissionScreen = () => {
   const webViewRef = useRef(null);
   const insets = useSafeAreaInsets();
   const searchAnim = useRef(new Animated.Value(0)).current;
+  const { user } = useAuth(); // Use AuthContext
   const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const [searchBarVisible, setSearchBarVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,160 +118,146 @@ const ReportSubmissionScreen = () => {
     'TotalMonetaryDonations',
   ];
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      setIsLoading(true);
-      const timeoutId = setTimeout(() => {
-        setLoadingError('Operation timed out while fetching user data.');
-        setIsLoading(false);
-        setModalConfig({
-          title: 'Loading Error',
-          message: 'Failed to load user data due to timeout. Please try again.',
-          onConfirm: () => {
-            setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-          },
-          confirmText: 'OK',
+useEffect(() => {
+  setIsLoading(true);
+  const timeoutId = setTimeout(() => {
+    setLoadingError('Operation timed out while fetching user data.');
+    setIsLoading(false);
+    setModalConfig({
+      title: 'Loading Error',
+      message: 'Failed to load user data due to timeout. Please try again.',
+      onConfirm: () => {
+        setModalVisible(false);
+        navigation.navigate('Volunteer Dashboard');
+      },
+      confirmText: 'OK',
+    });
+    setModalVisible(true);
+  }, 10000);
+
+  if (!user) {
+    console.warn('No user is logged in');
+    setLoadingError('No authenticated user found');
+    setModalConfig({
+      title: 'Error',
+      message: 'Please log in to submit reports',
+      onConfirm: () => {
+        setModalVisible(false);
+        navigation.navigate('Login');
+      },
+      confirmText: 'OK',
+    });
+    setModalVisible(true);
+    setTimeout(() => {
+      setModalVisible(false);
+      navigation.navigate('Login');
+    }, 3000);
+    clearTimeout(timeoutId);
+    setIsLoading(false);
+    return;
+  }
+
+  setUserUid(user.id);
+  console.log('Logged-in user ID:', user.id);
+  setIsLoading(false);
+  clearTimeout(timeoutId);
+
+  // Fetch active activations
+  const fetchActivations = () => {
+    if (isLoading) return () => {};
+
+    const activationsRef = databaseRef(database, 'activations');
+    const activeQuery = query(activationsRef, orderByChild('status'), equalTo('active'));
+    const unsubscribe = onValue(
+      activeQuery,
+      (snapshot) => {
+        const activeActivations = [];
+        snapshot.forEach((childSnapshot) => {
+          const activation = { id: childSnapshot.key, ...childSnapshot.val() };
+          // If user is admin, include all active activations; otherwise, filter by organization
+          if (user.role === 'AB ADMIN') {
+            activeActivations.push(activation);
+          } else if (organizationName && activation.organization === organizationName) {
+            activeActivations.push(activation);
+          }
         });
-        setModalVisible(true);
-      }, 10000);
-
-      try {
-        const user = auth.currentUser;
-        if (!user) {
-          throw new Error('No authenticated user found');
-        }
-        setUserUid(user.uid);
-        console.log('Logged-in user UID:', user.uid);
-      } catch (error) {
-        console.error('Error fetching user data:', error.message);
-        setLoadingError(error.message);
-        setModalConfig({
-          title: 'Error',
-          message: `Failed to fetch user data: ${error.message}`,
-          onConfirm: () => {
-            setModalVisible(false);
-            navigation.navigate('Volunteer Dashboard');
-          },
-          confirmText: 'OK',
-        });
-        setModalVisible(true);
-        setTimeout(() => {
-          setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
-        }, 3000);
-      } finally {
-        clearTimeout(timeoutId);
-        setIsLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, [navigation]);
-
-  useEffect(() => {
-    if (!organizationName || isLoading) return;
-
-    const unsubscribe = auth.onAuthStateChanged(
-      async (user) => {
-        if (user) {
-          setUserUid(user.uid);
-          console.log('Logged-in user UID:', user.uid);
-
-          const activationsRef = databaseRef(database, 'activations');
-          const activeQuery = query(activationsRef, orderByChild('status'), equalTo('active'));
-          onValue(
-            activeQuery,
-            (snapshot) => {
-              const activeActivations = [];
-              snapshot.forEach((childSnapshot) => {
-                const activation = { id: childSnapshot.key, ...childSnapshot.val() };
-                if (organizationName) {
-                  if (activation.organization === organizationName) {
-                    activeActivations.push(activation);
-                  }
-                } else {
-                  activeActivations.push(activation);
-                }
-              });
-              setActiveActivations(activeActivations);
-              console.log('Active activations fetched:', activeActivations);
-            },
-            (error) => {
-              console.error('Error listening for active activations:', error);
-              ToastAndroid.show('Failed to load active operations.', ToastAndroid.BOTTOM);
-            }
-          );
-        } else {
-          console.warn('No user is logged in');
-        }
+        setActiveActivations(activeActivations);
+        console.log('Active activations fetched:', activeActivations);
       },
       (error) => {
-        console.error('Auth state listener error:', error.message);
-        ToastAndroid.show('Authentication error: ' + error.message, ToastAndroid.BOTTOM);
+        console.error('Error listening for active activations:', error);
+        ToastAndroid.show('Failed to load active operations.', ToastAndroid.BOTTOM);
       }
     );
+    return unsubscribe;
+  };
 
-    return () => unsubscribe();
-  }, [navigation, organizationName, isLoading]);
+  const unsubscribe = fetchActivations();
+
+  return () => {
+    unsubscribe();
+    console.log(`[${new Date().toISOString()}] Cleaned up Firebase listener`);
+  };
+}, [user, organizationName, isLoading]);
 
   useEffect(() => {
-    if (route.params?.reportData) {
-      setReportData(route.params.reportData);
-      if (route.params.reportData.StartDate) {
-        setTempDate(prev => ({ ...prev, StartDate: new Date(route.params.reportData.StartDate) }));
-      }
-      if (route.params.reportData.EndDate) {
-        setTempDate(prev => ({ ...prev, EndDate: new Date(route.params.reportData.EndDate) }));
-      }
-      if (route.params.reportData.completionTimeOfIntervention) {
-        const [timePart, ampmPart] = route.params.reportData.completionTimeOfIntervention.split(' ');
-        let [hours, minutes] = timePart.split(':').map(Number);
-        if (ampmPart === 'PM' && hours !== 12) hours += 12;
-        if (ampmPart === 'AM' && hours === 12) hours = 0;
-        const dummyDateForTime = new Date();
-        dummyDateForTime.setHours(hours, minutes, 0, 0);
-        setTempDate(prev => ({ ...prev, completionTimeOfIntervention: dummyDateForTime }));
-      }
-      if (route.params?.reportData?.AreaOfOperation) {
-        setLocationName(route.params.reportData.AreaOfOperation);
-        const [lat, lng] = route.params.reportData.AreaOfOperation.includes(',')
-          ? route.params.reportData.AreaOfOperation.split(',').map(Number)
-          : [null, null];
-        if (!isNaN(lat) && !isNaN(lng)) {
-          setSelectedLocation({ latitude: lat, longitude: lng });
-          reverseGeocode(lat, lng);
-        } else {
-          setLocationName(route.params.reportData.AreaOfOperation);
-        }
-      }
-      if (route.params?.reportData?.calamityArea) {
-        const savedActivation = activeActivations.find(
-          (activation) => {
-            let displayCalamity = activation.calamityType;
-            if (activation.calamityType === 'Typhoon' && activation.typhoonName) {
-              displayCalamity += ` (${activation.typhoonName})`;
-            }
-            return `${displayCalamity} (by ${activation.organization})` === route.params.reportData.calamityArea;
-          }
-        );
-        if (savedActivation) {
-          setReportData(prev => ({
-            ...prev,
-            calamityArea: route.params.reportData.calamityArea,
-            CalamityType: savedActivation.calamityType,
-            CalamityName: savedActivation.calamityType === 'Typhoon' && savedActivation.typhoonName
-              ? savedActivation.typhoonName
-              : savedActivation.calamityType,
-          }));
-        }
-      }
-    } else {
+    if (!route.params?.reportData) {
       const generateReportID = () => {
         const randomNumbers = Math.floor(1000000000 + Math.random() * 9000000000);
         return `REPORTS-${randomNumbers}`;
       };
       setReportData((prev) => ({ ...prev, reportID: generateReportID() }));
+      return;
+    }
+
+    setReportData(route.params.reportData);
+    if (route.params.reportData.StartDate) {
+      setTempDate(prev => ({ ...prev, StartDate: new Date(route.params.reportData.StartDate) }));
+    }
+    if (route.params.reportData.EndDate) {
+      setTempDate(prev => ({ ...prev, EndDate: new Date(route.params.reportData.EndDate) }));
+    }
+    if (route.params.reportData.completionTimeOfIntervention) {
+      const [timePart, ampmPart] = route.params.reportData.completionTimeOfIntervention.split(' ');
+      let [hours, minutes] = timePart.split(':').map(Number);
+      if (ampmPart === 'PM' && hours !== 12) hours += 12;
+      if (ampmPart === 'AM' && hours === 12) hours = 0;
+      const dummyDateForTime = new Date();
+      dummyDateForTime.setHours(hours, minutes, 0, 0);
+      setTempDate(prev => ({ ...prev, completionTimeOfIntervention: dummyDateForTime }));
+    }
+    if (route.params?.reportData?.AreaOfOperation) {
+      setLocationName(route.params.reportData.AreaOfOperation);
+      const [lat, lng] = route.params.reportData.AreaOfOperation.includes(',')
+        ? route.params.reportData.AreaOfOperation.split(',').map(Number)
+        : [null, null];
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setSelectedLocation({ latitude: lat, longitude: lng });
+        reverseGeocode(lat, lng);
+      } else {
+        setLocationName(route.params.reportData.AreaOfOperation);
+      }
+    }
+    if (route.params?.reportData?.calamityArea) {
+      const savedActivation = activeActivations.find(
+        (activation) => {
+          let displayCalamity = activation.calamityType;
+          if (activation.calamityType === 'Typhoon' && activation.typhoonName) {
+            displayCalamity += ` (${activation.typhoonName})`;
+          }
+          return `${displayCalamity} (by ${activation.organization})` === route.params.reportData.calamityArea;
+        }
+      );
+      if (savedActivation) {
+        setReportData(prev => ({
+          ...prev,
+          calamityArea: route.params.reportData.calamityArea,
+          CalamityType: savedActivation.calamityType,
+          CalamityName: savedActivation.calamityType === 'Typhoon' && savedActivation.typhoonName
+            ? savedActivation.typhoonName
+            : savedActivation.calamityType,
+        }));
+      }
     }
   }, [route.params, activeActivations]);
 
@@ -755,9 +743,11 @@ const ReportSubmissionScreen = () => {
       reportID: reportData.reportID || `REPORTS-${Math.floor(1000000000 + Math.random() * 9000000000)}`,
       locationName,
       coordinates: selectedLocation ? `${selectedLocation.latitude},${selectedLocation.longitude}` : null,
+      userUid: user.id, // Use user.id
+      organization: organizationName || 'Admin',
     };
 
-    navigation.navigate('ReportSummary', { reportData: serializedReportData, userUid, organizationName });
+    navigation.navigate('ReportSummary', { reportData: serializedReportData, userUid: user.id, organizationName });
   };
 
   const renderLabel = (label, isRequired) => (
@@ -823,7 +813,7 @@ const ReportSubmissionScreen = () => {
 
             function initMap() {
               try {
-                const userLocation = { lat: ${location.latitude}, lng: ${location.longitude} };
+                const userLocation = { lat: ${location?.latitude || 0}, lng: ${location?.longitude || 0} };
                 map = new google.maps.Map(document.getElementById("map"), {
                   center: userLocation,
                   zoom: 16,

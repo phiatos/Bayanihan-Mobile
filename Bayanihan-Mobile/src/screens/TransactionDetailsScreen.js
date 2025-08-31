@@ -1,19 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, SafeAreaView, StatusBar, Image, Dimensions } from 'react-native';
-import { database, auth } from '../configuration/firebaseConfig';
+import { View, Text, FlatList, TouchableOpacity, Alert, SafeAreaView, StatusBar, Image, Dimensions } from 'react-native';
+import { database } from '../configuration/firebaseConfig';
 import { ref, onValue } from 'firebase/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import GlobalStyles from '../styles/GlobalStyles';
 import { Ionicons } from '@expo/vector-icons';
 import Theme from '../constants/theme';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
+import useOperationCheck from '../components/useOperationCheck'; // Import useOperationCheck
 import styles from '../styles/TransactionStyles';
-
+import OperationCustomModal from '../components/OperationCustomModal';
 
 const TransactionDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { item } = route.params;
+  const { user } = useAuth(); // Use AuthContext
+  const { modalVisible: opModalVisible, modalConfig: opModalConfig } = useOperationCheck(); // Use useOperationCheck
   const [submissionData, setSubmissionData] = useState({});
   const [imageDimensions, setImageDimensions] = useState({});
   const screenWidth = Dimensions.get('window').width;
@@ -26,40 +30,56 @@ const TransactionDetailsScreen = () => {
       console.error(`[${new Date().toISOString()}] Firebase Realtime Database not initialized`);
       return;
     }
-    if (!auth.currentUser) {
+    if (!user) {
       Alert.alert('Error', 'Please log in to view transaction details');
-      console.error(`[${new Date().toISOString()}] No authenticated user`);
+      console.log(`[${new Date().toISOString()}] No user logged in, redirecting to Login`);
+      navigation.navigate('Login');
       return;
     }
-    fetchSubmissionData();
-  }, []);
+
+    // Fetch submission data
+    const unsubscribe = fetchSubmissionData();
+
+    return () => {
+      // Cleanup listener
+      if (unsubscribe) unsubscribe();
+      console.log(`[${new Date().toISOString()}] Cleaned up Firebase listener`);
+    };
+  }, [user]);
 
   const fetchSubmissionData = () => {
     try {
-      const userId = auth.currentUser.uid;
+      const userId = user.id;
       const submissionRef = ref(database, `submission_history/${userId}`);
-      onValue(submissionRef, (snapshot) => {
-        const data = snapshot.val();
-        const submissions = data
-          ? Object.entries(data).reduce((acc, [id, submission]) => {
-              acc[submission.submissionId || id] = {
-                id,
-                collection: submission.collection,
-                data: submission.data,
-                timestamp: submission.timestamp,
-                submissionId: submission.submissionId || null,
-              };
-              return acc;
-            }, {})
-          : {};
-        setSubmissionData(submissions);
-      }, { onlyOnce: true }, (error) => {
-        Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
-        console.error(`[${new Date().toISOString()}] Error fetching submission history:`, error);
-      });
+      const unsubscribe = onValue(
+        submissionRef,
+        (snapshot) => {
+          const data = snapshot.val();
+          const submissions = data
+            ? Object.entries(data).reduce((acc, [id, submission]) => {
+                acc[submission.submissionId || id] = {
+                  id,
+                  collection: submission.collection,
+                  data: submission.data,
+                  timestamp: submission.timestamp,
+                  submissionId: submission.submissionId || null,
+                };
+                return acc;
+              }, {})
+            : {};
+          setSubmissionData(submissions);
+          console.log(`[${new Date().toISOString()}] Submission history fetched: ${Object.keys(submissions).length} items`);
+        },
+        (error) => {
+          Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
+          console.error(`[${new Date().toISOString()}] Error fetching submission history:`, error);
+        }
+      );
+      return unsubscribe;
     } catch (error) {
       Alert.alert('Error', `Failed to fetch submission data: ${error.message}`);
       console.error(`[${new Date().toISOString()}] Error in fetchSubmissionData:`, error);
+      return () => {};
     }
   };
 
@@ -286,9 +306,8 @@ const TransactionDetailsScreen = () => {
           <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Transaction Details</Text>
         </View>
       </LinearGradient>
-        
-     
-        <View  style={styles.contentContainer}>
+
+      <View style={styles.contentContainer}>
         <Text style={styles.subtitle}>
           Date: {new Date(item.timestamp).toLocaleString()}
         </Text>
@@ -300,6 +319,16 @@ const TransactionDetailsScreen = () => {
           ListEmptyComponent={<Text>No details available</Text>}
         />
       </View>
+
+      {/* OperationCheck Modal */}
+      <OperationCustomModal
+        visible={opModalVisible}
+        title={opModalConfig.title}
+        message={opModalConfig.message}
+        onConfirm={opModalConfig.onConfirm}
+        confirmText={opModalConfig.confirmText}
+        showCancel={opModalConfig.showCancel}
+      />
     </SafeAreaView>
   );
 };

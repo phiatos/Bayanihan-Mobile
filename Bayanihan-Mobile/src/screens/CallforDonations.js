@@ -138,7 +138,6 @@ const CallForDonations = () => {
         );
         setFilteredRegions(filtered);
         setIsRegionDropdownVisible(true);
-        console.log('Filtered regions:', filtered);
       }
     }
 

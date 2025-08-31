@@ -27,6 +27,8 @@ import OperationCustomModal from '../components/OperationCustomModal';
 import useOperationCheck from '../components/useOperationCheck';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../context/AuthContext'; 
+
 
 // Define the status options for each lifeline type
 const LIFELINE_STATUS_OPTIONS = {
@@ -74,8 +76,8 @@ const LIFELINE_STATUS_OPTIONS = {
   ],
 };
 
-const RDANAScreen = () => {
-  const navigation = useNavigation();
+const RDANAScreen = ({navigation}) => {
+    const { user } = useAuth(); // Get user from AuthContext
   const route = useRoute();
   const [errors, setErrors] = useState({});
   const inputContainerRefs = useRef({}).current;

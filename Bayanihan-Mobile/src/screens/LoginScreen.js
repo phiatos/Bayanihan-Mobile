@@ -1,8 +1,7 @@
-import { sendEmailVerification, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useContext, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { auth } from '../configuration/firebaseConfig';
 import { AuthContext } from '../context/AuthContext';
 import Theme from '../constants/theme';
@@ -13,7 +12,6 @@ const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -58,12 +56,9 @@ const LoginScreen = ({ navigation }) => {
       console.log('Attempting login with auth:', !!auth);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-
-      // AuthContext's onAuthStateChanged will handle user data fetching and session storage
       console.log('Login successful, user:', user.uid);
-
-      // Navigation is handled by AuthContext and AuthStack
       ToastAndroid.show('Login successful.', ToastAndroid.SHORT);
+      // AuthContext's onAuthStateChanged will handle user data fetching and session storage
     } catch (error) {
       console.error('Login error:', error.code, error.message);
       if (error.code === 'auth/invalid-credential') {
@@ -80,108 +75,85 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-      <SafeAreaView style={[styles.container, { backgroundColor: Theme.colors.lightBg }]}>
-        <KeyboardAvoidingView
-          style={styles.subContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <SafeAreaView style={[styles.container, { backgroundColor: Theme.colors.lightBg }]}>
+      <KeyboardAvoidingView
+        style={styles.subContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Onboarding')}
+          style={styles.backButton}
         >
-          <Modal
-            animationType="slide"
-            transparent={true}
-            visible={modalVisible}
-            onRequestClose={() => setModalVisible(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalView}>
-                <Text style={styles.modalText}>
-                  Your email address is not verified. A verification email has been sent to your email address. Please verify your email to proceed with login (check spam/junk folder).
-                </Text>
-                <Pressable
-                  style={styles.modalButton}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <Text style={styles.modalButtonText}>OK</Text>
-                </Pressable>
-              </View>
+          <Ionicons name="arrow-back" size={26} color="#14AFBC" />
+        </TouchableOpacity>
+
+        <View style={styles.formContainer}>
+          <View style={styles.contentContainer}>
+            <Text style={styles.welcomeText}>Login</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email:</Text>
+              <TextInput
+                style={[styles.input, emailError && GlobalStyles.inputError]}
+                placeholder="Enter Email"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setEmailError('');
+                }}
+                autoCapitalize="none"
+              />
+              {emailError ? <Text style={GlobalStyles.errorText}>{emailError}</Text> : null}
             </View>
-          </Modal>
-
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Onboarding')}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={26} color="#14AFBC" />
-          </TouchableOpacity>
-
-          <View style={styles.formContainer}>
-            <View style={styles.contentContainer}>
-              <Text style={styles.welcomeText}>Login</Text>
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email:</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.passwordContainer}>
                 <TextInput
-                  style={[styles.input, emailError && GlobalStyles.inputError]}
-                  placeholder="Enter Email"
-                  keyboardType="email-address"
-                  value={email}
+                  style={[styles.input, styles.passwordInput, passwordError && GlobalStyles.inputError]}
+                  placeholder="Enter Password"
+                  secureTextEntry={!showPassword}
+                  value={password}
                   onChangeText={(text) => {
-                    setEmail(text);
-                    setEmailError('');
+                    setPassword(text);
+                    setPasswordError('');
                   }}
-                  autoCapitalize="none"
                 />
-                {emailError ? <Text style={GlobalStyles.errorText}>{emailError}</Text> : null}
-              </View>
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Password</Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={[styles.input, styles.passwordInput, passwordError && GlobalStyles.inputError]}
-                    placeholder="Enter Password"
-                    secureTextEntry={!showPassword}
-                    value={password}
-                    onChangeText={(text) => {
-                      setPassword(text);
-                      setPasswordError('');
-                    }}
-                  />
-                  <TouchableOpacity
-                    style={styles.eyeIcon}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    <Ionicons
-                      name={showPassword ? 'eye-off' : 'eye'}
-                      size={24}
-                      color={Theme.colors.primary}
-                    />
-                  </TouchableOpacity>
-                </View>
-                {passwordError ? <Text style={GlobalStyles.errorText}>{passwordError}</Text> : null}
                 <TouchableOpacity
-                  style={styles.recoverButton}
-                  onPress={() => navigation.navigate('RecoveryScreen')}
-                  disabled={isLoading}
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
                 >
-                  <Text style={styles.recoverText}>Forgot Password</Text>
+                  <Ionicons
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={24}
+                    color={Theme.colors.primary}
+                  />
                 </TouchableOpacity>
               </View>
+              {passwordError ? <Text style={GlobalStyles.errorText}>{passwordError}</Text> : null}
               <TouchableOpacity
-                style={[styles.button, isLoading && styles.disabledButton]}
-                onPress={handleLogin}
+                style={styles.recoverButton}
+                onPress={() => navigation.navigate('RecoveryScreen')}
                 disabled={isLoading}
               >
-                <Text style={styles.buttonText}>{isLoading ? 'Loading...' : 'Log in'}</Text>
+                <Text style={styles.recoverText}>Forgot Password</Text>
               </TouchableOpacity>
             </View>
+            <TouchableOpacity
+              style={[styles.button, isLoading && styles.disabledButton]}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              <Text style={styles.buttonText}>{isLoading ? 'Loading...' : 'Log in'}</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.termsContainer}>
+        </View>
+        <View style={styles.termsContainer}>
           <Text style={styles.termsText}>
             By continuing, you agree to the Terms and Conditions and Privacy Policy.
           </Text>
         </View>
-        </KeyboardAvoidingView>
-        
-      </SafeAreaView>
-    // </LinearGradient>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 

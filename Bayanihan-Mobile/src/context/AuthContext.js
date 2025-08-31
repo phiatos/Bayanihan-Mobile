@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { database, auth } from '../configuration/firebaseConfig';
 import { ref, get } from 'firebase/database';
@@ -9,6 +9,7 @@ import Theme from '../constants/theme';
 export const AuthContext = createContext({
   user: null,
   setUser: () => {},
+  loading: true, // Add loading to context
 });
 
 export const AuthProvider = ({ children }) => {
@@ -17,6 +18,22 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     console.log('AuthContext: Setting up auth state listener');
+
+    // Load cached user session from AsyncStorage
+    const loadCachedUser = async () => {
+      try {
+        const cachedUser = await AsyncStorage.getItem('user_session');
+        if (cachedUser) {
+          setUser(JSON.parse(cachedUser));
+          console.log('AuthContext: Loaded cached user:', JSON.parse(cachedUser).id);
+        }
+      } catch (error) {
+        console.error('AuthContext: Error loading cached user:', error.message);
+      }
+    };
+
+    loadCachedUser();
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log('AuthContext: onAuthStateChanged triggered, user:', currentUser ? currentUser.uid : 'null');
       try {
@@ -25,32 +42,19 @@ export const AuthProvider = ({ children }) => {
           const userData = userSnapshot.val();
           console.log('AuthContext: User data fetched:', userData);
           if (userData) {
-            const isAdmin = userData?.role === 'AB ADMIN' || userData?.role === 'admin';
-            if (!isAdmin && !currentUser.emailVerified) {
-              const actionCodeSettings = {
-                url: 'https://bayanihan-5ce7e.firebaseapp.com',
-                handleCodeInApp: false,
-              };
-              await sendEmailVerification(currentUser, actionCodeSettings);
-              await signOut(auth);
-              setUser(null);
-              await AsyncStorage.removeItem('user_session');
-              console.log('AuthContext: Email not verified, user signed out');
-            } else {
-              const userObject = {
-                id: currentUser.uid,
-                contactPerson: userData.contactPerson || `${userData.firstName} ${userData.lastName || ''}`.trim(),
-                email: currentUser.email,
-                role: userData.role,
-                organization: userData.organization,
-                firstName: userData.firstName,
-                lastName: userData.lastName,
-                adminPosition: userData.adminPosition,
-              };
-              setUser(userObject);
-              await AsyncStorage.setItem('user_session', JSON.stringify(userObject));
-              console.log('AuthContext: User set and session saved:', currentUser.uid);
-            }
+            const userObject = {
+              id: currentUser.uid,
+              contactPerson: userData.contactPerson || `${userData.firstName} ${userData.lastName || ''}`.trim(),
+              email: currentUser.email,
+              role: userData.role,
+              organization: userData.organization,
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              adminPosition: userData.adminPosition,
+            };
+            setUser(userObject);
+            await AsyncStorage.setItem('user_session', JSON.stringify(userObject));
+            console.log('AuthContext: User set and session saved:', currentUser.uid);
           } else {
             await signOut(auth);
             setUser(null);
@@ -92,6 +96,7 @@ export const AuthProvider = ({ children }) => {
         console.error('AuthContext: Error saving session:', error.message);
       }
     },
+    loading, // Include loading in context value
   };
 
   return (
@@ -105,4 +110,13 @@ export const AuthProvider = ({ children }) => {
       )}
     </AuthContext.Provider>
   );
+};
+
+// Define and export useAuth hook
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

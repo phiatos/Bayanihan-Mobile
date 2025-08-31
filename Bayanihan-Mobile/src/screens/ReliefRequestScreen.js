@@ -23,11 +23,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import OperationCustomModal from '../components/OperationCustomModal';
 import useOperationCheck from '../components/useOperationCheck';
+import { useAuth } from '../context/AuthContext';
 
 const CustomToast = ({ visible, title, message, onDismiss }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    let timer;
     if (visible) {
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -35,16 +37,18 @@ const CustomToast = ({ visible, title, message, onDismiss }) => {
         useNativeDriver: true,
       }).start();
 
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }).start(() => onDismiss());
       }, 3000);
-
-      return () => clearTimeout(timer);
     }
+    return () => {
+      if (timer) clearTimeout(timer);
+      Animated.timing(fadeAnim).stop(); // Stop any ongoing animations
+    };
   }, [visible, fadeAnim, onDismiss]);
 
   if (!visible) return null;
@@ -63,6 +67,7 @@ const CustomToast = ({ visible, title, message, onDismiss }) => {
 const ReliefRequestScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const { user } = useAuth(); // Get user from AuthContext
   const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const [errors, setErrors] = useState({});
   const [reportData, setReportData] = useState({
@@ -90,7 +95,12 @@ const ReliefRequestScreen = () => {
 
   useEffect(() => {
     if (route.params?.reportData) {
-      setReportData(route.params.reportData);
+      setReportData((prev) => ({
+        ...prev,
+        ...route.params.reportData,
+        contactPerson: route.params.reportData.contactPerson || user?.contactPerson || prev.contactPerson,
+        email: route.params.reportData.email || user?.email || prev.email,
+      }));
     }
     if (route.params?.addedItems) {
       setItems(route.params.addedItems);
@@ -98,7 +108,7 @@ const ReliefRequestScreen = () => {
     if (route.params?.reportData?.donationCategory) {
       setFilteredItems(itemSuggestions[route.params.reportData.donationCategory] || []);
     }
-  }, [route.params]);
+  }, [route.params, user]);
 
   const contactRequiredFields = [
     'contactPerson',
@@ -379,7 +389,7 @@ const ReliefRequestScreen = () => {
       return;
     }
 
-    navigation.navigate('ReliefSummary', { reportData, addedItems: items });
+    navigation.navigate('ReliefSummary', { reportData, addedItems: items, organizationName }); // Added organizationName
   };
 
   const renderLabel = (label, isRequired) => (

@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 14,
-    color: '#444',
+    color: Theme.colors.black,
     lineHeight: 24,
     fontFamily: 'Poppins_Regular',
     textAlign: 'center',

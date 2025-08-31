@@ -82,6 +82,7 @@ export default StyleSheet.create({
   form: {
     marginHorizontal: 10,
     marginTop: 20,
+    marginBottom: 40 
   },
   formTitle: {
     fontSize: 13,
@@ -297,41 +298,42 @@ export default StyleSheet.create({
   },
   modalMessage: {
     fontSize: 14,
-    color: '#444',
+    color: Theme.colors.black,
     lineHeight: 24,
     marginBottom: 15,
     fontFamily: 'Poppins_Regular',
     textAlign: 'center',
   },
-modalOverlay: {
-  flex: 1,
-  justifyContent: 'center',
-  alignItems: 'center',
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
 },
-modalView: {
-  backgroundColor: '#FFF9F0',
-  borderRadius: 10,
-  padding: 20,
-  alignItems: 'center',
-  elevation: 5,
-  width: '80%',
+  modalView: {
+    backgroundColor: '#FFF9F0',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+    elevation: 5,
+    width: '80%',
 },
-modalTitle: {
-  fontSize: 20,
-  color: '#444',
-  textAlign: 'center',
-  fontFamily: 'Poppins_Bold',
+  modalTitle: {
+    fontSize: 20,
+    color: Theme.colors.black,
+    textAlign: 'center',
+    fontFamily: 'Poppins_Bold',
 },
-modalButton: {
-  backgroundColor: '#14AFBC',
-  paddingVertical: 10,
-  paddingHorizontal: 20,
-  borderRadius: 10,
+  modalButton: {
+    backgroundColor: Theme.colors.primary,
+    paddingVertical: 10,
+    marginTop: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
 },
-modalButtonText: {
-  color: '#fff',
-  fontSize: 16,
-  fontFamily: 'Poppins_SemiBold',
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Poppins_SemiBold',
 },
 });

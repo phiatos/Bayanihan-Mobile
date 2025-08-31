@@ -300,16 +300,16 @@ const ReportSummary = () => {
         visible={modalVisible}
         title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
-          <View style={styles.modalContent}>
+          <View style={GlobalStyles.modalContent}>
             {errorMessage ? (
               <>
                 <Ionicons
                   name="warning-outline"
                   size={60}
-                  color="#FF0000"
-                  style={styles.modalIcon}
+                  color={Theme.colors.red}
+                  style={GlobalStyles.modalIcon}
                 />
-                <Text style={styles.modalMessage}>{errorMessage}</Text>
+                <Text style={GlobalStyles.modalMessage}>{errorMessage}</Text>
               </>
             ) : (
               <>
@@ -317,9 +317,9 @@ const ReportSummary = () => {
                   name="checkmark-circle"
                   size={60}
                   color={Theme.colors.primary}
-                  style={styles.modalIcon}
+                  style={GlobalStyles.modalIcon}
                 />
-                <Text style={styles.modalMessage}>Your report has been successfully submitted!</Text>
+                <Text style={GlobalStyles.modalMessage}>Your report has been successfully submitted!</Text>
               </>
             )}
           </View>

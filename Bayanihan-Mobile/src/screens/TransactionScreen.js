@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, SafeAreaView, StatusBar, KeyboardAvoidingView, Platform, Modal, Animated, ScrollView, Image, Dimensions } from 'react-native';
-import { database, auth } from '../configuration/firebaseConfig';
+import { View, Text, FlatList, TouchableOpacity, Alert, SafeAreaView, StatusBar, KeyboardAvoidingView, Platform, Modal, Animated, ScrollView, Image, Dimensions } from 'react-native';
+import { database } from '../configuration/firebaseConfig';
 import { ref, onValue, query, limitToLast, orderByChild, startAfter } from 'firebase/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import GlobalStyles from '../styles/GlobalStyles';
 import { Ionicons } from '@expo/vector-icons';
 import Theme from '../constants/theme';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
+import useOperationCheck from '../components/useOperationCheck'; // Import useOperationCheck
 import styles from '../styles/TransactionStyles';
-
 
 const TransactionScreen = () => {
   const navigation = useNavigation();
+  const { user } = useAuth(); // Use AuthContext
+  const { modalVisible: opModalVisible, setModalVisible: setOpModalVisible, modalConfig: opModalConfig } = useOperationCheck(); // Use useOperationCheck
   const [history, setHistory] = useState([]);
   const [submissionData, setSubmissionData] = useState({});
   const [imageDimensions, setImageDimensions] = useState({});
@@ -21,7 +24,6 @@ const TransactionScreen = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const fadeAnim = useState(new Animated.Value(0))[0];
   const slideAnim = useState(new Animated.Value(100))[0];
-  const user = auth.currentUser;
   const PAGE_SIZE = 15;
   const screenWidth = Dimensions.get('window').width;
   const maxImageWidth = screenWidth * 0.9;
@@ -33,93 +35,152 @@ const TransactionScreen = () => {
       console.error(`[${new Date().toISOString()}] Firebase Realtime Database not initialized`);
       return;
     }
-    if (user) {
-      fetchHistory();
-      fetchSubmissionData();
-    } else {
+    if (!user) {
       Alert.alert('Error', 'Please log in to view your activity history');
+      console.log(`[${new Date().toISOString()}] No user logged in, redirecting to Login`);
+      navigation.navigate('Login');
+      return;
     }
+
+    // Fetch history and submission data
+    const activityUnsubscribe = fetchHistory();
+    const submissionUnsubscribe = fetchSubmissionData();
+
     return () => {
-      // Detach listeners
+      // Cleanup listeners
+      if (activityUnsubscribe) activityUnsubscribe();
+      if (submissionUnsubscribe) submissionUnsubscribe();
+      console.log(`[${new Date().toISOString()}] Cleaned up Firebase listeners`);
     };
   }, [user]);
 
-  const fetchHistory = useCallback(async (loadMore = false) => {
+  const fetchHistory = useCallback(() => {
     try {
-      const userId = user.uid;
+      const userId = user.id;
       let activityQuery = query(
         ref(database, `activity_log/${userId}`),
         orderByChild('timestamp'),
         limitToLast(PAGE_SIZE)
       );
 
-      if (loadMore && lastTimestamp) {
-        activityQuery = query(
-          ref(database, `activity_log/${userId}`),
-          orderByChild('timestamp'),
-          startAfter(lastTimestamp),
-          limitToLast(PAGE_SIZE)
-        );
-      }
+      const unsubscribe = onValue(
+        activityQuery,
+        (snapshot) => {
+          const data = snapshot.val();
+          const activities = data
+            ? Object.entries(data)
+                .map(([id, activity]) => ({
+                  id,
+                  message: activity.message,
+                  timestamp: activity.timestamp,
+                  submissionId: activity.submissionId || null,
+                }))
+                .sort((a, b) => b.timestamp - a.timestamp)
+            : [];
 
-      onValue(activityQuery, (snapshot) => {
-        const data = snapshot.val();
-        const activities = data
-          ? Object.entries(data)
-              .map(([id, activity]) => ({
-                id,
-                message: activity.message,
-                timestamp: activity.timestamp,
-                submissionId: activity.submissionId || null,
-              }))
-              .sort((a, b) => b.timestamp - a.timestamp)
-          : [];
-
-        setHistory((prev) => (loadMore ? [...prev, ...activities] : activities));
-        setHasMore(activities.length === PAGE_SIZE);
-        if (activities.length > 0) {
-          setLastTimestamp(activities[activities.length - 1].timestamp);
+          setHistory(activities);
+          setHasMore(activities.length === PAGE_SIZE);
+          if (activities.length > 0) {
+            setLastTimestamp(activities[activities.length - 1].timestamp);
+          }
+          console.log(`[${new Date().toISOString()}] Activity log fetched: ${activities.length} items`);
+        },
+        (error) => {
+          Alert.alert('Error', `Failed to fetch activity log: ${error.message}`);
+          console.error(`[${new Date().toISOString()}] Error fetching activity log:`, error);
         }
-        console.log(`[${new Date().toISOString()}] Activity log fetched: ${activities.length} items, loadMore: ${loadMore}`);
-      }, { onlyOnce: true }, (error) => {
-        Alert.alert('Error', `Failed to fetch activity log: ${error.message}`);
-        console.error(`[${new Date().toISOString()}] Error fetching activity log:`, error);
-      });
+      );
+
+      return unsubscribe;
     } catch (error) {
       Alert.alert('Error', `Failed to fetch history: ${error.message}`);
       console.error(`[${new Date().toISOString()}] Error in fetchHistory:`, error);
+      return () => {};
     }
-  }, [lastTimestamp]);
+  }, [user]);
 
-  const fetchSubmissionData = () => {
+  const fetchMoreHistory = useCallback(() => {
+    if (!hasMore || !lastTimestamp) return;
     try {
-      const userId = user.uid;
+      const userId = user.id;
+      const activityQuery = query(
+        ref(database, `activity_log/${userId}`),
+        orderByChild('timestamp'),
+        startAfter(lastTimestamp),
+        limitToLast(PAGE_SIZE)
+      );
+
+      const unsubscribe = onValue(
+        activityQuery,
+        (snapshot) => {
+          const data = snapshot.val();
+          const activities = data
+            ? Object.entries(data)
+                .map(([id, activity]) => ({
+                  id,
+                  message: activity.message,
+                  timestamp: activity.timestamp,
+                  submissionId: activity.submissionId || null,
+                }))
+                .sort((a, b) => b.timestamp - a.timestamp)
+            : [];
+
+          setHistory((prev) => [...prev, ...activities]);
+          setHasMore(activities.length === PAGE_SIZE);
+          if (activities.length > 0) {
+            setLastTimestamp(activities[activities.length - 1].timestamp);
+          }
+          console.log(`[${new Date().toISOString()}] More activity log fetched: ${activities.length} items`);
+        },
+        (error) => {
+          Alert.alert('Error', `Failed to fetch more activity log: ${error.message}`);
+          console.error(`[${new Date().toISOString()}] Error fetching more activity log:`, error);
+        }
+      );
+
+      return unsubscribe;
+    } catch (error) {
+      Alert.alert('Error', `Failed to fetch more history: ${error.message}`);
+      console.error(`[${new Date().toISOString()}] Error in fetchMoreHistory:`, error);
+      return () => {};
+    }
+  }, [user, lastTimestamp, hasMore]);
+
+  const fetchSubmissionData = useCallback(() => {
+    try {
+      const userId = user.id;
       const submissionRef = ref(database, `submission_history/${userId}`);
-      onValue(submissionRef, (snapshot) => {
-        const data = snapshot.val();
-        const submissions = data
-          ? Object.entries(data).reduce((acc, [id, submission]) => {
-              acc[submission.submissionId || id] = {
-                id,
-                collection: submission.collection,
-                data: submission.data,
-                timestamp: submission.timestamp,
-                submissionId: submission.submissionId || null,
-              };
-              return acc;
-            }, {})
-          : {};
-        setSubmissionData(submissions);
-        console.log(`[${new Date().toISOString()}] Submission history fetched: ${Object.keys(submissions).length} items`);
-      }, { onlyOnce: true }, (error) => {
-        Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
-        console.error(`[${new Date().toISOString()}] Error fetching submission history:`, error);
-      });
+      const unsubscribe = onValue(
+        submissionRef,
+        (snapshot) => {
+          const data = snapshot.val();
+          const submissions = data
+            ? Object.entries(data).reduce((acc, [id, submission]) => {
+                acc[submission.submissionId || id] = {
+                  id,
+                  collection: submission.collection,
+                  data: submission.data,
+                  timestamp: submission.timestamp,
+                  submissionId: submission.submissionId || null,
+                };
+                return acc;
+              }, {})
+            : {};
+          setSubmissionData(submissions);
+          console.log(`[${new Date().toISOString()}] Submission history fetched: ${Object.keys(submissions).length} items`);
+        },
+        (error) => {
+          Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
+          console.error(`[${new Date().toISOString()}] Error fetching submission history:`, error);
+        }
+      );
+      return unsubscribe;
     } catch (error) {
       Alert.alert('Error', `Failed to fetch submission data: ${error.message}`);
       console.error(`[${new Date().toISOString()}] Error in fetchSubmissionData:`, error);
+      return () => {};
     }
-  };
+  }, [user]);
 
   const fieldLabels = {
     'posts.title': 'Post Title',
@@ -329,17 +390,16 @@ const TransactionScreen = () => {
           >
             <Text style={styles.modalTitle}>Activity Details</Text>
             <Text style={styles.modalText}>
-             <Text style={{fontFamily: 'Poppins_SemiBold', color:Theme.colors.accent}}>Date:</Text> {new Date(item.timestamp).toLocaleDateString(undefined, {
+              <Text style={{fontFamily: 'Poppins_SemiBold', color: Theme.colors.accent}}>Date:</Text> {new Date(item.timestamp).toLocaleDateString(undefined, {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
-              })}  
-               <Text style={{fontFamily: 'Poppins_SemiBold', color:Theme.colors.accent}}>  Time: </Text>{new Date(item.timestamp).toLocaleTimeString([], {
+              })}
+              <Text style={{fontFamily: 'Poppins_SemiBold', color: Theme.colors.accent}}>  Time: </Text>{new Date(item.timestamp).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
-                hour12: true, // use false for 24-hour format
+                hour12: true,
               })}
-
             </Text>
             <FlatList
               data={details}
@@ -348,7 +408,6 @@ const TransactionScreen = () => {
               style={styles.modalDetailContainer}
               ListEmptyComponent={<Text style={styles.modalText}>No details available</Text>}
             />
-
             <TouchableOpacity style={[GlobalStyles.backButton, {paddingVertical: 5, borderRadius: 10, marginTop: 15}]} onPress={onClose}>
               <Text style={GlobalStyles.backButtonText}>Close</Text>
             </TouchableOpacity>
@@ -393,7 +452,7 @@ const TransactionScreen = () => {
               ListEmptyComponent={<Text style={styles.noActivity}>No activities found</Text>}
               ListFooterComponent={
                 hasMore ? (
-                  <TouchableOpacity style={GlobalStyles.button} onPress={() => fetchHistory(true)}>
+                  <TouchableOpacity style={GlobalStyles.button} onPress={fetchMoreHistory}>
                     <Text style={GlobalStyles.buttonText}>Load More</Text>
                   </TouchableOpacity>
                 ) : null
@@ -404,12 +463,20 @@ const TransactionScreen = () => {
               item={selectedItem}
               onClose={closeModal}
             />
+            {/* OperationCheck Modal */}
+            <CustomModal
+              visible={opModalVisible}
+              title={opModalConfig.title}
+              message={opModalConfig.message}
+              onConfirm={opModalConfig.onConfirm}
+              confirmText={opModalConfig.confirmText}
+              showCancel={opModalConfig.showCancel}
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
-
 
 export default TransactionScreen;

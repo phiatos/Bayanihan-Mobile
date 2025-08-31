@@ -8,12 +8,24 @@ import { NavigationContainer } from '@react-navigation/native';
 import AuthStack from './src/navigation/AuthStack';
 import AppStack from './src/navigation/AppStack';
 import { useFonts } from 'expo-font';
-import { AuthProvider } from './src/context/AuthContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
 import * as NavigationBar from 'expo-navigation-bar';
 import { StatusBar } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
+
+function Root() {
+  const { user, loading } = useAuth();
+
+  if (loading) return null; // Wait for auth state to resolve
+
+  return (
+    <NavigationContainer>
+      {user ? <AppStack /> : <AuthStack />}
+    </NavigationContainer>
+  );
+}
 
 function App() {
   const [fontsLoaded] = useFonts({
@@ -46,9 +58,7 @@ function App() {
     <>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <AuthProvider>
-        <NavigationContainer>
-          <AuthStack />
-        </NavigationContainer>
+        <Root />
       </AuthProvider>
     </>
   );

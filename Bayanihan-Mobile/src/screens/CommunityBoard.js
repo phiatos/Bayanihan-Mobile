@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, ToastAndroid, Linking } from 'react-native';
-import { onAuthStateChanged } from 'firebase/auth';
 import { ref, onValue, query, orderByChild, remove, set, serverTimestamp } from 'firebase/database';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { auth, database } from '../configuration/firebaseConfig';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
+import { database } from '../configuration/firebaseConfig';
 import GlobalStyles from '../styles/GlobalStyles';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +11,7 @@ import Theme from '../constants/theme';
 import { AnimatePresence, MotiView } from 'moti';
 import { useNavigation } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
-import { Menu, MenuOptions, MenuOption, MenuTrigger, MenuProvider } from 'react-native-popup-menu';
+import { Menu, MenuOptions, MenuOption, MenuProvider } from 'react-native-popup-menu';
 import styles from '../styles/CommunityBoardStyles';
 import useOperationCheck from '../components/useOperationCheck';
 
@@ -40,7 +39,7 @@ const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
           playerRef.current.seek(0);
           console.log(`Cleaned up video player for post ${postId}`);
         } catch (error) {
-          console.error(`Error cleaning up video player for post ${postId}:`, error);
+          return;
         }
       }
     };
@@ -97,11 +96,11 @@ const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
 
 const CommunityBoard = () => {
   const navigation = useNavigation();
+  const { user } = useAuth(); // Use AuthContext
+  const { canSubmit, organizationName } = useOperationCheck(); // Use useOperationCheck
   const [posts, setPosts] = useState([]);
   const [sortOrder, setSortOrder] = useState('newest');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [user, setUser] = useState(null);
-  const [userData, setUserData] = useState({ contactPerson: 'Anonymous', organization: '' });
   const [expanded, setExpanded] = useState(false);
   const videoRefs = useRef({});
 
@@ -119,58 +118,33 @@ const CommunityBoard = () => {
   };
 
   useEffect(() => {
-    if (!auth) {
-      console.error('Auth is not initialized');
-      ToastAndroid.show('Authentication not initialized. Please restart the app.', ToastAndroid.BOTTOM);
+    if (!user) {
+      console.log('No user logged in, redirecting to Login');
+      ToastAndroid.show('Please log in to view posts.', ToastAndroid.BOTTOM);
+      navigation.navigate('Login');
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log('Auth state changed, user:', currentUser ? currentUser.uid : 'null');
-      setUser(currentUser);
-      if (currentUser) {
-        try {
-          const userRef = ref(database, `users/${currentUser.uid}`);
-          const userSnapshot = await new Promise((resolve, reject) => {
-            onValue(userRef, resolve, reject, { onlyOnce: true });
-          });
-          const userDataFromDb = userSnapshot.val();
-          if (userDataFromDb?.password_needs_reset) {
-            ToastAndroid.show('Please change your password.', ToastAndroid.BOTTOM);
-            navigation.navigate('Profile');
-            return;
-          }
-          const data = await fetchUserData(currentUser.uid);
-          setUserData(data);
-          console.log('User data loaded:', data);
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          ToastAndroid.show('Failed to load user data.', ToastAndroid.BOTTOM);
+    // Check password_needs_reset (fetch from database since not in AuthContext)
+    const checkUserData = async () => {
+      try {
+        const userRef = ref(database, `users/${user.id}`);
+        const userSnapshot = await new Promise((resolve, reject) => {
+          onValue(userRef, resolve, reject, { onlyOnce: true });
+        });
+        const userData = userSnapshot.val();
+        if (userData?.password_needs_reset) {
+          ToastAndroid.show('Please change your password.', ToastAndroid.BOTTOM);
+          navigation.navigate('Profile');
         }
-      } else {
-        ToastAndroid.show('Please log in to view posts.', ToastAndroid.BOTTOM);
-        navigation.navigate('Login');
+      } catch (error) {
+        console.error('Error checking user data:', error);
+        ToastAndroid.show('Failed to load user data.', ToastAndroid.BOTTOM);
       }
-    }, (error) => {
-      console.error('Auth state listener error:', error);
-      ToastAndroid.show('Authentication error. Please restart the app.', ToastAndroid.BOTTOM);
-    });
-
-    return () => {
-      unsubscribe();
-      Object.values(videoRefs.current).forEach(player => {
-        if (player) {
-          try {
-            player.pause();
-            player.seek(0);
-            console.log('Cleaned up video player');
-          } catch (error) {
-            console.error('Error cleaning up video player:', error);
-          }
-        }
-      });
     };
-  }, [navigation]);
+
+    checkUserData();
+  }, [user, navigation]);
 
   useEffect(() => {
     if (!user) {
@@ -203,33 +177,8 @@ const CommunityBoard = () => {
     console.log('Sort order toggled to:', sortOrder === 'newest' ? 'oldest' : 'newest');
   };
 
-  const fetchUserData = async (uid) => {
-    try {
-      const cache = await AsyncStorage.getItem(`userData:${uid}`);
-      if (cache) {
-        console.log('User data from cache:', cache);
-        return JSON.parse(cache);
-      }
-      const userRef = ref(database, `users/${uid}`);
-      const snapshot = await new Promise((resolve, reject) => {
-        onValue(userRef, resolve, reject, { onlyOnce: true });
-      });
-      const userData = snapshot.val() || {};
-      const data = {
-        contactPerson: userData.contactPerson || `${userData.firstName || 'Anonymous'} ${userData.lastName || ''}`.trim() || 'Anonymous',
-        organization: userData.organization || '',
-      };
-      await AsyncStorage.setItem(`userData:${uid}`, JSON.stringify(data));
-      console.log('User data fetched and cached:', data);
-      return data;
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      return { contactPerson: 'Anonymous', organization: '' };
-    }
-  };
-
   const handleDeletePost = (postId, postData) => {
-    if (!user || !user.uid) {
+    if (!user || !user.id) {
       console.error('No authenticated user for delete operation');
       ToastAndroid.show('You must be logged in to delete a post.', ToastAndroid.BOTTOM);
       return;
@@ -250,9 +199,9 @@ const CommunityBoard = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const deletedPostRef = ref(database, `posts/deleted/${user.uid}/${postId}`);
+              const deletedPostRef = ref(database, `posts/deleted/${user.id}/${postId}`);
               await set(deletedPostRef, { ...postData, deletedAt: serverTimestamp() });
-              console.log(`Post ${postId} copied to posts/deleted/${user.uid}/${postId}`);
+              console.log(`Post ${postId} copied to posts/deleted/${user.id}/${postId}`);
               await remove(ref(database, `posts/${postId}`));
               console.log(`Post ${postId} removed from posts`);
               ToastAndroid.show('Post moved to deleted posts.', ToastAndroid.BOTTOM);
@@ -326,8 +275,8 @@ const CommunityBoard = () => {
     };
     console.log(`Navigating to CreatePost for sharing post ${post.id}:`, shareData);
     navigation.navigate('CreatePost', {
-      postType: 'text', 
-      postId: null, 
+      postType: 'text',
+      postId: null,
       initialData: shareData,
       isShared: true,
     });
@@ -339,9 +288,7 @@ const CommunityBoard = () => {
     }
     const ONE_DAY = 24 * 60 * 60 * 1000;
     const now = Date.now();
-    const editable = post.userId === user.uid && (now - post.timestamp) <= ONE_DAY;
-    if (!editable) {
-    }
+    const editable = post.userId === user.id && (now - post.timestamp) <= ONE_DAY;
     return editable;
   };
 
@@ -355,35 +302,35 @@ const CommunityBoard = () => {
       console.error(`VideoView or useVideoPlayer is undefined for post: ${item.id}. Ensure expo-video is installed correctly.`);
       return (
         <View style={styles.postContainer}>
-          {item.userId === user?.uid && isEditable(item) && (
-              <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
-                <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
-                  <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
-                </MenuTrigger>
-                <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
-                  <MenuOption
-                    onSelect={() => {
-                      console.log('Edit post clicked for:', item.id);
-                      handleEditPost(item);
-                    }}
-                    text="Edit Post"
-                    customStyles={{
-                      optionText: styles.menuText,
-                    }}
-                  />
-                  <MenuOption
-                    onSelect={() => {
-                      console.log('Delete post clicked for:', item.id);
-                      handleDeletePost(item.id, item);
-                    }}
-                    text="Delete Post"
-                    customStyles={{
-                      optionText: [styles.menuText, { color: 'red' }],
-                    }}
-                  />
-                </MenuOptions>
-              </Menu>
-            )}
+          {item.userId === user?.id && isEditable(item) && (
+            <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
+              <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
+                <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
+              </MenuTrigger>
+              <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
+                <MenuOption
+                  onSelect={() => {
+                    console.log('Edit post clicked for:', item.id);
+                    handleEditPost(item);
+                  }}
+                  text="Edit Post"
+                  customStyles={{
+                    optionText: styles.menuText,
+                  }}
+                />
+                <MenuOption
+                  onSelect={() => {
+                    console.log('Delete post clicked for:', item.id);
+                    handleDeletePost(item.id, item);
+                  }}
+                  text="Delete Post"
+                  customStyles={{
+                    optionText: [styles.menuText, { color: 'red' }],
+                  }}
+                />
+              </MenuOptions>
+            </Menu>
+          )}
           <View style={styles.postHeader}>
             <View>
               <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
@@ -393,7 +340,6 @@ const CommunityBoard = () => {
               {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
               {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
             </View>
-            
           </View>
           {item.title && <Text style={styles.postTitle}>{item.title}</Text>}
           {item.content && <Text style={styles.postContent}>{item.content}</Text>}
@@ -412,7 +358,7 @@ const CommunityBoard = () => {
           <View style={styles.postActions}>
             <TouchableOpacity
               style={styles.postbuttons}
-              onPress={() => navigation.navigate('CommentSection', { postId: item.id, postData: item })}
+              onPress={() => navigation.navigate('CommentSection', { postId: poitem.idst, postData: item })}
             >
               <Ionicons name="chatbubble-outline" size={20} color={Theme.colors.accentBlue} />
             </TouchableOpacity>
@@ -438,7 +384,7 @@ const CommunityBoard = () => {
         {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
         {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
       </View>
-          {item.userId === user?.uid && isEditable(item) && (
+          {item.userId === user?.id && isEditable(item) && (
             <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
               <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
                 <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
@@ -542,6 +488,7 @@ const CommunityBoard = () => {
             borderColor: action.border,
           },
         ]}
+        disabled={!canSubmit} // Disable if user can't submit
       >
         <Ionicons name={action.emoji} size={24} color={Theme.colors.accentBlue} />
       </TouchableOpacity>
@@ -558,7 +505,7 @@ const CommunityBoard = () => {
           style={GlobalStyles.gradientContainer}
         >
           <View style={GlobalStyles.newheaderContainer}>
-            <TouchableOpacity onPress={() => navigation.openDrawer()} vérificationstyle={GlobalStyles.headerMenuIcon}>
+            <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
               <Ionicons name="menu" size={32} color={Theme.colors.primary} />
             </TouchableOpacity>
             <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Community Board</Text>
@@ -613,6 +560,7 @@ const CommunityBoard = () => {
                   borderColor: Theme.colors.accentBlue,
                 },
               ]}
+              disabled={!canSubmit} // Disable if user can't submit
             >
               <MotiView
                 style={{ position: 'absolute' }}
@@ -623,7 +571,7 @@ const CommunityBoard = () => {
               </MotiView>
             </TouchableOpacity>
             <AnimatePresence>
-              {expanded && (
+              {expanded && canSubmit && ( // Only show action buttons if canSubmit is true
                 <View style={styles.actionButtonContainer}>
                   {actions.map((action, index) => (
                     <ActionButton key={index.toString()} action={action} index={index} />
