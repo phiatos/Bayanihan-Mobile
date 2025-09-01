@@ -1,27 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation, CommonActions, useRoute } from '@react-navigation/native';
 import { get, push, ref, set, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Text, TouchableOpacity, View, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
 import { database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
-import CustomModal from '../components/CustomModal';
+import OperationCustomModal from '../components/OperationCustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReliefRequestStyles';
 import { LinearGradient } from 'expo-linear-gradient';
-import { logActivity } from '../components/logActivity';
-import { logSubmission } from '../components/logSubmission';
+import {logActivity,  logSubmission } from '../components/logSubmission'; // Updated import
 import { useAuth } from '../context/AuthContext';
-import OperationCustomModal from '../components/OperationCustomModal';
-
-const ReliefSummary = ({ route, navigation }) => {
-  const { user } = useAuth(); // Get user from AuthContext
-  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = '[Unknown Org]' } = route.params || {};
+  
+const ReliefSummary = () => {
+const navigation = useNavigation();
+  const route = useRoute();
+  const { user } = useAuth();
+  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = 'Unknown Org' } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [addedItems, setAddedItems] = useState(initialItems);
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
@@ -35,9 +36,9 @@ const ReliefSummary = ({ route, navigation }) => {
       }, 3000);
       return;
     }
-
     console.log('Logged-in user ID:', user.id);
-  }, [user, navigation]);
+    console.log('Volunteer organization:', organizationName);
+  }, [user, navigation, organizationName]);
 
   const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
     try {
@@ -56,10 +57,12 @@ const ReliefSummary = ({ route, navigation }) => {
   };
 
   const handleSubmit = async () => {
+    setIsSubmitting(true);
     if (!user) {
       console.error('No user available. Cannot submit request.');
       setErrorMessage('User not authenticated. Please log in again.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -75,6 +78,7 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Validation failed: Contact person is empty');
       setErrorMessage('Please enter the contact person’s name.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -82,13 +86,15 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Validation failed: Invalid contact number', { contactNumber });
       setErrorMessage('Please enter a valid contact number (at least 10 digits).');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^@\s]+$/.test(email)) {
       console.log('Validation failed: Invalid email', { email });
       setErrorMessage('Please enter a valid email address.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -96,6 +102,7 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Validation failed: Address is empty');
       setErrorMessage('Please enter the drop-off address.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -103,6 +110,7 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Validation failed: City is empty');
       setErrorMessage('Please enter the city.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -110,6 +118,7 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Validation failed: Donation category not selected');
       setErrorMessage('Please select a donation category.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -117,6 +126,7 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Validation failed: No items added');
       setErrorMessage('Please add at least one item before proceeding.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -130,7 +140,7 @@ const ReliefSummary = ({ route, navigation }) => {
         city,
         category: donationCategory,
         volunteerOrganization: organizationName,
-        userUid: user.id, // Use user.id
+        userUid: user.id,
         items: addedItems.map((item) => ({
           name: item.itemName,
           quantity: item.quantity,
@@ -152,10 +162,9 @@ const ReliefSummary = ({ route, navigation }) => {
       await Promise.all([
         set(requestRef, newRequest),
         set(userRequestRef, newRequest),
-        logActivity('Submitted a Relief Request', submissionId),
-        logSubmission('requestRelief/requests', newRequest, submissionId),
+        logActivity(user.id, 'Submitted a Relief Request', submissionId),
+        logSubmission('requestRelief/requests', newRequest, submissionId, organizationName || 'Admin'),
       ]);
-
       console.log('Data saved to Firebase successfully');
 
       // Reset form data
@@ -168,6 +177,8 @@ const ReliefSummary = ({ route, navigation }) => {
       console.error('Error in handleSubmit:', error.message);
       setErrorMessage('Failed to submit request: ' + error.message);
       setModalVisible(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -250,7 +261,7 @@ const ReliefSummary = ({ route, navigation }) => {
           <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
             <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={[GlobalStyles.headerTitle]}>Relief Request</Text>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Relief Request</Text>
         </View>
       </LinearGradient>
 
@@ -314,25 +325,29 @@ const ReliefSummary = ({ route, navigation }) => {
               <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack}>
                 <Text style={GlobalStyles.backButtonText}>Back</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={GlobalStyles.submitButton} onPress={handleSubmit}>
-                <Text style={GlobalStyles.submitButtonText}>Submit</Text>
+              <TouchableOpacity
+                style={[GlobalStyles.submitButton, isSubmitting && { opacity: 0.6 }]}
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+              >
+                <Text style={GlobalStyles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <CustomModal
+      <OperationCustomModal
         visible={modalVisible}
         title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
-          <View style={styles.modalContent}>
+          <View style={GlobalStyles.modalContent}>
             {errorMessage ? (
               <>
                 <Ionicons
                   name="warning-outline"
                   size={60}
-                  color={Theme.colors.red}
+                  color="#FF0000"
                   style={GlobalStyles.modalIcon}
                 />
                 <Text style={GlobalStyles.modalMessage}>{errorMessage}</Text>
@@ -353,13 +368,13 @@ const ReliefSummary = ({ route, navigation }) => {
         onConfirm={handleConfirm}
         onCancel={handleCancel}
         confirmText={errorMessage ? 'Retry' : 'Proceed'}
-        showCancel={false}
+        showCancel={errorMessage ? true : false}
       />
-      <CustomModal
+      <OperationCustomModal
         visible={deleteModalVisible}
         title="Confirm Deletion"
         message={
-          <View style={styles.modalContent}>
+          <View style={GlobalStyles.modalContent}>
             <Ionicons name="warning-outline" size={60} color={Theme.colors.red} style={GlobalStyles.modalIcon} />
             <Text style={GlobalStyles.modalMessage}>Are you sure you want to delete this item?</Text>
           </View>
@@ -367,7 +382,6 @@ const ReliefSummary = ({ route, navigation }) => {
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
         confirmText="Delete"
-        cancelText="Cancel"
         showCancel={true}
       />
     </SafeAreaView>

@@ -3,61 +3,135 @@ import { useNavigation, useRoute, CommonActions } from '@react-navigation/native
 import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
 import React, { useState, useEffect } from 'react';
 import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
-import { auth, database } from '../configuration/firebaseConfig';
+import { database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReportSubmissionStyles';
 import { LinearGradient } from 'expo-linear-gradient';
-import { logActivity } from '../components/logActivity';
-import { logSubmission } from '../components/logSubmission';
+import {logActivity, logSubmission } from '../components/logSubmission';
+import { useAuth } from '../context/AuthContext';
 
 const ReportSummary = () => {
   const route = useRoute();
-  const [reportData, setReportData] = useState(route.params?.reportData || {});
-  const { userUid, organizationName: orgNameFromParams } = route.params || {};
   const navigation = useNavigation();
+  const { user } = useAuth();
+  const { reportData: initialReportData = {}, organizationName: orgNameFromParams } = route.params || {};
+  const [reportData, setReportData] = useState(initialReportData);
+  const [organizationName, setOrganizationName] = useState(orgNameFromParams || 'Loading...');
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [organizationName, setOrganizationName] = useState(orgNameFromParams || 'Loading...');
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Fetch organization name from Firebase if not provided in route params
+  // Validate user authentication
+  useEffect(() => {
+    try {
+      if (!user) {
+        throw new Error('No authenticated user found');
+      }
+      console.log(`[${new Date().toISOString()}] Logged-in user ID:`, user.id);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Authentication error:`, error.message);
+      setErrorMessage('User not authenticated. Please log in.');
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+        navigation.navigate('Login');
+      }, 3000);
+    }
+  }, [user, navigation]);
+
+  // Fetch organization name from Firebase
   useEffect(() => {
     const fetchOrganizationName = async () => {
-      if (orgNameFromParams) {
-        setOrganizationName(orgNameFromParams);
-        return;
-      }
-      if (!userUid) {
-        console.warn('No user UID provided');
-        setOrganizationName('');
-        return;
-      }
-
       try {
-        const userRef = databaseRef(database, `users/${userUid}`);
+        if (orgNameFromParams) {
+          setOrganizationName(orgNameFromParams);
+          console.log(`[${new Date().toISOString()}] Using organization name from params:`, orgNameFromParams);
+          return;
+        }
+        if (!user?.id) {
+          throw new Error('No authenticated user ID available');
+        }
+
+        console.log(`[${new Date().toISOString()}] Fetching organization name for user:`, user.id);
+        const userRef = databaseRef(database, `users/${user.id}`);
         const snapshot = await get(userRef);
         const userData = snapshot.val();
-        if (userData && userData.organization) {
+
+        if (userData?.organization) {
           setOrganizationName(userData.organization);
+          console.log(`[${new Date().toISOString()}] Organization name fetched:`, userData.organization);
         } else {
-          console.warn('No organization found for user:', userUid);
-          setOrganizationName('');
-          ToastAndroid.show('No organization found in your profile. Using default name.', ToastAndroid.BOTTOM);
+          throw new Error('No organization found in user profile');
         }
       } catch (error) {
-        console.error('Error fetching organization name:', error.message);
+        console.error(`[${new Date().toISOString()}] Error fetching organization name:`, error.message);
         setOrganizationName('');
-        ToastAndroid.show('Failed to fetch organization name: ' + error.message, ToastAndroid.BOTTOM);
+        ToastAndroid.show(`Failed to fetch organization name: ${error.message}`, ToastAndroid.BOTTOM);
       }
     };
 
     fetchOrganizationName();
-  }, [userUid, orgNameFromParams]);
+  }, [user, orgNameFromParams]);
 
+  // Validate report data
+  useEffect(() => {
+    if (isSubmitted) {
+      console.log(`[${new Date().toISOString()}] Skipping validation after successful submission`);
+      return;
+    }
+
+    try {
+      if (!reportData || Object.keys(reportData).length === 0) {
+        throw new Error('Invalid or empty report data');
+      }
+      console.log(`[${new Date().toISOString()}] Report data validated:`, reportData);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Validation error:`, error.message);
+      setErrorMessage(error.message);
+      setModalVisible(true);
+    }
+  }, [reportData, isSubmitted]);
+
+  // Format label for display
+  const formatLabel = (key) => {
+    let label = key.replace(/([A-Z])/g, ' $1').trim();
+    if (['no of individuals or families', 'no of food packs', 'no of hot meals', 'no of volunteers mobilized', 'no of organizations activated'].includes(label.toLowerCase())) {
+      label = label.replace(/no /i, 'No. ');
+    }
+    return label
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Format date for display
+  const formatDateDisplay = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) return dateStr;
+    const date = new Date(dateStr);
+    return !isNaN(date) ? date.toLocaleDateString('en-GB') : 'N/A';
+  };
+
+  // Format time for display
+  const formatTimeDisplay = (timeStr) => {
+    if (!timeStr) return 'N/A';
+    if (/(^([0-9]{1,2}):([0-9]{2})\s(AM|PM)$)/i.test(timeStr)) return timeStr;
+    const date = new Date(`2000-01-01T${timeStr}`);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+    return timeStr.includes(':') ? timeStr : 'N/A';
+  };
+
+  // Notify admin
   const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
     try {
+      if (!message || !requestRefKey || !contactPerson || !volunteerOrganization) {
+        throw new Error('Missing required notification parameters');
+      }
       const notificationRef = databaseRef(database, 'notifications');
       await push(notificationRef, {
         message,
@@ -66,29 +140,32 @@ const ReportSummary = () => {
         volunteerOrganization,
         timestamp: serverTimestamp(),
       });
-      console.log('Admin notified successfully:', message);
+      console.log(`[${new Date().toISOString()}] Admin notified:`, message);
     } catch (error) {
-      console.error('Failed to notify admin:', error.message);
+      console.error(`[${new Date().toISOString()}] Failed to notify admin:`, error.message);
     }
   };
 
+  // Handle report submission
   const handleSubmit = async () => {
-    if (!userUid) {
-      console.error('No user UID available. Cannot submit report.');
-      setErrorMessage('User not authenticated. Please log in again.');
-      setModalVisible(true);
-      return;
-    }
-
-    if (isLoading) return;
-    setIsLoading(true);
-
     try {
+      if (isLoading) {
+        console.warn(`[${new Date().toISOString()}] Submission already in progress`);
+        return;
+      }
+      if (!user?.id) {
+        throw new Error('No authenticated user found');
+      }
       if (!database) {
         throw new Error('Database reference is not available');
       }
+      if (!reportData || Object.keys(reportData).length === 0) {
+        throw new Error('Incomplete report data');
+      }
 
-      // Use CalamityType and CalamityName from reportData
+      setIsLoading(true);
+      console.log(`[${new Date().toISOString()}] Submitting report:`, reportData);
+
       const CalamityName = reportData.CalamityName || 'Unknown Calamity';
       const CalamityType = reportData.CalamityType || 'Unknown Type';
       const calamityArea = `${CalamityType} - ${CalamityName} (by ${organizationName})`;
@@ -97,8 +174,8 @@ const ReportSummary = () => {
         reportID: reportData.reportID || `REPORTS-${Math.floor(100000 + Math.random() * 900000)}`,
         AreaOfOperation: reportData.AreaOfOperation || '',
         DateOfReport: reportData.DateOfReport || '',
-        CalamityName: CalamityName,
-        CalamityType: CalamityType,
+        CalamityName,
+        CalamityType,
         TimeOfIntervention: reportData.completionTimeOfIntervention || reportData.TimeOfIntervention || '',
         StartDate: reportData.StartDate || '',
         EndDate: reportData.EndDate || '',
@@ -112,7 +189,7 @@ const ReportSummary = () => {
         TotalMonetaryDonations: parseInt(reportData.TotalMonetaryDonations) || 0,
         NotesAdditionalInformation: reportData.NotesAdditionalInformation || 'No additional notes',
         status: 'Pending',
-        userUid: userUid,
+        userUid: user.id,
         VolunteerGroupName: organizationName || 'Not Assigned',
         timestamp: serverTimestamp(),
         organization: organizationName,
@@ -123,96 +200,62 @@ const ReportSummary = () => {
       const newReportRef = push(reportRef);
       const submissionId = newReportRef.key;
 
-      // Notify admin with detailed message using CalamityName
-      const message = `New report submitted by ${reportData.contactPerson || 'Unknown'} from ${organizationName} for ${CalamityName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
-      await notifyAdmin(message, submissionId, reportData.contactPerson, organizationName);
-
-      // Save to reports/verification
       await push(reportRef, newReport);
-
-      // Also save to reports/submitted for logging
       await push(databaseRef(database, 'reports/submitted'), newReport);
 
-      await logActivity('Submitted a report', submissionId);
-      await logSubmission('reports/submitted', newReport, submissionId);
-      console.log('Report saved successfully to Firebase');
+      const message = `New report submitted by ${reportData.contactPerson || 'Unknown'} from ${organizationName} for ${CalamityName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      await notifyAdmin(message, submissionId, reportData.contactPerson || 'Unknown', organizationName);
 
-      // Reset form data
+      await logActivity(user.id, 'Submitted a report', submissionId);
+      await logSubmission('reports', newReport, submissionId, organizationName);
+
+      console.log(`[${new Date().toISOString()}] Report submitted successfully:`, submissionId);
+
+      setIsSubmitted(true);
       setReportData({});
-
       setErrorMessage(null);
       setModalVisible(true);
     } catch (error) {
-      console.error('Error saving report:', error.message);
-      setErrorMessage('Failed to save report: ' + error.message);
+      console.error(`[${new Date().toISOString()}] Error saving report:`, error.message, error.code || 'N/A');
+      setErrorMessage(`Failed to save report: ${error.message} (${error.code || 'N/A'})`);
       setModalVisible(true);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCancel  = () => {
+  // Handle modal confirmation
+  const handleConfirm = () => {
+    console.log(`[${new Date().toISOString()}] Confirm button pressed`);
+    setModalVisible(false);
+    if (!errorMessage) {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Volunteer Dashboard' }],
+        })
+      );
+    } else {
+      navigation.navigate('Login');
+    }
+  };
+
+  // Handle modal cancellation
+  const handleCancel = () => {
+    console.log(`[${new Date().toISOString()}] Cancel button pressed`);
     setModalVisible(false);
     navigation.navigate('ReportSubmission', { reportData });
   };
 
+  // Handle back navigation
   const handleBack = () => {
+    console.log(`[${new Date().toISOString()}] Navigating back with report data:`, reportData);
     navigation.navigate('ReportSubmission', { reportData });
-  };
-
-  const handleSuccessConfirm = () => {
-          setModalVisible(true);
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: 'Volunteer Dashboard' }],
-      })
-    );
-  };
-
-
-  const formatLabel = (key) => {
-    let label = key.replace(/([A-Z])/g, ' $1').trim();
-    // Add period after "no" in specific fields
-    if (['no of individuals or families', 'no of food packs', 'no of hot meals', 'no of volunteers mobilized', 'no of organizations activated'].includes(label.toLowerCase())) {
-      label = label.replace(/no /i, 'No. ');
-    }
-    // Capitalize first letter of each word
-    return label.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-  };
-
-  const formatDateDisplay = (dateStr) => {
-    if (!dateStr) return 'N/A';
-    if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
-      return dateStr;
-    }
-    const date = new Date(dateStr);
-    return !isNaN(date) ? date.toLocaleDateString('en-GB') : 'N/A';
-  };
-
-  const formatTimeDisplay = (timeStr) => {
-    if (!timeStr) return 'N/A';
-    if (/(^([0-9]{1,2}):([0-9]{2})\s(AM|PM)$)/i.test(timeStr)) {
-      return timeStr;
-    }
-    const date = new Date(`2000-01-01T${timeStr}`);
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      });
-    }
-    if (timeStr.includes(':')) {
-      return timeStr;
-    }
-    return 'N/A';
   };
 
   return (
     <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
@@ -233,8 +276,8 @@ const ReportSummary = () => {
         keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollViewContent]}
-          scrollEnabled={true}
+          contentContainerStyle={styles.scrollViewContent}
+          scrollEnabled
           keyboardShouldPersistTaps="handled"
         >
           <View style={GlobalStyles.form}>
@@ -242,26 +285,40 @@ const ReportSummary = () => {
             <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
             <View style={GlobalStyles.summarySection}>
               <Text style={GlobalStyles.summarySectionTitle}>Basic Information</Text>
-              {['reportID', 'AreaOfOperation', 'DateOfReport',].map((field) => (
+              {['reportID', 'AreaOfOperation', 'DateOfReport'].map((field) => (
                 <View key={field} style={styles.fieldContainer}>
-                  <Text style={styles.label}>{formatLabel(field)}</Text>
-                  <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
+                  <Text style={styles.label}>{formatLabel(field)}:</Text>
+                  <Text style={styles.value}>{field === 'DateOfReport' ? formatDateDisplay(reportData[field]) : reportData[field] || 'N/A'}</Text>
                 </View>
               ))}
             </View>
 
             <View style={GlobalStyles.summarySection}>
               <Text style={GlobalStyles.summarySectionTitle}>Relief Operations</Text>
-              {['calamityArea', 'completionTimeOfIntervention', 'StartDate', 'EndDate', 'NoOfIndividualsOrFamilies', 'NoOfFoodPacks', 'hotMeals', 'LitersOfWater', 'NoOfVolunteersMobilized', 'NoOfOrganizationsActivated', 'TotalValueOfInKindDonations', 'TotalMonetaryDonations'].map((field) => (
+              {[
+                'CalamityType',
+                'CalamityName',
+                'completionTimeOfIntervention',
+                'StartDate',
+                'EndDate',
+                'NoOfIndividualsOrFamilies',
+                'NoOfFoodPacks',
+                'hotMeals',
+                'LitersOfWater',
+                'NoOfVolunteersMobilized',
+                'NoOfOrganizationsActivated',
+                'TotalValueOfInKindDonations',
+                'TotalMonetaryDonations',
+              ].map((field) => (
                 <View key={field} style={styles.fieldContainer}>
-                  <Text style={styles.label}>{formatLabel(field)}</Text>
+                  <Text style={styles.label}>{formatLabel(field)}:</Text>
                   <Text style={styles.value}>
                     {reportData[field]
-                      ? (field === 'completionTimeOfIntervention'
-                          ? formatTimeDisplay(reportData[field])
-                          : ['StartDate', 'EndDate'].includes(field)
-                            ? formatDateDisplay(reportData[field])
-                            : reportData[field])
+                      ? field === 'completionTimeOfIntervention'
+                        ? formatTimeDisplay(reportData[field])
+                        : ['StartDate', 'EndDate'].includes(field)
+                          ? formatDateDisplay(reportData[field])
+                          : reportData[field]
                       : 'N/A'}
                   </Text>
                 </View>
@@ -271,63 +328,49 @@ const ReportSummary = () => {
             <View style={GlobalStyles.summarySection}>
               <Text style={GlobalStyles.summarySectionTitle}>Additional Updates</Text>
               <View style={styles.fieldContainer}>
-                <Text style={styles.label}>{formatLabel('NotesAdditionalInformation')}</Text>
+                <Text style={styles.label}>{formatLabel('NotesAdditionalInformation')}:</Text>
                 <Text style={styles.value}>{reportData.NotesAdditionalInformation || 'None'}</Text>
               </View>
             </View>
 
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={handleBack}
-                disabled={isLoading}
-              >
-                <Text style={styles.backButtonText}>Back</Text>
+            <View style={GlobalStyles.finalButtonContainer}>
+              <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack} disabled={isLoading}>
+                <Text style={GlobalStyles.backButtonText}>Back</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.submitButton}
+                style={[GlobalStyles.submitButton, isLoading && { opacity: 0.6 }]}
                 onPress={handleSubmit}
                 disabled={isLoading}
               >
-                <Text style={styles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
+                <Text style={GlobalStyles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-       <CustomModal
+      <CustomModal
         visible={modalVisible}
         title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
           <View style={GlobalStyles.modalContent}>
             {errorMessage ? (
               <>
-                <Ionicons
-                  name="warning-outline"
-                  size={60}
-                  color={Theme.colors.red}
-                  style={GlobalStyles.modalIcon}
-                />
+                <Ionicons name="warning-outline" size={60} color={Theme.colors.red} style={GlobalStyles.modalIcon} />
                 <Text style={GlobalStyles.modalMessage}>{errorMessage}</Text>
               </>
             ) : (
               <>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={60}
-                  color={Theme.colors.primary}
-                  style={GlobalStyles.modalIcon}
-                />
+                <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={GlobalStyles.modalIcon} />
                 <Text style={GlobalStyles.modalMessage}>Your report has been successfully submitted!</Text>
               </>
             )}
           </View>
         }
-        onConfirm={handleSuccessConfirm}
+        onConfirm={handleConfirm}
         onCancel={handleCancel}
         confirmText={errorMessage ? 'Retry' : 'Proceed'}
-        showCancel={false}
+        showCancel={errorMessage}
       />
     </SafeAreaView>
   );

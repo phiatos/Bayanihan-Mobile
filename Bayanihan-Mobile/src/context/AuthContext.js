@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
               contactPerson: userData.contactPerson || `${userData.firstName} ${userData.lastName || ''}`.trim(),
               email: currentUser.email,
               role: userData.role,
-              organization: userData.organization,
+              organization: userData.organization ,
               firstName: userData.firstName,
               lastName: userData.lastName,
               adminPosition: userData.adminPosition,
@@ -96,7 +96,7 @@ export const AuthProvider = ({ children }) => {
         console.error('AuthContext: Error saving session:', error.message);
       }
     },
-    loading, // Include loading in context value
+    loading,
   };
 
   return (

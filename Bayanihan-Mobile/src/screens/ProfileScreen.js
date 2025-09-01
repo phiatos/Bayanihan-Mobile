@@ -5,7 +5,7 @@ import {
   updatePassword,
 } from 'firebase/auth';
 import { get, getDatabase, ref, update } from 'firebase/database';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -22,19 +22,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { auth } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
-import { AuthContext } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ProfileStyles';
 import { KeyboardAvoidingView } from 'react-native';
 import CustomModal from '../components/CustomModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { v4 as uuidv4 } from 'uuid';
-import { logActivity } from '../components/logActivity';
-import { logSubmission } from '../components/logSubmission';
+import { logActivity, logSubmission } from '../components/logSubmission';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
   const [profileData, setProfileData] = useState({
     organization: '',
     hq: '',
@@ -89,6 +88,7 @@ const ProfileScreen = () => {
     const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
       setLoading(true);
       if (!user?.id) {
+        console.error(`[${new Date().toISOString()}] No user logged in`);
         setLoading(false);
         setCustomModal({
           visible: true,
@@ -110,6 +110,7 @@ const ProfileScreen = () => {
       }
 
       try {
+        console.log(`[${new Date().toISOString()}] Fetching user data for ID:`, user.id);
         const db = getDatabase();
         const userRef = ref(db, `users/${user.id}`);
         const snapshot = await get(userRef);
@@ -135,14 +136,17 @@ const ProfileScreen = () => {
             role = role !== 'N/A' ? `${role} | ${data.adminPosition}` : data.adminPosition;
           }
 
+          const organization = data.organization || 'Not Assigned';
           setProfileData({
-            organization: data.organization || 'N/A',
-            hq: hq,
-            contactPerson: contactPerson,
+            organization,
+            hq,
+            contactPerson,
             email: data.email || user.email || 'N/A',
             mobile: data.mobile || 'N/A',
-            role: role,
+            role,
           });
+
+          console.log(`[${new Date().toISOString()}] User data fetched:`, { organization, hq, contactPerson, email: data.email || user.email, mobile: data.mobile, role });
 
           const userAgreedVersion = data.terms_agreed_version || 0;
           const termsPending = userAgreedVersion < currentTermsVersion;
@@ -173,7 +177,7 @@ const ProfileScreen = () => {
             setIsNavigationBlocked(false);
           }
         } else {
-          console.warn('No user document found for ID:', user.id);
+          console.warn(`[${new Date().toISOString()}] No user document found for ID:`, user.id);
           setCustomModal({
             visible: true,
             title: 'Warning',
@@ -188,7 +192,7 @@ const ProfileScreen = () => {
             showCancel: false,
           });
           setProfileData({
-            organization: 'N/A',
+            organization: 'Not Assigned',
             hq: 'N/A',
             contactPerson: 'Unknown',
             email: user.email || 'N/A',
@@ -197,9 +201,9 @@ const ProfileScreen = () => {
           });
         }
       } catch (error) {
-        console.error('Error fetching user data:', error.message, error.code);
+        console.error(`[${new Date().toISOString()}] Error fetching user data:`, error.message, error.code || 'N/A');
         if (retryCount < maxRetries && error.code === 'unavailable') {
-          console.log(`Retrying fetch (${retryCount + 1}/${maxRetries})...`);
+          console.log(`[${new Date().toISOString()}] Retrying fetch (${retryCount + 1}/${maxRetries})...`);
           setTimeout(() => fetchUserData(retryCount + 1, maxRetries), 1000);
         } else {
           setCustomModal({
@@ -216,7 +220,7 @@ const ProfileScreen = () => {
             showCancel: false,
           });
           setProfileData({
-            organization: 'N/A',
+            organization: 'Not Assigned',
             hq: 'N/A',
             contactPerson: 'Unknown',
             email: user.email || 'N/A',
@@ -303,7 +307,13 @@ const ProfileScreen = () => {
   };
 
   const handleChangePassword = async () => {
-    if (!user) {
+    if (submitting) {
+      console.warn(`[${new Date().toISOString()}] Password change already in progress`);
+      return;
+    }
+
+    if (!user?.id) {
+      console.error(`[${new Date().toISOString()}] No user logged in for password change`);
       setCustomModal({
         visible: true,
         title: 'Not Logged In',
@@ -324,6 +334,7 @@ const ProfileScreen = () => {
     }
 
     if (!currentPassword || !newPassword || !confirmPassword) {
+      console.warn(`[${new Date().toISOString()}] Missing password fields`);
       setCustomModal({
         visible: true,
         title: 'Error',
@@ -341,6 +352,7 @@ const ProfileScreen = () => {
     }
 
     if (newPassword !== confirmPassword) {
+      console.warn(`[${new Date().toISOString()}] Passwords do not match`);
       setCustomModal({
         visible: true,
         title: 'Error',
@@ -359,6 +371,7 @@ const ProfileScreen = () => {
 
     const { hasLength, hasUppercase, hasLowercase, hasNumber, hasSymbol } = passwordStrength.checks;
     if (!hasLength || !hasUppercase || !hasLowercase || !hasNumber || !hasSymbol) {
+      console.warn(`[${new Date().toISOString()}] Password does not meet requirements`);
       setCustomModal({
         visible: true,
         title: 'Weak Password',
@@ -385,6 +398,7 @@ const ProfileScreen = () => {
         throw new Error('No email associated with this user for re-authentication.');
       }
 
+      console.log(`[${new Date().toISOString()}] Attempting to re-authenticate user:`, user.id);
       const credential = EmailAuthProvider.credential(userEmail, currentPassword);
       await reauthenticateWithCredential(auth.currentUser, credential);
       await updatePassword(auth.currentUser, newPassword);
@@ -399,13 +413,24 @@ const ProfileScreen = () => {
       try {
         submissionId = uuidv4();
       } catch (uuidError) {
-        console.error('UUID generation error:', uuidError);
+        console.error(`[${new Date().toISOString()}] UUID generation error:`, uuidError.message);
         submissionId = `fallback-${Date.now()}`;
       }
 
-      await logActivity('User changed their password', submissionId);
-      await logSubmission('profile', { action: 'password_change', newPasswordLength: newPassword.length }, submissionId);
+      const organization = profileData.organization || 'Not Assigned';
+      const submissionData = { action: 'password_change', newPasswordLength: newPassword.length };
 
+      console.log(`[${new Date().toISOString()}] Preparing to log password change:`, {
+        collection: 'profile',
+        submissionData,
+        submissionId,
+        organization,
+      });
+
+      await logActivity(user.id, 'User changed their password', submissionId, organization);
+      await logSubmission('profile', submissionData, submissionId, organization);
+
+      console.log(`[${new Date().toISOString()}] Password updated successfully for user:`, user.id);
       setCustomModal({
         visible: true,
         title: 'Success',
@@ -428,7 +453,7 @@ const ProfileScreen = () => {
         showCancel: false,
       });
     } catch (error) {
-      console.error('Password change error:', error);
+      console.error(`[${new Date().toISOString()}] Password change error:`, error.message, error.code || 'N/A');
       let errorMessage = 'Failed to change password. Please ensure your current password is correct.';
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         errorMessage = 'Incorrect current password or authentication issue.';
@@ -457,6 +482,7 @@ const ProfileScreen = () => {
 
   const handleAgreeTerms = async () => {
     if (!agreedTerms) {
+      console.warn(`[${new Date().toISOString()}] Terms not agreed`);
       setCustomModal({
         visible: true,
         title: 'Error',
@@ -473,21 +499,63 @@ const ProfileScreen = () => {
       return;
     }
 
+    if (!user?.id) {
+      console.error(`[${new Date().toISOString()}] No user logged in for terms agreement`);
+      setCustomModal({
+        visible: true,
+        title: 'Not Logged In',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
+            <Text style={styles.message}>Please log in to agree to the terms.</Text>
+          </View>
+        ),
+        onConfirm: () => {
+          closeModal();
+          navigation.navigate('Login');
+        },
+        confirmText: 'OK',
+        showCancel: false,
+      });
+      return;
+    }
+
     try {
       const db = getDatabase();
-      await update(ref(db, `users/${user.id}`), {
+      const submissionData = {
         terms_agreed_version: currentTermsVersion,
         terms_agreed_at: new Date().toISOString(),
         isFirstLogin: false,
         termsAccepted: true,
+      };
+
+      let submissionId;
+      try {
+        submissionId = uuidv4();
+      } catch (uuidError) {
+        console.error(`[${new Date().toISOString()}] UUID generation error:`, uuidError.message);
+        submissionId = `fallback-${Date.now()}`;
+      }
+
+      const organization = profileData.organization || 'Not Assigned';
+      console.log(`[${new Date().toISOString()}] Preparing to log terms agreement:`, {
+        collection: 'profile',
+        submissionData,
+        submissionId,
+        organization,
       });
 
+      await update(ref(db, `users/${user.id}`), submissionData);
+      await logActivity(user.id, 'User agreed to terms and conditions', submissionId, organization);
+      await logSubmission('profile', submissionData, submissionId, organization);
+
+      console.log(`[${new Date().toISOString()}] Terms agreed successfully for user:`, user.id);
       setTermsModalVisible(false);
       setIsNavigationBlocked(false);
 
       const snapshot = await get(ref(db, `users/${user.id}`));
       const userData = snapshot.val();
-      const needsPasswordReset = userData.password_needs_reset || false;
+      const needsPasswordReset = userData?.password_needs_reset || false;
 
       if (needsPasswordReset) {
         setPasswordNeedsReset(true);
@@ -523,7 +591,7 @@ const ProfileScreen = () => {
         });
       }
     } catch (error) {
-      console.error('Error updating terms agreement:', error);
+      console.error(`[${new Date().toISOString()}] Error updating terms agreement:`, error.message, error.code || 'N/A');
       setCustomModal({
         visible: true,
         title: 'Error',

@@ -1,12 +1,15 @@
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import React, { useContext, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, TouchableOpacity, SafeAreaView, Text, TextInput, ToastAndroid, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { auth } from '../configuration/firebaseConfig';
+import { auth, database } from '../configuration/firebaseConfig';
 import { AuthContext } from '../context/AuthContext';
 import Theme from '../constants/theme';
 import { styles } from '../styles/LoginScreenStyles';
 import GlobalStyles from '../styles/GlobalStyles';
+import { ref, get, set } from 'firebase/database';
+import CustomModal from '../components/CustomModal'; // Adjust the import path as needed
+import OperationCustomModal from '../components/OperationCustomModal';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -15,11 +18,17 @@ const LoginScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
   const { setUser } = useContext(AuthContext);
+
+  const showToast = (message, duration = ToastAndroid.SHORT) => {
+    ToastAndroid.show(message, duration);
+  };
 
   const validateInputs = () => {
     let isValid = true;
-    
+
     if (!email) {
       setEmailError('Email is required');
       isValid = false;
@@ -42,36 +51,119 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     if (!validateInputs()) {
-      console.log('Validation failed:', { emailError, passwordError });
+      console.log(`[${new Date().toISOString()}] Validation failed:`, { emailError, passwordError });
       return;
     }
 
     if (isLoading) {
-      console.log('Login is already in progress');
+      console.log(`[${new Date().toISOString()}] Login is already in progress`);
       return;
     }
 
     setIsLoading(true);
     try {
-      console.log('Attempting login with auth:', !!auth);
+      console.log(`[${new Date().toISOString()}] Attempting login with auth:`, !!auth);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      console.log('Login successful, user:', user.uid);
-      ToastAndroid.show('Login successful.', ToastAndroid.SHORT);
+      const updatedUser = userCredential.user;
+      console.log(`[${new Date().toISOString()}] Login successful, user:`, updatedUser.uid);
+
+      // Fetch user data from Firebase database
+      const userRef = ref(database, `users/${updatedUser.uid}`);
+      const userSnapshot = await get(userRef);
+      const userData = userSnapshot.exists() ? userSnapshot.val() : {};
+      console.log(`[${new Date().toISOString()}] User data fetched:`, userData);
+
+      // If the user's email is now verified in Auth but not yet in DB, update DB
+      if (updatedUser.emailVerified && !userData.emailVerified) {
+        await set(ref(database, `users/${updatedUser.uid}/emailVerified`), true);
+        if (userData.isFirstLogin) {
+          await set(ref(database, `users/${updatedUser.uid}/isFirstLogin`), false);
+        }
+        showToast('Your email has been successfully verified upon login!', ToastAndroid.SHORT);
+      }
+
+      // Check if user is admin
+      const isAdmin = userData?.role === 'AB ADMIN';
+      if (!isAdmin && !updatedUser.emailVerified) {
+        // Check if a verification email was recently sent
+        const lastVerificationSent = userData.lastVerificationEmailSent || 0;
+        const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+        const now = Date.now();
+        if (now - lastVerificationSent < oneHour) {
+          setModalMessage(
+            userData.isFirstLogin
+              ? 'Welcome! Your email address is not verified. A verification email was recently sent to your email address. Please check your inbox (and spam/junk folder) to verify your email and try logging in again.'
+              : 'Your email address is not verified. A verification email was recently sent. Please check your inbox (and spam/junk folder) to verify your email and try logging in again.'
+          );
+          setModalVisible(true);
+          await signOut(auth);
+          return;
+        }
+
+        try {
+          const actionCodeSettings = {
+            url: 'https://www.angat-bayanihan.com/pages/login.html',
+            handleCodeInApp: true,
+          };
+          await sendEmailVerification(updatedUser, actionCodeSettings);
+          await set(ref(database, `users/${updatedUser.uid}/lastVerificationEmailSent`), now);
+          setModalMessage(
+            userData.isFirstLogin
+              ? 'Welcome! Your email address is not verified. A verification email has been sent to your email address. Please verify your email to proceed with login (check spam/junk folder).'
+              : 'Your email address is not verified. A new verification email has been sent to your email address. Please verify your email to proceed with login (check spam/junk folder).'
+          );
+          setModalVisible(true);
+          await signOut(auth);
+          return;
+        } catch (error) {
+          console.error(`[${new Date().toISOString()}] Error sending verification email:`, error.message, error.code || 'N/A');
+          if (error.code === 'auth/too-many-requests') {
+            setModalMessage(
+              userData.isFirstLogin
+                ? 'Welcome! Your email address is not verified. We couldn’t send a new verification email due to too many requests. Please try again later or check your inbox (and spam/junk folder) for a previous email.'
+                : 'Your email address is not verified. We couldn’t send a new verification email due to too many requests. Please try again later or check your inbox (and spam/junk folder) for a previous email.'
+            );
+          } else {
+            setModalMessage(`Failed to send verification email: ${error.message}`);
+          }
+          setModalVisible(true);
+          await signOut(auth);
+          return;
+        }
+      }
+
+      // If email is verified or user is admin, proceed with login
+      if (userData.isFirstLogin) {
+        await set(ref(database, `users/${updatedUser.uid}/isFirstLogin`), false);
+      }
+      showToast('Login successful.', ToastAndroid.SHORT);
       // AuthContext's onAuthStateChanged will handle user data fetching and session storage
     } catch (error) {
-      console.error('Login error:', error.code, error.message);
+      console.error(`[${new Date().toISOString()}] Error:`, error.code, error.message);
       if (error.code === 'auth/invalid-credential') {
-        ToastAndroid.show('Invalid email or password.', ToastAndroid.SHORT);
+        setModalMessage('Invalid email or password.');
       } else if (error.code === 'auth/user-not-found') {
-        ToastAndroid.show('Email not found.', ToastAndroid.SHORT);
+        setModalMessage('Email not found.');
       } else {
-        ToastAndroid.show(`Error: ${error.message}`, ToastAndroid.LONG);
+        setModalMessage(error.message);
       }
+      setModalVisible(true);
     } finally {
       setIsLoading(false);
-      console.log('Login attempt completed, isLoading set to false');
+      console.log(`[${new Date().toISOString()}] Login attempt completed, isLoading set to false`);
     }
+  };
+
+  const handleModalConfirm = () => {
+    setModalVisible(false);
+    setModalMessage('');
+    setEmail('');
+    setPassword('');
+  };
+
+  const handleModalCancel = () => {
+    setModalVisible(false);
+    setModalMessage('');
   };
 
   return (
@@ -153,6 +245,26 @@ const LoginScreen = ({ navigation }) => {
           </Text>
         </View>
       </KeyboardAvoidingView>
+
+      <OperationCustomModal
+        visible={modalVisible}
+        title={modalMessage.includes('not verified') ? 'Email Verification Required' : 'Error'}
+        message={
+          <View style={GlobalStyles.modalContent}>
+            <Ionicons
+              name={modalMessage.includes('not verified') ? 'mail-outline' : 'warning-outline'}
+              size={60}
+              color={modalMessage.includes('not verified') ? Theme.colors.primary : Theme.colors.red}
+              style={GlobalStyles.modalIcon}
+            />
+            <Text style={GlobalStyles.modalMessage}>{modalMessage}</Text>
+          </View>
+        }
+        onConfirm={handleModalConfirm}
+        onCancel={handleModalCancel}
+        confirmText={modalMessage.includes('not verified') ? 'OK' : 'Retry'}
+        showCancel={modalMessage.includes('not verified') ? false : true}
+      />
     </SafeAreaView>
   );
 };

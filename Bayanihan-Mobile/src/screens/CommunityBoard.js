@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, ToastAndroid, Linking } from 'react-native';
 import { ref, onValue, query, orderByChild, remove, set, serverTimestamp } from 'firebase/database';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { useAuth } from '../context/AuthContext'; // Import useAuth
+import { useAuth } from '../context/AuthContext';
 import { database } from '../configuration/firebaseConfig';
 import GlobalStyles from '../styles/GlobalStyles';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +11,7 @@ import Theme from '../constants/theme';
 import { AnimatePresence, MotiView } from 'moti';
 import { useNavigation } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
-import { Menu, MenuOptions, MenuOption, MenuProvider } from 'react-native-popup-menu';
+import { Menu, MenuOptions, MenuOption, MenuProvider, MenuTrigger } from 'react-native-popup-menu';
 import styles from '../styles/CommunityBoardStyles';
 import useOperationCheck from '../components/useOperationCheck';
 
@@ -96,8 +96,8 @@ const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
 
 const CommunityBoard = () => {
   const navigation = useNavigation();
-  const { user } = useAuth(); // Use AuthContext
-  const { canSubmit, organizationName } = useOperationCheck(); // Use useOperationCheck
+  const { user } = useAuth(); 
+  const { canSubmit, organizationName } = useOperationCheck(); 
   const [posts, setPosts] = useState([]);
   const [sortOrder, setSortOrder] = useState('newest');
   const [categoryFilter, setCategoryFilter] = useState('all');

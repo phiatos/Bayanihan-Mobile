@@ -1278,17 +1278,18 @@ useEffect(() => {
               backgroundColor: '#fff',
             }}>
               <Text style={{
-                color: '#ff4444',
+                color: Theme.colors.red,
                 fontSize: 18,
                 textAlign: 'center',
                 marginBottom: 20,
+                fontFamily: 'Poppins_Medium'
               }}>{mapError}</Text>
               <TouchableOpacity
                 style={{
-                  backgroundColor: '#FF4444',
+                  backgroundColor: Theme.colors.red,
                   paddingVertical: 10,
                   paddingHorizontal: 20,
-                  borderRadius: 5,
+                  borderRadius: 15,
                 }}
                 onPress={() => {
                   setMapError(null);
@@ -1296,9 +1297,9 @@ useEffect(() => {
                 }}
               >
                 <Text style={{
-                  color: '#fff',
+                  color: Theme.colors.red,white,
                   fontSize: 16,
-                  fontWeight: 'bold',
+                  fontFamily: 'Poppins_Regular'
                 }}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -1479,10 +1480,11 @@ useEffect(() => {
               backgroundColor: '#fff',
             }}>
               <Text style={{
-                color: '#ff4444',
+                color: Theme.colors.primary,
                 fontSize: 18,
                 textAlign: 'center',
                 marginBottom: 20,
+                fontFamily: 'Poppins_Medium'
               }}>Waiting for location permission...</Text>
             </View>
           )}
