@@ -11,7 +11,7 @@ import GlobalStyles from '../styles/GlobalStyles';
 import Theme from '../constants/theme';
 
 const DashboardScreen = ({ navigation }) => {
-  const { user } = useAuth(); // Get user from AuthContext
+  const { user } = useAuth(); 
   const [metrics, setMetrics] = useState([
     { label: 'No. of Food Packs', value: '0', icon: 'food-variant' },
     { label: 'No. of Hot Meals', value: '0', icon: 'silverware-fork-knife' },
@@ -25,7 +25,6 @@ const DashboardScreen = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
 
-  // Function to start the animation
   const startAnimation = () => {
     fadeAnim.setValue(0);
     scaleAnim.setValue(0.85);

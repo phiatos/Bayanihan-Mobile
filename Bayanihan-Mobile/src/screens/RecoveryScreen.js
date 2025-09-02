@@ -8,7 +8,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Theme from "../constants/theme";
 import styles from "../styles/RecoveryScreenStyles";
 
-// Firebase configuration (same as web)
 const firebaseConfig = {
     apiKey: "AIzaSyDJxMv8GCaMvQT2QBW3CdzA3dV5X_T2KqQ",
     authDomain: "bayanihan-5ce7e.firebaseapp.com",
@@ -20,7 +19,6 @@ const firebaseConfig = {
     measurementId: "G-ZTQ9VXXVV0"
 };
 
-// Initialize Firebase if not already initialized
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -55,7 +53,6 @@ const RecoveryScreen = ({ navigation }) => {
         }
 
         try {
-            // Check if the email exists in the database
             let userFound = false;
             let userMobile = null;
             let userId = null;
@@ -74,15 +71,12 @@ const RecoveryScreen = ({ navigation }) => {
                 return;
             }
 
-            // Send password reset email
             const actionCodeSettings = {
                 url: "https://bayanihan-5ce7e.firebaseapp.com/pages/login.html", // Adjust if you have a mobile-specific URL
                 handleCodeInApp: false,
             };
             await auth.sendPasswordResetEmail(email, actionCodeSettings);
 
-            // Store user details in AsyncStorage or similar for mobile
-            // For simplicity, we'll just proceed to the next stage
             Alert.alert(
                 "Success",
                 `A password reset link has been sent to ${email}. Please check your email (including spam/junk folder).`,
@@ -111,7 +105,6 @@ const RecoveryScreen = ({ navigation }) => {
         const fullMobileNumber = `${countryCode}${mobileNumber}`.replace(/^\+/, '');
 
         try {
-            // Check if the mobile number exists in the database
             let userFound = false;
             let userEmail = null;
             let userId = null;
@@ -130,8 +123,7 @@ const RecoveryScreen = ({ navigation }) => {
                 return;
             }
 
-            // Since Firebase doesn't support password reset via SMS directly, we can send a reset email instead
-            // Alternatively, integrate with an SMS service like Twilio (not implemented here)
+           
             if (userEmail) {
                 const actionCodeSettings = {
                     url: "https://bayanihan-5ce7e.firebaseapp.com/pages/login.html",
@@ -168,7 +160,6 @@ const RecoveryScreen = ({ navigation }) => {
         }
 
         try {
-            // Check if the email exists and retrieve the mobile number
             let userFound = false;
             let userMobile = null;
             await database.ref('users').orderByChild('email').equalTo(email).once('value', snapshot => {
@@ -190,8 +181,6 @@ const RecoveryScreen = ({ navigation }) => {
                 return;
             }
 
-            // Simulate sending the mobile number to the email
-            // In a real app, integrate with an email service to send the mobile number
             Alert.alert(
                 "Success",
                 `Your mobile number (${userMobile}) has been sent to your registered email: ${email}.`,
@@ -224,7 +213,6 @@ const RecoveryScreen = ({ navigation }) => {
     <View style={styles.optionContent}>
         {passwordRecoveryStage === 1 ? (
             <>
-                {/* <Text style={styles.titleSecondary}>Enter your email address</Text> */}
                 <Text style={styles.descSecondary}>
                     Please enter your registered email address to recover your password.
                 </Text>

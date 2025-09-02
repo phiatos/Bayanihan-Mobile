@@ -24,7 +24,6 @@ const ReportSummary = () => {
   const [errorMessage, setErrorMessage] = useState(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Validate user authentication
   useEffect(() => {
     try {
       if (!user) {
@@ -42,7 +41,6 @@ const ReportSummary = () => {
     }
   }, [user, navigation]);
 
-  // Fetch organization name from Firebase
   useEffect(() => {
     const fetchOrganizationName = async () => {
       try {
@@ -76,7 +74,6 @@ const ReportSummary = () => {
     fetchOrganizationName();
   }, [user, orgNameFromParams]);
 
-  // Validate report data
   useEffect(() => {
     if (isSubmitted) {
       console.log(`[${new Date().toISOString()}] Skipping validation after successful submission`);
@@ -95,7 +92,6 @@ const ReportSummary = () => {
     }
   }, [reportData, isSubmitted]);
 
-  // Format label for display
   const formatLabel = (key) => {
     let label = key.replace(/([A-Z])/g, ' $1').trim();
     if (['no of individuals or families', 'no of food packs', 'no of hot meals', 'no of volunteers mobilized', 'no of organizations activated'].includes(label.toLowerCase())) {
@@ -107,7 +103,6 @@ const ReportSummary = () => {
       .join(' ');
   };
 
-  // Format date for display
   const formatDateDisplay = (dateStr) => {
     if (!dateStr) return 'N/A';
     if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) return dateStr;
@@ -115,7 +110,6 @@ const ReportSummary = () => {
     return !isNaN(date) ? date.toLocaleDateString('en-GB') : 'N/A';
   };
 
-  // Format time for display
   const formatTimeDisplay = (timeStr) => {
     if (!timeStr) return 'N/A';
     if (/(^([0-9]{1,2}):([0-9]{2})\s(AM|PM)$)/i.test(timeStr)) return timeStr;
@@ -126,7 +120,6 @@ const ReportSummary = () => {
     return timeStr.includes(':') ? timeStr : 'N/A';
   };
 
-  // Notify admin
   const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
     try {
       if (!message || !requestRefKey || !contactPerson || !volunteerOrganization) {
@@ -146,7 +139,6 @@ const ReportSummary = () => {
     }
   };
 
-  // Handle report submission
   const handleSubmit = async () => {
     try {
       if (isLoading) {
@@ -224,7 +216,6 @@ const ReportSummary = () => {
     }
   };
 
-  // Handle modal confirmation
   const handleConfirm = () => {
     console.log(`[${new Date().toISOString()}] Confirm button pressed`);
     setModalVisible(false);
@@ -240,14 +231,12 @@ const ReportSummary = () => {
     }
   };
 
-  // Handle modal cancellation
   const handleCancel = () => {
     console.log(`[${new Date().toISOString()}] Cancel button pressed`);
     setModalVisible(false);
     navigation.navigate('ReportSubmission', { reportData });
   };
 
-  // Handle back navigation
   const handleBack = () => {
     console.log(`[${new Date().toISOString()}] Navigating back with report data:`, reportData);
     navigation.navigate('ReportSubmission', { reportData });

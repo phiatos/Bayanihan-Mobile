@@ -47,7 +47,7 @@ const CustomToast = ({ visible, title, message, onDismiss }) => {
     }
     return () => {
       if (timer) clearTimeout(timer);
-      Animated.timing(fadeAnim).stop(); // Stop any ongoing animations
+      Animated.timing(fadeAnim).stop(); 
     };
   }, [visible, fadeAnim, onDismiss]);
 

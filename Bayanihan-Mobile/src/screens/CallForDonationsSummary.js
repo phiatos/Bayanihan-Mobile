@@ -27,7 +27,6 @@ const CallForDonationsSummary = () => {
   const [formDataState, setFormDataState] = useState(formData);
   const [imageState, setImageState] = useState(image);
 
-  // Validate user and check password reset
   useEffect(() => {
     const validateUser = async () => {
       try {
@@ -57,7 +56,6 @@ const CallForDonationsSummary = () => {
     validateUser();
   }, [user, navigation]);
 
-  // Format field labels for display
   const formatLabel = (key) => {
     return key === 'facebookLink'
       ? 'Facebook Link'
@@ -67,7 +65,6 @@ const CallForDonationsSummary = () => {
           .replace(/^./, (str) => str.toUpperCase());
   };
 
-  // Convert image to Base64
   const getBase64Image = async (uri) => {
     if (!uri) {
       console.warn(`[${new Date().toISOString()}] No image URI provided`);
@@ -88,7 +85,6 @@ const CallForDonationsSummary = () => {
     }
   };
 
-  // Notify admin of new donation
   const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
     try {
       if (!message || !requestRefKey || !contactPerson || !volunteerOrganization) {
@@ -110,7 +106,6 @@ const CallForDonationsSummary = () => {
     }
   };
 
-  // Handle donation submission
   const handleSubmit = async () => {
     try {
       if (!canSubmit) {
@@ -190,7 +185,6 @@ const CallForDonationsSummary = () => {
     }
   };
 
-  // Handle modal confirmation
   const handleConfirm = () => {
     setModalVisible(false);
     if (!errorMessage) {
@@ -205,12 +199,10 @@ const CallForDonationsSummary = () => {
     }
   };
 
-  // Handle modal cancellation
   const handleCancel = () => {
     setModalVisible(false);
   };
 
-  // Handle back navigation
   const handleBack = () => {
     console.log(`[${new Date().toISOString()}] Navigating back with formData:`, formDataState, 'image:', imageState);
     navigation.navigate('CallforDonations', { formData: formDataState, image: imageState });

@@ -28,7 +28,7 @@ const CommentSection = () => {
   const commentInputRef = useRef(null);
   const flatListRef = useRef(null);
   const insets = useSafeAreaInsets();
-  const HEADER_HEIGHT = 60; // Adjust based on your header height
+  const HEADER_HEIGHT = 60
 
   const toSentenceCase = (str) => {
     if (!str) return 'post';
@@ -55,7 +55,6 @@ const CommentSection = () => {
           return;
         }
 
-        // Use user data from useAuth if available
         const isAdmin = user.role === 'AB ADMIN' || user.isAdmin || false;
         if (user.contactPerson || user.firstName || user.lastName || user.organization) {
           const contactPerson = user.contactPerson && user.contactPerson !== 'Anonymous' && user.contactPerson !== 'Admin' 
@@ -77,7 +76,6 @@ const CommentSection = () => {
           return;
         }
 
-        // Fallback to Firebase if AuthContext data is incomplete
         if (!database) {
           console.error(`[${new Date().toISOString()}] Database not initialized in fetchUserData`);
           ToastAndroid.show('Database configuration error.', ToastAndroid.BOTTOM);

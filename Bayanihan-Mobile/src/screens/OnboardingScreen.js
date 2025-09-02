@@ -6,11 +6,10 @@ import Theme from '../constants/theme';
 const OnboardingScreen = ({ navigation }) => {
   const imageScale = new Animated.Value(0.1); 
 
-  // Start animation when component mounts
   useEffect(() => {
     Animated.parallel([
       Animated.timing(imageScale, {
-        toValue: 1, // from 0.1 to 1 (scale)
+        toValue: 1, 
         duration: 900,
         useNativeDriver: true,
       }),

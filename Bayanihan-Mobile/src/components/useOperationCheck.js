@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../context/AuthContext'; // Import useAuth
+import { useAuth } from '../context/AuthContext';
 import { database } from '../configuration/firebaseConfig';
 import { ref as databaseRef, get, query, orderByChild, equalTo } from 'firebase/database';
 
 const useOperationCheck = () => {
   const navigation = useNavigation();
-  const { user } = useAuth(); // Get user from AuthContext
+  const { user } = useAuth(); 
   const [canSubmit, setCanSubmit] = useState(false);
   const [organizationName, setOrganizationName] = useState(null);
   const [modalConfig, setModalConfig] = useState({
@@ -47,13 +47,11 @@ const useOperationCheck = () => {
           throw new Error('No authenticated user found');
         }
 
-        // User data from AuthContext
         const userRole = user.role;
         const orgName = user.organization || user.group || 'Admin';
         setOrganizationName(orgName);
 
-        // Check for password reset requirement (if stored in user object)
-        // Note: If password_needs_reset is stored in the database, fetch it separately
+      
         const userRef = databaseRef(database, `users/${user.id}`);
         const userSnapshot = await get(userRef);
         const userData = userSnapshot.val();

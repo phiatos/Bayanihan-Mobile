@@ -8,7 +8,6 @@ import Theme from '../constants/theme';
 import { styles } from '../styles/LoginScreenStyles';
 import GlobalStyles from '../styles/GlobalStyles';
 import { ref, get, set } from 'firebase/database';
-import CustomModal from '../components/CustomModal'; // Adjust the import path as needed
 import OperationCustomModal from '../components/OperationCustomModal';
 
 const LoginScreen = ({ navigation }) => {
@@ -67,13 +66,11 @@ const LoginScreen = ({ navigation }) => {
       const updatedUser = userCredential.user;
       console.log(`[${new Date().toISOString()}] Login successful, user:`, updatedUser.uid);
 
-      // Fetch user data from Firebase database
       const userRef = ref(database, `users/${updatedUser.uid}`);
       const userSnapshot = await get(userRef);
       const userData = userSnapshot.exists() ? userSnapshot.val() : {};
       console.log(`[${new Date().toISOString()}] User data fetched:`, userData);
 
-      // If the user's email is now verified in Auth but not yet in DB, update DB
       if (updatedUser.emailVerified && !userData.emailVerified) {
         await set(ref(database, `users/${updatedUser.uid}/emailVerified`), true);
         if (userData.isFirstLogin) {
@@ -82,12 +79,10 @@ const LoginScreen = ({ navigation }) => {
         showToast('Your email has been successfully verified upon login!', ToastAndroid.SHORT);
       }
 
-      // Check if user is admin
       const isAdmin = userData?.role === 'AB ADMIN';
       if (!isAdmin && !updatedUser.emailVerified) {
-        // Check if a verification email was recently sent
         const lastVerificationSent = userData.lastVerificationEmailSent || 0;
-        const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+        const oneHour = 60 * 60 * 1000; 
         const now = Date.now();
         if (now - lastVerificationSent < oneHour) {
           setModalMessage(
@@ -132,12 +127,10 @@ const LoginScreen = ({ navigation }) => {
         }
       }
 
-      // If email is verified or user is admin, proceed with login
       if (userData.isFirstLogin) {
         await set(ref(database, `users/${updatedUser.uid}/isFirstLogin`), false);
       }
       showToast('Login successful.', ToastAndroid.SHORT);
-      // AuthContext's onAuthStateChanged will handle user data fetching and session storage
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Error:`, error.code, error.message);
       if (error.code === 'auth/invalid-credential') {

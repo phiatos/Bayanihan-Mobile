@@ -24,7 +24,6 @@ const RDANASummary = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  // Validate incoming data
   useEffect(() => {
     try {
       if (!reportData || typeof reportData !== 'object') {
@@ -42,7 +41,6 @@ const RDANASummary = () => {
     }
   }, [reportData, affectedMunicipalities, organizationName]);
 
-  // Validate user authentication
   useEffect(() => {
     try {
       if (!user) {
@@ -60,7 +58,6 @@ const RDANASummary = () => {
     }
   }, [user, navigation]);
 
-  // Debug lifeline data
   useEffect(() => {
     console.log(`[${new Date().toISOString()}] Lifeline data:`, {
       residentialHousesStatus: reportData.residentialhousesStatus,
@@ -74,7 +71,6 @@ const RDANASummary = () => {
     });
   }, [reportData]);
 
-  // Sanitize keys for Firebase
   const sanitizeKey = (key) => {
     return key
       .replace(/[.#$/[\]]/g, '_')
@@ -83,7 +79,6 @@ const RDANASummary = () => {
       .replace(/_+/g, '_');
   };
 
-  // Format label for display
   const formatLabel = (key) => {
     return key
       .replace(/_/g, ' ')
@@ -94,7 +89,6 @@ const RDANASummary = () => {
       .join(' ');
   };
 
-  // Notify admin
   const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
     try {
       if (!message || !requestRefKey || !contactPerson || !volunteerOrganization) {
@@ -114,7 +108,6 @@ const RDANASummary = () => {
     }
   };
 
-  // Handle submission
   const handleSubmit = async () => {
     try {
       if (isSubmitting) {
@@ -134,7 +127,6 @@ const RDANASummary = () => {
       setIsSubmitting(true);
       console.log(`[${new Date().toISOString()}] Submitting RDANA report:`, reportData, affectedMunicipalities);
 
-      // Prepare data structures
       const priorityNeeds = [];
       if (reportData.reliefPacks === 'Yes') priorityNeeds.push('Relief Packs');
       if (reportData.hotMeals === 'Yes') priorityNeeds.push('Hot Meals');
@@ -249,7 +241,6 @@ const RDANASummary = () => {
     }
   };
 
-  // Handle modal confirmation
   const handleConfirm = () => {
     console.log(`[${new Date().toISOString()}] Confirm button pressed`);
     setModalVisible(false);
@@ -265,7 +256,6 @@ const RDANASummary = () => {
     }
   };
 
-  // Handle modal cancellation
   const handleCancel = () => {
     console.log(`[${new Date().toISOString()}] Cancel button pressed`);
     setModalVisible(false);
@@ -274,13 +264,11 @@ const RDANASummary = () => {
     }
   };
 
-  // Handle back navigation
   const handleBack = () => {
     console.log(`[${new Date().toISOString()}] Navigating back with data:`, reportData, affectedMunicipalities);
     navigation.navigate('RDANAScreen', { reportData, affectedMunicipalities, organizationName });
   };
 
-  // Render municipality item
   const renderMunicipalityItem = (item, index) => (
     <View key={index.toString()} style={[styles.summaryTableRow, { minWidth: 1150 }]}>
       <Text style={[styles.summaryTableCell, { minWidth: 50 }]}>{index + 1}</Text>

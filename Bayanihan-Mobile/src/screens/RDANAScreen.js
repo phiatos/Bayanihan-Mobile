@@ -30,7 +30,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext'; 
 
 
-// Define the status options for each lifeline type
 const LIFELINE_STATUS_OPTIONS = {
   'Residential Houses': [
     { label: 'Select from one of the following', value: '' },
@@ -77,7 +76,7 @@ const LIFELINE_STATUS_OPTIONS = {
 };
 
 const RDANAScreen = ({navigation}) => {
-    const { user } = useAuth(); // Get user from AuthContext
+    const { user } = useAuth(); 
   const route = useRoute();
   const [errors, setErrors] = useState({});
   const inputContainerRefs = useRef({}).current;
@@ -87,7 +86,6 @@ const RDANAScreen = ({navigation}) => {
   const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const insets = useSafeAreaInsets();
 
-  // Custom error messages for required fields
   const requiredFieldsErrors = {
     Date_of_Information_Gathered: 'Please provide the date when information was gathered (within 24-48 hours of occurrence).',
     Date_of_Occurrence: 'Please specify the date of the disaster occurrence.',
@@ -117,13 +115,12 @@ const RDANAScreen = ({navigation}) => {
     familiesServed: 'Please enter the number of families served.',
   };
 
-  // Helper functions for formatting and validation
   const formatDate = (date) => {
     if (!date || isNaN(date.getTime())) return '';
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
-    return `${day}-${month}-${year}`; // DD-MM-YYYY
+    return `${day}-${month}-${year}`; 
   };
 
   const formatTime = (date) => {
@@ -131,8 +128,8 @@ const RDANAScreen = ({navigation}) => {
     let hours = date.getHours();
     const minutes = date.getMinutes().toString().padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12; // Convert 0 or 12 to 12 for 12-hour format
-    return `${hours}:${minutes} ${ampm}`; // e.g., 1:00 PM
+    hours = hours % 12 || 12; 
+    return `${hours}:${minutes} ${ampm}`;
   };
 
   const parseDate = (dateStr) => {
@@ -160,14 +157,12 @@ const RDANAScreen = ({navigation}) => {
     const occurrenceDateTime = new Date(occurrenceDate);
     occurrenceDateTime.setHours(occurrenceTime.getHours(), occurrenceTime.getMinutes(), 0, 0);
     const diffMs = gatheredDateTime - occurrenceDateTime;
-    if (diffMs < 0) return false; // Gathered time cannot be before occurrence
+    if (diffMs < 0) return false; 
     const diffHours = diffMs / (1000 * 60 * 60);
-    return diffHours >= 24 && diffHours <= 48; // 24-48 hours
+    return diffHours >= 24 && diffHours <= 48; 
   };
 
-  // Initialize reportData with route params or defaults
   const initialReportData = {
-    // Profile
     Date_of_Information_Gathered: route.params?.reportData?.Date_of_Information_Gathered || '',
     Date_of_Occurrence: route.params?.reportData?.Date_of_Occurrence || '',
     Local_Authorities_Persons_Contacted_for_Information: route.params?.reportData?.Local_Authorities_Persons_Contacted_for_Information || '',
@@ -182,7 +177,6 @@ const RDANAScreen = ({navigation}) => {
     Time_of_Occurrence: route.params?.reportData?.Time_of_Occurrence || '',
     Type_of_Disaster: route.params?.reportData?.Type_of_Disaster || '',
     summary: route.params?.reportData?.summary || '',
-    // Affected communities (inputs for new row, not stored in top-level submission)
     community: '',
     affected: '',
     children: '',
@@ -193,7 +187,6 @@ const RDANAScreen = ({navigation}) => {
     seniors: '',
     totalPop: '',
     women: '',
-    // Structure status
     residentialhousesStatus: route.params?.reportData?.residentialhousesStatus || '',
     transportationandmobilityStatus: route.params?.reportData?.transportationandmobilityStatus || '',
     electricitypowergridStatus: route.params?.reportData?.electricitypowergridStatus || '',
@@ -202,7 +195,6 @@ const RDANAScreen = ({navigation}) => {
     watersupplysystemStatus: route.params?.reportData?.watersupplysystemStatus || '',
     marketbusinessandcommercialestablishmentsStatus: route.params?.reportData?.marketbusinessandcommercialestablishmentsStatus || '',
     othersStatus: route.params?.reportData?.othersStatus || '',
-    // Initial needs
     reliefPacks: route.params?.reportData?.reliefPacks || 'No',
     hotMeals: route.params?.reportData?.hotMeals || 'No',
     hygieneKits: route.params?.reportData?.hygieneKits || 'No',
@@ -210,14 +202,12 @@ const RDANAScreen = ({navigation}) => {
     ricePacks: route.params?.reportData?.ricePacks || 'No',
     otherNeeds: route.params?.reportData?.otherNeeds || '',
     estQty: route.params?.reportData?.estQty || '',
-    // Initial response
     responseGroup: route.params?.reportData?.responseGroup || '',
     reliefDeployed: route.params?.reportData?.reliefDeployed || '',
     familiesServed: route.params?.reportData?.familiesServed || '',
   };
   const [reportData, setReportData] = useState(initialReportData);
 
-  // State for checklist items
   const [checklist, setChecklist] = useState({
     reliefPacks: reportData.reliefPacks === 'Yes',
     hotMeals: reportData.hotMeals === 'Yes',
@@ -226,7 +216,6 @@ const RDANAScreen = ({navigation}) => {
     ricePacks: reportData.ricePacks === 'Yes',
   });
 
-  // States for date and time pickers
   const [showDatePicker, setShowDatePicker] = useState({
     Date_of_Information_Gathered: false,
     Date_of_Occurrence: false,
@@ -242,7 +231,6 @@ const RDANAScreen = ({navigation}) => {
     Time_of_Occurrence: route.params?.reportData?.Time_of_Occurrence ? parseTimeToDate(route.params.reportData.Time_of_Occurrence) : null,
   });
 
-  // Predetermined options
   const disasterTypes = [
     { label: 'Type of Disaster', value: '' },
     { label: 'Earthquake', value: 'Earthquake' },
@@ -252,12 +240,9 @@ const RDANAScreen = ({navigation}) => {
     { label: 'Fire', value: 'Fire' },
   ];
 
-  // Table data for affected municipalities
   const [affectedMunicipalities, setAffectedMunicipalities] = useState(route.params?.affectedMunicipalities || []);
 
-  // Required fields (excluding municipality fields for Proceed validation)
   const requiredFields = [
-    // Profile
     'Date_of_Information_Gathered',
     'Date_of_Occurrence',
     'Local_Authorities_Persons_Contacted_for_Information',
@@ -271,13 +256,11 @@ const RDANAScreen = ({navigation}) => {
     'Time_of_Information_Gathered',
     'Time_of_Occurrence',
     'Type_of_Disaster',
-    // Initial response
     'responseGroup',
     'reliefDeployed',
     'familiesServed',
   ];
 
-  // Municipality fields for validation
   const municipalityFields = [
     'community',
     'totalPop',
@@ -291,7 +274,6 @@ const RDANAScreen = ({navigation}) => {
     'pwd',
   ];
 
-  // Helper function to sanitize and capitalize input
   const sanitizeInput = (value, field) => {
     let sanitized = value;
     if (field.includes('Barangay') || field.includes('community')) {
@@ -311,7 +293,6 @@ const RDANAScreen = ({navigation}) => {
     return sanitized.charAt(0).toUpperCase() + sanitized.slice(1);
   };
 
-  // Handle TextInput and picker changes
   const handleChange = (field, value) => {
     if (!canSubmit) {
       setModalConfig({
@@ -343,7 +324,6 @@ const RDANAScreen = ({navigation}) => {
     }
   };
 
-  // Handle date picker changes
   const handleDateChange = (field, event, selectedDate) => {
     if (!canSubmit) {
       setModalConfig({
@@ -364,7 +344,6 @@ const RDANAScreen = ({navigation}) => {
     }
   };
 
-  // Handle time picker changes
   const handleTimeChange = (field, event, selectedTime) => {
     if (!canSubmit) {
       setModalConfig({
@@ -385,7 +364,6 @@ const RDANAScreen = ({navigation}) => {
     }
   };
 
-  // Handle checklist selection for needs
   const handleNeedsSelect = (field) => {
     if (!canSubmit) {
       setModalConfig({
@@ -406,7 +384,6 @@ const RDANAScreen = ({navigation}) => {
     });
   };
 
-  // Handle delete municipality
   const handleDelete = (index) => {
     if (!canSubmit) {
       setModalConfig({
@@ -436,7 +413,6 @@ const RDANAScreen = ({navigation}) => {
     setDeleteIndex(null);
   };
 
-  // Validate municipality inputs
   const validateMunicipalityInputs = () => {
     const {
       community,
@@ -466,7 +442,6 @@ const RDANAScreen = ({navigation}) => {
     return { isValid: Object.keys(newErrors).length === 0, newErrors };
   };
 
-  // Render label with asterisk for required fields
   const renderLabel = (label, isRequired) => (
     <Text style={GlobalStyles.formTitle}>
       {label}
@@ -1166,7 +1141,6 @@ const RDANAScreen = ({navigation}) => {
                   const newErrors = {};
                   let allRequiredBlank = true;
 
-                  // Check required fields
                   requiredFields.forEach((field) => {
                     const value = reportData[field];
                     if (value === null || (typeof value === 'string' && value.trim() === '')) {
@@ -1176,7 +1150,6 @@ const RDANAScreen = ({navigation}) => {
                     }
                   });
 
-                  // Check if all required fields are blank
                   if (allRequiredBlank) {
                     setModalConfig({
                       title: 'Incomplete Data',
@@ -1188,12 +1161,10 @@ const RDANAScreen = ({navigation}) => {
                     return;
                   }
 
-                  // Validate no municipalities
                   if (affectedMunicipalities.length === 0) {
                     newErrors.community = 'Please add at least one municipality.';
                   }
 
-                  // Validate 24-48 hour restriction
                   const gatheredDate = parseDate(reportData.Date_of_Information_Gathered);
                   const gatheredTime = parseTimeToDate(reportData.Time_of_Information_Gathered);
                   const occurrenceDate = parseDate(reportData.Date_of_Occurrence);
@@ -1220,7 +1191,6 @@ const RDANAScreen = ({navigation}) => {
                     return;
                   }
 
-                  // All required fields are filled, navigate to RDANA Summary
                   const completeReportData = Object.keys(reportData).reduce((acc, key) => {
                     if (!municipalityFields.includes(key)) {
                       acc[key] = reportData[key];

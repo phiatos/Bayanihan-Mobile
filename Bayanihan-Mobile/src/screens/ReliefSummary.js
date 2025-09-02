@@ -9,7 +9,7 @@ import OperationCustomModal from '../components/OperationCustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReliefRequestStyles';
 import { LinearGradient } from 'expo-linear-gradient';
-import {logActivity,  logSubmission } from '../components/logSubmission'; // Updated import
+import {logActivity,  logSubmission } from '../components/logSubmission'; 
 import { useAuth } from '../context/AuthContext';
   
 const ReliefSummary = () => {
@@ -73,7 +73,6 @@ const navigation = useNavigation();
     const city = reportData.city?.trim();
     const donationCategory = reportData.donationCategory;
 
-    // Validation
     if (!contactPerson) {
       console.log('Validation failed: Contact person is empty');
       setErrorMessage('Please enter the contact person’s name.');
@@ -155,7 +154,6 @@ const navigation = useNavigation();
       const submissionId = requestRef.key;
       const userRequestRef = ref(database, `users/${user.id}/requests/${submissionId}`);
 
-      // Notify admin
       const message = `New relief request submitted by ${contactPerson} from ${organizationName} for ${donationCategory} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
       await notifyAdmin(message, submissionId, contactPerson, organizationName);
 
@@ -167,7 +165,6 @@ const navigation = useNavigation();
       ]);
       console.log('Data saved to Firebase successfully');
 
-      // Reset form data
       setReportData({});
       setAddedItems([]);
 

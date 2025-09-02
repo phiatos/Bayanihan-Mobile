@@ -9,7 +9,7 @@ import Theme from '../constants/theme';
 export const AuthContext = createContext({
   user: null,
   setUser: () => {},
-  loading: true, // Add loading to context
+  loading: true, 
 });
 
 export const AuthProvider = ({ children }) => {
@@ -19,7 +19,6 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     console.log('AuthContext: Setting up auth state listener');
 
-    // Load cached user session from AsyncStorage
     const loadCachedUser = async () => {
       try {
         const cachedUser = await AsyncStorage.getItem('user_session');
@@ -112,7 +111,6 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Define and export useAuth hook
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

@@ -86,7 +86,6 @@ const CreatePost = () => {
     { label: 'Announcement', value: 'announcement' },
   ];
 
-  // Validate user authentication
   useEffect(() => {
     try {
       if (!user) {
@@ -447,7 +446,6 @@ const handleSubmit = async () => {
       throw new Error('No authenticated user found');
     }
 
-    // Validation for non-shared posts
     if (!isShared) {
       if (!title.trim()) {
         throw new Error('Please provide a title');

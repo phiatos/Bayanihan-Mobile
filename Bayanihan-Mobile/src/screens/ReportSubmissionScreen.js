@@ -9,7 +9,7 @@ import * as Location from 'expo-location';
 import WebView from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { database } from '../configuration/firebaseConfig';
-import { useAuth } from '../context/AuthContext'; // Import useAuth
+import { useAuth } from '../context/AuthContext'; 
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReportSubmissionStyles';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,7 +26,7 @@ const ReportSubmissionScreen = () => {
   const webViewRef = useRef(null);
   const insets = useSafeAreaInsets();
   const searchAnim = useRef(new Animated.Value(0)).current;
-  const { user } = useAuth(); // Use AuthContext
+  const { user } = useAuth(); 
   const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const [searchBarVisible, setSearchBarVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -162,7 +162,6 @@ useEffect(() => {
   setIsLoading(false);
   clearTimeout(timeoutId);
 
-  // Fetch active activations
   const fetchActivations = () => {
     if (isLoading) return () => {};
 
@@ -174,7 +173,6 @@ useEffect(() => {
         const activeActivations = [];
         snapshot.forEach((childSnapshot) => {
           const activation = { id: childSnapshot.key, ...childSnapshot.val() };
-          // If user is admin, include all active activations; otherwise, filter by organization
           if (user.role === 'AB ADMIN') {
             activeActivations.push(activation);
           } else if (organizationName && activation.organization === organizationName) {
@@ -743,7 +741,7 @@ useEffect(() => {
       reportID: reportData.reportID || `REPORTS-${Math.floor(1000000000 + Math.random() * 9000000000)}`,
       locationName,
       coordinates: selectedLocation ? `${selectedLocation.latitude},${selectedLocation.longitude}` : null,
-      userUid: user.id, // Use user.id
+      userUid: user.id, 
       organization: organizationName || 'Admin',
     };
 

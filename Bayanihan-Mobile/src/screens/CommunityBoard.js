@@ -125,7 +125,6 @@ const CommunityBoard = () => {
       return;
     }
 
-    // Check password_needs_reset (fetch from database since not in AuthContext)
     const checkUserData = async () => {
       try {
         const userRef = ref(database, `users/${user.id}`);
@@ -488,7 +487,7 @@ const CommunityBoard = () => {
             borderColor: action.border,
           },
         ]}
-        disabled={!canSubmit} // Disable if user can't submit
+        disabled={!canSubmit} 
       >
         <Ionicons name={action.emoji} size={24} color={Theme.colors.accentBlue} />
       </TouchableOpacity>
@@ -560,7 +559,7 @@ const CommunityBoard = () => {
                   borderColor: Theme.colors.accentBlue,
                 },
               ]}
-              disabled={!canSubmit} // Disable if user can't submit
+              disabled={!canSubmit} 
             >
               <MotiView
                 style={{ position: 'absolute' }}
@@ -571,7 +570,7 @@ const CommunityBoard = () => {
               </MotiView>
             </TouchableOpacity>
             <AnimatePresence>
-              {expanded && canSubmit && ( // Only show action buttons if canSubmit is true
+              {expanded && canSubmit && (
                 <View style={styles.actionButtonContainer}>
                   {actions.map((action, index) => (
                     <ActionButton key={index.toString()} action={action} index={index} />
