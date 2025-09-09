@@ -35,35 +35,32 @@ export default StyleSheet.create({
   sortButton: {
     padding: spacing.small,
     borderWidth: 1,
-    borderColor:Theme.colors.accent,
+    borderColor: Theme.colors.accent,
     borderRadius: borderRadius.medium,
     textAlign: 'center',
     elevation: 5,
-    backgroundColor: Theme.colors.lightBg
+    backgroundColor: Theme.colors.lightBg,
   },
   categoryPicker: {
     flex: 1,
     marginLeft: spacing.medium,
     borderWidth: 1,
-    borderColor: Theme.colors.accentBlue,
+    borderColor: Theme.colors.primary,
     borderRadius: borderRadius.medium,
     backgroundColor: Theme.colors.lightBg,
-    justifyContent: 'center', 
+    justifyContent: 'center',
     height: 40,
     elevation: 3,
-    color:  Theme.colors.accentBlue
   },
   picker: {
     textAlign: 'center',
     fontFamily: 'Poppins_Regular',
-    
   },
   pickerItems: {
     fontFamily: 'Poppins_Regular',
     fontSize: 13,
     color: Theme.colors.black,
     textAlign: 'center',
-    
   },
   postContainer: {
     backgroundColor: '#fff',
@@ -120,12 +117,16 @@ export default StyleSheet.create({
     marginBottom: spacing.medium,
   },
   menuContainer: {
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.medium,
-    padding: spacing.small,
-    marginBottom: spacing.medium,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    backgroundColor: Theme.colors.white,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    padding: 5,
+    minWidth: 150,
+    marginTop: 5,
   },
   menuItem: {
     padding: spacing.small,
@@ -134,6 +135,8 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_Regular',
     fontSize: 14,
     color: Theme.colors.black,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
   },
   floatingButtonContainer: {
     position: 'absolute',
@@ -181,29 +184,98 @@ export default StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.large,
   },
-
-  // Modal
-  menuContainer: {
+  postbuttons: {
+    borderRadius: 100,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: spacing.xsmall,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    zIndex: 25,
+  },
+  postActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: spacing.small,
+    gap: spacing.medium,
+  },
+  commentSection: {
+    flex: 1,
+    paddingHorizontal: spacing.medium,
+    marginTop: spacing.small,
+  },
+  commentInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.medium,
+  },
+  commentInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Theme.colors.grey,
+    borderRadius: borderRadius.xlarge,
+    padding: spacing.small,
+    fontFamily: 'Poppins_Regular',
+    fontSize: 14,
     backgroundColor: Theme.colors.white,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-    padding: 5,
-    minWidth: 150,
-    marginTop: 5, 
   },
-  menuTrigger: {
-    padding: 5, 
+  commentButton: {
+    marginLeft: spacing.small,
+    padding: spacing.small,
+    borderRadius: borderRadius.xlarge,
+    backgroundColor: Theme.colors.lightGrey,
   },
-  menuText: {
+  commentButtonActive: {
+    backgroundColor: Theme.colors.lightBlue,
+  },
+  commentContainer: {
+    marginBottom: spacing.small,
+    padding: spacing.small,
+    backgroundColor: Theme.colors.white,
+    borderRadius: borderRadius.medium,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  commentUser: {
+    fontFamily: 'Poppins_SemiBold',
+    fontSize: 14,
+    color: Theme.colors.black,
+  },
+  commentMeta: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 12,
+    color: Theme.colors.grey,
+  },
+  commentContent: {
     fontFamily: 'Poppins_Regular',
     fontSize: 14,
     color: Theme.colors.black,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+    marginTop: spacing.xsmall,
+  },
+  commentList: {
+    flexGrow: 1,
+  },
+  emptyCommentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.xlarge * 3,
+  },
+  emptyCommentText: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 16,
+    color: Theme.colors.grey,
+    textAlign: 'center',
+    marginTop: spacing.medium,
+  },
+  menuTrigger: {
+    padding: 5,
   },
   linkText: {
     fontFamily: 'Poppins_Regular',

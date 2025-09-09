@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, StatusBar, ToastAndroid, Linking, Dimensions } from 'react-native';
-import { onAuthStateChanged } from 'firebase/auth';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, ToastAndroid, Linking } from 'react-native';
 import { ref, onValue, query, orderByChild, remove, set, serverTimestamp } from 'firebase/database';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { auth, database } from '../configuration/firebaseConfig';
+import { useAuth } from '../context/AuthContext';
+import { database } from '../configuration/firebaseConfig';
 import GlobalStyles from '../styles/GlobalStyles';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,8 +11,9 @@ import Theme from '../constants/theme';
 import { AnimatePresence, MotiView } from 'moti';
 import { useNavigation } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
-import { Menu, MenuOptions, MenuOption, MenuTrigger, MenuProvider } from 'react-native-popup-menu';
+import { Menu, MenuOptions, MenuOption, MenuProvider, MenuTrigger } from 'react-native-popup-menu';
 import styles from '../styles/CommunityBoardStyles';
+import useOperationCheck from '../components/useOperationCheck';
 
 const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
   const [retryCount, setRetryCount] = useState(0);
@@ -39,7 +39,7 @@ const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
           playerRef.current.seek(0);
           console.log(`Cleaned up video player for post ${postId}`);
         } catch (error) {
-          console.error(`Error cleaning up video player for post ${postId}:`, error);
+          return;
         }
       }
     };
@@ -96,11 +96,11 @@ const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
 
 const CommunityBoard = () => {
   const navigation = useNavigation();
+  const { user } = useAuth(); 
+  const { canSubmit, organizationName } = useOperationCheck(); 
   const [posts, setPosts] = useState([]);
   const [sortOrder, setSortOrder] = useState('newest');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [user, setUser] = useState(null);
-  const [userData, setUserData] = useState({ contactPerson: 'Anonymous', organization: '' });
   const [expanded, setExpanded] = useState(false);
   const videoRefs = useRef({});
 
@@ -118,65 +118,39 @@ const CommunityBoard = () => {
   };
 
   useEffect(() => {
-    if (!auth) {
-      console.error('Auth is not initialized');
-      ToastAndroid.show('Authentication not initialized. Please restart the app.', ToastAndroid.BOTTOM);
+    if (!user) {
+      console.log('No user logged in, redirecting to Login');
+      ToastAndroid.show('Please log in to view posts.', ToastAndroid.BOTTOM);
+      navigation.navigate('Login');
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log('Auth state changed, user:', currentUser ? currentUser.uid : 'null');
-      setUser(currentUser);
-      if (currentUser) {
-        try {
-          const userRef = ref(database, `users/${currentUser.uid}`);
-          const userSnapshot = await new Promise((resolve, reject) => {
-            onValue(userRef, resolve, reject, { onlyOnce: true });
-          });
-          const userDataFromDb = userSnapshot.val();
-          if (userDataFromDb?.password_needs_reset) {
-            ToastAndroid.show('Please change your password.', ToastAndroid.BOTTOM);
-            navigation.navigate('Profile');
-            return;
-          }
-          const data = await fetchUserData(currentUser.uid);
-          setUserData(data);
-          console.log('User data loaded:', data);
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          ToastAndroid.show('Failed to load user data.', ToastAndroid.BOTTOM);
+    const checkUserData = async () => {
+      try {
+        const userRef = ref(database, `users/${user.id}`);
+        const userSnapshot = await new Promise((resolve, reject) => {
+          onValue(userRef, resolve, reject, { onlyOnce: true });
+        });
+        const userData = userSnapshot.val();
+        if (userData?.password_needs_reset) {
+          ToastAndroid.show('Please change your password.', ToastAndroid.BOTTOM);
+          navigation.navigate('Profile');
         }
-      } else {
-        ToastAndroid.show('Please log in to view posts.', ToastAndroid.BOTTOM);
-        navigation.navigate('Login');
+      } catch (error) {
+        console.error('Error checking user data:', error);
+        ToastAndroid.show('Failed to load user data.', ToastAndroid.BOTTOM);
       }
-    }, (error) => {
-      console.error('Auth state listener error:', error);
-      ToastAndroid.show('Authentication error. Please restart the app.', ToastAndroid.BOTTOM);
-    });
-
-    return () => {
-      unsubscribe();
-      Object.values(videoRefs.current).forEach(player => {
-        if (player) {
-          try {
-            player.pause();
-            player.seek(0);
-            console.log('Cleaned up video player');
-          } catch (error) {
-            console.error('Error cleaning up video player:', error);
-          }
-        }
-      });
     };
-  }, [navigation]);
+
+    checkUserData();
+  }, [user, navigation]);
 
   useEffect(() => {
     if (!user) {
       console.log('No user, skipping posts fetch');
       return;
     }
-    const postsRef = query(ref(database, 'posts/submitted'), orderByChild('timestamp'));
+    const postsRef = query(ref(database, 'posts'), orderByChild('timestamp'));
     const unsubscribe = onValue(postsRef, (snapshot) => {
       const postsData = snapshot.val();
       console.log('Posts snapshot received:', postsData ? Object.keys(postsData).length + ' posts' : 'no posts');
@@ -202,33 +176,8 @@ const CommunityBoard = () => {
     console.log('Sort order toggled to:', sortOrder === 'newest' ? 'oldest' : 'newest');
   };
 
-  const fetchUserData = async (uid) => {
-    try {
-      const cache = await AsyncStorage.getItem(`userData:${uid}`);
-      if (cache) {
-        console.log('User data from cache:', cache);
-        return JSON.parse(cache);
-      }
-      const userRef = ref(database, `users/${uid}`);
-      const snapshot = await new Promise((resolve, reject) => {
-        onValue(userRef, resolve, reject, { onlyOnce: true });
-      });
-      const userData = snapshot.val() || {};
-      const data = {
-        contactPerson: userData.contactPerson || userData.displayName || 'Anonymous',
-        organization: userData.organization || '',
-      };
-      await AsyncStorage.setItem(`userData:${uid}`, JSON.stringify(data));
-      console.log('User data fetched and cached:', data);
-      return data;
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      return { contactPerson: 'Anonymous', organization: '' };
-    }
-  };
-
   const handleDeletePost = (postId, postData) => {
-    if (!user || !user.uid) {
+    if (!user || !user.id) {
       console.error('No authenticated user for delete operation');
       ToastAndroid.show('You must be logged in to delete a post.', ToastAndroid.BOTTOM);
       return;
@@ -249,12 +198,11 @@ const CommunityBoard = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const deletedPostRef = ref(database, `posts/deleted/${user.uid}/${postId}`);
-              const submittedPostRef = ref(database, `posts/submitted/${postId}`);
+              const deletedPostRef = ref(database, `posts/deleted/${user.id}/${postId}`);
               await set(deletedPostRef, { ...postData, deletedAt: serverTimestamp() });
-              console.log(`Post ${postId} copied to posts/deleted/${user.uid}/${postId}`);
-              await remove(submittedPostRef);
-              console.log(`Post ${postId} removed from posts/submitted`);
+              console.log(`Post ${postId} copied to posts/deleted/${user.id}/${postId}`);
+              await remove(ref(database, `posts/${postId}`));
+              console.log(`Post ${postId} removed from posts`);
               ToastAndroid.show('Post moved to deleted posts.', ToastAndroid.BOTTOM);
             } catch (error) {
               console.error(`Error moving post ${postId} to deleted:`, error);
@@ -298,21 +246,52 @@ const CommunityBoard = () => {
     }
   };
 
+  const handleSharePost = (post) => {
+    if (!user) {
+      ToastAndroid.show('Please log in to share a post.', ToastAndroid.BOTTOM);
+      navigation.navigate('Login');
+      return;
+    }
+    if (!post || !post.id) {
+      console.error('Invalid postData for sharing:', { post });
+      ToastAndroid.show('Invalid post data.', ToastAndroid.BOTTOM);
+      return;
+    }
+
+    const shareData = {
+      originalTitle: post.title || '',
+      originalContent: post.content || '',
+      originalCategory: post.category || '',
+      originalMediaUrl: post.mediaUrl || '',
+      originalMediaUrls: post.mediaUrls || [],
+      originalMediaType: post.mediaType || 'text',
+      originalThumbnailUrl: post.thumbnailUrl || '',
+      originalUserId: post.userId,
+      originalUserName: post.userName || 'Anonymous',
+      originalOrganization: post.organization || '',
+      originalTimestamp: post.timestamp || 0,
+      isShared: true,
+    };
+    console.log(`Navigating to CreatePost for sharing post ${post.id}:`, shareData);
+    navigation.navigate('CreatePost', {
+      postType: 'text',
+      postId: null,
+      initialData: shareData,
+      isShared: true,
+    });
+  };
+
   const isEditable = (post) => {
     if (!post || !user) {
-      console.log('Post or user is null, not editable:', { postId: post?.id, userId: user?.uid });
       return false;
     }
     const ONE_DAY = 24 * 60 * 60 * 1000;
     const now = Date.now();
-    const editable = post.userId === user.uid && (now - post.timestamp) <= ONE_DAY;
-    if (!editable) {
-      console.log(`Post ${post.id} is not editable: userId=${post.userId}, currentUser=${user.uid}, timestamp=${post.timestamp}, now=${now}`);
-    }
+    const editable = post.userId === user.id && (now - post.timestamp) <= ONE_DAY;
     return editable;
   };
 
-  const renderPost = ({ item }) => {
+  const renderPost = useCallback(({ item }) => {
     if (!item) {
       console.error('Invalid post item');
       return null;
@@ -322,50 +301,50 @@ const CommunityBoard = () => {
       console.error(`VideoView or useVideoPlayer is undefined for post: ${item.id}. Ensure expo-video is installed correctly.`);
       return (
         <View style={styles.postContainer}>
+          {item.userId === user?.id && isEditable(item) && (
+            <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
+              <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
+                <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
+              </MenuTrigger>
+              <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
+                <MenuOption
+                  onSelect={() => {
+                    console.log('Edit post clicked for:', item.id);
+                    handleEditPost(item);
+                  }}
+                  text="Edit Post"
+                  customStyles={{
+                    optionText: styles.menuText,
+                  }}
+                />
+                <MenuOption
+                  onSelect={() => {
+                    console.log('Delete post clicked for:', item.id);
+                    handleDeletePost(item.id, item);
+                  }}
+                  text="Delete Post"
+                  customStyles={{
+                    optionText: [styles.menuText, { color: 'red' }],
+                  }}
+                />
+              </MenuOptions>
+            </Menu>
+          )}
           <View style={styles.postHeader}>
             <View>
               <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
               <Text style={styles.postMeta}>
-                {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
+                {item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
               </Text>
               {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
               {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
             </View>
-            {item.userId === user?.uid && isEditable(item) && (
-              <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
-                <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
-                  <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
-                </MenuTrigger>
-                <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
-                  <MenuOption
-                    onSelect={() => {
-                      console.log('Edit post clicked for:', item.id);
-                      handleEditPost(item);
-                    }}
-                    text="Edit Post"
-                    customStyles={{
-                      optionText: styles.menuText,
-                    }}
-                  />
-                  <MenuOption
-                    onSelect={() => {
-                      console.log('Delete post clicked for:', item.id);
-                      handleDeletePost(item.id, item);
-                    }}
-                    text="Delete Post"
-                    customStyles={{
-                      optionText: [styles.menuText, { color: 'red' }],
-                    }}
-                  />
-                </MenuOptions>
-              </Menu>
-            )}
           </View>
           {item.title && <Text style={styles.postTitle}>{item.title}</Text>}
           {item.content && <Text style={styles.postContent}>{item.content}</Text>}
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Video Unavailable</Text>
-            <Text style={styles.errorSubText}>Please ensure expo-video is installed correctly (run `npx expo install expo-video`) or try viewing on another device.</Text>
+            <Text style={styles.errorSubText}>Error</Text>
             {item.thumbnailUrl && (
               <Image
                 source={{ uri: item.thumbnailUrl }}
@@ -375,27 +354,41 @@ const CommunityBoard = () => {
               />
             )}
           </View>
+          <View style={styles.postActions}>
+            <TouchableOpacity
+              style={styles.postbuttons}
+              onPress={() => navigation.navigate('CommentSection', { postId: poitem.idst, postData: item })}
+            >
+              <Ionicons name="chatbubble-outline" size={20} color={Theme.colors.accentBlue} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.postbuttons}
+              onPress={() => handleSharePost(item)}
+            >
+              <Ionicons name="share-outline" size={20} color={Theme.colors.accentBlue} />
+            </TouchableOpacity>
+          </View>
         </View>
       );
     }
 
     return (
       <View style={styles.postContainer}>
-        <View style={styles.postHeader}>
-          <View>
-            <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
-            <Text style={styles.postMeta}>
-              {item.organization || 'No organization'} • {new Date(item.timestamp).toLocaleString()} • {toSentenceCase(item.category)}
-            </Text>
-            {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
-            {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
-          </View>
-          {item.userId === user?.uid && isEditable(item) && (
+        <View style={[styles.postHeader, {flexDirection: "row", alignItems: "center", justifyContent: "space-between",}]}>
+           <View style={{ flex: 1 }}>
+        <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
+        <Text style={styles.postMeta}>
+          {item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
+        </Text>
+        {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
+        {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
+      </View>
+          {item.userId === user?.id && isEditable(item) && (
             <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
               <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
                 <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
               </MenuTrigger>
-              <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
+              <MenuOptions customStyles={{ optionsContainer: styles.menuContainer}}>
                 <MenuOption
                   onSelect={() => {
                     console.log('Edit post clicked for:', item.id);
@@ -452,9 +445,23 @@ const CommunityBoard = () => {
             <Text style={styles.linkText}>{item.mediaUrl}</Text>
           </TouchableOpacity>
         )}
+        <View style={styles.postActions}>
+          <TouchableOpacity
+            style={styles.postbuttons}
+            onPress={() => navigation.navigate('CommentSection', { postId: item.id, postData: item })}
+          >
+            <Ionicons name="chatbubble-outline" size={20} color={Theme.colors.accentBlue} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.postbuttons}
+            onPress={() => handleSharePost(item)}
+          >
+            <Ionicons name="share-outline" size={20} color={Theme.colors.accentBlue} />
+          </TouchableOpacity>
+        </View>
       </View>
     );
-  };
+  }, [user, navigation]);
 
   const actions = [
     { type: 'text', color: Theme.colors.lightBlue, emoji: 'text-outline', border: Theme.colors.accentBlue, action: () => navigation.navigate('CreatePost', { postType: 'text' }) },
@@ -480,6 +487,7 @@ const CommunityBoard = () => {
             borderColor: action.border,
           },
         ]}
+        disabled={!canSubmit} 
       >
         <Ionicons name={action.emoji} size={24} color={Theme.colors.accentBlue} />
       </TouchableOpacity>
@@ -519,7 +527,17 @@ const CommunityBoard = () => {
                 style={styles.picker}
               >
                 {categories.map((category) => (
-                  <Picker.Item key={category.value} label={category.label} value={category.value} style={styles.pickerItems} />
+                  <Picker.Item
+                    key={category.value}
+                    label={category.label}
+                    value={category.value}
+                    style={{
+                      fontFamily: 'Poppins_Regular',
+                      fontSize: 13,
+                      color: Theme.colors.black,
+                      textAlign: 'center',
+                    }}
+                  />
                 ))}
               </Picker>
             </View>
@@ -541,6 +559,7 @@ const CommunityBoard = () => {
                   borderColor: Theme.colors.accentBlue,
                 },
               ]}
+              disabled={!canSubmit} 
             >
               <MotiView
                 style={{ position: 'absolute' }}
@@ -551,7 +570,7 @@ const CommunityBoard = () => {
               </MotiView>
             </TouchableOpacity>
             <AnimatePresence>
-              {expanded && (
+              {expanded && canSubmit && (
                 <View style={styles.actionButtonContainer}>
                   {actions.map((action, index) => (
                     <ActionButton key={index.toString()} action={action} index={index} />

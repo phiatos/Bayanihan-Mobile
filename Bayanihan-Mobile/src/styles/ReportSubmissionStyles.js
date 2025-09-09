@@ -437,19 +437,4 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_SemiBold',
     textAlign: 'center',
   },
-  modalContent: {
-    alignItems: 'center',
-    width: '100%',
-    justifyContent: 'center',
-  },
-  modalIcon: {
-    marginBottom: 15,
-  },
-  modalMessage: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 24,
-    fontFamily: 'Poppins_Regular',
-    textAlign: 'center',
-  },
 });

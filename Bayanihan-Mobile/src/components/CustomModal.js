@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Modal, StyleSheet, Animated, Dimensions, 
 import { Ionicons } from '@expo/vector-icons';
 import Theme from '../constants/theme';
 
-const { width, height } = Dimensions.get('window'); // Keep using window for consistent layout inside
+const { width, height } = Dimensions.get('window'); 
 
 const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText = 'OK', cancelText = 'Cancel', showCancel = true }) => {
   const [fadeAnim] = React.useState(new Animated.Value(0));
@@ -11,7 +11,7 @@ const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText
 
   React.useEffect(() => {
     if (visible) {
-      StatusBar.setHidden(true, 'fade'); // Hide status bar when modal is visible
+      StatusBar.setHidden(true, 'fade'); 
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -26,7 +26,7 @@ const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText
         }),
       ]).start();
     } else {
-      StatusBar.setHidden(false, 'fade'); // Show status bar when modal is hidden
+      StatusBar.setHidden(false, 'fade'); 
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -41,7 +41,6 @@ const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText
       ]).start();
     }
     return () => {
-      // Ensure status bar is shown if component unmounts while modal is visible
       StatusBar.setHidden(false, 'none');
     };
   }, [visible]);
@@ -52,19 +51,14 @@ const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText
       visible={visible}
       onRequestClose={onCancel}
       animationType="none"
-      statusBarTranslucent={true} // Required to draw under status bar
-      // Added for Android to appear fullscreen over status bar
-      // This works on Android; iOS handles it differently, often requiring StatusBar.setHidden
-      hardwareAccelerated // Might help with rendering performance, especially for animations
+      statusBarTranslucent={true} 
+      hardwareAccelerated 
     >
       <Animated.View
         style={[
           styles.overlay,
           {
             opacity: fadeAnim,
-            // To ensure it covers the status bar area even if StatusBar.setHidden isn't perfect
-            // This is often not needed if StatusBar.setHidden works, but can be a fallback.
-            // However, rely on the Modal's inherent behavior and StatusBar.setHidden first.
           },
         ]}
       >
@@ -100,16 +94,16 @@ const CustomModal = ({ visible, title, message, onConfirm, onCancel, confirmText
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject, // covers the entire screen
+    ...StyleSheet.absoluteFillObject, 
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 9999, // Optional but helps ensure it's above other content
+    zIndex: 9999, 
 
   },
   modal: {
-    backgroundColor: Theme.colors.white,
+    backgroundColor: Theme.colors.lightBg,
     borderRadius: 12,
     width: width * 0.85,
     maxWidth: 400,
@@ -144,7 +138,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 14,
-    color: '#444',
+    color: Theme.colors.black,
     lineHeight: 24,
     fontFamily: 'Poppins_Regular',
     textAlign: 'center',

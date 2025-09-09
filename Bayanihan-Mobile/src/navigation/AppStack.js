@@ -22,8 +22,9 @@ import CommunityBoard from '../screens/CommunityBoard';
 import { AuthContext } from '../context/AuthContext';
 import CustomDrawer from '../components/CustomDrawer';
 import CreatePost from '../screens/CreatePost';
-import TransactionScreen from '../screens/TransactionScreen';
-import TransactionDetailsScreen from '../screens/TransactionDetailsScreen';
+import TransactionScreen from '../screens/SubmissionScreen';
+import TransactionDetailsScreen from '../screens/SubmissionDetailsScreen';
+import CommentSection from '../screens/CommentSection';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -65,11 +66,12 @@ const CommunityBoardStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="CommunityBoard" component={CommunityBoard} />
     <Stack.Screen name="CreatePost" component={CreatePost} />
+    <Stack.Screen name="CommentSection" component={CommentSection} />
   </Stack.Navigator>
 );
 
 // Transaction Stack
-const TransactionStack = () => (
+const SubmissionStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="TransactionScreen" component={TransactionScreen} />
     <Stack.Screen name="TransactionDetailsScreen" component={TransactionDetailsScreen} />
@@ -82,53 +84,12 @@ const AppStack = () => {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      await AsyncStorage.removeItem('user_session'); // Clear session
       setUser(null);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Sign out error:`, error);
     }
   };
-
-  const resetInactivityTimer = (navigation) => {
-    let timeout;
-    const INACTIVITY_TIME = 1000 * 60 * 60 * 24; // 24 hours
-    const checkInactivity = () => {
-      Alert.alert(
-        'Are you still there?',
-        "You've been inactive for a while. Do you want to continue?",
-        [
-          {
-            text: 'Stay Logged In',
-            onPress: () => resetInactivityTimer(navigation),
-          },
-          {
-            text: 'Log Out',
-            onPress: async () => {
-              try {
-                await signOut(auth);
-                setUser(null);
-                navigation.replace('Login'); // Use replace to prevent back navigation
-              } catch (error) {
-                console.error(`[${new Date().toISOString()}] Error signing out:`, error);
-              }
-            },
-          },
-        ],
-        { cancelable: false }
-      );
-    };
-
-    if (Platform.OS !== 'web') {
-      clearTimeout(timeout);
-      timeout = setTimeout(checkInactivity, INACTIVITY_TIME);
-    }
-
-    return () => clearTimeout(timeout);
-  };
-
-  useEffect(() => {
-    // Set up inactivity timer
-    return resetInactivityTimer({ navigate: () => {} });
-  }, []);
 
   return (
     <Drawer.Navigator
@@ -151,7 +112,7 @@ const AppStack = () => {
       useLegacyImplementation={false}
     >
       <Drawer.Screen
-        name="Disaster Map"
+        name="Activated ABVN Map"
         component={HomeScreen}
         options={{
           drawerIcon: ({ color }) => (
@@ -223,8 +184,8 @@ const AppStack = () => {
         }}
       />
       <Drawer.Screen
-        name="Transactions History"
-        component={TransactionStack}
+        name="Submissions History"
+        component={SubmissionStack}
         options={{
           drawerIcon: ({ color }) => (
             <Ionicons name="file-tray-stacked" size={22} color={color} />

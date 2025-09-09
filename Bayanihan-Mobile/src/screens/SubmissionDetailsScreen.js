@@ -1,19 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, SafeAreaView, StatusBar, Image, Dimensions } from 'react-native';
-import { database, auth } from '../configuration/firebaseConfig';
+import { View, Text, FlatList, TouchableOpacity, Alert, SafeAreaView, StatusBar, Image, Dimensions } from 'react-native';
+import { database } from '../configuration/firebaseConfig';
 import { ref, onValue } from 'firebase/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import GlobalStyles from '../styles/GlobalStyles';
 import { Ionicons } from '@expo/vector-icons';
 import Theme from '../constants/theme';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import styles from '../styles/TransactionStyles';
+import { useAuth } from '../context/AuthContext';
+import useOperationCheck from '../components/useOperationCheck';
+import styles from '../styles/SubmissionStyles';
+import OperationCustomModal from '../components/OperationCustomModal';
 
-
-const TransactionDetailsScreen = () => {
+const SubmissionDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { item } = route.params;
+  const { user } = useAuth();
+  const { modalVisible: opModalVisible, modalConfig: opModalConfig } = useOperationCheck();
   const [submissionData, setSubmissionData] = useState({});
   const [imageDimensions, setImageDimensions] = useState({});
   const screenWidth = Dimensions.get('window').width;
@@ -26,40 +30,54 @@ const TransactionDetailsScreen = () => {
       console.error(`[${new Date().toISOString()}] Firebase Realtime Database not initialized`);
       return;
     }
-    if (!auth.currentUser) {
+    if (!user) {
       Alert.alert('Error', 'Please log in to view transaction details');
-      console.error(`[${new Date().toISOString()}] No authenticated user`);
+      console.log(`[${new Date().toISOString()}] No user logged in, redirecting to Login`);
+      navigation.navigate('Login');
       return;
     }
-    fetchSubmissionData();
-  }, []);
+
+    const unsubscribe = fetchSubmissionData();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      console.log(`[${new Date().toISOString()}] Cleaned up Firebase listener`);
+    };
+  }, [user]);
 
   const fetchSubmissionData = () => {
     try {
-      const userId = auth.currentUser.uid;
+      const userId = user.id;
       const submissionRef = ref(database, `submission_history/${userId}`);
-      onValue(submissionRef, (snapshot) => {
-        const data = snapshot.val();
-        const submissions = data
-          ? Object.entries(data).reduce((acc, [id, submission]) => {
-              acc[submission.submissionId || id] = {
-                id,
-                collection: submission.collection,
-                data: submission.data,
-                timestamp: submission.timestamp,
-                submissionId: submission.submissionId || null,
-              };
-              return acc;
-            }, {})
-          : {};
-        setSubmissionData(submissions);
-      }, { onlyOnce: true }, (error) => {
-        Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
-        console.error(`[${new Date().toISOString()}] Error fetching submission history:`, error);
-      });
+      const unsubscribe = onValue(
+        submissionRef,
+        (snapshot) => {
+          const data = snapshot.val();
+          const submissions = data
+            ? Object.entries(data).reduce((acc, [id, submission]) => {
+                acc[submission.submissionId || id] = {
+                  id,
+                  collection: submission.collection,
+                  data: submission.data,
+                  timestamp: submission.timestamp,
+                  submissionId: submission.submissionId || null,
+                };
+                return acc;
+              }, {})
+            : {};
+          setSubmissionData(submissions);
+          console.log(`[${new Date().toISOString()}] Submission history fetched: ${Object.keys(submissions).length} items`);
+        },
+        (error) => {
+          Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
+          console.error(`[${new Date().toISOString()}] Error fetching submission history:`, error);
+        }
+      );
+      return unsubscribe;
     } catch (error) {
       Alert.alert('Error', `Failed to fetch submission data: ${error.message}`);
       console.error(`[${new Date().toISOString()}] Error in fetchSubmissionData:`, error);
+      return () => {};
     }
   };
 
@@ -79,97 +97,115 @@ const TransactionDetailsScreen = () => {
     'callfordonation.facebookLink': 'Facebook Link',
     'callfordonation.status': 'Status',
     'callfordonation.userUid': 'User ID',
+    'callfordonation.dateTime': 'Date & Time',
     'callfordonation.timestamp': 'Submission Time',
+    'callfordonation.organization': 'Organization Name',
+    'callfordonation.image': 'Image',
     'posts.title': 'Post Title',
     'posts.content': 'Content',
     'posts.category': 'Category',
     'posts.userName': 'User Name',
-    'posts.organization': 'Organization',
     'posts.mediaType': 'Media Type',
     'posts.mediaUrls': 'Media URLs',
     'posts.mediaUrl': 'Media URL',
     'posts.thumbnailUrl': 'Thumbnail URL',
     'posts.userId': 'User ID',
     'posts.timestamp': 'Submission Time',
-    'rdana/submitted.rdanaId': 'RDANA ID',
-    'rdana/submitted.rdanaGroup': 'Organization',
-    'rdana/submitted.siteLocation': 'Site Location',
-    'rdana/submitted.disasterType': 'Disaster Type',
-    'rdana/submitted.effects.affectedPopulation': 'Affected Population',
-    'rdana/submitted.effects.estQty': 'Estimated Quantity',
-    'rdana/submitted.effects.familiesServed': 'Families Served',
-    'rdana/submitted.needs.priority': 'Priority Needs',
-    'rdana/submitted.needsChecklist': 'Needs Checklist',
-    'rdana/submitted.profile.Site_Location_Address_Barangay': 'Barangay',
-    'rdana/submitted.profile.Site_Location_Address_City_Municipality': 'City/Municipality',
-    'rdana/submitted.profile.Site_Location_Address_Province': 'Province',
-    'rdana/submitted.profile.Time_of_Information_Gathered': 'Time of Information Gathered',
-    'rdana/submitted.profile.Time_of_Occurrence': 'Time of Occurrence',
-    'rdana/submitted.profile.Type_of_Disaster': 'Disaster Type',
-    'rdana/submitted.profile.Date_of_Information_Gathered': 'Date of Information Gathered',
-    'rdana/submitted.profile.Date_of_Occurrence': 'Date of Occurrence',
-    'rdana/submitted.profile.Local_Authorities_Persons_Contacted_for_Information': 'Local Authorities Contacted',
-    'rdana/submitted.profile.Name_of_the_Organizations_Involved': 'Organizations Involved',
-    'rdana/submitted.profile.Locations_and_Areas_Affected_Barangay': 'Affected Barangay',
-    'rdana/submitted.profile.Locations_and_Areas_Affected_City_Municipality': 'Affected City/Municipality',
-    'rdana/submitted.profile.Locations_and_Areas_Affected_Province': 'Affected Province',
-    'rdana/submitted.modality.Locations_and_Areas_Affected': 'Areas Affected',
-    'rdana/submitted.modality.Type_of_Disaster': 'Disaster Type',
-    'rdana/submitted.modality.Date_and_Time_of_Occurrence': 'Date and Time of Occurrence',
-    'rdana/submitted.summary': 'Summary',
-    'rdana/submitted.affectedCommunities': 'Affected Communities',
-    'rdana/submitted.structureStatus': 'Structure Status',
-    'rdana/submitted.otherNeeds': 'Other Needs',
-    'rdana/submitted.responseGroup': 'Response Group',
-    'rdana/submitted.reliefDeployed': 'Relief Deployed',
-    'rdana/submitted.familiesServed': 'Families Served',
-    'rdana/submitted.userUid': 'User ID',
-    'rdana/submitted.status': 'Status',
-    'rdana/submitted.timestamp': 'Submission Time',
+    'rdana.rdanaId': 'RDANA ID',
+    'rdana.rdanaGroup': 'Organization Name',
+    'rdana.siteLocation': 'Site Location',
+    'rdana.disasterType': 'Disaster Type',
+    'rdana.dateTime': 'Date & Time',
+    'rdana.effects.affectedPopulation': 'Affected Population',
+    'rdana.effects.estQty': 'Estimated Quantity',
+    'rdana.familiesServed': 'Families Served',
+    'rdana.needs.priority': 'Priority Needs',
+    'rdana.needsChecklist': 'Needs Checklist',
+    'rdana.profile.Site_Location_Address_Barangay': 'Barangay',
+    'rdana.profile.Site_Location_Address_City_Municipality': 'City/Municipality',
+    'rdana.profile.Site_Location_Address_Province': 'Province',
+    'rdana.profile.Time_of_Information_Gathered': 'Time of Information Gathered',
+    'rdana.profile.Time_of_Occurrence': 'Time of Occurrence',
+    'rdana.profile.Type_of_Disaster': 'Disaster Type',
+    'rdana.profile.Date_of_Information_Gathered': 'Date of Information Gathered',
+    'rdana.profile.Date_of_Occurrence': 'Date of Occurrence',
+    'rdana.profile.Local_Authorities_Persons_Contacted_for_Information': 'Local Authorities Contacted',
+    'rdana.profile.Name_of_the_Organizations_Involved': 'Organizations Involved',
+    'rdana.profile.Locations_and_Areas_Affected_Barangay': 'Affected Barangay',
+    'rdana.profile.Locations_and_Areas_Affected_City_Municipality': 'Affected City/Municipality',
+    'rdana.profile.Locations_and_Areas_Affected_Province': 'Affected Province',
+    'rdana.modality.Locations_and_Areas_Affected': 'Areas Affected',
+    'rdana.modality.Type_of_Disaster': 'Disaster Type',
+    'rdana.modality.Date_and_Time_of_Occurrence': 'Date and Time of Occurrence',
+    'rdana.summary': 'Summary',
+    'rdana.affectedCommunities': 'Affected Communities',
+    'rdana.structureStatus': 'Structure Status',
+    'rdana.otherNeeds': 'Other Needs',
+    'rdana.responseGroup': 'Response Group',
+    'rdana.reliefDeployed': 'Relief Deployed',
+    'rdana.userUid': 'User ID',
+    'rdana.status': 'Status',
+    'rdana.timestamp': 'Submission Time',
     'requestRelief/requests.contactPerson': 'Contact Person',
     'requestRelief/requests.contactNumber': 'Contact Number',
     'requestRelief/requests.email': 'Email',
     'requestRelief/requests.address': 'Address',
     'requestRelief/requests.city': 'City',
     'requestRelief/requests.category': 'Category',
-    'requestRelief/requests.volunteerOrganization': 'Volunteer Organization',
+    'requestRelief/requests.volunteerOrganization': 'Organization Name',
     'requestRelief/requests.userUid': 'User ID',
     'requestRelief/requests.items': 'Items',
     'requestRelief/requests.timestamp': 'Submission Time',
-    'reports/submitted.reportID': 'Report ID',
-    'reports/submitted.AreaOfOperation': 'Area of Operation',
-    'reports/submitted.DateOfReport': 'Date of Report',
-    'reports/submitted.calamityArea': 'Calamity Area',
-    'reports/submitted.TimeOfIntervention': 'Time of Intervention',
-    'reports/submitted.StartDate': 'Start Date',
-    'reports/submitted.EndDate': 'End Date',
-    'reports/submitted.NoOfIndividualsOrFamilies': 'Individuals/Families Served',
-    'reports/submitted.NoOfFoodPacks': 'Food Packs',
-    'reports/submitted.NoOfHotMeals': 'Hot Meals',
-    'reports/submitted.LitersOfWater': 'Liters of Water',
-    'reports/submitted.NoOfVolunteersMobilized': 'Volunteers Mobilized',
-    'reports/submitted.NoOfOrganizationsActivated': 'Organizations Activated',
-    'reports/submitted.TotalValueOfInKindDonations': 'In-Kind Donations Value',
-    'reports/submitted.TotalMonetaryDonations': 'Monetary Donations',
-    'reports/submitted.NotesAdditionalInformation': 'Additional Notes',
-    'reports/submitted.status': 'Status',
-    'reports/submitted.userUid': 'User ID',
-    'reports/submitted.organization': 'Organization',
-    'reports/submitted.timestamp': 'Submission Time',
+    'requestRelief/requests.organizationName': 'Organization Name',
+    'reports.reportID': 'Report ID',
+    'reports.VolunteerGroupName': 'Volunteer Group Name',
+    'reports.AreaOfOperation': 'Area of Operation',
+    'reports.DateOfReport': 'Date of Report',
+    'reports.calamityArea': 'Calamity Area',
+    'reports.TimeOfIntervention': 'Time of Intervention',
+    'reports.StartDate': 'Start Date',
+    'reports.EndDate': 'End Date',
+    'reports.NoOfIndividualsOrFamilies': 'Individuals/Families Served',
+    'reports.NoOfFoodPacks': 'Food Packs',
+    'reports.NoOfHotMeals': 'Hot Meals',
+    'reports.CalamityName': 'Calamity Name',
+    'reports.CalamityType': 'Calamity Type',
+    'reports.LitersOfWater': 'Liters of Water',
+    'reports.NoOfVolunteersMobilized': 'Volunteers Mobilized',
+    'reports.NoOfOrganizationsActivated': 'Organizations Activated',
+    'reports.TotalValueOfInKindDonations': 'In-Kind Donations Value',
+    'reports.TotalMonetaryDonations': 'Monetary Donations',
+    'reports.NotesAdditionalInformation': 'Additional Notes',
+    'reports.status': 'Status',
+    'reports.userUid': 'User ID',
+    'reports.timestamp': 'Submission Time',
     'profile.action': 'Action',
     'profile.newPasswordLength': 'Password Length',
+    'data.organizationName': 'Organization Name',
+    'data.volunteerOrganization': 'Organization Name',
+    'data.role': 'Role',
   };
 
   const flattenObject = (obj, prefix = '', maxDepth = 2) => {
     const result = [];
     const images = [];
+    const hasOrganizationName = obj.organizationName && obj.organizationName !== 'Admin';
+    const hasVolunteerOrganization = obj.volunteerOrganization && obj.volunteerOrganization !== 'Admin';
+    const isAdmin = (obj.organizationName === 'Admin' || obj.volunteerOrganization === 'Admin') && !hasOrganizationName && !hasVolunteerOrganization;
+
     const flatten = (obj, prefix, depth) => {
       Object.entries(obj).forEach(([key, value]) => {
         const newKey = prefix ? `${prefix}.${key}` : key;
         if (depth >= maxDepth || typeof value !== 'object' || value === null) {
           if (key === 'image' && typeof value === 'string' && value.startsWith('data:image')) {
             images.push({ key: newKey, value, type: 'image' });
-          } else {
+          } else if (key === 'organizationName' && hasOrganizationName) {
+            result.push({ key: newKey, value, type: 'text' });
+          } else if (key === 'volunteerOrganization' && hasVolunteerOrganization && !hasOrganizationName) {
+            result.push({ key: newKey, value, type: 'text' });
+          } else if (key === 'role' && isAdmin) {
+            result.push({ key: newKey, value: 'Admin', type: 'text' });
+          } else if (key !== 'organizationName' && key !== 'volunteerOrganization' && key !== 'role') {
             result.push({ key: newKey, value: Array.isArray(value) ? `${value.length} item(s)` : value || 'N/A', type: 'text' });
           }
         } else if (Array.isArray(value)) {
@@ -286,9 +322,8 @@ const TransactionDetailsScreen = () => {
           <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Transaction Details</Text>
         </View>
       </LinearGradient>
-        
-     
-        <View  style={styles.contentContainer}>
+
+      <View style={styles.contentContainer}>
         <Text style={styles.subtitle}>
           Date: {new Date(item.timestamp).toLocaleString()}
         </Text>
@@ -300,8 +335,17 @@ const TransactionDetailsScreen = () => {
           ListEmptyComponent={<Text>No details available</Text>}
         />
       </View>
+
+      <OperationCustomModal
+        visible={opModalVisible}
+        title={opModalConfig.title}
+        message={opModalConfig.message}
+        onConfirm={opModalConfig.onConfirm}
+        confirmText={opModalConfig.confirmText}
+        showCancel={opModalConfig.showCancel}
+      />
     </SafeAreaView>
   );
 };
 
-export default TransactionDetailsScreen;
+export default SubmissionDetailsScreen;

@@ -1,4 +1,3 @@
-
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import React, { useContext, useEffect, useRef, useState } from 'react';
@@ -9,13 +8,14 @@ import {
   ImageBackground,
   Modal,
   SafeAreaView,
-  ScrollView,
   Text,
   TextInput,
   ToastAndroid,
   TouchableOpacity,
   View,
-  StatusBar
+  StatusBar,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import WebView from 'react-native-webview';
@@ -26,19 +26,22 @@ import { styles } from '../styles/HomeScreenStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { KeyboardAvoidingView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getDatabase, ref, get } from 'firebase/database'; 
+import { getDatabase, ref, get } from 'firebase/database';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const { height, width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
   const [location, setLocation] = useState(null);
   const [permissionStatus, setPermissionStatus] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [hasShownModal, setHasShownModal] = useState(false); 
+  const [hasShownModal, setHasShownModal] = useState(false);
   const [searchBarVisible, setSearchBarVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [activations, setActivations] = useState([]);
   const [mapType, setMapType] = useState('hybrid');
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(height)).current;
   const searchAnim = useRef(new Animated.Value(0)).current;
   const { user } = useContext(AuthContext);
@@ -52,26 +55,32 @@ const HomeScreen = ({ navigation }) => {
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
 
   useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hasShownModal && !permissionStatus) {
       setModalVisible(true);
-      setHasShownModal(true); // Mark modal as shown for this session
+      setHasShownModal(true);
     }
   }, [hasShownModal, permissionStatus]);
 
   useEffect(() => {
-    if (modalVisible) {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: height,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }
+    Animated.timing(slideAnim, {
+      toValue: modalVisible ? 0 : height,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   }, [modalVisible]);
 
   useEffect(() => {
@@ -116,7 +125,6 @@ const HomeScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Autocomplete Error:', error);
       ToastAndroid.show('Failed to fetch suggestions. Please check your internet connection.', ToastAndroid.SHORT);
-
     }
   };
 
@@ -227,7 +235,7 @@ const HomeScreen = ({ navigation }) => {
           placeName = place.name;
           formattedAddress = place.formatted_address;
         } else {
-          ToastAndroid.show('No results found for the search query.',ToastAndroid.BOTTOM);
+          ToastAndroid.show('No results found for the search query.', ToastAndroid.BOTTOM);
           console.warn('Text Search API failed:', data.status);
           return;
         }
@@ -262,7 +270,7 @@ const HomeScreen = ({ navigation }) => {
       setSuggestions([]);
     } catch (error) {
       console.error('Search error:', error);
-      ToastAndroid.show('Failed to search for the location. Please check your internet connection and try again.',ToastAndroid.BOTTOM);
+      ToastAndroid.show('Failed to search for the location. Please check your internet connection and try again.', ToastAndroid.BOTTOM);
     }
   };
 
@@ -273,14 +281,14 @@ const HomeScreen = ({ navigation }) => {
 
   const returnToUserLocation = async () => {
     if (permissionStatus !== 'granted') {
-      ToastAndroid.show('Please enable location access to return to your current location.',ToastAndroid.BOTTOM);
+      ToastAndroid.show('Please enable location access to return to your current location.', ToastAndroid.BOTTOM);
       return;
     }
 
     try {
       let loc = await Location.getCurrentPositionAsync({});
       if (loc.coords.accuracy > 50) {
-        ToastAndroid.show('Your location accuracy is low. The pin may not be precise.',ToastAndroid.BOTTOM);
+        ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
       }
       setLocation({
         latitude: loc.coords.latitude,
@@ -325,7 +333,7 @@ const HomeScreen = ({ navigation }) => {
       webViewRef.current?.injectJavaScript(script);
     } catch (error) {
       console.error('Return to user location error:', error);
-      ToastAndroid.show('Failed to return to your location. Please try again.',ToastAndroid.BOTTOM);
+      ToastAndroid.show('Failed to return to your location. Please try again.', ToastAndroid.BOTTOM);
     }
   };
 
@@ -343,7 +351,6 @@ const HomeScreen = ({ navigation }) => {
           .gm-fullscreen-control { display: none !important; }
         </style>
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
         <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAAAu6BeQjIZ7H7beFbAsPWuKuORmh0wrk&libraries=places"></script>
       </head>
@@ -380,7 +387,7 @@ const HomeScreen = ({ navigation }) => {
                 zoom: 16,
                 mapTypeId: "${mapType}",
                 mapTypeControl: false,
-                streetViewControl: true,
+                streetViewControl: false,
                 zoomControl: false,
                 fullscreenControl: false,
                 keyboardShortcuts: false,
@@ -460,8 +467,8 @@ const HomeScreen = ({ navigation }) => {
                   };
                 });
               }, (error) => {
-                console.error("Error fetching activations for map:", error);
-              });
+                  return;
+                });
 
               map.addListener("click", (event) => {
                 clearNonActivationMarkers();
@@ -535,8 +542,7 @@ const HomeScreen = ({ navigation }) => {
                 @keyframes slideIn {
                   0% { transform: translateY(10px); opacity: 0; }
                   100% { transform: translateY(0); opacity: 1; }
-                }
-              </style>
+                </style>
             \`;
 
             marker.addListener("mousedown", () => {
@@ -600,7 +606,7 @@ const HomeScreen = ({ navigation }) => {
     `
       : null;
 
-      const getUserName = () => {
+  const getUserName = () => {
     if (!user) return 'Unknown User';
     if (contactPerson) {
       return contactPerson;
@@ -614,22 +620,48 @@ const HomeScreen = ({ navigation }) => {
   useEffect(() => {
     const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
       setIsLoading(true);
-      if (!user?.id) {
-        console.warn('No user ID available');
-        setErrorModal({
-          visible: true,
-          message: 'No user ID available. Please log in again.',
-        });
-        setContactPerson(null);
-        setFirstName(null);
-        setLastName(null);
-        setIsLoading(false);
-        return;
+      let currentUser = user;
+
+      if (!currentUser?.id) {
+        // Try to load cached user from AsyncStorage
+        try {
+          const cachedUser = await AsyncStorage.getItem('user_session');
+          if (cachedUser) {
+            console.log('fetchUserData: No user in AuthContext, using cached user:', JSON.parse(cachedUser).id);
+            currentUser = JSON.parse(cachedUser);
+          } else {
+            console.warn('fetchUserData: No user ID or cached user available');
+            setErrorModal({
+              visible: true,
+              message: 'Please log in to continue.',
+            });
+            setContactPerson(null);
+            setFirstName(null);
+            setLastName(null);
+            setIsLoading(false);
+            // Optionally navigate to login screen after a delay
+            setTimeout(() => {
+              navigation.navigate('Login');
+            }, 3000);
+            return;
+          }
+        } catch (error) {
+          console.error('fetchUserData: Error loading cached user:', error.message);
+          setErrorModal({
+            visible: true,
+            message: 'Failed to load user data. Please log in again.',
+          });
+          setIsLoading(false);
+          setTimeout(() => {
+            navigation.navigate('Login');
+          }, 3000);
+          return;
+        }
       }
 
       try {
         const db = getDatabase();
-        const userRef = ref(db, `users/${user.id}`);
+        const userRef = ref(db, `users/${currentUser.id}`);
         const snapshot = await get(userRef);
 
         if (snapshot.exists()) {
@@ -637,178 +669,175 @@ const HomeScreen = ({ navigation }) => {
           setContactPerson(userData.contactPerson || null);
           setFirstName(userData.firstName || null);
           setLastName(userData.lastName || null);
+          console.log('fetchUserData: User data fetched:', userData);
         } else {
-          console.warn('No user document found for ID:', user.id);
+          console.warn('fetchUserData: No user document found for ID:', currentUser.id);
+          // Use cached user data as fallback
+          setContactPerson(currentUser.contactPerson || null);
+          setFirstName(currentUser.firstName || null);
+          setLastName(currentUser.lastName || null);
           setErrorModal({
             visible: true,
-            message: 'No user profile found in database.',
+            message: 'No user profile found in database. Using cached data.',
           });
-          setContactPerson(null);
-          setFirstName(null);
-          setLastName(null);
         }
       } catch (error) {
-        console.error('Error fetching user data:', error.message, error.code);
+        console.error('fetchUserData: Error fetching user data:', error.message, error.code);
         if (retryCount < maxRetries && error.code === 'unavailable') {
-          console.log(`Retrying fetch (${retryCount + 1}/${maxRetries})...`);
+          console.log(`fetchUserData: Retrying fetch (${retryCount + 1}/${maxRetries})...`);
           setTimeout(() => fetchUserData(retryCount + 1, maxRetries), 1000);
         } else {
+          // Use cached user data as fallback
+          setContactPerson(currentUser.contactPerson || null);
+          setFirstName(currentUser.firstName || null);
+          setLastName(currentUser.lastName || null);
           setErrorModal({
             visible: true,
-            message: `Failed to fetch user data: ${error.message}`,
+            message: `Failed to fetch user data: ${error.message}. Using cached data.`,
           });
-          setContactPerson(null);
-          setFirstName(null);
-          setLastName(null);
         }
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (user?.id) {
+    if (user?.id || !user) {
       fetchUserData();
     } else {
       setIsLoading(false);
     }
-  }, [user?.id]);
-      
+  }, [user]);
+
   return (
-    <SafeAreaView style={GlobalStyles.container}>
-      {/* Map Container */}
-         <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
+    <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       {permissionStatus === 'granted' && location && mapHtml ? (
-          <KeyboardAvoidingView style={styles.subContainer}>
-        <View style={{ flex: 1,}}>
-          <WebView
-            ref={webViewRef}
-            style={styles.map}
-            source={{ html: mapHtml }}
-            originWhitelist={['*']}
-            onError={(syntheticEvent) => {
-              const { nativeEvent } = syntheticEvent;
-              console.error('WebView error:', nativeEvent);
-              ToastAndroid.show('Failed to load the map. Please check your API key and internet connection.',ToastAndroid.BOTTOM);
-            }}
-            onMessage={(event) => {
-              console.log('WebView message:', event.nativeEvent.data);
-            }}
-          />
-          {/* Header */}
-          <View blurAmount={20} tint="light" style={styles.headerContainer} >
-            <LinearGradient
-              colors={['rgba(185, 185, 185, 0.12)', 'rgba(77, 77, 77, 0.2)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.formCard}
-            >
-              <View style={styles.headerContent}>
-                <TouchableOpacity
-                  onPress={() => navigation.openDrawer()}
-                  style={styles.headerMenuIcon}
-                >
-                  <Ionicons name="menu" size={32} color={Theme.colors.white} />
-                </TouchableOpacity>
-                <View style={styles.headerUserContainer}>
-                <Text style={styles.userName}>{getUserName()}</Text>
-                  <ImageBackground
-                    source={{ uri: 'https://via.placeholder.com/35' }}
-                    style={{ width: 35, height: 35 }}
-                    imageStyle={{ borderRadius: 25 }}
-                  />
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-         
-          {/* Other Overlays */}
-          <View style={styles.overlayContainer}>
-            <View style={styles.searchWrapper}>
-              <Animated.View
-                style={[
-                  styles.searchContainer,
-                  {
-                    borderRadius: searchBarVisible ? 30 : '100%',
-                    width: searchBarVisible ? '100%' : 45 ,
-                    height: searchBarVisible ? '100%' : 45,
-                    paddingLeft: searchBarVisible ? 0 : 1
-                  },
-                ]}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.subContainer]}
+          keyboardVerticalOffset={0}
+        >
+          <View style={{ flex: 1 }}>
+            <WebView
+              ref={webViewRef}
+              style={styles.map}
+              source={{ html: mapHtml }}
+              originWhitelist={['*']}
+              onError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.error('WebView error:', nativeEvent);
+                ToastAndroid.show('Failed to load the map. Please check your API key and internet connection.', ToastAndroid.BOTTOM);
+              }}
+              onMessage={(event) => {
+                console.log('WebView message:', event.nativeEvent.data);
+              }}
+            />
+            {/* Header */}
+            <View blurAmount={20} tint="light" style={styles.headerContainer}>
+              <LinearGradient
+                colors={['rgba(185, 185, 185, 0.12)', 'rgba(77, 77, 77, 0.2)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.formCard}
               >
-                <TouchableOpacity
-                  onPress={() => {
-                    if (searchBarVisible) {
-                      handleSearch();
-                    } else {
-                      toggleSearchBar();
-                    }
-                  }}
-                >
-                  <Feather
-                    name="search"
-                    size={20}
-                    style={[
-                      styles.searchIcon,
-                      {
-                        color: Theme.colors.primary,
-                        paddingLeft: searchBarVisible ? 15 : 8,
-                        paddingRight: searchBarVisible ? 5 : 0,
-                      },
-                    ]}
-                  />
-                </TouchableOpacity>
-                <Animated.View
-                  style={{
-                    flex: searchBarVisible ? 1 : 0,
-                    opacity: searchAnim,
-                    transform: [
-                      {
-                        translateX: searchAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [20, 0],
-                        }),
-                      },
-                    ],
-                  }}
-                >
-                  {searchBarVisible && (
-                    <TextInput
-                      placeholder="Search"
-                      style={{ flex: 1, fontFamily: 'Poppins_Regular' }}
-                      placeholderTextColor="black"
-                      value={searchQuery}
-                      onChangeText={handleSearchInput}
-                      onSubmitEditing={() => handleSearch()}
-                      returnKeyType="search"
-                      autoFocus={true}
+                <View style={styles.headerContent}>
+                  <TouchableOpacity
+                    onPress={() => navigation.openDrawer()}
+                    style={styles.headerMenuIcon}
+                  >
+                    <Ionicons name="menu" size={32} color={Theme.colors.white} />
+                  </TouchableOpacity>
+                  <View style={styles.headerUserContainer}>
+                    <Text style={styles.userName}>{getUserName()}</Text>
+                    <ImageBackground
+                      source={{ uri: 'https://via.placeholder.com/35' }}
+                      style={{ width: 35, height: 35 }}
+                      imageStyle={{ borderRadius: 25 }}
                     />
-                  )}
-                </Animated.View>
-              </Animated.View>
-              {searchBarVisible && suggestions.length > 0 && (
-                <FlatList
-                  data={suggestions}
-                  keyExtractor={(item) => item.place_id}
-                  style={styles.suggestionsContainer}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={styles.suggestionItem}
-                      onPress={() => handleSuggestionSelect(item)}
-                    >
-                      <Text style={styles.suggestionText}>{item.description}</Text>
-                    </TouchableOpacity>
-                  )}
-                  keyboardShouldPersistTaps="handled"
-                />
-              )}
-              <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation}>
-              <MaterialIcons name="my-location" size={24} color={Theme.colors.white} />
-            </TouchableOpacity>
+                  </View>
+                </View>
+              </LinearGradient>
             </View>
-            
-        </View>
-        <View style={styles.mapTypeButtonsContainer}>
+            {/* Other Overlays */}
+            <View style={styles.overlayContainer}>
+              <View style={styles.searchWrapper}>
+                <Animated.View
+                  style={[
+                    styles.searchContainer,
+                    {
+                      borderRadius: searchBarVisible ? 30 : '100%',
+                      width: searchBarVisible ? '100%' : 45,
+                      height: searchBarVisible ? '100%' : 45,
+                      paddingLeft: searchBarVisible ? 0 : 1,
+                    },
+                  ]}
+                >
+                  <TouchableOpacity
+                    onPress={toggleSearchBar}
+                  >
+                    <Feather
+                      name="search"
+                      size={20}
+                      style={[
+                        styles.searchIcon,
+                        {
+                          color: Theme.colors.primary,
+                          paddingLeft: searchBarVisible ? 15 : 8,
+                          paddingRight: searchBarVisible ? 5 : 0,
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                  <Animated.View
+                    style={{
+                      flex: searchBarVisible ? 1 : 0,
+                      opacity: searchAnim,
+                      transform: [
+                        {
+                          translateX: searchAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [20, 0],
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    {searchBarVisible && (
+                      <TextInput
+                        placeholder="Search"
+                        style={{ flex: 1, fontFamily: 'Poppins_Regular' }}
+                        placeholderTextColor="black"
+                        value={searchQuery}
+                        onChangeText={handleSearchInput}
+                        onSubmitEditing={() => handleSearch()}
+                        returnKeyType="search"
+                        autoFocus={true}
+                      />
+                    )}
+                  </Animated.View>
+                </Animated.View>
+                {searchBarVisible && suggestions.length > 0 && (
+                  <FlatList
+                    data={suggestions}
+                    keyExtractor={(item) => item.place_id}
+                    style={styles.suggestionsContainer}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.suggestionItem}
+                        onPress={() => handleSuggestionSelect(item)}
+                      >
+                        <Text style={styles.suggestionText}>{item.description}</Text>
+                      </TouchableOpacity>
+                    )}
+                    keyboardShouldPersistTaps="handled"
+                  />
+                )}
+                <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation}>
+                  <MaterialIcons name="my-location" size={24} color={Theme.colors.white} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={[styles.mapTypeButtonsContainer, { paddingBottom: insets.bottom }]}>
               <TouchableOpacity
                 style={[styles.mapTypeButton, mapType === 'roadmap' && styles.mapTypeButtonActive]}
                 onPress={() => toggleMapType('roadmap')}
@@ -847,61 +876,51 @@ const HomeScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      ) : (
-        <SafeAreaView style={GlobalStyles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      <LinearGradient
-        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
-        start={{ x: 1, y: 0.5 }}
-        end={{ x: 1, y: 1 }}
-        style={GlobalStyles.gradientContainer}
-      >
-        <View style={GlobalStyles.newheaderContainer}>
-          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
-            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
-          </TouchableOpacity>
-            <View style={styles.headerUserContainer}>
-            <Text style={[styles.userName, {color: Theme.colors.primary, marginLeft: 70}]}>{getUserName()}</Text>   
-            </View>
-            </View>
-            </LinearGradient>
-        
-          <View style={{ paddingHorizontal: 20, marginTop: 100 }}>
-            {/* <View style={styles.searchContainer}>
-              <Feather name="search" size={24} style={{ marginHorizontal: 10 }} color={Theme.colors.primary} />
-              <TextInput
-                placeholder="Search"
-                style={{ flex: 1,     fontFamily: 'Poppins_Regular', }}
-                placeholderTextColor= {Theme.colors.lightBlack}
-              />
-            </View> */}
-            {permissionStatus === 'denied' && (
-              <View style={styles.permissionDeniedContainer}>
-                <MaterialIcons
-                  name="location-off"
-                  size={48}
-                  style={{ color: '#EE5757', marginBottom: 10 }}
-                />
-                <Text style={styles.permissionDeniedContainerHeader}>Location Access Denied</Text>
-                <Text style={styles.permissionDeniedContainerText}>
-                  Please enable location access to view the map and experience our services.
-                </Text>
-                <TouchableOpacity style={styles.retryButton} onPress={handleRetryPermission}>
-                  <Text style={styles.retryButtonText}>Enable Location</Text>
+          </KeyboardAvoidingView>
+        ) : (
+          <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
+            <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+            <LinearGradient
+              colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+              start={{ x: 1, y: 0.5 }}
+              end={{ x: 1, y: 1 }}
+              style={GlobalStyles.gradientContainer}
+            >
+              <View style={GlobalStyles.newheaderContainer}>
+                <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+                  <Ionicons name="menu" size={32} color={Theme.colors.primary} />
                 </TouchableOpacity>
+                <View style={styles.headerUserContainer}>
+                  <Text style={[styles.userName, { color: Theme.colors.primary, marginLeft: 70 }]}>{getUserName()}</Text>
+                </View>
               </View>
-            )}
-          </View>
-        </SafeAreaView>
-      )}
-
-      <Modal
-        animationType="none"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={closeModal}
-      >
+            </LinearGradient>
+            <View style={{ paddingHorizontal: 20, marginTop: 100 }}>
+              {permissionStatus === 'denied' && (
+                <View style={styles.permissionDeniedContainer}>
+                  <MaterialIcons
+                    name="location-off"
+                    size={48}
+                    style={{ color: '#EE5757', marginBottom: 10 }}
+                  />
+                  <Text style={styles.permissionDeniedContainerHeader}>Location Access Denied</Text>
+                  <Text style={styles.permissionDeniedContainerText}>
+                    Please enable location access to view the map and experience our services.
+                  </Text>
+                  <TouchableOpacity style={styles.retryButton} onPress={handleRetryPermission}>
+                    <Text style={styles.retryButtonText}>Enable Location</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </SafeAreaView>
+        )}
+        <Modal
+          animationType="none"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={closeModal}
+        >
           <View style={styles.modalOverlay}>
             <Animated.View
               style={[
@@ -926,9 +945,34 @@ const HomeScreen = ({ navigation }) => {
               </View>
             </Animated.View>
           </View>
-      </Modal>
-    </SafeAreaView>
-  );
-};
+        </Modal>
+        <Modal
+          animationType="none"
+          transparent={true}
+          visible={errorModal.visible}
+          onRequestClose={() => setErrorModal({ visible: false, message: '' })}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <MaterialIcons name="error" size={84} style={{ color: '#EE5757' }} />
+              <Text style={styles.permissionDeniedHeader}>Error</Text>
+              <Text style={styles.permissionDeniedText}>{errorModal.message}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={() => {
+                  setErrorModal({ visible: false, message: '' });
+                  if (errorModal.message.includes('log in')) {
+                    navigation.navigate('Login');
+                  }
+                }}
+              >
+                <Text style={styles.retryButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </SafeAreaView>
+    );
+  };
 
 export default HomeScreen;

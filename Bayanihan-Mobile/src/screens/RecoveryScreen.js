@@ -5,8 +5,9 @@ import 'firebase/compat/database';
 import { useState } from "react";
 import { Alert, SafeAreaView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
+import Theme from "../constants/theme";
+import styles from "../styles/RecoveryScreenStyles";
 
-// Firebase configuration (same as web)
 const firebaseConfig = {
     apiKey: "AIzaSyDJxMv8GCaMvQT2QBW3CdzA3dV5X_T2KqQ",
     authDomain: "bayanihan-5ce7e.firebaseapp.com",
@@ -18,7 +19,6 @@ const firebaseConfig = {
     measurementId: "G-ZTQ9VXXVV0"
 };
 
-// Initialize Firebase if not already initialized
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -53,7 +53,6 @@ const RecoveryScreen = ({ navigation }) => {
         }
 
         try {
-            // Check if the email exists in the database
             let userFound = false;
             let userMobile = null;
             let userId = null;
@@ -72,15 +71,12 @@ const RecoveryScreen = ({ navigation }) => {
                 return;
             }
 
-            // Send password reset email
             const actionCodeSettings = {
                 url: "https://bayanihan-5ce7e.firebaseapp.com/pages/login.html", // Adjust if you have a mobile-specific URL
                 handleCodeInApp: false,
             };
             await auth.sendPasswordResetEmail(email, actionCodeSettings);
 
-            // Store user details in AsyncStorage or similar for mobile
-            // For simplicity, we'll just proceed to the next stage
             Alert.alert(
                 "Success",
                 `A password reset link has been sent to ${email}. Please check your email (including spam/junk folder).`,
@@ -109,7 +105,6 @@ const RecoveryScreen = ({ navigation }) => {
         const fullMobileNumber = `${countryCode}${mobileNumber}`.replace(/^\+/, '');
 
         try {
-            // Check if the mobile number exists in the database
             let userFound = false;
             let userEmail = null;
             let userId = null;
@@ -128,8 +123,7 @@ const RecoveryScreen = ({ navigation }) => {
                 return;
             }
 
-            // Since Firebase doesn't support password reset via SMS directly, we can send a reset email instead
-            // Alternatively, integrate with an SMS service like Twilio (not implemented here)
+           
             if (userEmail) {
                 const actionCodeSettings = {
                     url: "https://bayanihan-5ce7e.firebaseapp.com/pages/login.html",
@@ -166,7 +160,6 @@ const RecoveryScreen = ({ navigation }) => {
         }
 
         try {
-            // Check if the email exists and retrieve the mobile number
             let userFound = false;
             let userMobile = null;
             await database.ref('users').orderByChild('email').equalTo(email).once('value', snapshot => {
@@ -188,8 +181,6 @@ const RecoveryScreen = ({ navigation }) => {
                 return;
             }
 
-            // Simulate sending the mobile number to the email
-            // In a real app, integrate with an email service to send the mobile number
             Alert.alert(
                 "Success",
                 `Your mobile number (${userMobile}) has been sent to your registered email: ${email}.`,
@@ -222,7 +213,6 @@ const RecoveryScreen = ({ navigation }) => {
     <View style={styles.optionContent}>
         {passwordRecoveryStage === 1 ? (
             <>
-                {/* <Text style={styles.titleSecondary}>Enter your email address</Text> */}
                 <Text style={styles.descSecondary}>
                     Please enter your registered email address to recover your password.
                 </Text>
@@ -230,7 +220,7 @@ const RecoveryScreen = ({ navigation }) => {
                 <TextInput
                     style={styles.input}
                     placeholder="Enter email"
-                    placeholderTextColor="#999"
+                    placeholderTextColor={Theme.colors.placeholderColor}
                     value={email}
                     onChangeText={setEmail}
                 />
@@ -266,98 +256,4 @@ const RecoveryScreen = ({ navigation }) => {
 };
 
 export default RecoveryScreen;
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: "flex-start",
-        alignItems: "center",
-        backgroundColor: "#FFF7EC",
-        padding: 26,
-    },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 60,
-        width: "100%",
-        position: "relative",
-    },
-    backButton: {
-        position: 'absolute',
-        zIndex: 1,
-        left: 10,
-        top: 25,
-        padding: 10,
-        paddingTop: 25,
-    },
-    title: {
-        fontSize: 26,
-        color: '#14AFBC',
-        textAlign: 'center',
-        width: '100%',
-        paddingTop: 20,
-        fontFamily: 'Poppins_Medium',
-    },
-    titleSecondary: {
-        fontSize: 28,
-        fontWeight: "bold",
-        marginTop: 20,
-        color: "#333",
-    },
-    descSecondary: {
-        fontSize: 16,
-        color: "#444",
-        marginTop: 20,
-        marginBottom: 30,
-        textAlign: "center",
-        fontFamily: 'Poppins_Regular'
-    },
-    optionContent: {
-        width: "100%",
-        alignItems: "center",
-    },
-    description: {
-        fontSize: 14,
-        textAlign: 'center',
-        color: "#444",
-        marginTop: 20,
-        marginBottom: 20,
-        fontFamily: 'Poppins_Regular'
-    },
-    input: {
-        height: 50,
-        borderColor: "#ccc",
-        borderWidth: 2.5,
-        borderRadius: 10,
-        paddingLeft: 10,
-        fontSize: 15,
-        color: "#444",
-        backgroundColor: "#fff",
-        width: "100%",
-        marginBottom: 20,
-        fontFamily: 'Poppins_Regular'
-
-    },
-    button: {
-        backgroundColor: "#14AFBC",
-        paddingVertical: 15,
-        width: '100%',
-        borderRadius: 10,
-        marginBottom: 10,
-    },
-    buttonText: {
-        textAlign: "center",
-        color: "#fff",
-        fontFamily: 'Poppins_SemiBold',
-        fontSize: 16,
-    },
-    label: {
-        alignSelf: "flex-start",
-        fontSize: 14,
-        color: "#333",
-        marginBottom: 5,
-        fontFamily: 'Poppins_Bold'
-
-    },
-
-});
+    

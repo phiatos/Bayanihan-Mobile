@@ -1,80 +1,44 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation, CommonActions, useRoute } from '@react-navigation/native';
 import { get, push, ref, set, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Text, TouchableOpacity, View, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
-import { auth, database } from '../configuration/firebaseConfig';
+import { database } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
-import CustomModal from '../components/CustomModal';
+import OperationCustomModal from '../components/OperationCustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReliefRequestStyles';
 import { LinearGradient } from 'expo-linear-gradient';
-import { logActivity } from '../components/logActivity';
-import { logSubmission } from '../components/logSubmission';
-
-const ReliefSummary = ({ route, navigation }) => {
-  const { reportData: initialReportData = {}, addedItems: initialItems = [] } = route.params || {};
+import { logActivity, logSubmission } from '../components/logSubmission'; 
+import { useAuth } from '../context/AuthContext';
+  
+const ReliefSummary = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { user } = useAuth();
+  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = 'Admin' } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [addedItems, setAddedItems] = useState(initialItems);
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
-  const [userUid, setUserUid] = useState(null);
-  const [volunteerOrganization, setVolunteerOrganization] = useState('[Unknown Org]');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
-    const fetchVolunteerOrganization = async () => {
-      const storedOrg = await AsyncStorage.getItem('volunteerOrganization');
-      if (storedOrg) {
-        setVolunteerOrganization(storedOrg);
-        console.log('Volunteer organization loaded from storage:', storedOrg);
-      }
-
-      console.log('Setting up auth state listener...');
-      const unsubscribe = auth.onAuthStateChanged(
-        (user) => {
-          if (user) {
-            setUserUid(user.uid);
-            console.log('Logged-in user UID:', user.uid);
-            const userRef = ref(database, `users/${user.uid}`);
-            get(userRef)
-              .then((snapshot) => {
-                const userData = snapshot.val();
-                if (userData && userData.organization) {
-                  setVolunteerOrganization(userData.organization);
-                  AsyncStorage.setItem('volunteerOrganization', userData.organization);
-                  console.log('Volunteer organization fetched:', userData.organization);
-                } else {
-                  console.warn('User data or organization not found for UID:', user.uid);
-                  setErrorMessage('Volunteer organization not found. Please contact support.');
-                  setModalVisible(true);
-                }
-              })
-              .catch((error) => {
-                console.error('Error fetching user data:', error.message);
-                setErrorMessage('Failed to fetch user data: ' + error.message);
-                setModalVisible(true);
-              });
-          } else {
-            console.warn('No user is logged in');
-            setErrorMessage('User not authenticated. Please log in.');
-            setModalVisible(true);
-          }
-        },
-        (error) => {
-          console.error('Auth state listener error:', error.message);
-          setErrorMessage('Authentication error: ' + error.message);
-          setModalVisible(true);
-        }
-      );
-
-      return () => unsubscribe();
-    };
-
-    fetchVolunteerOrganization();
-  }, []);
+    if (!user) {
+      console.warn('No user is logged in');
+      setErrorMessage('User not authenticated. Please log in.');
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+        navigation.navigate('Login');
+      }, 3000);
+      return;
+    }
+    console.log('Logged-in user ID:', user.id);
+    console.log('Volunteer organization:', organizationName);
+  }, [user, navigation, organizationName]);
 
   const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
     try {
@@ -93,10 +57,20 @@ const ReliefSummary = ({ route, navigation }) => {
   };
 
   const handleSubmit = async () => {
-    if (!userUid) {
-      console.error('No user UID available. Cannot submit request.');
+    setIsSubmitting(true);
+    if (!user) {
+      console.error('No user available. Cannot submit request.');
       setErrorMessage('User not authenticated. Please log in again.');
       setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!organizationName || organizationName === 'Admin') {
+      console.error('Organization name not available.');
+      setErrorMessage('Organization name not loaded. Please try again.');
+      setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -107,11 +81,11 @@ const ReliefSummary = ({ route, navigation }) => {
     const city = reportData.city?.trim();
     const donationCategory = reportData.donationCategory;
 
-    // Validation
     if (!contactPerson) {
       console.log('Validation failed: Contact person is empty');
       setErrorMessage('Please enter the contact person’s name.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -119,13 +93,15 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Validation failed: Invalid contact number', { contactNumber });
       setErrorMessage('Please enter a valid contact number (at least 10 digits).');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^@\s]+$/.test(email)) {
       console.log('Validation failed: Invalid email', { email });
       setErrorMessage('Please enter a valid email address.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -133,6 +109,7 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Validation failed: Address is empty');
       setErrorMessage('Please enter the drop-off address.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -140,6 +117,7 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Validation failed: City is empty');
       setErrorMessage('Please enter the city.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -147,6 +125,7 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Validation failed: Donation category not selected');
       setErrorMessage('Please select a donation category.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -154,6 +133,7 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Validation failed: No items added');
       setErrorMessage('Please add at least one item before proceeding.');
       setModalVisible(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -166,8 +146,8 @@ const ReliefSummary = ({ route, navigation }) => {
         address,
         city,
         category: donationCategory,
-        volunteerOrganization,
-        userUid,
+        volunteerOrganization: organizationName,
+        userUid: user.id,
         items: addedItems.map((item) => ({
           name: item.itemName,
           quantity: item.quantity,
@@ -180,23 +160,16 @@ const ReliefSummary = ({ route, navigation }) => {
       console.log('Submitting request to Firebase:', newRequest);
       const requestRef = push(ref(database, 'requestRelief/requests'));
       const submissionId = requestRef.key;
-      const userRequestRef = ref(database, `users/${userUid}/requests/${submissionId}`);
-
-      // Notify admin
-      const message = `New relief request submitted by ${contactPerson} from ${volunteerOrganization} for ${donationCategory} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
-      const requestRefKey = requestRef.key;
-      await notifyAdmin(message, submissionId, requestRefKey, contactPerson, volunteerOrganization);
+      const message = `New relief request submitted by ${contactPerson} from ${organizationName} for ${donationCategory} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      await notifyAdmin(message, submissionId, contactPerson, organizationName);
 
       await Promise.all([
         set(requestRef, newRequest),
-        set(userRequestRef, newRequest),
-        logActivity('Submitted a Relief Request', submissionId),
-        logSubmission('requestRelief/requests', newRequest, submissionId),
+        logActivity('Submitted a Relief Request', submissionId, user.id, organizationName),
+        logSubmission('requestRelief/requests', newRequest, submissionId, organizationName, user.id),  
       ]);
-
       console.log('Data saved to Firebase successfully');
 
-      // Reset form data
       setReportData({});
       setAddedItems([]);
 
@@ -206,6 +179,8 @@ const ReliefSummary = ({ route, navigation }) => {
       console.error('Error in handleSubmit:', error.message);
       setErrorMessage('Failed to submit request: ' + error.message);
       setModalVisible(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -247,7 +222,7 @@ const ReliefSummary = ({ route, navigation }) => {
   };
 
   const handleBack = () => {
-    navigation.navigate('ReliefRequest', { reportData, addedItems });
+    navigation.navigate('ReliefRequest', { reportData, addedItems, organizationName });
   };
 
   const renderItem = ({ item, index }) => (
@@ -288,7 +263,7 @@ const ReliefSummary = ({ route, navigation }) => {
           <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
             <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={[GlobalStyles.headerTitle]}>Relief Request</Text>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Relief Request</Text>
         </View>
       </LinearGradient>
 
@@ -304,7 +279,7 @@ const ReliefSummary = ({ route, navigation }) => {
         >
           <View style={GlobalStyles.form}>
             <Text style={GlobalStyles.subheader}>Summary</Text>
-            <Text style={GlobalStyles.organizationName}>{volunteerOrganization}</Text>
+            <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
             <View style={GlobalStyles.summarySection}>
               <Text style={GlobalStyles.summarySectionTitle}>Contact Information</Text>
               {['contactPerson', 'contactNumber', 'email', 'address', 'city', 'donationCategory'].map(
@@ -352,28 +327,32 @@ const ReliefSummary = ({ route, navigation }) => {
               <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack}>
                 <Text style={GlobalStyles.backButtonText}>Back</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={GlobalStyles.submitButton} onPress={handleSubmit}>
-                <Text style={GlobalStyles.submitButtonText}>Submit</Text>
+              <TouchableOpacity
+                style={[GlobalStyles.submitButton, isSubmitting && { opacity: 0.6 }]}
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+              >
+                <Text style={GlobalStyles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <CustomModal
+      <OperationCustomModal
         visible={modalVisible}
         title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
-          <View style={styles.modalContent}>
+          <View style={GlobalStyles.modalContent}>
             {errorMessage ? (
               <>
                 <Ionicons
                   name="warning-outline"
                   size={60}
                   color="#FF0000"
-                  style={styles.modalIcon}
+                  style={GlobalStyles.modalIcon}
                 />
-                <Text style={styles.modalMessage}>{errorMessage}</Text>
+                <Text style={GlobalStyles.modalMessage}>{errorMessage}</Text>
               </>
             ) : (
               <>
@@ -381,9 +360,9 @@ const ReliefSummary = ({ route, navigation }) => {
                   name="checkmark-circle"
                   size={60}
                   color={Theme.colors.primary}
-                  style={styles.modalIcon}
+                  style={GlobalStyles.modalIcon}
                 />
-                <Text style={styles.modalMessage}>Your relief request has been successfully submitted!</Text>
+                <Text style={GlobalStyles.modalMessage}>Your relief request has been successfully submitted!</Text>
               </>
             )}
           </View>
@@ -391,21 +370,20 @@ const ReliefSummary = ({ route, navigation }) => {
         onConfirm={handleConfirm}
         onCancel={handleCancel}
         confirmText={errorMessage ? 'Retry' : 'Proceed'}
-        showCancel={false}
+        showCancel={errorMessage ? true : false}
       />
-      <CustomModal
+      <OperationCustomModal
         visible={deleteModalVisible}
         title="Confirm Deletion"
         message={
-          <View style={styles.modalContent}>
-            <Ionicons name="warning-outline" size={60} color="#FF0000" style={styles.modalIcon} />
-            <Text style={styles.modalMessage}>Are you sure you want to delete this item?</Text>
+          <View style={GlobalStyles.modalContent}>
+            <Ionicons name="warning-outline" size={60} color={Theme.colors.red} style={GlobalStyles.modalIcon} />
+            <Text style={GlobalStyles.modalMessage}>Are you sure you want to delete this item?</Text>
           </View>
         }
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
         confirmText="Delete"
-        cancelText="Cancel"
         showCancel={true}
       />
     </SafeAreaView>

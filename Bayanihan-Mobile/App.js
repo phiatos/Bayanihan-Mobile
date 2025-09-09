@@ -8,15 +8,26 @@ import { NavigationContainer } from '@react-navigation/native';
 import AuthStack from './src/navigation/AuthStack';
 import AppStack from './src/navigation/AppStack';
 import { useFonts } from 'expo-font';
-import { AuthContext } from './src/context/AuthContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
 import * as NavigationBar from 'expo-navigation-bar';
 import { StatusBar } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
 
+function Root() {
+  const { user, loading } = useAuth();
+
+  if (loading) return null; // Wait for auth state to resolve
+
+  return (
+    <NavigationContainer>
+      {user ? <AppStack /> : <AuthStack />}
+    </NavigationContainer>
+  );
+}
+
 function App() {
-  const [user, setUser] = useState(undefined);
   const [fontsLoaded] = useFonts({
     Poppins_Regular: require('./assets/fonts/Poppins/Poppins-Regular.ttf'),
     Poppins_SemiBold: require('./assets/fonts/Poppins/Poppins-SemiBold.ttf'),
@@ -25,11 +36,12 @@ function App() {
     Poppins_MediumItalic: require('./assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
     Poppins_Italic: require('./assets/fonts/Poppins/Poppins-Italic.ttf'),
   });
-
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (fontsLoaded) setReady(true);
+    if (fontsLoaded) {
+      setReady(true);
+    }
   }, [fontsLoaded]);
 
   useEffect(() => {
@@ -45,15 +57,9 @@ function App() {
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-      <AuthContext.Provider value={{ user, setUser }}>
-        <NavigationContainer>
-          {user ? (
-            <AppStack onSignOut={() => setUser(undefined)} />
-          ) : (
-            <AuthStack />
-          )}
-        </NavigationContainer>
-      </AuthContext.Provider>
+      <AuthProvider>
+        <Root />
+      </AuthProvider>
     </>
   );
 }

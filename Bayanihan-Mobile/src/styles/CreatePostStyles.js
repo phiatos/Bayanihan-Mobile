@@ -44,8 +44,6 @@ export default StyleSheet.create({
     paddingHorizontal: spacing.large,
     paddingVertical: 5,
     borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   submitButtonDisabled: {
     backgroundColor: Theme.colors.lightGray,
@@ -65,7 +63,7 @@ export default StyleSheet.create({
     margin: spacing.small,
     marginLeft: 160,
     borderWidth: borderWidth.thin,
-    borderColor: '#ccc',
+    borderColor: Theme.colors.primary,
     borderRadius: borderRadius.medium,
     backgroundColor: '#fff',
     justifyContent: 'center',
@@ -73,6 +71,7 @@ export default StyleSheet.create({
   },
   picker: {
     textAlign: 'center',
+    fontFamily: 'Poppins_Regular',
   },
   pickerItems: {
     fontFamily: 'Poppins_Regular',
@@ -87,7 +86,6 @@ export default StyleSheet.create({
     paddingHorizontal: 20,
   },
   input: {
-    
     fontFamily: 'Poppins_Regular',
     fontSize: 14,
     color: Theme.colors.black,
@@ -135,21 +133,21 @@ export default StyleSheet.create({
   },
   mediaPreviewContainer: {
     flexDirection: 'column',
-    justifyContent: 'flex-start', // Align content to top
-    alignItems: 'center', // Center horizontally
+    justifyContent: 'flex-start',
+    alignItems: 'center',
     marginTop: spacing.small,
   },
   mediaPreview: {
     position: 'relative',
     marginVertical: spacing.xsmall,
-    width: SCREEN_WIDTH, // Full screen width, no padding
-    height: undefined, // Let height be set by thumbnailPreview
-    alignItems: 'center', // Center horizontally
-    justifyContent: 'flex-start', // Align image to top vertically
+    width: SCREEN_WIDTH,
+    height: undefined,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
   },
   thumbnailPreview: {
-    width: SCREEN_WIDTH, // Full screen width, no padding
-    height: 600, // Fixed height close to 600 pixels
+    width: SCREEN_WIDTH,
+    height: 600,
     borderRadius: borderRadius.medium,
   },
   removeButton: {
@@ -164,23 +162,29 @@ export default StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: Theme.colors.lightBg, 
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
+    elevation: 20, 
+    shadowColor: Theme.colors.black, 
+    shadowOffset: { width: 0, height: -4 }, 
+    shadowOpacity: 0.2, 
+    shadowRadius: 6, 
+    zIndex: 10, 
   },
   navButton: {
-    padding: spacing.medium,
+    padding: spacing.small,
     borderRadius: borderRadius.medium,
   },
   navButtonActive: {
-     borderBottomWidth: 2,
+    borderBottomWidth: 2,
     borderBottomColor: Theme.colors.accent,
   },
   progressContainer: {
     padding: 10,
-    backgroundColor: Theme.colors.white,
+    backgroundColor: 'transparent',
     alignItems: 'center',
   },
   progressBarBackground: {
@@ -200,5 +204,31 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_Regular',
     fontSize: 14,
     color: Theme.colors.black,
+  },
+  readOnlyLabel: {
+    fontFamily: 'Poppins_SemiBold',
+    fontSize: 20,
+    color: Theme.colors.grey,
+    marginTop: 12,
+    marginLeft: 15,
+  },
+  readOnlyText: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 14,
+    color: Theme.colors.black,
+    marginTop: 4,
+    backgroundColor: Theme.colors.lightGrey,
+    borderRadius: 8,
+    marginLeft: 15,
+  },
+  sharedInfo: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 12,
+    color: Theme.colors.accent,
+    marginBottom: 12,
+    marginLeft: 15,
+  },
+  navButtonDisabled: {
+    opacity: 0.5,
   },
 });

@@ -1,5 +1,7 @@
 import { Platform, StatusBar, StyleSheet, Dimensions } from 'react-native';
 import Theme from '../constants/theme';
+  const { height, width } = Dimensions.get('window');
+
 
 const spacing = {
   xsmall: 5,
@@ -31,7 +33,7 @@ export default StyleSheet.create({
     flexGrow: 1,
     minHeight: Dimensions.get('window').height - (STATUS_BAR_HEIGHT),
   },
-   form: {
+  form: {
     marginTop: 20,
   },
   section: {
@@ -112,10 +114,15 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_Regular',
   },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', 
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1000, 
   },
   modalContainer: {
     width: '90%',
@@ -192,18 +199,45 @@ export default StyleSheet.create({
     lineHeight: 24,
     fontFamily: 'Poppins_Regular',
     textAlign: 'center',
- },
- icon: {
-   marginBottom: 15,
- },
-sectionTitleContainer: {
-   flexDirection: 'row',
-   alignItems: 'center',
+  },
+  icon: {
+    marginBottom: 15,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  organizationText: {
+    fontSize: 16,
+    fontFamily: 'Poppins_Regular',
+    color: Theme.colors.text,
+    marginLeft: 8,
+  },
+  modalHeader: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    alignItems: 'center',
+  },
+  modalSectionTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins_SemiBold',
+    marginTop: 10,
+    marginBottom: 5,
+    color: Theme.colors.black,
 },
-organizationText: {
-  fontSize: 16,
- fontFamily: 'Poppins_Regular',
-  color: Theme.colors.text,
-  marginLeft: 8,
-      },
+ modalListItem: {
+    fontSize: 14,
+    fontFamily: 'Poppins_Regular',
+    color: '#442424ff',
+    marginLeft: 20,
+    marginBottom: 5,
+    lineHeight: 20,
+ },
+modalFooter: {
+    padding: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    alignItems: 'center',
+  },
 });

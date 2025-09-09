@@ -2,97 +2,91 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, ToastAndroid, TouchableOpacity, View, Text } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, ToastAndroid, TouchableOpacity, View, Text } from 'react-native';
 import * as FileSystem from 'expo-file-system';
-import { auth, database } from '../configuration/firebaseConfig';
+import { database } from '../configuration/firebaseConfig';
+import { useAuth } from '../context/AuthContext';
 import Theme from '../constants/theme';
 import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/CallForDonationsStyles';
 import { LinearGradient } from 'expo-linear-gradient';
-import { logActivity } from '../components/logActivity';
-import { logSubmission } from '../components/logSubmission';
+import { logActivity, logSubmission } from '../components/logSubmission';
+import useOperationCheck from '../components/useOperationCheck';
+import OperationCustomModal from '../components/OperationCustomModal';
 
 const CallForDonationsSummary = () => {
   const route = useRoute();
   const { formData = {}, image = null } = route.params || {};
   const navigation = useNavigation();
+  const { user } = useAuth();
+  const { canSubmit, organizationName, modalVisible: opModalVisible, setModalVisible: setOpModalVisible, modalConfig: opModalConfig } = useOperationCheck();
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [userUid, setUserUid] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [organizationName, setOrganizationName] = useState('Loading...');
   const [formDataState, setFormDataState] = useState(formData);
   const [imageState, setImageState] = useState(image);
 
   useEffect(() => {
-    console.log('Received params in CallForDonationsSummary:', { formData, image });
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        setUserUid(user.uid);
-        console.log('Logged-in user UID:', user.uid);
-        try {
-          const userRef = databaseRef(database, `users/${user.uid}`);
-          const snapshot = await get(userRef);
-          const userData = snapshot.val();
-          if (userData && userData.organization) {
-            setOrganizationName(userData.organization);
-          } else {
-            console.warn('No organization found for user:', user.uid);
-            setOrganizationName('Unknown Organization');
-            ToastAndroid.show('No organization found in your profile. Using default name.', ToastAndroid.BOTTOM);
-          }
-        } catch (error) {
-          console.error('Error fetching organization name:', error.message);
-          setOrganizationName('Unknown Organization');
-          ToastAndroid.show('Failed to fetch organization name: ' + error.message, ToastAndroid.BOTTOM);
+    const validateUser = async () => {
+      try {
+        if (!user) {
+          throw new Error('No authenticated user found');
         }
-      } else {
-        console.warn('No user is logged in');
-        setErrorMessage('Please log in to submit a donation.');
-        setModalVisible(true);
-      }
-    }, (error) => {
-      console.error('Auth state listener error:', error.message);
-      setErrorMessage('Authentication error: ' + error.message);
-      setModalVisible(true);
-    });
 
-    return () => unsubscribe();
-  }, []);
+        const userRef = databaseRef(database, `users/${user.id}`);
+        const snapshot = await get(userRef);
+        const userData = snapshot.val();
+
+        if (userData?.password_needs_reset) {
+          throw new Error('Password reset required');
+        }
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error validating user:`, error.message);
+        setErrorMessage(error.message === 'Password reset required' ? 'Please change your password.' : 'Failed to load user data.');
+        setModalVisible(true);
+        if (error.message === 'Password reset required') {
+          navigation.navigate('Profile');
+        }
+      }
+    };
+
+    validateUser();
+  }, [user, navigation]);
 
   const formatLabel = (key) => {
-    return (
-      (key === 'facebookLink' ? 'Facebook Link' : key)
-        .replace(/([A-Z])/g, ' $1')
-        .trim()
-        .replace(/^./, (str) => str.toUpperCase())
-    );
+    return key === 'facebookLink'
+      ? 'Facebook Link'
+      : key
+          .replace(/([A-Z])/g, ' $1')
+          .trim()
+          .replace(/^./, (str) => str.toUpperCase());
   };
 
   const getBase64Image = async (uri) => {
     if (!uri) {
-      console.warn('No image URI provided');
       ToastAndroid.show('No image selected. Proceeding without an image.', ToastAndroid.BOTTOM);
       return '';
     }
+
     try {
-      console.log('Converting image to Base64:', uri);
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
       const mimeType = uri.endsWith('.png') ? 'image/png' : 'image/jpeg';
       return `data:${mimeType};base64,${base64}`;
     } catch (error) {
-      console.error('Failed to convert image to Base64:', error, error.message, error.stack);
-      setErrorMessage(`Failed to process image: ${error.message}`);
-      setModalVisible(true);
-      throw error;
+      console.error(`[${new Date().toISOString()}] Failed to convert image to Base64:`, error.message);
+      throw new Error(`Failed to process image: ${error.message}`);
     }
   };
 
   const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
     try {
+      if (!message || !requestRefKey || !contactPerson || !volunteerOrganization) {
+        throw new Error('Missing required notification parameters');
+      }
+
       const notificationRef = databaseRef(database, 'notifications');
       await push(notificationRef, {
         message,
@@ -101,37 +95,34 @@ const CallForDonationsSummary = () => {
         volunteerOrganization,
         timestamp: serverTimestamp(),
       });
-      console.log('Admin notified successfully:', message);
+
     } catch (error) {
-      console.error('Failed to notify admin:', error.message);
+      console.error(`[${new Date().toISOString()}] Failed to notify admin:`, error.message);
     }
   };
 
   const handleSubmit = async () => {
-    if (!auth.currentUser) {
-      console.error('No authenticated user found');
-      setErrorMessage('Please log in to submit a donation.');
-      setModalVisible(true);
-      return;
-    }
-    if (!userUid) {
-      console.error('No user UID available. Cannot submit donation.');
-      setErrorMessage('User not authenticated. Please log in again.');
-      setModalVisible(true);
-      return;
-    }
-    if (isLoading) return;
-    setIsLoading(true);
-
     try {
-      console.log('Submitting donation with formData:', formDataState, 'and image URI:', imageState);
-      console.log('Database object:', database);
-      let imageBase64 = '';
-      if (imageState) {
-        imageBase64 = await getBase64Image(imageState);
-      } else {
-        console.log('No image URI provided, proceeding without image');
+      if (!canSubmit) {
+        setOpModalVisible(true);
+        return;
       }
+
+      if (!user) {
+        throw new Error('No authenticated user found');
+      }
+
+      if (isLoading) {
+        return;
+      }
+
+      setIsLoading(true);
+
+      if (!database) {
+        throw new Error('Database reference is not available');
+      }
+
+      const imageBase64 = imageState ? await getBase64Image(imageState) : '';
 
       const newDonation = {
         donationId: `DONATION-${Math.floor(100 + Math.random() * 900)}`,
@@ -154,39 +145,33 @@ const CallForDonationsSummary = () => {
           fullAddress: `${formDataState.street || ''}, ${formDataState.barangay || ''}, ${formDataState.city || ''}, ${formDataState.province || ''}`.trim(),
         },
         facebookLink: formDataState.facebookLink || 'N/A',
-        image: imageBase64 || '',
+        image: imageBase64,
         status: 'Pending',
-        userUid: userUid,
+        userUid: user.id,
+        organization: organizationName, // Add for consistency
         timestamp: serverTimestamp(),
       };
 
-      console.log('New donation object:', newDonation);
-      if (!database) {
-        throw new Error('Database reference is not available');
-      }
-
-      console.log('Creating database reference for callfordonation');
       const donationRef = databaseRef(database, 'callfordonation');
       const newDonationRef = push(donationRef);
       const submissionId = newDonationRef.key;
+
       await push(donationRef, newDonation);
 
-      // Notify admin
-      const message = `New donation request submitted by ${formDataState.contactPerson || 'Unknown'} from ${organizationName} for ${formDataState.donationDrive || 'Donation Drive'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      const message = `New donation request submitted by ${formDataState.contactPerson || 'Admin'} from ${organizationName} for ${formDataState.donationDrive || 'Donation Drive'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
       await notifyAdmin(message, submissionId, formDataState.contactPerson, organizationName);
 
-      await logActivity('Submitted a donation', submissionId);
-      await logSubmission('callfordonation', newDonation, submissionId);
-      console.log('Donation saved successfully:', newDonation);
+      // Updated calls with correct parameters
+      await logActivity('Submitted a donation', submissionId, user.id, organizationName);
+      await logSubmission('callfordonation', newDonation, submissionId, organizationName, user.id);
 
-      // Reset form data and image
+
       setFormDataState({});
       setImageState(null);
-
       setErrorMessage(null);
       setModalVisible(true);
     } catch (error) {
-      console.error('Error saving donation:', error.message, error.code, error.stack);
+      console.error(`[${new Date().toISOString()}] Error saving donation:`, error.message, error.code || 'N/A');
       setErrorMessage(`Failed to save donation: ${error.message} (${error.code || 'N/A'})`);
       setModalVisible(true);
     } finally {
@@ -213,14 +198,12 @@ const CallForDonationsSummary = () => {
   };
 
   const handleBack = () => {
-    console.log('Navigating back to CallForDonations with formData:', formDataState, 'and image:', imageState);
     navigation.navigate('CallforDonations', { formData: formDataState, image: imageState });
   };
 
   return (
     <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
@@ -231,7 +214,7 @@ const CallForDonationsSummary = () => {
           <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
             <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={[GlobalStyles.headerTitle]}>Call for Donations </Text>
+          <Text style={GlobalStyles.headerTitle}>Call for Donations</Text>
         </View>
       </LinearGradient>
 
@@ -241,8 +224,8 @@ const CallForDonationsSummary = () => {
         keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollViewContent]}
-          scrollEnabled={true}
+          contentContainerStyle={styles.scrollViewContent}
+          scrollEnabled
           keyboardShouldPersistTaps="handled"
         >
           <View style={GlobalStyles.form}>
@@ -264,9 +247,7 @@ const CallForDonationsSummary = () => {
               ].map((field) => (
                 <View key={field} style={styles.fieldContainer}>
                   <Text style={styles.label}>{formatLabel(field)}:</Text>
-                  <Text style={styles.value}>
-                    {formDataState[field] || 'N/A'}
-                  </Text>
+                  <Text style={styles.value}>{formDataState[field] || 'N/A'}</Text>
                 </View>
               ))}
               <View style={styles.fieldContainer}>
@@ -276,7 +257,7 @@ const CallForDonationsSummary = () => {
                     source={{ uri: imageState }}
                     style={GlobalStyles.image}
                     resizeMode="contain"
-                    onError={(e) => console.error('Image load error:', e.nativeEvent.error)}
+                    onError={(e) => console.error(`[${new Date().toISOString()}] Image load error:`, e.nativeEvent.error)}
                   />
                 ) : (
                   <Text style={styles.value}>No image uploaded</Text>
@@ -287,7 +268,11 @@ const CallForDonationsSummary = () => {
               <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack} disabled={isLoading}>
                 <Text style={GlobalStyles.backButtonText}>Back</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={GlobalStyles.submitButton} onPress={handleSubmit} disabled={isLoading}>
+              <TouchableOpacity
+                style={[GlobalStyles.submitButton, !canSubmit && { opacity: 0.6 }]}
+                onPress={handleSubmit}
+                disabled={isLoading || !canSubmit}
+              >
                 <Text style={GlobalStyles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit'}</Text>
               </TouchableOpacity>
             </View>
@@ -299,28 +284,16 @@ const CallForDonationsSummary = () => {
         visible={modalVisible}
         title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
-          <View style={styles.modalContent}>
+          <View style={GlobalStyles.modalContent}>
             {errorMessage ? (
               <>
-                <Ionicons
-                  name="warning-outline"
-                  size={60}
-                  color="#FF0000"
-                  style={styles.modalIcon}
-                />
-                <Text style={styles.modalMessage}>{errorMessage}</Text>
+                <Ionicons name="warning-outline" size={60} color={Theme.colors.red} style={GlobalStyles.modalIcon} />
+                <Text style={GlobalStyles.modalMessage}>{errorMessage}</Text>
               </>
             ) : (
               <>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={60}
-                  color={Theme.colors.primary}
-                  style={styles.modalIcon}
-                />
-                <Text style={styles.modalMessage}>
-                  Your donation request has been successfully submitted!
-                </Text>
+                <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={GlobalStyles.modalIcon} />
+                <Text style={GlobalStyles.modalMessage}>Your donation request has been successfully submitted!</Text>
               </>
             )}
           </View>
@@ -329,6 +302,15 @@ const CallForDonationsSummary = () => {
         onCancel={handleCancel}
         confirmText={errorMessage ? 'Retry' : 'Proceed'}
         showCancel={false}
+      />
+
+      <CustomModal
+        visible={opModalVisible}
+        title={opModalConfig.title}
+        message={opModalConfig.message}
+        onConfirm={opModalConfig.onConfirm}
+        confirmText={opModalConfig.confirmText}
+        showCancel={opModalConfig.showCancel}
       />
     </SafeAreaView>
   );

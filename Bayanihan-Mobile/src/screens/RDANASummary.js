@@ -1,151 +1,65 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
-import { signInAnonymously } from 'firebase/auth';
-import { ref as databaseRef, push, get, serverTimestamp } from 'firebase/database';
+import { ref as databaseRef, push, serverTimestamp } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
-import { auth, database } from '../configuration/firebaseConfig';
-import CustomModal from '../components/CustomModal';
+import { database } from '../configuration/firebaseConfig';
+import OperationCustomModal from '../components/OperationCustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/RDANAStyles';
 import Theme from '../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import { logActivity } from '../components/logActivity';
-import { logSubmission } from '../components/logSubmission';
+import { logActivity, logSubmission } from '../components/logSubmission';
+import { useAuth } from '../context/AuthContext';
+import CustomModal from '../components/CustomModal';
 
 const RDANASummary = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const [reportData, setReportData] = useState(route.params?.reportData || {});
-  const [affectedMunicipalities, setAffectedMunicipalities] = useState(route.params?.affectedMunicipalities || []);
+  const { user } = useAuth();
+  const { reportData: initialReportData = {}, affectedMunicipalities: initialMunicipalities = [], organizationName = user.organization || 'Admin' } = route.params || {};
+  const [reportData, setReportData] = useState(initialReportData);
+  const [affectedMunicipalities, setAffectedMunicipalities] = useState(initialMunicipalities);
   const [modalVisible, setModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [userUid, setUserUid] = useState(null);
-  const [organizationName, setOrganizationName] = useState('[Unknown Organization]');
   const [errorMessage, setErrorMessage] = useState(null);
 
-  // Validate incoming data
-  if (!reportData || typeof reportData !== 'object') {
-    console.warn('Invalid reportData received:', reportData);
-    Alert.alert('Error', 'Invalid report data. Please return and fill the form again.');
-    return null;
-  }
-
-  if (!Array.isArray(affectedMunicipalities)) {
-    console.warn('Invalid affectedMunicipalities received:', affectedMunicipalities);
-    Alert.alert('Error', 'Invalid municipalities data.');
-    return null;
-  }
-
-  // Helper function to sanitize keys for Firebase (preserve single underscores)
-  const sanitizeKey = (key) => {
-    return key
-      .replace(/[.#$/[\]]/g, '_') // Replace invalid Firebase characters
-      .replace(/\s+/g, '_') // Replace spaces with underscore
-      .replace(/[^a-zA-Z0-9_]/g, '') // Remove other special characters
-      .replace(/_+/g, '_'); // Collapse multiple underscores to single
-  };
-
-  // Format label for display
-  const formatLabel = (key) => {
-    return key
-      .replace(/_/g, ' ') // Replace underscores with spaces
-      .replace(/([A-Z])/g, ' $1') // Add space before capital letters
-      .trim()
-      .split(' ')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-
-  // Fetch user data and organization name
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        // Load organization from AsyncStorage
-        const storedOrg = await AsyncStorage.getItem('organizationName');
-        if (storedOrg) {
-          setOrganizationName(storedOrg);
-          console.log('Organization name loaded from storage:', storedOrg);
-        }
-
-        const unsubscribe = auth.onAuthStateChanged(async (user) => {
-          if (user) {
-            setUserUid(user.uid);
-            console.log('Logged-in user UID:', user.uid);
-            const userRef = databaseRef(database, `users/${user.uid}`);
-            const userSnapshot = await get(userRef);
-            const userData = userSnapshot.val();
-
-            if (!userData) {
-              console.error('User data not found for UID:', user.uid);
-              setErrorMessage('Your user profile is incomplete. Please contact support.');
-              setModalVisible(true);
-              navigation.navigate('Login');
-              return;
-            }
-
-            // Password reset check
-            if (userData.password_needs_reset) {
-              setErrorMessage('For security reasons, please change your password.');
-              setModalVisible(true);
-              navigation.navigate('Profile');
-              return;
-            }
-
-            const orgName = userData.organization || '[Unknown Organization]';
-            setOrganizationName(orgName);
-            await AsyncStorage.setItem('organizationName', orgName);
-            console.log('Organization:', orgName);
-          } else {
-            console.warn('No user is logged in');
-            setErrorMessage('User not authenticated. Please log in.');
-            setModalVisible(true);
-            navigation.navigate('Login');
-          }
-        }, (error) => {
-          console.error('Auth state listener error:', error.message);
-          setErrorMessage('Authentication error: ' + error.message);
-          setModalVisible(true);
-        });
-
-        return () => unsubscribe();
-      } catch (error) {
-        console.error('Error in fetchUserData:', error.message);
-        setErrorMessage('Failed to initialize user data: ' + error.message);
-        setModalVisible(true);
+    try {
+      if (!reportData || typeof reportData !== 'object') {
+        throw new Error('Invalid report data received');
       }
-    };
-
-    fetchUserData();
-  }, []);
-
-  // Debug organization name rendering
-  useEffect(() => {
-    console.log('Rendering with organizationName:', organizationName);
-  }, [organizationName]);
-
-  // Anonymous sign-in
-  useEffect(() => {
-    if (!auth.currentUser) {
-      signInAnonymously(auth)
-        .then((userCredential) => {
-          console.log('User signed in anonymously:', userCredential.user.uid);
-        })
-        .catch((error) => {
-          console.error('Anonymous login failed:', error.message);
-          setErrorMessage(error.message);
-          setModalVisible(true);
-        });
-    } else {
-      console.log('Already authenticated:', auth.currentUser?.uid);
+      if (!Array.isArray(affectedMunicipalities)) {
+        throw new Error('Invalid municipalities data received');
+      }
+      console.log(`[${new Date().toISOString()}] Received params:`, { reportData, affectedMunicipalities, organizationName });
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Validation error:`, error.message);
+      Alert.alert('Error', error.message);
+      setErrorMessage(error.message);
+      setModalVisible(true);
     }
-  }, []);
+  }, [reportData, affectedMunicipalities, organizationName]);
 
-  // Debug lifeline data in reportData
   useEffect(() => {
-    console.log('Received reportData:', reportData);
-    console.log('Lifeline data:', {
+    try {
+      if (!user) {
+        throw new Error('No authenticated user found');
+      }
+      console.log(`[${new Date().toISOString()}] Logged-in user ID:`, user.id);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Authentication error:`, error.message);
+      setErrorMessage('User not authenticated. Please log in.');
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+        navigation.navigate('Login');
+      }, 3000);
+    }
+  }, [user, navigation]);
+
+  useEffect(() => {
+    console.log(`[${new Date().toISOString()}] Lifeline data:`, {
       residentialHousesStatus: reportData.residentialhousesStatus,
       transportationAndMobilityStatus: reportData.transportationandmobilityStatus,
       electricityPowerGridStatus: reportData.electricitypowergridStatus,
@@ -157,8 +71,29 @@ const RDANASummary = () => {
     });
   }, [reportData]);
 
+  const sanitizeKey = (key) => {
+    return key
+      .replace(/[.#$/[\]]/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_]/g, '')
+      .replace(/_+/g, '_');
+  };
+
+  const formatLabel = (key) => {
+    return key
+      .replace(/_/g, ' ')
+      .replace(/([A-Z])/g, ' $1')
+      .trim()
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
     try {
+      if (!message || !requestRefKey || !contactPerson || !volunteerOrganization) {
+        throw new Error('Missing required notification parameters');
+      }
       const notificationRef = databaseRef(database, 'notifications');
       await push(notificationRef, {
         message,
@@ -167,150 +102,138 @@ const RDANASummary = () => {
         volunteerOrganization,
         timestamp: serverTimestamp(),
       });
-      console.log('Admin notified successfully:', message);
+      console.log(`[${new Date().toISOString()}] Admin notified:`, message);
     } catch (error) {
-      console.error('Failed to notify admin:', error.message);
+      console.error(`[${new Date().toISOString()}] Failed to notify admin:`, error.message);
     }
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
-    const user = auth.currentUser;
-    if (!user) {
-      console.error('No authenticated user found');
-      setErrorMessage('User not authenticated. Please log in.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-    console.log('Authenticated user UID:', user.uid);
-
-    if (Object.keys(reportData).length === 0 || affectedMunicipalities.length === 0) {
-      console.log('Validation failed: Incomplete form data', { reportData, affectedMunicipalities });
-      setErrorMessage('Form data is incomplete. Please ensure all fields are filled correctly.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-    console.log('Form data validated successfully');
-
-    // Priority needs
-    const priorityNeeds = [];
-    if (reportData.reliefPacks === 'Yes') priorityNeeds.push('Relief Packs');
-    if (reportData.hotMeals === 'Yes') priorityNeeds.push('Hot Meals');
-    if (reportData.hygieneKits === 'Yes') priorityNeeds.push('Hygiene Kits');
-    if (reportData.drinkingWater === 'Yes') priorityNeeds.push('Drinking Water');
-    if (reportData.ricePacks === 'Yes') priorityNeeds.push('Rice Packs');
-    if (reportData.otherNeeds) priorityNeeds.push(reportData.otherNeeds);
-
-    // Needs checklist
-    const needsChecklist = [
-      { item: 'Relief Packs', needed: reportData.reliefPacks === 'Yes' },
-      { item: 'Hot Meals', needed: reportData.hotMeals === 'Yes' },
-      { item: 'Hygiene Kits', needed: reportData.hygieneKits === 'Yes' },
-      { item: 'Drinking Water', needed: reportData.drinkingWater === 'Yes' },
-      { item: 'Rice Packs', needed: reportData.ricePacks === 'Yes' },
-      ...(reportData.otherNeeds ? [{ item: reportData.otherNeeds, needed: true }] : []),
-    ];
-
-    // Structure status
-    const structureStatus = [
-      { structure: 'Residential Houses', status: reportData.residentialhousesStatus || 'N/A' },
-      { structure: 'Transportation and Mobility', status: reportData.transportationandmobilityStatus || 'N/A' },
-      { structure: 'Electricity, Power Grid', status: reportData.electricitypowergridStatus || 'N/A' },
-      { structure: 'Communication Networks', status: reportData.communicationnetworksinternetStatus || 'N/A' },
-      { structure: 'Hospitals, Rural Health Units', status: reportData.hospitalsruralhealthunitsStatus || 'N/A' },
-      { structure: 'Water Supply System', status: reportData.watersupplysystemStatus || 'N/A' },
-      { structure: 'Market, Business, Commercial Establishments', status: reportData.marketbusinessandcommercialestablishmentsStatus || 'N/A' },
-      { structure: 'Others', status: reportData.othersStatus || 'N/A' },
-    ];
-
-    // Profile data
-    const profile = {
-      Site_Location_Address_Barangay: reportData.Site_Location_Address_Barangay || '',
-      Site_Location_Address_City_Municipality: reportData.Site_Location_Address_City_Municipality || '',
-      Site_Location_Address_Province: reportData.Site_Location_Address_Province || '',
-      Time_of_Information_Gathered: reportData.Time_of_Information_Gathered || '',
-      Time_of_Occurrence: reportData.Time_of_Occurrence || '',
-      Type_of_Disaster: reportData.Type_of_Disaster || '',
-      Date_of_Information_Gathered: reportData.Date_of_Information_Gathered || '',
-      Date_of_Occurrence: reportData.Date_of_Occurrence || '',
-      Local_Authorities_Persons_Contacted_for_Information: reportData.Local_Authorities_Persons_Contacted_for_Information || '',
-      Name_of_the_Organizations_Involved: reportData.Name_of_the_Organizations_Involved || '',
-      Locations_and_Areas_Affected_Barangay: reportData.Locations_and_Areas_Affected_Barangay || '',
-      Locations_and_Areas_Affected_City_Municipality: reportData.Locations_and_Areas_Affected_City_Municipality || '',
-      Locations_and_Areas_Affected_Province: reportData.Locations_and_Areas_Affected_Province || '',
-    };
-
-    // Firebase data structure
-    const reportDataForFirebase = {
-      rdanaId: `RDANA-${Math.floor(100 + Math.random() * 900)}`,
-      dateTime: new Date().toISOString(),
-      rdanaGroup: organizationName,
-      siteLocation: reportData.Site_Location_Address_Barangay || '',
-      disasterType: reportData.Type_of_Disaster || '',
-      effects: {
-        affectedPopulation: affectedMunicipalities.reduce((sum, c) => sum + (parseInt(c.affected) || 0), 0).toString(),
-        estQty: reportData.estQty || '',
-        familiesServed: reportData.familiesServed || '',
-      },
-      needs: {
-        priority: priorityNeeds,
-      },
-      needsChecklist,
-      profile,
-      modality: {
-        Locations_and_Areas_Affected: reportData.Locations_and_Areas_Affected_Barangay || '',
-        Type_of_Disaster: reportData.Type_of_Disaster || '',
-        Date_and_Time_of_Occurrence: `${reportData.Date_of_Occurrence || ''} ${reportData.Time_of_Occurrence || ''}`.trim(),
-      },
-      summary: reportData.summary || '',
-      affectedCommunities: affectedMunicipalities.map((community) => ({
-        community: community.community || '',
-        totalPop: community.totalPop || '',
-        affected: community.affected || '',
-        deaths: community.deaths || '',
-        injured: community.injured || '',
-        missing: community.missing || '',
-        children: community.children || '',
-        women: community.women || '',
-        seniors: community.seniors || '',
-        pwd: community.pwd || '',
-      })),
-      structureStatus,
-      otherNeeds: reportData.otherNeeds || '',
-      responseGroup: reportData.responseGroup || '',
-      reliefDeployed: reportData.reliefDeployed || '',
-      familiesServed: reportData.familiesServed || '',
-      userUid: user.uid,
-      status: 'Submitted',
-      timestamp: serverTimestamp(),
-    };
-
-    console.log('Prepared report data:', JSON.stringify(reportDataForFirebase, null, 2));
-
     try {
+      if (isSubmitting) {
+        console.warn(`[${new Date().toISOString()}] Submission already in progress`);
+        return;
+      }
+      if (!user) {
+        throw new Error('No authenticated user found');
+      }
+      if (Object.keys(reportData).length === 0 || affectedMunicipalities.length === 0) {
+        throw new Error('Incomplete form data');
+      }
+      if (!database) {
+        throw new Error('Database reference is not available');
+      }
+
+      setIsSubmitting(true);
+      console.log(`[${new Date().toISOString()}] Submitting RDANA report:`, reportData, affectedMunicipalities);
+
+      const priorityNeeds = [];
+      if (reportData.reliefPacks === 'Yes') priorityNeeds.push('Relief Packs');
+      if (reportData.hotMeals === 'Yes') priorityNeeds.push('Hot Meals');
+      if (reportData.hygieneKits === 'Yes') priorityNeeds.push('Hygiene Kits');
+      if (reportData.drinkingWater === 'Yes') priorityNeeds.push('Drinking Water');
+      if (reportData.ricePacks === 'Yes') priorityNeeds.push('Rice Packs');
+      if (reportData.otherNeeds) priorityNeeds.push('reportData.otherNeeds');
+
+      const needsChecklist = [
+        { item: 'Relief Packs', needed: reportData.reliefPacks === 'Yes' },
+        { item: 'Hot Meals', needed: reportData.hotMeals === 'Yes' },
+        { item: 'Hygiene Kits', needed: reportData.hygieneKits === 'Yes' },
+        { item: 'Drinking Water', needed: reportData.drinkingWater === 'Yes' },
+        { item: 'Rice Packs', needed: reportData.ricePacks === 'Yes' },
+        ...(reportData.otherNeeds ? [{ item: reportData.otherNeeds, needed: true }] : []),
+      ];
+
+      const structureStatus = [
+        { structure: 'Residential Houses', status: reportData.residentialhousesStatus || 'N/A' },
+        { structure: 'Transportation and Mobility', status: reportData.transportationandmobilityStatus || 'N/A' },
+        { structure: 'Electricity, Power Grid', status: reportData.electricitypowergridStatus || 'N/A' },
+        { structure: 'Communication Networks', status: reportData.communicationnetworksinternetStatus || 'N/A' },
+        { structure: 'Hospitals, Rural Health Units', status: reportData.hospitalsruralhealthunitsStatus || 'N/A' },
+        { structure: 'Water Supply System', status: reportData.watersupplysystemStatus || 'N/A' },
+        { structure: 'Market, Business, Commercial Establishments', status: reportData.marketbusinessandcommercialestablishmentsStatus || 'N/A' },
+        { structure: 'Others', status: reportData.othersStatus || 'N/A' },
+      ];
+
+      const profile = {
+        Site_Location_Address_Barangay: reportData.Site_Location_Address_Barangay || '',
+        Site_Location_Address_City_Municipality: reportData.Site_Location_Address_City_Municipality || '',
+        Site_Location_Address_Province: reportData.Site_Location_Address_Province || '',
+        Time_of_Information_Gathered: reportData.Time_of_Information_Gathered || '',
+        Time_of_Occurrence: reportData.Time_of_Occurrence || '',
+        Type_of_Disaster: reportData.Type_of_Disaster || '',
+        Date_of_Information_Gathered: reportData.Date_of_Information_Gathered || '',
+        Date_of_Occurrence: reportData.Date_of_Occurrence || '',
+        Local_Authorities_Persons_Contacted_for_Information: reportData.Local_Authorities_Persons_Contacted_for_Information || '',
+        Name_of_the_Organizations_Involved: reportData.Name_of_the_Organizations_Involved || '',
+        Locations_and_Areas_Affected_Barangay: reportData.Locations_and_Areas_Affected_Barangay || '',
+        Locations_and_Areas_Affected_City_Municipality: reportData.Locations_and_Areas_Affected_City_Municipality || '',
+        Locations_and_Areas_Affected_Province: reportData.Locations_and_Areas_Affected_Province || '',
+      };
+
+      const reportDataForFirebase = {
+        rdanaId: `RDANA-${Math.floor(100 + Math.random() * 900)}`,
+        dateTime: new Date().toISOString(),
+        rdanaGroup: organizationName,
+        siteLocation: reportData.Site_Location_Address_Barangay || '',
+        disasterType: reportData.Type_of_Disaster || '',
+        effects: {
+          affectedPopulation: affectedMunicipalities.reduce((sum, c) => sum + (parseInt(c.affected) || 0), 0).toString(),
+          estQty: reportData.estQty || '',
+        },
+        needs: {
+          priority: priorityNeeds,
+        },
+        needsChecklist,
+        profile,
+        modality: {
+          Locations_and_Areas_Affected: reportData.Locations_and_Areas_Affected_Barangay || '',
+          Type_of_Disaster: reportData.Type_of_Disaster || '',
+          Date_and_Time_of_Occurrence: `${reportData.Date_of_Occurrence || ''} ${reportData.Time_of_Occurrence || ''}`.trim(),
+        },
+        summary: reportData.summary || '',
+        affectedCommunities: affectedMunicipalities.map((community) => ({
+          community: community.community || '',
+          totalPop: community.totalPop || '',
+          affected: community.affected || '',
+          deaths: community.deaths || '',
+          injured: community.injured || '',
+          missing: community.missing || '',
+          children: community.children || '',
+          women: community.women || '',
+          seniors: community.seniors || '',
+          pwd: community.pwd || '',
+        })),
+        structureStatus,
+        otherNeeds: reportData.otherNeeds || '',
+        responseGroup: reportData.responseGroup || '',
+        reliefDeployed: reportData.reliefDeployed || '',
+        familiesServed: reportData.familiesServed || '',
+        userUid: user.id,
+        status: 'Submitted',
+        timestamp: serverTimestamp(),
+      };
+
       const submittedRef = databaseRef(database, 'rdana/submitted');
       const newReportRef = push(submittedRef);
       const submissionId = newReportRef.key;
       await push(submittedRef, reportDataForFirebase);
 
-      // Notify admin after successful save
       const message = `New RDANA report "${reportData.Type_of_Disaster || 'N/A'}" submitted by ${reportData.Prepared_By || 'Unknown'} from ${organizationName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
       await notifyAdmin(message, submissionId, reportData.Local_Authorities_Persons_Contacted_for_Information || 'Unknown', organizationName);
 
-      // Log submission
-      await logSubmission(user.uid, submissionId, 'RDANA', organizationName);
+      await logActivity('Submitted an RDANA report', submissionId, user.id, organizationName);
+      await logSubmission('rdana', reportDataForFirebase, submissionId, organizationName, user.id);
 
-      setErrorMessage(null);
-      setModalVisible(true);
+      console.log(`[${new Date().toISOString()}] RDANA report submitted:`, submissionId);
+
       setReportData({});
       setAffectedMunicipalities([]);
+      setErrorMessage(null);
+      setModalVisible(true);
     } catch (error) {
-      console.error('Error saving RDANA report to Firebase:', error);
-      console.error('Error code:', error.code || 'N/A');
-      console.error('Error message:', error.message);
-      setErrorMessage(`Failed to submit RDANA report: ${error.message}`);
+      console.error(`[${new Date().toISOString()}] Error saving RDANA report:`, error.message, error.code || 'N/A');
+      setErrorMessage(`Failed to submit RDANA report: ${error.message} (${error.code || 'N/A'})`);
       setModalVisible(true);
     } finally {
       setIsSubmitting(false);
@@ -318,10 +241,9 @@ const RDANASummary = () => {
   };
 
   const handleConfirm = () => {
-    console.log('Confirm button pressed, closing modal');
+    console.log(`[${new Date().toISOString()}] Confirm button pressed`);
     setModalVisible(false);
     if (!errorMessage) {
-      // Reset navigation stack to Volunteer Dashboard
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -334,7 +256,7 @@ const RDANASummary = () => {
   };
 
   const handleCancel = () => {
-    console.log('Cancel button pressed');
+    console.log(`[${new Date().toISOString()}] Cancel button pressed`);
     setModalVisible(false);
     if (errorMessage) {
       navigation.navigate('Login');
@@ -342,7 +264,8 @@ const RDANASummary = () => {
   };
 
   const handleBack = () => {
-    navigation.navigate('RDANAScreen', { reportData, affectedMunicipalities });
+    console.log(`[${new Date().toISOString()}] Navigating back with data:`, reportData, affectedMunicipalities);
+    navigation.navigate('RDANAScreen', { reportData, affectedMunicipalities, organizationName });
   };
 
   const renderMunicipalityItem = (item, index) => (
@@ -364,7 +287,6 @@ const RDANASummary = () => {
   return (
     <SafeAreaView style={GlobalStyles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
@@ -385,14 +307,13 @@ const RDANASummary = () => {
         keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollViewContent]}
-          scrollEnabled={true}
+          contentContainerStyle={styles.scrollViewContent}
+          scrollEnabled
           keyboardShouldPersistTaps="handled"
         >
           <View style={GlobalStyles.form}>
             <Text style={GlobalStyles.subheader}>Summary</Text>
             <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
-            {/* Profile of the Disaster */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Profile of the Disaster</Text>
               {[
@@ -411,7 +332,6 @@ const RDANASummary = () => {
               ))}
             </View>
 
-            {/* Modality */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Modality</Text>
               {[
@@ -430,12 +350,11 @@ const RDANASummary = () => {
               ))}
             </View>
 
-            {/* Initial Effects */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Initial Effects</Text>
               <Text style={styles.sectionSubtitle}>Affected Municipalities</Text>
               {affectedMunicipalities.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                <ScrollView horizontal showsHorizontalScrollIndicator>
                   <View style={styles.summaryTable}>
                     <View style={[styles.summaryTableHeader, { minWidth: 1150 }]}>
                       <Text style={[styles.summaryTableHeaderCell, { minWidth: 50 }]}>#</Text>
@@ -458,7 +377,6 @@ const RDANASummary = () => {
               )}
             </View>
 
-            {/* Status of Lifelines */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities</Text>
               {[
@@ -478,7 +396,6 @@ const RDANASummary = () => {
               ))}
             </View>
 
-            {/* Initial Needs Assessment */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Initial Needs Assessment Checklist</Text>
               {[
@@ -499,7 +416,6 @@ const RDANASummary = () => {
               ))}
             </View>
 
-            {/* Initial Response Actions */}
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Initial Response Actions</Text>
               {[
@@ -515,7 +431,7 @@ const RDANASummary = () => {
             </View>
 
             <View style={GlobalStyles.finalButtonContainer}>
-              <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack}>
+              <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack} disabled={isSubmitting}>
                 <Text style={GlobalStyles.backButtonText}>Back</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -529,20 +445,21 @@ const RDANASummary = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
       <CustomModal
         visible={modalVisible}
         title={errorMessage ? 'Error' : 'Request Submitted'}
         message={
-          <View style={styles.modalContent}>
+          <View style={GlobalStyles.modalContent}>
             {errorMessage ? (
               <>
-                <Ionicons name="warning-outline" size={60} color="#FF0000" style={styles.modalIcon} />
-                <Text style={styles.modalMessage}>{errorMessage}</Text>
+                <Ionicons name="warning-outline" size={60} color={Theme.colors.red} style={GlobalStyles.modalIcon} />
+                <Text style={GlobalStyles.modalMessage}>{errorMessage}</Text>
               </>
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={60} color="#00BCD4" style={styles.modalIcon} />
-                <Text style={styles.modalMessage}>Your RDANA report has been successfully submitted!</Text>
+                <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={GlobalStyles.modalIcon} />
+                <Text style={GlobalStyles.modalMessage}>Your RDANA report has been successfully submitted!</Text>
               </>
             )}
           </View>
@@ -550,7 +467,7 @@ const RDANASummary = () => {
         onConfirm={handleConfirm}
         onCancel={handleCancel}
         confirmText={errorMessage ? 'Retry' : 'Proceed'}
-        showCancel={errorMessage ? true : false}
+        showCancel={errorMessage}
       />
     </SafeAreaView>
   );

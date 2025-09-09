@@ -12,50 +12,37 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.primary,
      overflow: 'hidden',
   },
-  userHeader: {
-    padding: 20,
-    paddingTop: 80,
-    marginLeft: -15,
-    marginRight: -15,
-    marginTop: -70,
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'column',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
+    userHeader: {
+      flexDirection: 'row',   
+      alignItems: 'center',  
+      padding: 10,      
+      borderBottomColor: Theme.colors.white,
+      borderBottomWidth: 1,
+      position: 'relative'    
   },
-  header: {
-    position: 'absolute',
-    width: '80%',
-    top: 80,
-    left: 90,
-    marginRight: -15,
+    profileImage: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,      
+      marginRight: 15,   
+      backgroundColor: Theme.colors.lightBg,
   },
-  profileImage: {
-    height: 60,
-    width: 60,
-    borderRadius: 40,
-    marginBottom: 10,
+    header: {
+      flexDirection: 'column', 
+      justifyContent: 'center',
   },
   organization: {
     fontSize: 14,
     color: Theme.colors.white,
-    marginTop: 4,
     fontFamily: 'Poppins_Regular',
   },
   organizationContainer: {
     minHeight: 20,
   },
-  userRole: {
-    color: Theme.colors.white,
-    fontFamily: 'Poppins_Regular',
-    marginRight: 5,
-    fontSize: 12,
-  },
   userName: {
     color: Theme.colors.white,
     fontSize: 15,
     fontFamily: 'Poppins_Bold',
-    marginBottom: 5,
   },
   drawerListContainer: {
     flex: 1,
