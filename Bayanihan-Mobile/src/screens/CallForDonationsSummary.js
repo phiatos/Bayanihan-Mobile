@@ -11,7 +11,7 @@ import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/CallForDonationsStyles';
 import { LinearGradient } from 'expo-linear-gradient';
-import {logActivity, logSubmission } from '../components/logSubmission';
+import { logActivity, logSubmission } from '../components/logSubmission';
 import useOperationCheck from '../components/useOperationCheck';
 import OperationCustomModal from '../components/OperationCustomModal';
 
@@ -33,8 +33,6 @@ const CallForDonationsSummary = () => {
         if (!user) {
           throw new Error('No authenticated user found');
         }
-
-        console.log(`[${new Date().toISOString()}] Received params:`, { formData, image });
 
         const userRef = databaseRef(database, `users/${user.id}`);
         const snapshot = await get(userRef);
@@ -67,13 +65,11 @@ const CallForDonationsSummary = () => {
 
   const getBase64Image = async (uri) => {
     if (!uri) {
-      console.warn(`[${new Date().toISOString()}] No image URI provided`);
       ToastAndroid.show('No image selected. Proceeding without an image.', ToastAndroid.BOTTOM);
       return '';
     }
 
     try {
-      console.log(`[${new Date().toISOString()}] Converting image to Base64:`, uri);
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
@@ -100,7 +96,6 @@ const CallForDonationsSummary = () => {
         timestamp: serverTimestamp(),
       });
 
-      console.log(`[${new Date().toISOString()}] Admin notified:`, message);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Failed to notify admin:`, error.message);
     }
@@ -118,7 +113,6 @@ const CallForDonationsSummary = () => {
       }
 
       if (isLoading) {
-        console.warn(`[${new Date().toISOString()}] Submission already in progress`);
         return;
       }
 
@@ -128,7 +122,6 @@ const CallForDonationsSummary = () => {
         throw new Error('Database reference is not available');
       }
 
-      console.log(`[${new Date().toISOString()}] Submitting donation:`, formDataState, imageState);
       const imageBase64 = imageState ? await getBase64Image(imageState) : '';
 
       const newDonation = {
@@ -155,6 +148,7 @@ const CallForDonationsSummary = () => {
         image: imageBase64,
         status: 'Pending',
         userUid: user.id,
+        organization: organizationName, // Add for consistency
         timestamp: serverTimestamp(),
       };
 
@@ -164,13 +158,13 @@ const CallForDonationsSummary = () => {
 
       await push(donationRef, newDonation);
 
-      const message = `New donation request submitted by ${formDataState.contactPerson || 'Unknown'} from ${organizationName} for ${formDataState.donationDrive || 'Donation Drive'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      const message = `New donation request submitted by ${formDataState.contactPerson || 'Admin'} from ${organizationName} for ${formDataState.donationDrive || 'Donation Drive'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
       await notifyAdmin(message, submissionId, formDataState.contactPerson, organizationName);
 
-      await logActivity(user.id, 'Submitted a donation', submissionId);
-      await logSubmission('callfordonation', newDonation, submissionId, organizationName);
+      // Updated calls with correct parameters
+      await logActivity('Submitted a donation', submissionId, user.id, organizationName);
+      await logSubmission('callfordonation', newDonation, submissionId, organizationName, user.id);
 
-      console.log(`[${new Date().toISOString()}] Donation saved successfully:`, submissionId);
 
       setFormDataState({});
       setImageState(null);
@@ -204,7 +198,6 @@ const CallForDonationsSummary = () => {
   };
 
   const handleBack = () => {
-    console.log(`[${new Date().toISOString()}] Navigating back with formData:`, formDataState, 'image:', imageState);
     navigation.navigate('CallforDonations', { formData: formDataState, image: imageState });
   };
 

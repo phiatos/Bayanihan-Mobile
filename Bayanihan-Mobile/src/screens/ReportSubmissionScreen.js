@@ -36,10 +36,19 @@ const ReportSubmissionScreen = () => {
   const formatDate = (date) => {
     if (!date) return '';
     const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const displayDate = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
+    return `${day}/${month}/${year}`;
   };
 
   const formatTime = (date) => {
@@ -118,85 +127,85 @@ const ReportSubmissionScreen = () => {
     'TotalMonetaryDonations',
   ];
 
-useEffect(() => {
-  setIsLoading(true);
-  const timeoutId = setTimeout(() => {
-    setLoadingError('Operation timed out while fetching user data.');
-    setIsLoading(false);
-    setModalConfig({
-      title: 'Loading Error',
-      message: 'Failed to load user data due to timeout. Please try again.',
-      onConfirm: () => {
-        setModalVisible(false);
-        navigation.navigate('Volunteer Dashboard');
-      },
-      confirmText: 'OK',
-    });
-    setModalVisible(true);
-  }, 10000);
+  useEffect(() => {
+    setIsLoading(true);
+    const timeoutId = setTimeout(() => {
+      setLoadingError('Operation timed out while fetching user data.');
+      setIsLoading(false);
+      setModalConfig({
+        title: 'Loading Error',
+        message: 'Failed to load user data due to timeout. Please try again.',
+        onConfirm: () => {
+          setModalVisible(false);
+          navigation.navigate('Volunteer Dashboard');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+    }, 10000);
 
-  if (!user) {
-    console.warn('No user is logged in');
-    setLoadingError('No authenticated user found');
-    setModalConfig({
-      title: 'Error',
-      message: 'Please log in to submit reports',
-      onConfirm: () => {
+    if (!user) {
+      console.warn('No user is logged in');
+      setLoadingError('No authenticated user found');
+      setModalConfig({
+        title: 'Error',
+        message: 'Please log in to submit reports',
+        onConfirm: () => {
+          setModalVisible(false);
+          navigation.navigate('Login');
+        },
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      setTimeout(() => {
         setModalVisible(false);
         navigation.navigate('Login');
-      },
-      confirmText: 'OK',
-    });
-    setModalVisible(true);
-    setTimeout(() => {
-      setModalVisible(false);
-      navigation.navigate('Login');
-    }, 3000);
-    clearTimeout(timeoutId);
+      }, 3000);
+      clearTimeout(timeoutId);
+      setIsLoading(false);
+      return;
+    }
+
+    setUserUid(user.id);
+    console.log('Logged-in user ID:', user.id);
     setIsLoading(false);
-    return;
-  }
+    clearTimeout(timeoutId);
 
-  setUserUid(user.id);
-  console.log('Logged-in user ID:', user.id);
-  setIsLoading(false);
-  clearTimeout(timeoutId);
+    const fetchActivations = () => {
+      if (isLoading) return () => {};
 
-  const fetchActivations = () => {
-    if (isLoading) return () => {};
+      const activationsRef = databaseRef(database, 'activations');
+      const activeQuery = query(activationsRef, orderByChild('status'), equalTo('active'));
+      const unsubscribe = onValue(
+        activeQuery,
+        (snapshot) => {
+          const activeActivations = [];
+          snapshot.forEach((childSnapshot) => {
+            const activation = { id: childSnapshot.key, ...childSnapshot.val() };
+            if (user.role === 'AB ADMIN') {
+              activeActivations.push(activation);
+            } else if (organizationName && activation.organization === organizationName) {
+              activeActivations.push(activation);
+            }
+          });
+          setActiveActivations(activeActivations);
+          console.log('Active activations fetched:', activeActivations);
+        },
+        (error) => {
+          console.error('Error listening for active activations:', error);
+          ToastAndroid.show('Failed to load active operations.', ToastAndroid.BOTTOM);
+        }
+      );
+      return unsubscribe;
+    };
 
-    const activationsRef = databaseRef(database, 'activations');
-    const activeQuery = query(activationsRef, orderByChild('status'), equalTo('active'));
-    const unsubscribe = onValue(
-      activeQuery,
-      (snapshot) => {
-        const activeActivations = [];
-        snapshot.forEach((childSnapshot) => {
-          const activation = { id: childSnapshot.key, ...childSnapshot.val() };
-          if (user.role === 'AB ADMIN') {
-            activeActivations.push(activation);
-          } else if (organizationName && activation.organization === organizationName) {
-            activeActivations.push(activation);
-          }
-        });
-        setActiveActivations(activeActivations);
-        console.log('Active activations fetched:', activeActivations);
-      },
-      (error) => {
-        console.error('Error listening for active activations:', error);
-        ToastAndroid.show('Failed to load active operations.', ToastAndroid.BOTTOM);
-      }
-    );
-    return unsubscribe;
-  };
+    const unsubscribe = fetchActivations();
 
-  const unsubscribe = fetchActivations();
-
-  return () => {
-    unsubscribe();
-    console.log(`[${new Date().toISOString()}] Cleaned up Firebase listener`);
-  };
-}, [user, organizationName, isLoading]);
+    return () => {
+      unsubscribe();
+      console.log(`[${new Date().toISOString()}] Cleaned up Firebase listener`);
+    };
+  }, [user, organizationName, isLoading]);
 
   useEffect(() => {
     if (!route.params?.reportData) {
@@ -208,12 +217,43 @@ useEffect(() => {
       return;
     }
 
-    setReportData(route.params.reportData);
+    const parseDate = (dateStr) => {
+      if (!dateStr) return '';
+      // Handle YYYY-MM-DD or DD-MM-YYYY formats
+      let date;
+      if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) {
+            // YYYY-MM-DD
+            date = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
+          } else {
+            // DD-MM-YYYY
+            date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+          }
+          if (!isNaN(date)) return formatDate(date);
+        }
+      }
+      return dateStr; // Fallback to original if parsing fails
+    };
+
+    setReportData({
+      ...route.params.reportData,
+      DateOfReport: parseDate(route.params.reportData.DateOfReport),
+      StartDate: parseDate(route.params.reportData.StartDate),
+      EndDate: parseDate(route.params.reportData.EndDate),
+    });
     if (route.params.reportData.StartDate) {
-      setTempDate(prev => ({ ...prev, StartDate: new Date(route.params.reportData.StartDate) }));
+      const startDate = new Date(parseDate(route.params.reportData.StartDate));
+      if (!isNaN(startDate)) {
+        setTempDate(prev => ({ ...prev, StartDate: startDate }));
+      }
     }
     if (route.params.reportData.EndDate) {
-      setTempDate(prev => ({ ...prev, EndDate: new Date(route.params.reportData.EndDate) }));
+      const endDate = new Date(parseDate(route.params.reportData.EndDate));
+      if (!isNaN(endDate)) {
+        setTempDate(prev => ({ ...prev, EndDate: endDate }));
+      }
     }
     if (route.params.reportData.completionTimeOfIntervention) {
       const [timePart, ampmPart] = route.params.reportData.completionTimeOfIntervention.split(' ');
@@ -239,11 +279,8 @@ useEffect(() => {
     if (route.params?.reportData?.calamityArea) {
       const savedActivation = activeActivations.find(
         (activation) => {
-          let displayCalamity = activation.calamityType;
-          if (activation.calamityType === 'Typhoon' && activation.typhoonName) {
-            displayCalamity += ` (${activation.typhoonName})`;
-          }
-          return `${displayCalamity} (by ${activation.organization})` === route.params.reportData.calamityArea;
+          const displayCalamity = `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`;
+          return displayCalamity === route.params.reportData.calamityArea;
         }
       );
       if (savedActivation) {
@@ -251,9 +288,7 @@ useEffect(() => {
           ...prev,
           calamityArea: route.params.reportData.calamityArea,
           CalamityType: savedActivation.calamityType,
-          CalamityName: savedActivation.calamityType === 'Typhoon' && savedActivation.typhoonName
-            ? savedActivation.typhoonName
-            : savedActivation.calamityType,
+          CalamityName: savedActivation.calamityName,
         }));
       }
     }
@@ -549,7 +584,7 @@ useEffect(() => {
     setShowDatePicker((prev) => ({ ...prev, [field]: false }));
     if (selectedDate) {
       setTempDate((prev) => ({ ...prev, [field]: selectedDate }));
-      const formattedDate = formatDate(selectedDate);
+      const formattedDate = formatDate(selectedDate); // Store as YYYY-MM-DD
       handleChange(field, formattedDate);
     }
   };
@@ -620,20 +655,15 @@ useEffect(() => {
       }));
     } else {
       const selectedActivation = activeActivations.find((activation) => {
-        let displayCalamity = activation.calamityType;
-        if (activation.calamityType === 'Typhoon' && activation.typhoonName) {
-          displayCalamity += ` (${activation.typhoonName})`;
-        }
-        return `${displayCalamity} (by ${activation.organization})` === value;
+        const displayCalamity = `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`;
+        return displayCalamity === value;
       });
       if (selectedActivation) {
         setReportData((prev) => ({
           ...prev,
           calamityArea: value,
           CalamityType: selectedActivation.calamityType,
-          CalamityName: selectedActivation.calamityType === 'Typhoon' && selectedActivation.typhoonName
-            ? selectedActivation.typhoonName
-            : selectedActivation.calamityType,
+          CalamityName: selectedActivation.calamityName,
         }));
       }
     }
@@ -1034,8 +1064,8 @@ useEffect(() => {
               {errors.AreaOfOperation && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.AreaOfOperation}</Text>}
               {renderLabel('Date of Report', true)}
               <View style={[GlobalStyles.input, errors.DateOfReport && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}>
-                <Text style={{ flex: 1, color: reportData.DateOfReport ? '#000' : '#999' }}>
-                  {reportData.DateOfReport || 'dd-mm-yyyy'}
+                <Text style={{ flex: 1, color: reportData.DateOfReport ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular' }}>
+                  {reportData.DateOfReport ? displayDate(new Date(reportData.DateOfReport)) : 'dd/mm/yyyy'}
                 </Text>
               </View>
               {errors.DateOfReport && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.DateOfReport}</Text>}
@@ -1054,26 +1084,24 @@ useEffect(() => {
                     height: 68,
                     width: '100%',
                     textAlign: 'center',
-                    color: reportData.calamityArea ? '#000' : '#999'
+                    color: reportData.calamityArea ? Theme.colors.black : Theme.colors.placeholderColor
+                  }}
+                  itemStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
                   }}
                   dropdownIconColor="#00BCD4"
                   enabled={canSubmit}
                 >
-                  <Picker.Item label="Select an Active Operation" value=""
-                    style={{ fontFamily: 'Poppins_Regular', textAlign: 'center', fontSize: 14 }} />
+                  <Picker.Item label="Select an Active Operation" value="" />
                   {activeActivations.map((activation) => {
-                    let displayCalamity = activation.calamityType;
-                    if (activation.calamityType === 'Typhoon' && activation.typhoonName) {
-                      displayCalamity += ` (${activation.typhoonName})`;
-                    }
-                    const organizationName = activation.organization || 'Admin';
-                    const calamityValue = `${displayCalamity} (by ${organizationName})`;
+                    const calamityDisplay = `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`;
                     return (
                       <Picker.Item
-                        style={{ fontFamily: 'Poppins_Regular', textAlign: 'center', fontSize: 14 }}
                         key={activation.id}
-                        label={calamityValue}
-                        value={calamityValue}
+                        label={calamityDisplay}
+                        value={calamityDisplay}
                       />
                     );
                   })}
@@ -1085,7 +1113,7 @@ useEffect(() => {
                 style={[GlobalStyles.input, errors.completionTimeOfIntervention && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, completionTimeOfIntervention: true }))}
               >
-                <Text style={{ flex: 1, color: reportData.completionTimeOfIntervention ? '#000' : '#999' }}>
+                <Text style={{ flex: 1, color: reportData.completionTimeOfIntervention ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular' }}>
                   {reportData.completionTimeOfIntervention || '--:-- --'}
                 </Text>
                 <Ionicons name="time" size={24} style={{ color: "#00BCD4" }} />
@@ -1096,6 +1124,7 @@ useEffect(() => {
                   mode="time"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   is24Hour={false}
+                  textColor={Theme.colors.black}
                   onChange={(event, time) => handleTimeChange('completionTimeOfIntervention', event, time)}
                 />
               )}
@@ -1105,8 +1134,8 @@ useEffect(() => {
                 style={[GlobalStyles.input, errors.StartDate && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, StartDate: true }))}
               >
-                <Text style={{ flex: 1, color: reportData.StartDate ? '#000' : '#999' }}>
-                  {reportData.StartDate || 'dd/mm/yyyy'}
+                <Text style={{ flex: 1, color: reportData.StartDate ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular' }}>
+                  {reportData.StartDate ? displayDate(new Date(reportData.StartDate)) : 'dd/mm/yyyy'}
                 </Text>
                 <Ionicons name="calendar" size={24} style={{ color: "#00BCD4" }} />
               </TouchableOpacity>
@@ -1115,6 +1144,7 @@ useEffect(() => {
                   value={tempDate.StartDate}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  textColor={Theme.colors.black}
                   onChange={(event, date) => handleDateChange('StartDate', event, date)}
                 />
               )}
@@ -1124,8 +1154,8 @@ useEffect(() => {
                 style={[GlobalStyles.input, errors.EndDate && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                 onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, EndDate: true }))}
               >
-                <Text style={{ flex: 1, color: reportData.EndDate ? '#000' : '#999' }}>
-                  {reportData.EndDate || 'dd/mm/yyyy'}
+                <Text style={{ flex: 1, color: reportData.EndDate ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular' }}>
+                  {reportData.EndDate ? displayDate(new Date(reportData.EndDate)) : 'dd/mm/yyyy'}
                 </Text>
                 <Ionicons name="calendar" size={24} color="#00BCD4" />
               </TouchableOpacity>
@@ -1134,6 +1164,7 @@ useEffect(() => {
                   value={tempDate.EndDate}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  textColor={Theme.colors.black}
                   onChange={(event, val) => handleDateChange('EndDate', event, val)}
                 />
               )}
@@ -1266,14 +1297,14 @@ useEffect(() => {
           height: '100%',
           margin: 0,
           padding: 0,
-          backgroundColor: '#fff',
+          backgroundColor: Theme.colors.lightBg,
         }}>
           {mapError ? (
             <View style={{
               flex: 1,
               justifyContent: 'center',
               alignItems: 'center',
-              backgroundColor: '#fff',
+              backgroundColor: Theme.colors.lightBg,
             }}>
               <Text style={{
                 color: Theme.colors.red,
@@ -1295,7 +1326,7 @@ useEffect(() => {
                 }}
               >
                 <Text style={{
-                  color: Theme.colors.red,white,
+                  color: '#fff',
                   fontSize: 16,
                   fontFamily: 'Poppins_Regular'
                 }}>Close</Text>
@@ -1475,7 +1506,7 @@ useEffect(() => {
               flex: 1,
               justifyContent: 'center',
               alignItems: 'center',
-              backgroundColor: '#fff',
+              backgroundColor: Theme.colors.lightBg,
             }}>
               <Text style={{
                 color: Theme.colors.primary,
@@ -1502,7 +1533,7 @@ useEffect(() => {
           backgroundColor: 'rgba(0,0,0,0.5)',
         }}>
           <View style={{
-            backgroundColor: '#fff',
+            backgroundColor: Theme.colors.lightBg,
             padding: 20,
             borderRadius: 10,
             alignItems: 'center',

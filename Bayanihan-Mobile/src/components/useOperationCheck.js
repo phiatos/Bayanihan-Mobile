@@ -3,10 +3,11 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { database } from '../configuration/firebaseConfig';
 import { ref as databaseRef, get, query, orderByChild, equalTo } from 'firebase/database';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const useOperationCheck = () => {
   const navigation = useNavigation();
-  const { user } = useAuth(); 
+  const { user } = useAuth();
   const [canSubmit, setCanSubmit] = useState(false);
   const [organizationName, setOrganizationName] = useState(null);
   const [modalConfig, setModalConfig] = useState({
@@ -18,22 +19,21 @@ const useOperationCheck = () => {
   });
   const [modalVisible, setModalVisible] = useState(false);
 
-  const showErrorModal = (title, message, redirectScreen = 'Volunteer Dashboard') => {
+  const showErrorModal = (title, message, redirectScreen = null) => {
+    console.log(`showErrorModal: title=${title}, message=${message}, redirectScreen=${redirectScreen}`);
     setModalConfig({
       title,
       message,
       onConfirm: () => {
         setModalVisible(false);
-        navigation.navigate(redirectScreen);
+        if (redirectScreen) {
+          navigation.navigate(redirectScreen);
+        }
       },
       confirmText: 'OK',
       showCancel: false,
     });
     setModalVisible(true);
-    setTimeout(() => {
-      setModalVisible(false);
-      navigation.navigate(redirectScreen);
-    }, 3000);
   };
 
   useEffect(() => {
@@ -43,21 +43,37 @@ const useOperationCheck = () => {
       }, 10000);
 
       try {
-        if (!user) {
-          throw new Error('No authenticated user found');
+        let currentUser = user;
+        if (!currentUser) {
+          const cachedUser = await AsyncStorage.getItem('user_session');
+          if (cachedUser) {
+            console.log('useOperationCheck: No user in AuthContext, using cached user:', JSON.parse(cachedUser).id);
+            currentUser = JSON.parse(cachedUser);
+          } else {
+            console.log('useOperationCheck: No authenticated user or cached user found');
+            showErrorModal('Authentication Error', 'Please log in to continue.', 'Login');
+            return;
+          }
         }
 
-        const userRole = user.role;
-        const orgName = user.organization || user.group || 'Admin';
+        const userRole = currentUser.role;
+        const orgName = currentUser.organization || currentUser.group || 'Admin';
         setOrganizationName(orgName);
+        console.log('useOperationCheck: userRole=', userRole, 'orgName=', orgName);
 
-      
-        const userRef = databaseRef(database, `users/${user.id}`);
-        const userSnapshot = await get(userRef);
-        const userData = userSnapshot.val();
+        const userRef = databaseRef(database, `users/${currentUser.id}`);
+        let userData = null;
+        try {
+          const userSnapshot = await get(userRef);
+          userData = userSnapshot.val();
+        } catch (error) {
+          console.warn('useOperationCheck: Failed to fetch user data:', error.message);
+          userData = currentUser;
+        }
 
         if (!userData) {
-          throw new Error('User data not found');
+          console.warn('useOperationCheck: No user data in database, using cached data');
+          userData = currentUser; 
         }
 
         if (userData.password_needs_reset) {
@@ -67,31 +83,39 @@ const useOperationCheck = () => {
 
         if (userRole === 'AB ADMIN') {
           setCanSubmit(true);
+          console.log('useOperationCheck: AB ADMIN role, canSubmit=true');
         } else if (userRole === 'ABVN') {
-          const activationsRef = query(
-            databaseRef(database, 'activations'),
-            orderByChild('organization'),
-            equalTo(orgName)
-          );
-          const activationsSnapshot = await get(activationsRef);
-          let hasActiveActivations = false;
-          activationsSnapshot.forEach((childSnapshot) => {
-            if (childSnapshot.val().status === 'active') {
-              hasActiveActivations = true;
-              return true;
-            }
-          });
+          try {
+            const activationsRef = query(
+              databaseRef(database, 'activations'),
+              orderByChild('organization'),
+              equalTo(orgName)
+            );
+            const activationsSnapshot = await get(activationsRef);
+            let hasActiveActivations = false;
+            activationsSnapshot.forEach((childSnapshot) => {
+              if (childSnapshot.val().status === 'active') {
+                hasActiveActivations = true;
+                return true;
+              }
+            });
 
-          if (hasActiveActivations) {
-            setCanSubmit(true);
-          } else {
-            showErrorModal('No Active Operations', 'Your organization has no active operations. You cannot submit at this time.');
+            if (hasActiveActivations) {
+              setCanSubmit(true);
+              console.log('useOperationCheck: Active operations found, canSubmit=true');
+            } else {
+              showErrorModal('No Active Operations', 'Your organization has no active operations. You cannot submit at this time.', 'Volunteer Dashboard');
+            }
+          } catch (error) {
+            console.warn('useOperationCheck: Failed to fetch activations:', error.message);
+            showErrorModal('Error', 'Failed to verify active operations. Please try again later.', 'Volunteer Dashboard');
           }
         } else {
-          showErrorModal('Permission Error', 'Your role does not permit submission.');
+          showErrorModal('Permission Error', 'Your role does not permit submission.', 'Volunteer Dashboard');
         }
       } catch (error) {
-        showErrorModal('Error', `Failed to verify permissions: ${error.message}`);
+        console.error('useOperationCheck: Error checking operations:', error.message);
+        showErrorModal('Error', `Failed to verify permissions: ${error.message}`, 'Volunteer Dashboard');
       } finally {
         clearTimeout(timeoutId);
       }
@@ -101,9 +125,9 @@ const useOperationCheck = () => {
     checkActiveOperations();
 
     return () => unsubscribeFocus();
-  }, [navigation, user]); 
+  }, [navigation, user]);
 
   return { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig };
 };
 
-export default useOperationCheck; 
+export default useOperationCheck;

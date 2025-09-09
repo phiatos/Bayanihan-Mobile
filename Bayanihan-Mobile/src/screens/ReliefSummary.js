@@ -9,14 +9,14 @@ import OperationCustomModal from '../components/OperationCustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReliefRequestStyles';
 import { LinearGradient } from 'expo-linear-gradient';
-import {logActivity,  logSubmission } from '../components/logSubmission'; 
+import { logActivity, logSubmission } from '../components/logSubmission'; 
 import { useAuth } from '../context/AuthContext';
   
 const ReliefSummary = () => {
-const navigation = useNavigation();
+  const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
-  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = 'Unknown Org' } = route.params || {};
+  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = 'Admin' } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [addedItems, setAddedItems] = useState(initialItems);
   const [modalVisible, setModalVisible] = useState(false);
@@ -61,6 +61,14 @@ const navigation = useNavigation();
     if (!user) {
       console.error('No user available. Cannot submit request.');
       setErrorMessage('User not authenticated. Please log in again.');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!organizationName || organizationName === 'Admin') {
+      console.error('Organization name not available.');
+      setErrorMessage('Organization name not loaded. Please try again.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
@@ -152,16 +160,13 @@ const navigation = useNavigation();
       console.log('Submitting request to Firebase:', newRequest);
       const requestRef = push(ref(database, 'requestRelief/requests'));
       const submissionId = requestRef.key;
-      const userRequestRef = ref(database, `users/${user.id}/requests/${submissionId}`);
-
       const message = `New relief request submitted by ${contactPerson} from ${organizationName} for ${donationCategory} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
       await notifyAdmin(message, submissionId, contactPerson, organizationName);
 
       await Promise.all([
         set(requestRef, newRequest),
-        set(userRequestRef, newRequest),
-        logActivity(user.id, 'Submitted a Relief Request', submissionId),
-        logSubmission('requestRelief/requests', newRequest, submissionId, organizationName || 'Admin'),
+        logActivity('Submitted a Relief Request', submissionId, user.id, organizationName),
+        logSubmission('requestRelief/requests', newRequest, submissionId, organizationName, user.id),  
       ]);
       console.log('Data saved to Firebase successfully');
 

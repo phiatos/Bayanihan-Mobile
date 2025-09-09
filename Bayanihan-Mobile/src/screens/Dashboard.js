@@ -97,12 +97,8 @@ const DashboardScreen = ({ navigation }) => {
             totalMonetaryDonations += parseFloat(report.TotalMonetaryDonations || 0);
             totalInKindDonations += parseFloat(report.TotalValueOfInKindDonations || 0);
           });
-
-          console.log(
-            `Totals for ${role} (UID: ${userId}) - Food Packs: ${totalFoodPacks}, Hot Meals: ${totalHotMeals}, Water Liters: ${totalWaterLiters}, Volunteers: ${totalVolunteers}, Monetary Donations: ${totalMonetaryDonations}, In-Kind Donations: ${totalInKindDonations}`,
-          );
         } else {
-          console.log('No approved reports found for this user.');
+          return;
         }
 
         setMetrics([
@@ -129,7 +125,6 @@ const DashboardScreen = ({ navigation }) => {
         ]);
       },
       (error) => {
-        console.error('Error fetching approved reports:', error);
         ToastAndroid.show('Failed to load dashboard data. Please try again later.', ToastAndroid.BOTTOM);
         setMetrics([
           { label: 'No. of Food Packs', value: '0', icon: 'food-variant' },

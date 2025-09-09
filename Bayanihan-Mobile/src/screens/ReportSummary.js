@@ -9,7 +9,7 @@ import CustomModal from '../components/CustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReportSubmissionStyles';
 import { LinearGradient } from 'expo-linear-gradient';
-import {logActivity, logSubmission } from '../components/logSubmission';
+import { logActivity, logSubmission } from '../components/logSubmission'; 
 import { useAuth } from '../context/AuthContext';
 
 const ReportSummary = () => {
@@ -46,14 +46,12 @@ const ReportSummary = () => {
       try {
         if (orgNameFromParams) {
           setOrganizationName(orgNameFromParams);
-          console.log(`[${new Date().toISOString()}] Using organization name from params:`, orgNameFromParams);
           return;
         }
         if (!user?.id) {
           throw new Error('No authenticated user ID available');
         }
 
-        console.log(`[${new Date().toISOString()}] Fetching organization name for user:`, user.id);
         const userRef = databaseRef(database, `users/${user.id}`);
         const snapshot = await get(userRef);
         const userData = snapshot.val();
@@ -66,7 +64,7 @@ const ReportSummary = () => {
         }
       } catch (error) {
         console.error(`[${new Date().toISOString()}] Error fetching organization name:`, error.message);
-        setOrganizationName('');
+        setOrganizationName(''); 
         ToastAndroid.show(`Failed to fetch organization name: ${error.message}`, ToastAndroid.BOTTOM);
       }
     };
@@ -154,6 +152,9 @@ const ReportSummary = () => {
       if (!reportData || Object.keys(reportData).length === 0) {
         throw new Error('Incomplete report data');
       }
+      if (!organizationName || organizationName === 'Loading...') {
+        throw new Error('Organization name not loaded');
+      }
 
       setIsLoading(true);
       console.log(`[${new Date().toISOString()}] Submitting report:`, reportData);
@@ -182,10 +183,9 @@ const ReportSummary = () => {
         NotesAdditionalInformation: reportData.NotesAdditionalInformation || 'No additional notes',
         status: 'Pending',
         userUid: user.id,
-        VolunteerGroupName: organizationName || 'Not Assigned',
+        VolunteerGroupName: organizationName,
         timestamp: serverTimestamp(),
-        organization: organizationName,
-        coordinates: reportData.coordinates || null,
+        // coordinates: reportData.coordinates || null,
       };
 
       const reportRef = databaseRef(database, 'reports/verification');
@@ -193,13 +193,11 @@ const ReportSummary = () => {
       const submissionId = newReportRef.key;
 
       await push(reportRef, newReport);
-      await push(databaseRef(database, 'reports/submitted'), newReport);
+      const message = `New report submitted by ${reportData.contactPerson || 'Admin'} from ${organizationName} for ${CalamityName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      await notifyAdmin(message, submissionId, reportData.contactPerson || 'Admin', organizationName);
 
-      const message = `New report submitted by ${reportData.contactPerson || 'Unknown'} from ${organizationName} for ${CalamityName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
-      await notifyAdmin(message, submissionId, reportData.contactPerson || 'Unknown', organizationName);
-
-      await logActivity(user.id, 'Submitted a report', submissionId);
-      await logSubmission('reports', newReport, submissionId, organizationName);
+      await logActivity('Submitted a report', submissionId, user.id, organizationName);
+      await logSubmission('reports', newReport, submissionId, organizationName, user.id);
 
       console.log(`[${new Date().toISOString()}] Report submitted successfully:`, submissionId);
 
@@ -285,8 +283,7 @@ const ReportSummary = () => {
             <View style={GlobalStyles.summarySection}>
               <Text style={GlobalStyles.summarySectionTitle}>Relief Operations</Text>
               {[
-                'CalamityType',
-                'CalamityName',
+                'calamityArea',
                 'completionTimeOfIntervention',
                 'StartDate',
                 'EndDate',

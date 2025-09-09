@@ -335,10 +335,10 @@ const CommentSection = () => {
       });
 
       await set(newCommentRef, commentData);
-      await logActivity(user.id, `Added a comment to post ${postId}`, submissionId, organization);
+      await logActivity(user.id, `Added a comment to post `, submissionId, organization);
       await logSubmission('comments', commentData, submissionId, organization);
 
-      console.log(`[${new Date().toISOString()}] Comment ${submissionId} added to post ${postId}:`, commentData);
+      console.log(`[${new Date().toISOString()}] Comment added to post :`, commentData);
       setNewComment('');
       setReplyToCommentId(null);
       setReplyToUsername(null);
@@ -431,13 +431,13 @@ const CommentSection = () => {
                 }
 
                 await remove(commentRef);
-                await logActivity(user.id, `Deleted a comment from post ${postId}`, submissionId, organization);
+                await logActivity(user.id, `Deleted a comment from post`, submissionId, organization);
                 await logSubmission('comments', deletionData, submissionId, organization);
 
-                console.log(`[${new Date().toISOString()}] Comment ${commentId} deleted from post ${postId}`);
+                console.log(`[${new Date().toISOString()}] Comment deleted from post`);
                 ToastAndroid.show('Comment deleted.', ToastAndroid.BOTTOM);
               } catch (error) {
-                console.error(`[${new Date().toISOString()}] Error deleting comment ${commentId} from post ${postId}:`, error.message, error.code || 'N/A');
+                console.error(`[${new Date().toISOString()}] Error deleting comment from post:`, error.message, error.code || 'N/A');
                 ToastAndroid.show(`Failed to delete comment: ${error.message}`, ToastAndroid.BOTTOM);
               }
             },

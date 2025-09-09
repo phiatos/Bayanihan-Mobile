@@ -9,10 +9,10 @@ import Theme from '../constants/theme';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import useOperationCheck from '../components/useOperationCheck';
-import styles from '../styles/TransactionStyles';
+import styles from '../styles/SubmissionStyles';
 import OperationCustomModal from '../components/OperationCustomModal';
 
-const TransactionDetailsScreen = () => {
+const SubmissionDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { item } = route.params;
@@ -97,8 +97,10 @@ const TransactionDetailsScreen = () => {
     'callfordonation.facebookLink': 'Facebook Link',
     'callfordonation.status': 'Status',
     'callfordonation.userUid': 'User ID',
+    'callfordonation.dateTime': 'Date & Time',
     'callfordonation.timestamp': 'Submission Time',
-    'callfordonation.organizationName': 'Organization Name',
+    'callfordonation.organization': 'Organization Name',
+    'callfordonation.image': 'Image',
     'posts.title': 'Post Title',
     'posts.content': 'Content',
     'posts.category': 'Category',
@@ -113,9 +115,10 @@ const TransactionDetailsScreen = () => {
     'rdana.rdanaGroup': 'Organization Name',
     'rdana.siteLocation': 'Site Location',
     'rdana.disasterType': 'Disaster Type',
+    'rdana.dateTime': 'Date & Time',
     'rdana.effects.affectedPopulation': 'Affected Population',
     'rdana.effects.estQty': 'Estimated Quantity',
-    'rdana.effects.familiesServed': 'Families Served',
+    'rdana.familiesServed': 'Families Served',
     'rdana.needs.priority': 'Priority Needs',
     'rdana.needsChecklist': 'Needs Checklist',
     'rdana.profile.Site_Location_Address_Barangay': 'Barangay',
@@ -140,7 +143,6 @@ const TransactionDetailsScreen = () => {
     'rdana.otherNeeds': 'Other Needs',
     'rdana.responseGroup': 'Response Group',
     'rdana.reliefDeployed': 'Relief Deployed',
-    'rdana.familiesServed': 'Families Served',
     'rdana.userUid': 'User ID',
     'rdana.status': 'Status',
     'rdana.timestamp': 'Submission Time',
@@ -156,6 +158,7 @@ const TransactionDetailsScreen = () => {
     'requestRelief/requests.timestamp': 'Submission Time',
     'requestRelief/requests.organizationName': 'Organization Name',
     'reports.reportID': 'Report ID',
+    'reports.VolunteerGroupName': 'Volunteer Group Name',
     'reports.AreaOfOperation': 'Area of Operation',
     'reports.DateOfReport': 'Date of Report',
     'reports.calamityArea': 'Calamity Area',
@@ -165,6 +168,8 @@ const TransactionDetailsScreen = () => {
     'reports.NoOfIndividualsOrFamilies': 'Individuals/Families Served',
     'reports.NoOfFoodPacks': 'Food Packs',
     'reports.NoOfHotMeals': 'Hot Meals',
+    'reports.CalamityName': 'Calamity Name',
+    'reports.CalamityType': 'Calamity Type',
     'reports.LitersOfWater': 'Liters of Water',
     'reports.NoOfVolunteersMobilized': 'Volunteers Mobilized',
     'reports.NoOfOrganizationsActivated': 'Organizations Activated',
@@ -173,7 +178,6 @@ const TransactionDetailsScreen = () => {
     'reports.NotesAdditionalInformation': 'Additional Notes',
     'reports.status': 'Status',
     'reports.userUid': 'User ID',
-    'reports.organization': 'Organization Name',
     'reports.timestamp': 'Submission Time',
     'profile.action': 'Action',
     'profile.newPasswordLength': 'Password Length',
@@ -344,4 +348,4 @@ const TransactionDetailsScreen = () => {
   );
 };
 
-export default TransactionDetailsScreen;
+export default SubmissionDetailsScreen;

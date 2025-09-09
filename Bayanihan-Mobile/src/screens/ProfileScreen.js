@@ -201,7 +201,6 @@ const ProfileScreen = () => {
           });
         }
       } catch (error) {
-        console.error(`[${new Date().toISOString()}] Error fetching user data:`, error.message, error.code || 'N/A');
         if (retryCount < maxRetries && error.code === 'unavailable') {
           console.log(`[${new Date().toISOString()}] Retrying fetch (${retryCount + 1}/${maxRetries})...`);
           setTimeout(() => fetchUserData(retryCount + 1, maxRetries), 1000);

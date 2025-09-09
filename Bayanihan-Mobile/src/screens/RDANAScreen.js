@@ -540,7 +540,7 @@ const RDANAScreen = ({navigation}) => {
                   style={[GlobalStyles.input, errors.Date_of_Information_Gathered && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                   onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, Date_of_Information_Gathered: true }))}
                 >
-                  <Text style={{ flex: 1, color: reportData.Date_of_Information_Gathered ? '#000' : '#999' }}>
+                  <Text style={{ flex: 1, color: reportData.Date_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular'}}>
                     {reportData.Date_of_Information_Gathered || 'dd/mm/yyyy'}
                   </Text>
                   <Ionicons name="calendar" size={24} color="#00BCD4" />
@@ -562,7 +562,7 @@ const RDANAScreen = ({navigation}) => {
                   style={[GlobalStyles.input, errors.Time_of_Information_Gathered && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                   onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, Time_of_Information_Gathered: true }))}
                 >
-                  <Text style={{ flex: 1, color: reportData.Time_of_Information_Gathered ? '#000' : '#999' }}>
+                  <Text style={{ flex: 1, color: reportData.Time_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular' }}>
                     {reportData.Time_of_Information_Gathered || '--:-- --'}
                   </Text>
                   <Ionicons name="time" size={24} color="#00BCD4" />
@@ -645,7 +645,7 @@ const RDANAScreen = ({navigation}) => {
                   style={{
                     fontFamily: 'Poppins_Regular',
                     fontSize: 14,
-                    color: reportData.Type_of_Disaster ? Theme.colors.black : '#999',
+                    color: reportData.Type_of_Disaster ? Theme.colors.black : Theme.colors.placeholderColor,
                     height: 68,
                     width: '100%',
                     textAlign: 'center',
@@ -671,7 +671,7 @@ const RDANAScreen = ({navigation}) => {
                   style={[GlobalStyles.input, errors.Date_of_Occurrence && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                   onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, Date_of_Occurrence: true }))}
                 >
-                  <Text style={{ flex: 1, color: reportData.Date_of_Occurrence ? '#000' : '#999' }}>
+                  <Text style={{ flex: 1, color: reportData.Date_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular'}}>
                     {reportData.Date_of_Occurrence || 'dd/mm/yyyy'}
                   </Text>
                   <Ionicons name="calendar" size={24} color="#00BCD4" />
@@ -681,6 +681,7 @@ const RDANAScreen = ({navigation}) => {
                     value={tempDate.Date_of_Occurrence || new Date()}
                     mode="date"
                     display="default"
+                    textColor={Theme.colors.black}
                     onChange={(event, date) => handleDateChange('Date_of_Occurrence', event, date)}
                   />
                 )}
@@ -693,7 +694,7 @@ const RDANAScreen = ({navigation}) => {
                   style={[GlobalStyles.input, errors.Time_of_Occurrence && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
                   onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, Time_of_Occurrence: true }))}
                 >
-                  <Text style={{ flex: 1, color: reportData.Time_of_Occurrence ? '#000' : '#999' }}>
+                  <Text style={{ flex: 1, color: reportData.Time_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular'}}>
                     {reportData.Time_of_Occurrence || '--:-- --'}
                   </Text>
                   <Ionicons name="time" size={24} color="#00BCD4" />

@@ -22,8 +22,8 @@ import CommunityBoard from '../screens/CommunityBoard';
 import { AuthContext } from '../context/AuthContext';
 import CustomDrawer from '../components/CustomDrawer';
 import CreatePost from '../screens/CreatePost';
-import TransactionScreen from '../screens/TransactionScreen';
-import TransactionDetailsScreen from '../screens/TransactionDetailsScreen';
+import TransactionScreen from '../screens/SubmissionScreen';
+import TransactionDetailsScreen from '../screens/SubmissionDetailsScreen';
 import CommentSection from '../screens/CommentSection';
 
 const Drawer = createDrawerNavigator();
@@ -71,7 +71,7 @@ const CommunityBoardStack = () => (
 );
 
 // Transaction Stack
-const TransactionStack = () => (
+const SubmissionStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="TransactionScreen" component={TransactionScreen} />
     <Stack.Screen name="TransactionDetailsScreen" component={TransactionDetailsScreen} />
@@ -112,7 +112,7 @@ const AppStack = () => {
       useLegacyImplementation={false}
     >
       <Drawer.Screen
-        name="Disaster Map"
+        name="Activated ABVN Map"
         component={HomeScreen}
         options={{
           drawerIcon: ({ color }) => (
@@ -184,8 +184,8 @@ const AppStack = () => {
         }}
       />
       <Drawer.Screen
-        name="Transactions History"
-        component={TransactionStack}
+        name="Submissions History"
+        component={SubmissionStack}
         options={{
           drawerIcon: ({ color }) => (
             <Ionicons name="file-tray-stacked" size={22} color={color} />

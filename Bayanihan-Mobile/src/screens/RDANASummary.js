@@ -9,7 +9,7 @@ import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/RDANAStyles';
 import Theme from '../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import {logActivity, logSubmission } from '../components/logSubmission';
+import { logActivity, logSubmission } from '../components/logSubmission';
 import { useAuth } from '../context/AuthContext';
 import CustomModal from '../components/CustomModal';
 
@@ -17,7 +17,7 @@ const RDANASummary = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
-  const { reportData: initialReportData = {}, affectedMunicipalities: initialMunicipalities = [], organizationName = 'Admin' } = route.params || {};
+  const { reportData: initialReportData = {}, affectedMunicipalities: initialMunicipalities = [], organizationName = user.organization || 'Admin' } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [affectedMunicipalities, setAffectedMunicipalities] = useState(initialMunicipalities);
   const [modalVisible, setModalVisible] = useState(false);
@@ -133,7 +133,7 @@ const RDANASummary = () => {
       if (reportData.hygieneKits === 'Yes') priorityNeeds.push('Hygiene Kits');
       if (reportData.drinkingWater === 'Yes') priorityNeeds.push('Drinking Water');
       if (reportData.ricePacks === 'Yes') priorityNeeds.push('Rice Packs');
-      if (reportData.otherNeeds) priorityNeeds.push(reportData.otherNeeds);
+      if (reportData.otherNeeds) priorityNeeds.push('reportData.otherNeeds');
 
       const needsChecklist = [
         { item: 'Relief Packs', needed: reportData.reliefPacks === 'Yes' },
@@ -180,7 +180,6 @@ const RDANASummary = () => {
         effects: {
           affectedPopulation: affectedMunicipalities.reduce((sum, c) => sum + (parseInt(c.affected) || 0), 0).toString(),
           estQty: reportData.estQty || '',
-          familiesServed: reportData.familiesServed || '',
         },
         needs: {
           priority: priorityNeeds,
@@ -223,8 +222,8 @@ const RDANASummary = () => {
       const message = `New RDANA report "${reportData.Type_of_Disaster || 'N/A'}" submitted by ${reportData.Prepared_By || 'Unknown'} from ${organizationName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
       await notifyAdmin(message, submissionId, reportData.Local_Authorities_Persons_Contacted_for_Information || 'Unknown', organizationName);
 
-      await logActivity(user.id, 'Submitted an RDANA report', submissionId);
-      await logSubmission('rdana', reportDataForFirebase, submissionId, organizationName);
+      await logActivity('Submitted an RDANA report', submissionId, user.id, organizationName);
+      await logSubmission('rdana', reportDataForFirebase, submissionId, organizationName, user.id);
 
       console.log(`[${new Date().toISOString()}] RDANA report submitted:`, submissionId);
 

@@ -111,7 +111,7 @@ export default StyleSheet.create({
   },
   commentList: {
     paddingTop: spacing.large,
-    paddingBottom: spacing.large + 60, // Extra padding to ensure comments end above input
+    paddingBottom: spacing.large + 60, 
   },
   emptyCommentContainer: {
     flex: 1,

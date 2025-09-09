@@ -2,14 +2,14 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { database, auth } from '../configuration/firebaseConfig';
 import { ref, get } from 'firebase/database';
-import { onAuthStateChanged, sendEmailVerification, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Theme from '../constants/theme';
 
 export const AuthContext = createContext({
   user: null,
   setUser: () => {},
-  loading: true, 
+  loading: true,
 });
 
 export const AuthProvider = ({ children }) => {
@@ -19,34 +19,22 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     console.log('AuthContext: Setting up auth state listener');
 
-    const loadCachedUser = async () => {
-      try {
-        const cachedUser = await AsyncStorage.getItem('user_session');
-        if (cachedUser) {
-          setUser(JSON.parse(cachedUser));
-          console.log('AuthContext: Loaded cached user:', JSON.parse(cachedUser).id);
-        }
-      } catch (error) {
-        console.error('AuthContext: Error loading cached user:', error.message);
-      }
-    };
-
-    loadCachedUser();
-
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log('AuthContext: onAuthStateChanged triggered, user:', currentUser ? currentUser.uid : 'null');
       try {
         if (currentUser) {
+          await currentUser.getIdToken(true);
           const userSnapshot = await get(ref(database, `users/${currentUser.uid}`));
           const userData = userSnapshot.val();
-          console.log('AuthContext: User data fetched:', userData);
+
           if (userData) {
             const userObject = {
               id: currentUser.uid,
               contactPerson: userData.contactPerson || `${userData.firstName} ${userData.lastName || ''}`.trim(),
               email: currentUser.email,
               role: userData.role,
-              organization: userData.organization ,
+              organization: userData.organization || 'Admin',
+              organizationName: userData.organizationName,
               firstName: userData.firstName,
               lastName: userData.lastName,
               adminPosition: userData.adminPosition,
@@ -55,23 +43,46 @@ export const AuthProvider = ({ children }) => {
             await AsyncStorage.setItem('user_session', JSON.stringify(userObject));
             console.log('AuthContext: User set and session saved:', currentUser.uid);
           } else {
-            await signOut(auth);
-            setUser(null);
-            await AsyncStorage.removeItem('user_session');
-            console.log('AuthContext: No user data in database, user signed out');
+            const cachedUser = await AsyncStorage.getItem('user_session');
+            if (cachedUser) {
+              console.log('AuthContext: No user data in database, using cached user:', JSON.parse(cachedUser).id);
+              setUser(JSON.parse(cachedUser));
+            } else {
+              console.warn('AuthContext: No user data in database and no cached user, signing out');
+              await signOut(auth);
+              setUser(null);
+              await AsyncStorage.removeItem('user_session');
+            }
           }
         } else {
-          setUser(null);
-          await AsyncStorage.removeItem('user_session');
-          console.log('AuthContext: No user logged in');
+          const cachedUser = await AsyncStorage.getItem('user_session');
+          if (cachedUser) {
+            console.log('AuthContext: No Firebase user, using cached user:', JSON.parse(cachedUser).id);
+            setUser(JSON.parse(cachedUser));
+          } else {
+            setUser(null);
+            await AsyncStorage.removeItem('user_session');
+            console.log('AuthContext: No user logged in and no cached user');
+          }
         }
       } catch (error) {
-        console.error('AuthContext: Error fetching user data:', error.message);
-        setUser(null);
-        await AsyncStorage.removeItem('user_session');
+        console.error('AuthContext: Error processing auth state:', error.message);
+        if (error.code === 'auth/network-request-failed') {
+          const cachedUser = await AsyncStorage.getItem('user_session');
+          if (cachedUser) {
+            console.log('AuthContext: Network error, using cached user:', JSON.parse(cachedUser).id);
+            setUser(JSON.parse(cachedUser));
+          } else {
+            setUser(null);
+            await AsyncStorage.removeItem('user_session');
+          }
+        } else {
+          await signOut(auth);
+          setUser(null);
+          await AsyncStorage.removeItem('user_session');
+        }
       } finally {
         setLoading(false);
-        console.log('AuthContext: Auth state changed, final user:', user ? user.id : 'null');
       }
     });
 
@@ -80,6 +91,13 @@ export const AuthProvider = ({ children }) => {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      console.log('AuthContext: Auth state changed, final user:', user ? user.id : 'null');
+      console.log('AuthContext: Auth state changed, final user contact:', user ? user.contactPerson : 'null');
+    }
+  }, [user, loading]);
 
   const authContextValue = {
     user,
@@ -102,7 +120,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={authContextValue}>
       {loading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size={50} color={Theme.colors.primary} />
+          <ActivityIndicator size={100} color={Theme.colors.primary} />
         </View>
       ) : (
         children

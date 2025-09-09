@@ -78,7 +78,6 @@ const CallForDonations = () => {
     }
     if (route.params?.image) {
       setImage(route.params.image);
-      console.log('Set image from route params:', route.params.image);
     }
   }, [route.params]);
 
@@ -225,7 +224,6 @@ const CallForDonations = () => {
         regionInputRef.current.focus();
       }, 0);
     }
-    console.log('Selected region:', region);
   };
 
   const handleRegionFocus = () => {
@@ -242,7 +240,6 @@ const CallForDonations = () => {
 
     setIsRegionDropdownVisible(true);
     setFilteredRegions(regions || []);
-    console.log('Region dropdown opened, regions:', regions);
   };
 
   const handleRBlur = () => {
@@ -447,7 +444,6 @@ const CallForDonations = () => {
 
     if (!result.canceled) {
       const uri = result.assets[0].uri;
-      console.log('Selected image URI:', uri);
       setImage(uri);
     }
   };
@@ -512,7 +508,6 @@ const CallForDonations = () => {
       return;
     }
 
-    console.log('Navigating to CallForDonationsSummary with formData:', formData, 'and image:', image);
     navigation.navigate('CallForDonationsSummary', { formData, image });
   };
 

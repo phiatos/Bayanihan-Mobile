@@ -22,10 +22,10 @@ import Theme from '../constants/theme';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import useOperationCheck from '../components/useOperationCheck';
-import styles from '../styles/TransactionStyles';
+import styles from '../styles/SubmissionStyles';
 import OperationCustomModal from '../components/OperationCustomModal';
 
-const TransactionScreen = () => {
+const SubmissionScreen = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { modalVisible: opModalVisible, setModalVisible: setOpModalVisible, modalConfig: opModalConfig } = useOperationCheck();
@@ -161,7 +161,7 @@ const TransactionScreen = () => {
   const fetchSubmissionData = useCallback(() => {
     try {
       const userId = user.id;
-      const submissionRef = ref(database, `submission_history/${userId}`);
+      const submissionRef = ref(database, `activity_log/${userId}`);
       const unsubscribe = onValue(
         submissionRef,
         (snapshot) => {
@@ -482,4 +482,4 @@ const TransactionScreen = () => {
   );
 };
 
-export default TransactionScreen;
+export default SubmissionScreen;

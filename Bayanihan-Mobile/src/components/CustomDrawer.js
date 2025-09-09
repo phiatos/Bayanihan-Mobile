@@ -78,18 +78,22 @@ const getUserName = () => {
         {...props}
         contentContainerStyle={styles.drawerScroll}
       >
-        <TouchableOpacity onPress={() => navigation.navigate("Profile")} style={styles.userHeader}>
+        <TouchableOpacity 
+          onPress={() => navigation.navigate("Profile")} 
+          style={styles.userHeader}
+        >
           <Image
-            source={require('../../assets/images/user.jpg')}
+            source={require('../../assets/images/user_logo.png')}
             style={styles.profileImage}
           />
           <View style={styles.header}>
-            <View style={styles.organizationContainer}>
+            <View style={styles.organization}>
               {getDisplayText()}
             </View>
             <Text style={styles.userName}>{getUserName()}</Text>
           </View>
         </TouchableOpacity>
+
         <View style={styles.drawerListContainer}>
           <DrawerItemList {...props} />
         </View>
