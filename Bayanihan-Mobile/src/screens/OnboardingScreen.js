@@ -1,26 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import * as Font from 'expo-font';
-
+import React, { useEffect } from 'react'; 
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { View, Text, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, Animated, Image } from 'react-native';
+import Theme from '../constants/theme';
 
-const OnboardingScreen = ({navigation}) => {
-  const [fontsLoaded, setFontsLoaded] = useState(false);
+const OnboardingScreen = ({ navigation }) => {
+  const imageScale = new Animated.Value(0.1); 
 
   useEffect(() => {
-    (async () => {
-      await Font.loadAsync({
-        'Poppins-MediumItalic': require('../../assets/fonts/Poppins/Poppins-MediumItalic.ttf'),
-        'Poppins-Bold': require('../../assets/fonts/Poppins/Poppins-Bold.ttf'),
-        'Poppins-Medium': require('../../assets/fonts/Poppins/Poppins-Medium.ttf'),
-      });
-      setFontsLoaded(true);
-    })();
-  }, []);
+    Animated.parallel([
+      Animated.timing(imageScale, {
+        toValue: 1, 
+        duration: 900,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []); 
 
-  if (!fontsLoaded) {
-    return null; 
-  }
+  const handleScreenPress = () => {
+    navigation.navigate('Login');
+  };
 
   return (
     <SafeAreaView
@@ -28,64 +26,57 @@ const OnboardingScreen = ({navigation}) => {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FFF9F0',
+        backgroundColor: Theme.colors.lightBg,
       }}
     >
-      <View style={{marginTop: 20}}>
+      <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <Animated.Image
+          source={require('../../assets/images/ab_logo.png')}
+          style={{
+            width: 200,
+            height: 200,
+            resizeMode: 'contain',
+            transform: [{ scale: imageScale }],
+          }}
+        />
         <Text
           style={{
-            fontSize: 20,
-            fontWeight: 'bold',
+            fontSize: 18,
             color: '#14AEBB',
-            fontFamily: 'Poppins-Bold',
             textAlign: 'center',
+            fontFamily: 'Poppins_Medium',
+            marginTop: 20, 
           }}
         >
           Disaster Relief and Rehabilitation Management Portal
         </Text>
       </View>
-      <View 
-        style={{
-          flex:1, 
-          justifyContent:'center', 
-          alignItems: 'center'}}>
-        <Image 
-          source={require('../../assets/images/ab_logo.png')}
-          style={{
-            width: 150, 
-            height: 150, 
-            marginVertical: 20, 
-            resizeMode: 'contain',
-          }} 
-        />
-      </View>
-      
+
       <TouchableOpacity
-        onPress={() => navigation.navigate('Login')}
+        onPress={handleScreenPress}
         style={{
           backgroundColor: '#14AEBB',
-          padding: 20,
-          width: '90%',
-          borderRadius: 20,
+          paddingVertical: 10,
+          width: '60%',
+          borderRadius: 15,
           flexDirection: 'row',
-          justifyContent: 'space-between',
-          marginBottom: 50
+          justifyContent: 'center', 
+          marginTop: 50,
         }}
       >
         <Text
           style={{
-            fontWeight: 'bold',
             fontSize: 18,
             color: '#FFF9F0',
-            fontFamily: 'Poppins-MediumItalic',
+            textAlign: 'center',
+            fontFamily: 'Poppins_Regular',
           }}
         >
           Let's Begin
         </Text>
-        <MaterialIcons name="arrow-forward-ios" size={22} color="#FFF9F0" />
       </TouchableOpacity>
     </SafeAreaView>
   );
-}
+};
 
 export default OnboardingScreen;

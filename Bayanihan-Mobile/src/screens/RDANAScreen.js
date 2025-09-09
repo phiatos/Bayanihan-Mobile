@@ -1,192 +1,341 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert, FlatList, SafeAreaView } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import RDANAStyles from '../styles/RDANAStyles';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { auth, database } from '../configuration/firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ref as databaseRef, get, query, orderByChild, equalTo } from 'firebase/database';
+import React, { useRef, useState, useEffect } from 'react';
+import {
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  Text,
+  TextInput,
+  ToastAndroid,
+  TouchableOpacity,
+  View,
+  Modal,
+} from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import { ScrollView } from 'react-native-gesture-handler';
 import GlobalStyles from '../styles/GlobalStyles';
+import styles from '../styles/RDANAStyles';
+import Theme from '../constants/theme';
+import OperationCustomModal from '../components/OperationCustomModal';
+import useOperationCheck from '../components/useOperationCheck';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../context/AuthContext'; 
 
-const RDANAScreen = () => {
-  const navigation = useNavigation();
+
+const LIFELINE_STATUS_OPTIONS = {
+  'Residential Houses': [
+    { label: 'Select from one of the following', value: '' },
+    { label: 'Some houses are flooded/damaged.', value: 'Some houses are flooded/damaged.' },
+    { label: 'Many houses are flooded/damaged.', value: 'Many houses are flooded/damaged.' },
+    { label: 'An entire community is flooded/damaged.', value: 'An entire community is flooded/damaged.' },
+  ],
+  'Transportation and Mobility': [
+    { label: 'Select from one of the following', value: '' },
+    { label: 'Roads are clear of debris and/or flood; passable.', value: 'Roads are clear of debris and/or flood; passable.' },
+    { label: 'Some roads are blocked by debris and/or flood.', value: 'Some roads are blocked by debris and/or flood.' },
+    { label: 'Most roads are blocked by debris and/or flood; not passable.', value: 'Most roads are blocked by debris and/or flood; not passable.' },
+  ],
+  'Electricity, Power Grid': [
+    { label: 'Select from one of the following', value: '' },
+    { label: 'There is electricity.', value: 'There is electricity.' },
+    { label: 'Some places do not have electricity.', value: 'Some places do not have electricity.' },
+    { label: 'The entire area has no electricity.', value: 'The entire area has no electricity.' },
+  ],
+  'Communication Networks, Internet': [
+    { label: 'Select from one of the following', value: '' },
+    { label: 'Communication lines are up.', value: 'Communication lines are up.' },
+    { label: 'There is intermittent signal available.', value: 'There is intermittent signal available.' },
+    { label: 'Communication lines are down.', value: 'Communication lines are down.' },
+  ],
+  'Hospitals, Rural Health Units': [
+    { label: 'Select from one of the following', value: '' },
+    { label: 'Hospitals are open.', value: 'Hospitals are open.' },
+    { label: 'Some hospitals are open.', value: 'Some hospitals are open.' },
+    { label: 'No hospitals are open.', value: 'No hospitals are open.' },
+  ],
+  'Water Supply System': [
+    { label: 'Select from one of the following', value: '' },
+    { label: 'Clean water is available.', value: 'Clean water is available.' },
+    { label: 'Only some locations have clean water.', value: 'Only some locations have clean water.' },
+    { label: 'No clean water is available.', value: 'No clean water is available.' },
+  ],
+  'Market, Business, and Commercial Establishments': [
+    { label: 'Select from one of the following', value: '' },
+    { label: 'Establishments are open.', value: 'Establishments are open.' },
+    { label: 'Some establishments are open.', value: 'Some establishments are open.' },
+    { label: 'No establishments are open.', value: 'No establishments are open.' },
+  ],
+};
+
+const RDANAScreen = ({navigation}) => {
+    const { user } = useAuth(); 
   const route = useRoute();
   const [errors, setErrors] = useState({});
+  const inputContainerRefs = useRef({}).current;
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteIndex, setDeleteIndex] = useState(null);
+  const [requiredFieldsModalVisible, setRequiredFieldsModalVisible] = useState(false);
+  const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
+  const insets = useSafeAreaInsets();
 
-  // Initialize reportData with route params if available
-  const initialReportData = route.params?.reportData || {
-    barangay: '',
-    cityMunicipality: '',
-    province: '',
-    localAuthoritiesPersonsContacted: '',
-    dateInformationGathered: '',
-    timeInformationGathered: '',
-    nameOrganizationInvolved: '',
-    locationsAreasAffectedBarangay: '',
-    locationsAreasAffectedCityMunicipality: '',
-    locationsAreasAffectedProvince: '',
-    typeOfDisaster: '',
-    dateOfOccurrence: '',
-    timeOfOccurrence: '',
-    summaryOfDisasterIncident: '',
-    affectedMunicipalitiesCommunities: '',
-    totalPopulation: '',
-    affectedPopulation: '',
-    deaths: '',
-    injured: '',
-    missing: '',
-    children: '',
-    women: '',
-    seniorCitizens: '',
-    pwd: '',
-    bridgesStatus: '',
-    roadsStatus: '',
-    buildingsStatus: '',
-    hospitalsStatus: '',
-    schoolsStatus: '',
-    reliefPacks: '',
-    hotMeals: '',
-    hygieneKits: '',
-    drinkingWater: '',
-    ricePacks: '',
-    otherImmediateNeeds: '',
-    estimatedQuantity: '',
-    responseGroupsInvolved: '',
-    reliefAssistanceDeployed: '',
-    numberOfFamiliesServed: '',
-  };
-  const [reportData, setReportData] = useState(initialReportData);
-
-  // States for dropdowns
-  const [isDisasterDropdownVisible, setIsDisasterDropdownVisible] = useState(false);
-  const [filteredDisasterTypes, setFilteredDisasterTypes] = useState([]);
-  const [isStatusDropdownVisible, setIsStatusDropdownVisible] = useState({
-    bridges: false,
-    roads: false,
-    buildings: false,
-    hospitals: false,
-    schools: false,
-  });
-  const [filteredStatuses, setFilteredStatuses] = useState([]);
-  const disasterInputRef = useRef(null);
-  const statusInputRefs = {
-    bridges: useRef(null),
-    roads: useRef(null),
-    buildings: useRef(null),
-    hospitals: useRef(null),
-    schools: useRef(null),
+  const requiredFieldsErrors = {
+    Date_of_Information_Gathered: 'Please provide the date when information was gathered (within 24-48 hours of occurrence).',
+    Date_of_Occurrence: 'Please specify the date of the disaster occurrence.',
+    Local_Authorities_Persons_Contacted_for_Information: 'Please list the local authorities or persons contacted.',
+    Locations_and_Areas_Affected_Barangay: 'Please enter the affected barangay.',
+    Locations_and_Areas_Affected_City_Municipality: 'Please enter the affected city or municipality.',
+    Locations_and_Areas_Affected_Province: 'Please enter the affected province.',
+    Name_of_the_Organizations_Involved: 'Please provide the name of the organization involved.',
+    Site_Location_Address_Barangay: 'Please enter the site location barangay.',
+    Site_Location_Address_City_Municipality: 'Please enter the site location city or municipality.',
+    Site_Location_Address_Province: 'Please enter the site location province.',
+    Time_of_Information_Gathered: 'Please provide the time when information was gathered (within 24-48 hours of occurrence).',
+    Time_of_Occurrence: 'Please specify the time of the disaster occurrence.',
+    Type_of_Disaster: 'Please select the type of disaster.',
+    community: 'Please add at least one municipality.',
+    totalPop: 'Please provide the total population.',
+    affected: 'Please provide the number of affected population.',
+    deaths: 'Please enter the number of deaths.',
+    injured: 'Please enter the number of injured persons.',
+    missing: 'Please enter the number of missing persons.',
+    children: 'Please enter the number of affected children.',
+    women: 'Please enter the number of affected women.',
+    seniors: 'Please enter the number of affected senior citizens.',
+    pwd: 'Please enter the number of affected persons with disabilities.',
+    responseGroup: 'Please specify the response groups involved.',
+    reliefDeployed: 'Please detail the relief assistance deployed.',
+    familiesServed: 'Please enter the number of families served.',
   };
 
-  // States for date and time pickers
-  const [showDatePicker, setShowDatePicker] = useState({
-    dateInformationGathered: false,
-    dateOfOccurrence: false,
-  });
-  const [showTimePicker, setShowTimePicker] = useState({
-    timeInformationGathered: false,
-    timeOfOccurrence: false,
-  });
-  const [tempDate, setTempDate] = useState({
-    dateInformationGathered: initialReportData.dateInformationGathered ? new Date(initialReportData.dateInformationGathered) : new Date(),
-    dateOfOccurrence: initialReportData.dateOfOccurrence ? new Date(initialReportData.dateOfOccurrence) : new Date(),
-    timeInformationGathered: initialReportData.timeInformationGathered ? new Date(`1970-01-01T${initialReportData.timeInformationGathered}:00`) : new Date(),
-    timeOfOccurrence: initialReportData.timeOfOccurrence ? new Date(`1970-01-01T${initialReportData.timeOfOccurrence}:00`) : new Date(),
-  });
-
-  // Predetermined options
-  const disasterTypes = ['Earthquake', 'Typhoon', 'Flood', 'Landslide', 'Fire'];
-  const statusOptions = ['Operational', 'Damaged', 'Destroyed', 'Inaccessible'];
-  const needsOptions = ['Yes', 'No'];
-
-  // Table data for affected municipalities
-  const [affectedMunicipalities, setAffectedMunicipalities] = useState(route.params?.affectedMunicipalities || []);
-
-  // Required fields
-  const requiredFields = [
-    'barangay',
-    'cityMunicipality',
-    'province',
-    'localAuthoritiesPersonsContacted',
-    'nameOrganizationInvolved',
-    'dateInformationGathered',
-    'timeInformationGathered',
-    'locationsAreasAffectedBarangay',
-    'locationsAreasAffectedCityMunicipality',
-    'locationsAreasAffectedProvince',
-    'typeOfDisaster',
-    'dateOfOccurrence',
-    'timeOfOccurrence',
-  ];
-
-  // Helper function to capitalize first letter
-  const capitalizeFirstLetter = (string) => {
-    if (!string) return string;
-    return string.charAt(0).toUpperCase() + string.slice(1);
-  };
-
-  // Helper functions for date and time formatting
   const formatDate = (date) => {
-    if (!date) return '';
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+    if (!date || isNaN(date.getTime())) return '';
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`; 
   };
 
   const formatTime = (date) => {
-    if (!date) return '';
-    const hours = date.getHours().toString().padStart(2, '0');
+    if (!date || isNaN(date.getTime())) return '';
+    let hours = date.getHours();
     const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`; // HH:MM
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12; 
+    return `${hours}:${minutes} ${ampm}`;
   };
 
-  // Validate form data
-  const isFormValid = () => {
-    return requiredFields.every((field) => {
-      const value = reportData[field];
-      return value !== null && typeof value === 'string' && value.trim() !== '';
-    });
+  const parseDate = (dateStr) => {
+    if (!dateStr || !/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) return null;
+    const [day, month, year] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
   };
 
-  // Handle TextInput and picker changes
+  const parseTimeToDate = (timeStr) => {
+    if (!timeStr || !/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(timeStr)) return null;
+    const [time, ampm] = timeStr.split(' ');
+    const [hours, minutes] = time.split(':').map(Number);
+    let adjustedHours = hours;
+    if (ampm.toUpperCase() === 'PM' && hours < 12) adjustedHours += 12;
+    if (ampm.toUpperCase() === 'AM' && hours === 12) adjustedHours = 0;
+    const date = new Date();
+    date.setHours(adjustedHours, minutes, 0, 0);
+    return date;
+  };
+
+  const isWithin24To48Hours = (gatheredDate, gatheredTime, occurrenceDate, occurrenceTime) => {
+    if (!gatheredDate || !gatheredTime || !occurrenceDate || !occurrenceTime) return false;
+    const gatheredDateTime = new Date(gatheredDate);
+    gatheredDateTime.setHours(gatheredTime.getHours(), gatheredTime.getMinutes(), 0, 0);
+    const occurrenceDateTime = new Date(occurrenceDate);
+    occurrenceDateTime.setHours(occurrenceTime.getHours(), occurrenceTime.getMinutes(), 0, 0);
+    const diffMs = gatheredDateTime - occurrenceDateTime;
+    if (diffMs < 0) return false; 
+    const diffHours = diffMs / (1000 * 60 * 60);
+    return diffHours >= 24 && diffHours <= 48; 
+  };
+
+  const initialReportData = {
+    Date_of_Information_Gathered: route.params?.reportData?.Date_of_Information_Gathered || '',
+    Date_of_Occurrence: route.params?.reportData?.Date_of_Occurrence || '',
+    Local_Authorities_Persons_Contacted_for_Information: route.params?.reportData?.Local_Authorities_Persons_Contacted_for_Information || '',
+    Locations_and_Areas_Affected_Barangay: route.params?.reportData?.Locations_and_Areas_Affected_Barangay || '',
+    Locations_and_Areas_Affected_City_Municipality: route.params?.reportData?.Locations_and_Areas_Affected_City_Municipality || '',
+    Locations_and_Areas_Affected_Province: route.params?.reportData?.Locations_and_Areas_Affected_Province || '',
+    Name_of_the_Organizations_Involved: route.params?.reportData?.Name_of_the_Organizations_Involved || '',
+    Site_Location_Address_Barangay: route.params?.reportData?.Site_Location_Address_Barangay || '',
+    Site_Location_Address_City_Municipality: route.params?.reportData?.Site_Location_Address_City_Municipality || '',
+    Site_Location_Address_Province: route.params?.reportData?.Site_Location_Address_Province || '',
+    Time_of_Information_Gathered: route.params?.reportData?.Time_of_Information_Gathered || '',
+    Time_of_Occurrence: route.params?.reportData?.Time_of_Occurrence || '',
+    Type_of_Disaster: route.params?.reportData?.Type_of_Disaster || '',
+    summary: route.params?.reportData?.summary || '',
+    community: '',
+    affected: '',
+    children: '',
+    deaths: '',
+    injured: '',
+    missing: '',
+    pwd: '',
+    seniors: '',
+    totalPop: '',
+    women: '',
+    residentialhousesStatus: route.params?.reportData?.residentialhousesStatus || '',
+    transportationandmobilityStatus: route.params?.reportData?.transportationandmobilityStatus || '',
+    electricitypowergridStatus: route.params?.reportData?.electricitypowergridStatus || '',
+    communicationnetworksinternetStatus: route.params?.reportData?.communicationnetworksinternetStatus || '',
+    hospitalsruralhealthunitsStatus: route.params?.reportData?.hospitalsruralhealthunitsStatus || '',
+    watersupplysystemStatus: route.params?.reportData?.watersupplysystemStatus || '',
+    marketbusinessandcommercialestablishmentsStatus: route.params?.reportData?.marketbusinessandcommercialestablishmentsStatus || '',
+    othersStatus: route.params?.reportData?.othersStatus || '',
+    reliefPacks: route.params?.reportData?.reliefPacks || 'No',
+    hotMeals: route.params?.reportData?.hotMeals || 'No',
+    hygieneKits: route.params?.reportData?.hygieneKits || 'No',
+    drinkingWater: route.params?.reportData?.drinkingWater || 'No',
+    ricePacks: route.params?.reportData?.ricePacks || 'No',
+    otherNeeds: route.params?.reportData?.otherNeeds || '',
+    estQty: route.params?.reportData?.estQty || '',
+    responseGroup: route.params?.reportData?.responseGroup || '',
+    reliefDeployed: route.params?.reportData?.reliefDeployed || '',
+    familiesServed: route.params?.reportData?.familiesServed || '',
+  };
+  const [reportData, setReportData] = useState(initialReportData);
+
+  const [checklist, setChecklist] = useState({
+    reliefPacks: reportData.reliefPacks === 'Yes',
+    hotMeals: reportData.hotMeals === 'Yes',
+    hygieneKits: reportData.hygieneKits === 'Yes',
+    drinkingWater: reportData.drinkingWater === 'Yes',
+    ricePacks: reportData.ricePacks === 'Yes',
+  });
+
+  const [showDatePicker, setShowDatePicker] = useState({
+    Date_of_Information_Gathered: false,
+    Date_of_Occurrence: false,
+  });
+  const [showTimePicker, setShowTimePicker] = useState({
+    Time_of_Information_Gathered: false,
+    Time_of_Occurrence: false,
+  });
+  const [tempDate, setTempDate] = useState({
+    Date_of_Information_Gathered: route.params?.reportData?.Date_of_Information_Gathered ? parseDate(route.params.reportData.Date_of_Information_Gathered) : null,
+    Date_of_Occurrence: route.params?.reportData?.Date_of_Occurrence ? parseDate(route.params.reportData.Date_of_Occurrence) : null,
+    Time_of_Information_Gathered: route.params?.reportData?.Time_of_Information_Gathered ? parseTimeToDate(route.params.reportData.Time_of_Information_Gathered) : null,
+    Time_of_Occurrence: route.params?.reportData?.Time_of_Occurrence ? parseTimeToDate(route.params.reportData.Time_of_Occurrence) : null,
+  });
+
+  const disasterTypes = [
+    { label: 'Type of Disaster', value: '' },
+    { label: 'Earthquake', value: 'Earthquake' },
+    { label: 'Typhoon', value: 'Typhoon' },
+    { label: 'Flood', value: 'Flood' },
+    { label: 'Landslide', value: 'Landslide' },
+    { label: 'Fire', value: 'Fire' },
+  ];
+
+  const [affectedMunicipalities, setAffectedMunicipalities] = useState(route.params?.affectedMunicipalities || []);
+
+  const requiredFields = [
+    'Date_of_Information_Gathered',
+    'Date_of_Occurrence',
+    'Local_Authorities_Persons_Contacted_for_Information',
+    'Locations_and_Areas_Affected_Barangay',
+    'Locations_and_Areas_Affected_City_Municipality',
+    'Locations_and_Areas_Affected_Province',
+    'Name_of_the_Organizations_Involved',
+    'Site_Location_Address_Barangay',
+    'Site_Location_Address_City_Municipality',
+    'Site_Location_Address_Province',
+    'Time_of_Information_Gathered',
+    'Time_of_Occurrence',
+    'Type_of_Disaster',
+    'responseGroup',
+    'reliefDeployed',
+    'familiesServed',
+  ];
+
+  const municipalityFields = [
+    'community',
+    'totalPop',
+    'affected',
+    'deaths',
+    'injured',
+    'missing',
+    'children',
+    'women',
+    'seniors',
+    'pwd',
+  ];
+
+  const sanitizeInput = (value, field) => {
+    let sanitized = value;
+    if (field.includes('Barangay') || field.includes('community')) {
+      sanitized = sanitized.replace(/[^a-zA-Z0-9\sñÑ,-]/g, '');
+    } else if (
+      field.includes('Name') ||
+      field.includes('Organization') ||
+      field.includes('City') ||
+      field.includes('Municipality') ||
+      field.includes('Province') ||
+      field.includes('Relief') ||
+      field.includes('responseGroup') ||
+      field === 'otherNeeds'
+    ) {
+      sanitized = sanitized.replace(/[^a-zA-Z\sñÑ,-]/g, '');
+    }
+    return sanitized.charAt(0).toUpperCase() + sanitized.slice(1);
+  };
+
   const handleChange = (field, value) => {
-    setReportData({ ...reportData, [field]: value });
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
 
-    // Clear error if field has valid value
-    if (value.trim() !== '') {
+    let sanitizedValue = value;
+    if (typeof value === 'string' && field !== 'Type_of_Disaster' && !field.includes('Date') && !field.includes('Time') && !field.includes('Status')) {
+      sanitizedValue = sanitizeInput(value, field);
+    }
+    if (['totalPop', 'affected', 'deaths', 'injured', 'missing', 'children', 'women', 'seniors', 'pwd', 'estQty', 'familiesServed'].includes(field)) {
+      sanitizedValue = value.replace(/[^0-9]/g, '');
+      if (sanitizedValue && parseInt(sanitizedValue) < 0) sanitizedValue = '';
+    }
+    setReportData((prev) => ({ ...prev, [field]: sanitizedValue }));
+
+    if (sanitizedValue && sanitizedValue.trim() !== '') {
       setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[field];
         return newErrors;
       });
     }
-
-    // Filter disaster types
-    if (field === 'typeOfDisaster') {
-      if (value.trim() === '') {
-        setFilteredDisasterTypes(disasterTypes);
-        setIsDisasterDropdownVisible(false);
-      } else {
-        const filtered = disasterTypes.filter((type) =>
-          type.toLowerCase().includes(value.toLowerCase())
-        );
-        setFilteredDisasterTypes(filtered);
-        setIsDisasterDropdownVisible(true);
-      }
-    }
-
-    // Filter status for lifelines
-    if (['bridgesStatus', 'roadsStatus', 'buildingsStatus', 'hospitalsStatus', 'schoolsStatus'].includes(field)) {
-      if (value.trim() === '') {
-        setFilteredStatuses(statusOptions);
-        setIsStatusDropdownVisible((prev) => ({ ...prev, [field.replace('Status', '').toLowerCase()]: false }));
-      } else {
-        const filtered = statusOptions.filter((status) =>
-          status.toLowerCase().includes(value.toLowerCase())
-        );
-        setFilteredStatuses(filtered);
-        setIsStatusDropdownVisible((prev) => ({ ...prev, [field.replace('Status', '').toLowerCase()]: true }));
-      }
-    }
   };
 
-  // Handle date picker changes
   const handleDateChange = (field, event, selectedDate) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setShowDatePicker((prev) => ({ ...prev, [field]: false }));
     if (selectedDate) {
       setTempDate((prev) => ({ ...prev, [field]: selectedDate }));
@@ -195,8 +344,18 @@ const RDANAScreen = () => {
     }
   };
 
-  // Handle time picker changes
   const handleTimeChange = (field, event, selectedTime) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
     setShowTimePicker((prev) => ({ ...prev, [field]: false }));
     if (selectedTime) {
       setTempDate((prev) => ({ ...prev, [field]: selectedTime }));
@@ -205,661 +364,883 @@ const RDANAScreen = () => {
     }
   };
 
-  // Handle checklist selection for needs
-  const handleNeedsSelect = (field, value) => {
-    setReportData({ ...reportData, [field]: value });
-  };
+  const handleNeedsSelect = (field) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
 
-  // Handle disaster type selection
-  const handleDisasterSelect = (type) => {
-    setReportData({ ...reportData, typeOfDisaster: type });
-    setIsDisasterDropdownVisible(false);
-    setErrors((prev) => {
-      const newErrors = { ...prev };
-      delete newErrors.typeOfDisaster;
-      return newErrors;
+    setChecklist((prev) => {
+      const newChecklist = { ...prev, [field]: !prev[field] };
+      const value = newChecklist[field] ? 'Yes' : 'No';
+      setReportData((prevData) => ({ ...prevData, [field]: value }));
+      return newChecklist;
     });
-    disasterInputRef.current?.blur();
   };
 
-  // Handle status selection
-  const handleStatusSelect = (status, field) => {
-    setReportData({ ...reportData, [field]: status });
-    const refKey = field.replace('Status', '').toLowerCase();
-    setIsStatusDropdownVisible((prev) => ({ ...prev, [refKey]: false }));
-    setErrors((prev) => {
-      const newErrors = { ...prev };
-      delete newErrors[field];
-      return newErrors;
-    });
-    statusInputRefs[refKey]?.current?.blur();
+  const handleDelete = (index) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
+    setDeleteIndex(index);
+    setDeleteModalVisible(true);
   };
 
-  // Handle dropdown focus
-  const handleDisasterFocus = () => {
-    setIsDisasterDropdownVisible(true);
-    setFilteredDisasterTypes(disasterTypes);
+  const confirmDelete = () => {
+    if (deleteIndex !== null) {
+      setAffectedMunicipalities((prev) => prev.filter((_, i) => i !== deleteIndex));
+      setDeleteModalVisible(false);
+      setDeleteIndex(null);
+    }
   };
 
-  const handleStatusFocus = (field) => {
-    setIsStatusDropdownVisible((prev) => ({ ...prev, [field]: true }));
-    setFilteredStatuses(statusOptions);
+  const cancelDelete = () => {
+    setDeleteModalVisible(false);
+    setDeleteIndex(null);
   };
 
-  // Handle blur
-  const handleBlur = (setDropdownVisible, key) => {
-    setTimeout(() => {
-      if (key) {
-        setDropdownVisible((prev) => ({ ...prev, [key]: false }));
-      } else {
-        setDropdownVisible(false);
-      }
-    }, 200);
-  };
-
-  // New city/municipality
-  const handleAddMunicipality = () => {
+  const validateMunicipalityInputs = () => {
     const {
-      affectedMunicipalitiesCommunities,
-      totalPopulation,
-      affectedPopulation,
+      community,
+      totalPop,
+      affected,
       deaths,
       injured,
       missing,
       children,
       women,
-      seniorCitizens,
+      seniors,
       pwd,
     } = reportData;
 
-    const isMissingRequiredField =
-      !affectedMunicipalitiesCommunities ||
-      !totalPopulation ||
-      !affectedPopulation ||
-      !deaths ||
-      !injured ||
-      !missing ||
-      !children ||
-      !women ||
-      !seniorCitizens ||
-      !pwd;
-
-    if (isMissingRequiredField) {
-      const newErrors = {};
-      if (!affectedMunicipalitiesCommunities) newErrors.affectedMunicipalitiesCommunities = 'Affected Municipality/Community is required';
-      if (!totalPopulation) newErrors.totalPopulation = 'Total Population is required';
-      if (!affectedPopulation) newErrors.affectedPopulation = 'Affected Population is required';
-      if (!deaths) newErrors.deaths = 'Number of deaths is required';
-      if (!injured) newErrors.injured = 'Number of injured is required';
-      if (!missing) newErrors.missing = 'Number of missing persons is required';
-      if (!children) newErrors.children = 'Number of affected children is required';
-      if (!women) newErrors.women = 'Number of affected women is required';
-      if (!seniorCitizens) newErrors.seniorCitizens = 'Number of affected senior citizens is required';
-      if (!pwd) newErrors.pwd = 'Number of affected PWDs is required';
-
-      setErrors(newErrors);
-      Alert.alert('Incomplete Fields', 'Please fill out all required fields before adding.');
-      return;
-    }
-
-    const newMunicipality = {
-      affectedMunicipalitiesCommunities,
-      totalPopulation,
-      affectedPopulation,
-      deaths,
-      injured,
-      missing,
-      children,
-      women,
-      seniorCitizens,
-      pwd,
-    };
-
-    setAffectedMunicipalities((prev) => [...prev, newMunicipality]);
-
-    Alert.alert(
-      'Municipality Saved',
-      `Saved:\nAffected Community: ${affectedMunicipalitiesCommunities}\nTotal Population: ${totalPopulation}\nAffected Population: ${affectedPopulation}\nDeaths: ${deaths}\nInjured: ${injured}\nMissing: ${missing}\nChildren: ${children}\nWomen: ${women}\nSenior Citizens: ${seniorCitizens}\ \nPWD: ${pwd}`
-    );
-
-    setReportData((prev) => ({
-      ...prev,
-      affectedMunicipalitiesCommunities: '',
-      totalPopulation: '',
-      affectedPopulation: '',
-      deaths: '',
-      injured: '',
-      missing: '',
-      children: '',
-      women: '',
-      seniorCitizens: '',
-      pwd: '',
-    }));
-  };
-
-  // Handle form submission
-  const handleSubmit = () => {
     const newErrors = {};
-    requiredFields.forEach((field) => {
-      const value = reportData[field];
-      if (value === null || (typeof value === 'string' && value.trim() === '')) {
-        const fieldName = field.replace(/([A-Z])/g, ' $1').trim();
-        newErrors[field] = `${capitalizeFirstLetter(fieldName)} is required`;
-      }
-    });
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) {
-      Alert.alert('Incomplete Data', `Please fill in required fields:\n${Object.values(newErrors).join('\n')}`);
-      return;
-    }
-    navigation.navigate('RDANASummary', { reportData, affectedMunicipalities });
+    if (!community || !community.trim()) newErrors.community = requiredFieldsErrors.community;
+    if (!totalPop || !totalPop.trim()) newErrors.totalPop = requiredFieldsErrors.totalPop;
+    if (!affected || !affected.trim()) newErrors.affected = requiredFieldsErrors.affected;
+    if (!deaths || !deaths.trim()) newErrors.deaths = requiredFieldsErrors.deaths;
+    if (!injured || !injured.trim()) newErrors.injured = requiredFieldsErrors.injured;
+    if (!missing || !missing.trim()) newErrors.missing = requiredFieldsErrors.missing;
+    if (!children || !children.trim()) newErrors.children = requiredFieldsErrors.children;
+    if (!women || !women.trim()) newErrors.women = requiredFieldsErrors.women;
+    if (!seniors || !seniors.trim()) newErrors.seniors = requiredFieldsErrors.seniors;
+    if (!pwd || !pwd.trim()) newErrors.pwd = requiredFieldsErrors.pwd;
+
+    return { isValid: Object.keys(newErrors).length === 0, newErrors };
   };
 
-  // Render label with asterisk for required fields
   const renderLabel = (label, isRequired) => (
-    <Text style={RDANAStyles.formTitle}>
+    <Text style={GlobalStyles.formTitle}>
       {label}
-      {isRequired}
+      {isRequired && <Text style={{ color: 'red' }}>*</Text>}
     </Text>
   );
 
+  const windowHeight = Dimensions.get('window').height;
+
   return (
-    <View style={RDANAStyles.container}>
+    <SafeAreaView style={[GlobalStyles.container]}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      {/* Header */}
+      <LinearGradient
+        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+        start={{ x: 1, y: 0.5 }}
+        end={{ x: 1, y: 1 }}
+        style={GlobalStyles.gradientContainer}
+      >
+        <View style={GlobalStyles.newheaderContainer}>
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+          </TouchableOpacity>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>RDANA</Text>
+        </View>
+      </LinearGradient>
 
-      {/* Header - Use GlobalStyles for header properties */}
-      <View style={GlobalStyles.headerContainer}>
-        <TouchableOpacity
-          onPress={() => navigation.openDrawer()}
-          style={GlobalStyles.headerMenuIcon}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1, marginTop: 80 }}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView
+          contentContainerStyle={[GlobalStyles.scrollViewContent]}
+          scrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
         >
-          <Ionicons name="menu" size={32} color="white" />
-        </TouchableOpacity>
-        <Text style={GlobalStyles.headerTitle}>RDANA</Text>
-      </View>
+          <View style={GlobalStyles.form}>
+            <View style={GlobalStyles.section}>
+              <Text style={styles.sectionTitle}>Profile of the Disaster</Text>
+              {renderLabel('Site Location/Address (Barangay)', true)}
+              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Barangay = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.Site_Location_Address_Barangay && GlobalStyles.inputError]}
+                  placeholder="Enter Affected Barangay"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('Site_Location_Address_Barangay', val)}
+                  value={reportData.Site_Location_Address_Barangay}
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.Site_Location_Address_Barangay && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Barangay}</Text>}
 
-      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
-        <ScrollView contentContainerStyle={RDANAStyles.scrollViewContent}>
+              {renderLabel('Site Location/Address (City/Municipality)', true)}
+              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_City_Municipality = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.Site_Location_Address_City_Municipality && GlobalStyles.inputError]}
+                  placeholder="Enter Affected City/Municipality"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('Site_Location_Address_City_Municipality', val)}
+                  value={reportData.Site_Location_Address_City_Municipality}
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.Site_Location_Address_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_City_Municipality}</Text>}
 
-          <View style={RDANAStyles.form}>
-            <View style={RDANAStyles.section}>
-              <Text style={RDANAStyles.sectionTitle}>Profile of the Disaster</Text>
-              {renderLabel('Barangay', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.barangay && RDANAStyles.requiredInput]}
-                placeholder="Enter Barangay"
-                onChangeText={(val) => handleChange('barangay', val)}
-                value={reportData.barangay}
-              />
-              {errors.barangay && <Text style={RDANAStyles.errorText}>{errors.barangay}</Text>}
+              {renderLabel('Site Location/Address (Province)', true)}
+              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Province = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.Site_Location_Address_Province && GlobalStyles.inputError]}
+                  placeholder="Enter Affected Province"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('Site_Location_Address_Province', val)}
+                  value={reportData.Site_Location_Address_Province}
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.Site_Location_Address_Province && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Province}</Text>}
 
-              {renderLabel('City/Municipality', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.cityMunicipality && RDANAStyles.requiredInput]}
-                placeholder="Enter City/Municipality"
-                onChangeText={(val) => handleChange('cityMunicipality', val)}
-                value={reportData.cityMunicipality}
-              />
-              {errors.cityMunicipality && <Text style={RDANAStyles.errorText}>{errors.cityMunicipality}</Text>}
-
-              {renderLabel('Province', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.province && RDANAStyles.requiredInput]}
-                placeholder="Enter Province"
-                onChangeText={(val) => handleChange('province', val)}
-                value={reportData.province}
-              />
-              {errors.province && <Text style={RDANAStyles.errorText}>{errors.province}</Text>}
-
-              {renderLabel('Local Authorities/Persons Contacted', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.localAuthoritiesPersonsContacted && RDANAStyles.requiredInput]}
-                placeholder="Enter Names"
-                onChangeText={(val) => handleChange('localAuthoritiesPersonsContacted', val)}
-                value={reportData.localAuthoritiesPersonsContacted}
-              />
-              {errors.localAuthoritiesPersonsContacted && <Text style={RDANAStyles.errorText}>{errors.localAuthoritiesPersonsContacted}</Text>}
+              {renderLabel('Local Authorities/ Persons Contacted for Information', true)}
+              <View ref={(ref) => (inputContainerRefs.Local_Authorities_Persons_Contacted_for_Information = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.Local_Authorities_Persons_Contacted_for_Information && GlobalStyles.inputError]}
+                  placeholder="Enter Name"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('Local_Authorities_Persons_Contacted_for_Information', val)}
+                  value={reportData.Local_Authorities_Persons_Contacted_for_Information}
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.Local_Authorities_Persons_Contacted_for_Information && <Text style={GlobalStyles.errorText}>{errors.Local_Authorities_Persons_Contacted_for_Information}</Text>}
 
               {renderLabel('Date of Information Gathered', true)}
-              <TouchableOpacity
-                style={[RDANAStyles.input, errors.dateInformationGathered && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
-                onPress={() => setShowDatePicker((prev) => ({ ...prev, dateInformationGathered: true }))}
-              >
-                <Text style={{ flex: 1, color: reportData.dateInformationGathered ? '#000' : '#999' }}>
-                  {reportData.dateInformationGathered || 'YYYY-MM-DD'}
-                </Text>
-                <Ionicons name="calendar" size={24} color="#00BCD4" />
-              </TouchableOpacity>
-              {showDatePicker.dateInformationGathered && (
-                <DateTimePicker
-                  value={tempDate.dateInformationGathered}
-                  mode="date"
-                  display="default"
-                  onChange={(event, date) => handleDateChange('dateInformationGathered', event, date)}
-                />
-              )}
-              {errors.dateInformationGathered && <Text style={RDANAStyles.errorText}>{errors.dateInformationGathered}</Text>}
-
-              {renderLabel('Time of Information Gathered', true)}
-              <TouchableOpacity
-                style={[RDANAStyles.input, errors.timeInformationGathered && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
-                onPress={() => setShowTimePicker((prev) => ({ ...prev, timeInformationGathered: true }))}
-              >
-                <Text style={{ flex: 1, color: reportData.timeInformationGathered ? '#000' : '#999' }}>
-                  {reportData.timeInformationGathered || 'HH:MM'}
-                </Text>
-                <Ionicons name="time" size={24} color="#00BCD4" />
-              </TouchableOpacity>
-              {showTimePicker.timeInformationGathered && (
-                <DateTimePicker
-                  value={tempDate.timeInformationGathered}
-                  mode="time"
-                  display="default"
-                  is24Hour={true}
-                  onChange={(event, time) => handleTimeChange('timeInformationGathered', event, time)}
-                />
-              )}
-              {errors.timeInformationGathered && <Text style={RDANAStyles.errorText}>{errors.timeInformationGathered}</Text>}
-
-            {renderLabel('Name of Organization Involved', false)}
-              <TextInput
-                style={[RDANAStyles.input, errors.nameOrganizationInvolved && RDANAStyles.requiredInput]}
-                placeholder="Enter Name of Organization"
-                onChangeText={(val) => handleChange('nameOrganizationInvolved', val)}
-                value={reportData.nameOrganizationInvolved}
-              />
-              {errors.nameOrganizationInvolved && <Text style={RDANAStyles.errorText}>{errors.nameOrganizationInvolved}</Text>}
-            </View>
-
-            {/* Modality */}
-            <View style={RDANAStyles.section}>
-              <Text style={RDANAStyles.sectionTitle}>Modality</Text>
-              {renderLabel('Locations and Areas Affected (Barangay)', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.locationsAreasAffectedBarangay && RDANAStyles.requiredInput]}
-                placeholder="Enter Barangay"
-                onChangeText={(val) => handleChange('locationsAreasAffectedBarangay', val)}
-                value={reportData.locationsAreasAffectedBarangay}
-              />
-              {errors.locationsAreasAffectedBarangay && <Text style={RDANAStyles.errorText}>{errors.locationsAreasAffectedBarangay}</Text>}
-
-              {renderLabel('Locations and Areas Affected (City/Municipality)', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.locationsAreasAffectedCityMunicipality && RDANAStyles.requiredInput]}
-                placeholder="Enter City/Municipality"
-                onChangeText={(val) => handleChange('locationsAreasAffectedCityMunicipality', val)}
-                value={reportData.locationsAreasAffectedCityMunicipality}
-              />
-              {errors.locationsAreasAffectedCityMunicipality && <Text style={RDANAStyles.errorText}>{errors.locationsAreasAffectedCityMunicipality}</Text>}
-
-              {renderLabel('Locations and Areas Affected (Province)', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.locationsAreasAffectedProvince && RDANAStyles.requiredInput]}
-                placeholder="Enter Province"
-                onChangeText={(val) => handleChange('locationsAreasAffectedProvince', val)}
-                value={reportData.locationsAreasAffectedProvince}
-              />
-              {errors.locationsAreasAffectedProvince && <Text style={RDANAStyles.errorText}>{errors.locationsAreasAffectedProvince}</Text>}
-
-              {renderLabel('Type of Disaster', true)}
-              <View style={{ position: 'relative' }}>
-                <TextInput
-                  ref={disasterInputRef}
-                  style={[RDANAStyles.input, errors.typeOfDisaster && RDANAStyles.requiredInput]}
-                  placeholder="Select Disaster Type"
-                  onChangeText={(val) => handleChange('typeOfDisaster', val)}
-                  value={reportData.typeOfDisaster}
-                  onFocus={handleDisasterFocus}
-                  onBlur={() => handleBlur(setIsDisasterDropdownVisible)}
-                />
-                {isDisasterDropdownVisible && filteredDisasterTypes.length > 0 && (
-                  <View style={RDANAStyles.dropdownContainer}>
-                    <FlatList
-                      data={filteredDisasterTypes}
-                      keyExtractor={(item) => item}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={RDANAStyles.dropdownItem}
-                          onPress={() => handleDisasterSelect(item)}
-                        >
-                          <Text style={RDANAStyles.dropdownItemText}>{item}</Text>
-                        </TouchableOpacity>
-                      )}
-                    />
-                  </View>
+              <View ref={(ref) => (inputContainerRefs.Date_of_Information_Gathered = ref)}>
+                <TouchableOpacity
+                  style={[GlobalStyles.input, errors.Date_of_Information_Gathered && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
+                  onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, Date_of_Information_Gathered: true }))}
+                >
+                  <Text style={{ flex: 1, color: reportData.Date_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular'}}>
+                    {reportData.Date_of_Information_Gathered || 'dd/mm/yyyy'}
+                  </Text>
+                  <Ionicons name="calendar" size={24} color="#00BCD4" />
+                </TouchableOpacity>
+                {showDatePicker.Date_of_Information_Gathered && canSubmit && (
+                  <DateTimePicker
+                    value={tempDate.Date_of_Information_Gathered || new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={(event, date) => handleDateChange('Date_of_Information_Gathered', event, date)}
+                  />
                 )}
               </View>
-              {errors.typeOfDisaster && <Text style={RDANAStyles.errorText}>{errors.typeOfDisaster}</Text>}
+              {errors.Date_of_Information_Gathered && <Text style={GlobalStyles.errorText}>{errors.Date_of_Information_Gathered}</Text>}
 
-              {renderLabel('Date of Occurrence', true)}
-              <TouchableOpacity
-                style={[RDANAStyles.input, errors.dateOfOccurrence && RDANAStyles.requiredInput, { flexDirection: 'row', alignItems: 'center' }]}
-                onPress={() => setShowDatePicker((prev) => ({ ...prev, dateOfOccurrence: true }))}
-              >
-                <Text style={{ flex: 1, color: reportData.dateOfOccurrence ? '#000' : '#999' }}>
-                  {reportData.dateOfOccurrence || 'YYYY-MM-DD'}
-                </Text>
-                <Ionicons name="calendar" size={24} color="#00BCD4" />
-              </TouchableOpacity>
-              {showDatePicker.dateOfOccurrence && (
-                <DateTimePicker
-                  value={tempDate.dateOfOccurrence}
-                  mode="date"
-                  display="default"
-                  onChange={(event, date) => handleDateChange('dateOfOccurrence', event, date)}
+              {renderLabel('Time of Information Gathered', true)}
+              <View ref={(ref) => (inputContainerRefs.Time_of_Information_Gathered = ref)}>
+                <TouchableOpacity
+                  style={[GlobalStyles.input, errors.Time_of_Information_Gathered && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
+                  onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, Time_of_Information_Gathered: true }))}
+                >
+                  <Text style={{ flex: 1, color: reportData.Time_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular' }}>
+                    {reportData.Time_of_Information_Gathered || '--:-- --'}
+                  </Text>
+                  <Ionicons name="time" size={24} color="#00BCD4" />
+                </TouchableOpacity>
+                {showTimePicker.Time_of_Information_Gathered && canSubmit && (
+                  <DateTimePicker
+                    value={tempDate.Time_of_Information_Gathered || new Date()}
+                    mode="time"
+                    display="default"
+                    is24Hour={false}
+                    onChange={(event, time) => handleTimeChange('Time_of_Information_Gathered', event, time)}
+                  />
+                )}
+              </View>
+              {errors.Time_of_Information_Gathered && <Text style={GlobalStyles.errorText}>{errors.Time_of_Information_Gathered}</Text>}
+
+              {renderLabel('Name of Organization Involved', true)}
+              <View ref={(ref) => (inputContainerRefs.Name_of_the_Organizations_Involved = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.Name_of_the_Organizations_Involved && GlobalStyles.inputError]}
+                  placeholder="Enter Organization Name"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('Name_of_the_Organizations_Involved', val)}
+                  value={reportData.Name_of_the_Organizations_Involved}
+                  editable={canSubmit}
                 />
-              )}
-              {errors.dateOfOccurrence && <Text style={RDANAStyles.errorText}>{errors.dateOfOccurrence}</Text>}
-
-              {renderLabel('Time of Occurrence', false)}
-              <TouchableOpacity
-                style={[RDANAStyles.input, { flexDirection: 'row', alignItems: 'center' }]}
-                onPress={() => setShowTimePicker((prev) => ({ ...prev, timeOfOccurrence: true }))}
-              >
-                <Text style={{ flex: 1, color: reportData.timeOfOccurrence ? '#000' : '#999' }}>
-                  {reportData.timeOfOccurrence || 'HH:MM'}
-                </Text>
-                <Ionicons name="time" size={24} color="#00BCD4" />
-              </TouchableOpacity>
-              {showTimePicker.timeOfOccurrence && (
-                <DateTimePicker
-                  value={tempDate.timeOfOccurrence}
-                  mode="time"
-                  display="default"
-                  is24Hour={true}
-                  onChange={(event, time) => handleTimeChange('timeOfOccurrence', event, time)}
-                />
-              )}
-
-              {renderLabel('Summary of Disaster/Incident', false)}
-              <TextInput
-                style={[RDANAStyles.input, errors.summaryOfDisasterIncident && RDANAStyles.requiredInput, { height: 100 }]}
-                placeholder="Enter Summary"
-                multiline
-                numberOfLines={4}
-                onChangeText={(val) => handleChange('summaryOfDisasterIncident', val)}
-                value={reportData.summaryOfDisasterIncident}
-              />
-              {errors.summaryOfDisasterIncident && <Text style={RDANAStyles.errorText}>{errors.summaryOfDisasterIncident}</Text>}
+              </View>
+              {errors.Name_of_the_Organizations_Involved && <Text style={GlobalStyles.errorText}>{errors.Name_of_the_Organizations_Involved}</Text>}
             </View>
 
-            {/* Initial Effects */}
-            <View style={RDANAStyles.section}>
-              <Text style={RDANAStyles.sectionTitle}>Initial Effects</Text>
-              <View style={RDANAStyles.addButtonContainer}>
-                <TouchableOpacity
-                  style={RDANAStyles.addButton}
-                  onPress={handleAddMunicipality}
-                >
-                  <Text style={RDANAStyles.addbuttonText}>New City/Municipality</Text>
-                </TouchableOpacity>
+            <View style={GlobalStyles.section}>
+              <Text style={styles.sectionTitle}>Modality</Text>
+              {renderLabel('Locations and Areas Affected (Barangay)', true)}
+              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Barangay = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_Barangay && GlobalStyles.inputError]}
+                  placeholder="Enter Affected Barangay"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('Locations_and_Areas_Affected_Barangay', val)}
+                  value={reportData.Locations_and_Areas_Affected_Barangay}
+                  editable={canSubmit}
+                />
               </View>
+              {errors.Locations_and_Areas_Affected_Barangay && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Barangay}</Text>}
 
+              {renderLabel('Locations and Areas Affected (City/Municipality)', true)}
+              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_City_Municipality = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_City_Municipality && GlobalStyles.inputError]}
+                  placeholder="Enter Affected City/Municipality"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('Locations_and_Areas_Affected_City_Municipality', val)}
+                  value={reportData.Locations_and_Areas_Affected_City_Municipality}
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.Locations_and_Areas_Affected_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_City_Municipality}</Text>}
+
+              {renderLabel('Locations and Areas Affected (Province)', true)}
+              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Province = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_Province && GlobalStyles.inputError]}
+                  placeholder="Enter Province"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('Locations_and_Areas_Affected_Province', val)}
+                  value={reportData.Locations_and_Areas_Affected_Province}
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.Locations_and_Areas_Affected_Province && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Province}</Text>}
+
+              {renderLabel('Type of Disaster', true)}
+              <View
+                style={[GlobalStyles.input, styles.pickerContainer, errors.Type_of_Disaster && GlobalStyles.inputError]}
+                ref={(ref) => (inputContainerRefs.Type_of_Disaster = ref)}
+              >
+                <Picker
+                  selectedValue={reportData.Type_of_Disaster}
+                  onValueChange={(value) => handleChange('Type_of_Disaster', value)}
+                  style={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: reportData.Type_of_Disaster ? Theme.colors.black : Theme.colors.placeholderColor,
+                    height: 68,
+                    width: '100%',
+                    textAlign: 'center',
+                  }}
+                  dropdownIconColor="#00BCD4"
+                  enabled={canSubmit}
+                >
+                  {disasterTypes.map((option) => (
+                    <Picker.Item
+                      key={option.value}
+                      label={option.label}
+                      value={option.value}
+                      style={{ fontFamily: 'Poppins_Regular', textAlign: 'center', fontSize: 14 }}
+                    />
+                  ))}
+                </Picker>
+              </View>
+              {errors.Type_of_Disaster && <Text style={GlobalStyles.errorText}>{errors.Type_of_Disaster}</Text>}
+
+              {renderLabel('Date of Occurrence', true)}
+              <View ref={(ref) => (inputContainerRefs.Date_of_Occurrence = ref)}>
+                <TouchableOpacity
+                  style={[GlobalStyles.input, errors.Date_of_Occurrence && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
+                  onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, Date_of_Occurrence: true }))}
+                >
+                  <Text style={{ flex: 1, color: reportData.Date_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular'}}>
+                    {reportData.Date_of_Occurrence || 'dd/mm/yyyy'}
+                  </Text>
+                  <Ionicons name="calendar" size={24} color="#00BCD4" />
+                </TouchableOpacity>
+                {showDatePicker.Date_of_Occurrence && canSubmit && (
+                  <DateTimePicker
+                    value={tempDate.Date_of_Occurrence || new Date()}
+                    mode="date"
+                    display="default"
+                    textColor={Theme.colors.black}
+                    onChange={(event, date) => handleDateChange('Date_of_Occurrence', event, date)}
+                  />
+                )}
+              </View>
+              {errors.Date_of_Occurrence && <Text style={GlobalStyles.errorText}>{errors.Date_of_Occurrence}</Text>}
+
+              {renderLabel('Time of Occurrence', true)}
+              <View ref={(ref) => (inputContainerRefs.Time_of_Occurrence = ref)}>
+                <TouchableOpacity
+                  style={[GlobalStyles.input, errors.Time_of_Occurrence && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
+                  onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, Time_of_Occurrence: true }))}
+                >
+                  <Text style={{ flex: 1, color: reportData.Time_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular'}}>
+                    {reportData.Time_of_Occurrence || '--:-- --'}
+                  </Text>
+                  <Ionicons name="time" size={24} color="#00BCD4" />
+                </TouchableOpacity>
+                {showTimePicker.Time_of_Occurrence && canSubmit && (
+                  <DateTimePicker
+                    value={tempDate.Time_of_Occurrence || new Date()}
+                    mode="time"
+                    display="default"
+                    is24Hour={false}
+                    onChange={(event, time) => handleTimeChange('Time_of_Occurrence', event, time)}
+                  />
+                )}
+              </View>
+              {errors.Time_of_Occurrence && <Text style={GlobalStyles.errorText}>{errors.Time_of_Occurrence}</Text>}
+
+              {renderLabel('Summary of Disaster/Incident (optional)', false)}
+              <TextInput
+                style={[GlobalStyles.input, { height: 100, textAlignVertical: 'top' }]}
+                placeholder="Enter Summary"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                multiline
+                numberOfLines={4}
+                onChangeText={(val) => handleChange('summary', val)}
+                value={reportData.summary}
+                editable={canSubmit}
+              />
+              {errors.summary && <Text style={GlobalStyles.errorText}>{errors.summary}</Text>}
+            </View>
+
+            <View style={GlobalStyles.section}>
+              <Text style={styles.sectionTitle}>Initial Effects</Text>
               {affectedMunicipalities.length > 0 && (
-                <View style={RDANAStyles.table}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                    <View>
-                      <View style={[RDANAStyles.tableRow, { minWidth: 600 }]}>
-                        <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 280 }]}>Affected Municipalities/Communities</Text>
-                        <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 150 }]}>Total Population</Text>
-                        <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 160 }]}>Affected Population</Text>
-                        <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Deaths</Text>
-                        <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Injured</Text>
-                        <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Missing</Text>
-                        <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>Children</Text>
-                        <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 80 }]}>Women</Text>
-                        <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 130 }]}>Senior Citizens</Text>
-                        <Text style={[RDANAStyles.tableHeader, { flex: 0.3, minWidth: 100 }]}>PWD</Text>
-                      </View>
-                      {affectedMunicipalities.map((item, index) => (
-                        <View key={index} style={[RDANAStyles.tableRow, { minWidth: 600 }]}>
-                          <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 280 }]}>{item.affectedMunicipalitiesCommunities || 'N/A'}</Text>
-                          <Text style={[RDANAStyles.tableCell, { flex: 1, minWidth: 150 }]}>{item.totalPopulation || 'N/A'}</Text>
-                          <Text style={[RDANAStyles.tableCell, { flex: 0.1, minWidth: 160 }]}>{item.affectedPopulation || 'N/A'}</Text>
-                          <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.deaths || 'N/A'}</Text>
-                          <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.injured || 'N/A'}</Text>
-                          <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.missing || 'N/A'}</Text>
-                          <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.children || 'N/A'}</Text>
-                          <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 80 }]}>{item.women || 'N/A'}</Text>
-                          <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 130 }]}>{item.seniorCitizens || 'N/A'}</Text>
-                          <Text style={[RDANAStyles.tableCell, { flex: 0.3, minWidth: 100 }]}>{item.pwd || 'N/A'}</Text>
-                        </View>
-                      ))}
+                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                  <View style={styles.table}>
+                    <View style={[styles.tableRow, { minWidth: 1300 }]}>
+                      <Text style={[styles.tableHeader, { minWidth: 50, borderTopLeftRadius: 10 }]}>#</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 250, fontSize: 11 }]}>AFFECTED MUNICIPALITIES/COMMUNITIES</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 140 }]}>TOTAL POPULATION</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 170 }]}>AFFECTED POPULATION</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>DEATHS</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>INJURED</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>MISSING</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>CHILDREN</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>WOMEN</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 120 }]}>SENIOR CITIZENS</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>PWD</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 80, borderTopRightRadius: 10 }]}>ACTION</Text>
                     </View>
-                  </ScrollView>
-                </View>
+                    {affectedMunicipalities.map((item, index) => (
+                      <View key={index} style={[styles.tableRow, { minWidth: 1300 }]}>
+                        <Text style={[styles.tableCell, { minWidth: 50 }]}>{index + 1}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 250 }]}>{item.community || 'N/A'}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 140 }]}>{item.totalPop || 'N/A'}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 170 }]}>{item.affected || 'N/A'}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.deaths || 'N/A'}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.injured || 'N/A'}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.missing || 'N/A'}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.children || 'N/A'}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.women || 'N/A'}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 120 }]}>{item.seniors || 'N/A'}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.pwd || 'N/A'}</Text>
+                        <TouchableOpacity
+                          style={[styles.tableCell, { minWidth: 80, alignItems: 'center' }]}
+                          onPress={() => handleDelete(index)}
+                          disabled={!canSubmit}
+                        >
+                          <Ionicons name="trash" size={20} color="red" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
               )}
 
               {renderLabel('Affected Municipalities/Communities', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.affectedMunicipalitiesCommunities && RDANAStyles.requiredInput]}
-                placeholder="Enter Municipalities/Communities"
-                onChangeText={(val) => handleChange('affectedMunicipalitiesCommunities', val)}
-                value={reportData.affectedMunicipalitiesCommunities}
-              />
-              {errors.affectedMunicipalitiesCommunities && <Text style={RDANAStyles.errorText}>{errors.affectedMunicipalitiesCommunities}</Text>}
+              <View ref={(ref) => (inputContainerRefs.community = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.community && GlobalStyles.inputError]}
+                  placeholder="Enter Municipalities/Communities"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('community', val)}
+                  value={reportData.community}
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.community && <Text style={GlobalStyles.errorText}>{errors.community}</Text>}
 
               {renderLabel('Total Population', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.totalPopulation && RDANAStyles.requiredInput]}
-                placeholder="Enter Total Population"
-                onChangeText={(val) => handleChange('totalPopulation', val)}
-                value={reportData.totalPopulation}
-                keyboardType="numeric"
-              />
-              {errors.totalPopulation && <Text style={RDANAStyles.errorText}>{errors.totalPopulation}</Text>}
+              <View ref={(ref) => (inputContainerRefs.totalPop = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.totalPop && GlobalStyles.inputError]}
+                  placeholder="Enter Total Population"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('totalPop', val)}
+                  value={reportData.totalPop}
+                  keyboardType="numeric"
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.totalPop && <Text style={GlobalStyles.errorText}>{errors.totalPop}</Text>}
 
               {renderLabel('Affected Population', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.affectedPopulation && RDANAStyles.requiredInput]}
-                placeholder="Enter Affected Population"
-                onChangeText={(val) => handleChange('affectedPopulation', val)}
-                value={reportData.affectedPopulation}
-                keyboardType="numeric"
-              />
-              {errors.affectedPopulation && <Text style={RDANAStyles.errorText}>{errors.affectedPopulation}</Text>}
+              <View ref={(ref) => (inputContainerRefs.affected = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.affected && GlobalStyles.inputError]}
+                  placeholder="Enter Affected Population"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('affected', val)}
+                  value={reportData.affected}
+                  keyboardType="numeric"
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.affected && <Text style={GlobalStyles.errorText}>{errors.affected}</Text>}
 
               {renderLabel('Deaths', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.deaths && RDANAStyles.requiredInput]}
-                placeholder="Enter Number of Deaths"
-                onChangeText={(val) => handleChange('deaths', val)}
-                value={reportData.deaths}
-                keyboardType="numeric"
-              />
-              {errors.deaths && <Text style={RDANAStyles.errorText}>{errors.deaths}</Text>}
+              <View ref={(ref) => (inputContainerRefs.deaths = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.deaths && GlobalStyles.inputError]}
+                  placeholder="No. of Deaths"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('deaths', val)}
+                  value={reportData.deaths}
+                  keyboardType="numeric"
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.deaths && <Text style={GlobalStyles.errorText}>{errors.deaths}</Text>}
 
               {renderLabel('Injured', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.injured && RDANAStyles.requiredInput]}
-                placeholder="Enter Number of Injured"
-                onChangeText={(val) => handleChange('injured', val)}
-                value={reportData.injured}
-                keyboardType="numeric"
-              />
-              {errors.injured && <Text style={RDANAStyles.errorText}>{errors.injured}</Text>}
+              <View ref={(ref) => (inputContainerRefs.injured = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.injured && GlobalStyles.inputError]}
+                  placeholder="No. of Injured"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('injured', val)}
+                  value={reportData.injured}
+                  keyboardType="numeric"
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.injured && <Text style={GlobalStyles.errorText}>{errors.injured}</Text>}
 
               {renderLabel('Missing', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.missing && RDANAStyles.requiredInput]}
-                placeholder="Enter Number of Missing"
-                onChangeText={(val) => handleChange('missing', val)}
-                value={reportData.missing}
-                keyboardType="numeric"
-              />
-              {errors.missing && <Text style={RDANAStyles.errorText}>{errors.missing}</Text>}
+              <View ref={(ref) => (inputContainerRefs.missing = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.missing && GlobalStyles.inputError]}
+                  placeholder="No. of Missing"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('missing', val)}
+                  value={reportData.missing}
+                  keyboardType="numeric"
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.missing && <Text style={GlobalStyles.errorText}>{errors.missing}</Text>}
 
               {renderLabel('Children', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.children && RDANAStyles.requiredInput]}
-                placeholder="Enter Number of Children"
-                onChangeText={(val) => handleChange('children', val)}
-                value={reportData.children}
-                keyboardType="numeric"
-              />
-              {errors.children && <Text style={RDANAStyles.errorText}>{errors.children}</Text>}
+              <View ref={(ref) => (inputContainerRefs.children = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.children && GlobalStyles.inputError]}
+                  placeholder="No. of Children"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('children', val)}
+                  value={reportData.children}
+                  keyboardType="numeric"
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.children && <Text style={GlobalStyles.errorText}>{errors.children}</Text>}
 
               {renderLabel('Women', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.women && RDANAStyles.requiredInput]}
-                placeholder="Enter Number of Women"
-                onChangeText={(val) => handleChange('women', val)}
-                value={reportData.women}
-                keyboardType="numeric"
-              />
-              {errors.women && <Text style={RDANAStyles.errorText}>{errors.women}</Text>}
+              <View ref={(ref) => (inputContainerRefs.women = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.women && GlobalStyles.inputError]}
+                  placeholder="No. of Women"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('women', val)}
+                  value={reportData.women}
+                  keyboardType="numeric"
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.women && <Text style={GlobalStyles.errorText}>{errors.women}</Text>}
 
               {renderLabel('Senior Citizens', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.seniorCitizens && RDANAStyles.requiredInput]}
-                placeholder="Enter Number of Senior Citizens"
-                onChangeText={(val) => handleChange('seniorCitizens', val)}
-                value={reportData.seniorCitizens}
-                keyboardType="numeric"
-              />
-              {errors.seniorCitizens && <Text style={RDANAStyles.errorText}>{errors.seniorCitizens}</Text>}
+              <View ref={(ref) => (inputContainerRefs.seniors = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.seniors && GlobalStyles.inputError]}
+                  placeholder="No. of Senior Citizens"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('seniors', val)}
+                  value={reportData.seniors}
+                  keyboardType="numeric"
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.seniors && <Text style={GlobalStyles.errorText}>{errors.seniors}</Text>}
 
               {renderLabel('PWD', true)}
-              <TextInput
-                style={[RDANAStyles.input, errors.pwd && RDANAStyles.requiredInput]}
-                placeholder="Enter Number of PWD"
-                onChangeText={(val) => handleChange('pwd', val)}
-                value={reportData.pwd}
-                keyboardType="numeric"
-              />
-              {errors.pwd && <Text style={RDANAStyles.errorText}>{errors.pwd}</Text>}
+              <View ref={(ref) => (inputContainerRefs.pwd = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.pwd && GlobalStyles.inputError]}
+                  placeholder="No. of PWD"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('pwd', val)}
+                  value={reportData.pwd}
+                  keyboardType="numeric"
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.pwd && <Text style={GlobalStyles.errorText}>{errors.pwd}</Text>}
+
+              <View style={GlobalStyles.supplementaryButtonContainer}>
+                <TouchableOpacity
+                  style={[GlobalStyles.supplementaryButton, !canSubmit && { opacity: 0.6 }]}
+                  onPress={() => {
+                    if (!canSubmit) {
+                      setModalConfig({
+                        title: 'Permission Error',
+                        message: 'You do not have permission to submit reports.',
+                        onConfirm: () => setModalVisible(false),
+                        confirmText: 'OK',
+                      });
+                      setModalVisible(true);
+                      return;
+                    }
+
+                    const { isValid, newErrors } = validateMunicipalityInputs();
+                    if (!isValid) {
+                      setErrors(newErrors);
+                      ToastAndroid.show('Please fill out the Initial Effects fields before adding an entry.', ToastAndroid.SHORT);
+                      return;
+                    }
+
+                    const newMunicipality = {
+                      community: reportData.community,
+                      totalPop: reportData.totalPop,
+                      affected: reportData.affected,
+                      deaths: reportData.deaths,
+                      injured: reportData.injured,
+                      missing: reportData.missing,
+                      children: reportData.children,
+                      women: reportData.women,
+                      seniors: reportData.seniors,
+                      pwd: reportData.pwd,
+                    };
+
+                    setAffectedMunicipalities((prev) => [...prev, newMunicipality]);
+                    ToastAndroid.show('Municipality Saved', ToastAndroid.SHORT);
+                    setReportData((prev) => ({
+                      ...prev,
+                      community: '',
+                      totalPop: '',
+                      affected: '',
+                      deaths: '',
+                      injured: '',
+                      missing: '',
+                      children: '',
+                      women: '',
+                      seniors: '',
+                      pwd: '',
+                    }));
+                    setErrors((prev) => {
+                      const newErrors = { ...prev };
+                      municipalityFields.forEach((field) => delete newErrors[field]);
+                      return newErrors;
+                    });
+                  }}
+                  disabled={!canSubmit}
+                >
+                  <Text style={GlobalStyles.supplementaryButtonText}>Add Row</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Status of Lifelines, Social Structure, and Critical Facilities */}
-            <View style={RDANAStyles.section}>
-              <Text style={RDANAStyles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities</Text>
-              {['Bridges', 'Roads', 'Buildings', 'Hospitals', 'Schools'].map((item) => {
-                const field = `${item.toLowerCase()}Status`;
-                const refKey = item.toLowerCase();
+            <View style={GlobalStyles.section}>
+              <Text style={styles.sectionTitle}>
+                Status of Lifelines, Social Structure, and Critical Facilities (optional)
+              </Text>
+              {[
+                'Residential Houses',
+                'Transportation and Mobility',
+                'Electricity, Power Grid',
+                'Communication Networks, Internet',
+                'Hospitals, Rural Health Units',
+                'Water Supply System',
+                'Market, Business, and Commercial Establishments',
+              ].map((item) => {
+                const field = `${item
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]/g, '')}Status`;
+                const currentItemOptions = LIFELINE_STATUS_OPTIONS[item] || [];
+
                 return (
                   <View key={item}>
                     {renderLabel(item, false)}
-                    <View style={{ position: 'relative' }}>
-                      <TextInput
-                        ref={statusInputRefs[refKey]}
-                        style={[RDANAStyles.input, errors[field] && RDANAStyles.requiredInput]}
-                        placeholder={`Select ${item} Status`}
-                        onChangeText={(val) => handleChange(field, val)}
-                        value={reportData[field]}
-                        onFocus={() => handleStatusFocus(refKey)}
-                        onBlur={() => handleBlur(setIsStatusDropdownVisible, refKey)}
-                      />
-                      {isStatusDropdownVisible[refKey] && filteredStatuses.length > 0 && (
-                        <View style={RDANAStyles.dropdownContainer}>
-                          <FlatList
-                            data={filteredStatuses}
-                            keyExtractor={(status) => status}
-                            renderItem={({ item: status }) => (
-                              <TouchableOpacity
-                                style={RDANAStyles.dropdownItem}
-                                onPress={() => handleStatusSelect(status, field)}
-                              >
-                                <Text style={RDANAStyles.dropdownItemText}>{status}</Text>
-                              </TouchableOpacity>
-                            )}
+                    <View
+                      style={[GlobalStyles.input, styles.pickerContainer]}
+                      ref={(ref) => (inputContainerRefs[field] = ref)}
+                    >
+                      <Picker
+                        selectedValue={reportData[field]}
+                        onValueChange={(value) => handleChange(field, value)}
+                        style={{
+                          fontFamily: 'Poppins_Regular',
+                          fontSize: 14,
+                          color: reportData[field] ? Theme.colors.black : '#999',
+                          height: 68,
+                          width: '100%',
+                          textAlign: 'center',
+                        }}
+                        dropdownIconColor="#00BCD4"
+                        enabled={canSubmit}
+                      >
+                        {currentItemOptions.map((option) => (
+                          <Picker.Item
+                            key={option.value}
+                            label={option.label}
+                            value={option.value}
+                            style={{ fontFamily: 'Poppins_Regular', textAlign: 'center', fontSize: 14 }}
                           />
-                        </View>
-                      )}
+                        ))}
+                      </Picker>
                     </View>
-                    {errors[field] && <Text style={RDANAStyles.errorText}>{errors[field]}</Text>}
+                    {errors[field] && <Text style={GlobalStyles.errorText}>{errors[field]}</Text>}
                   </View>
                 );
               })}
+              {renderLabel('Others', false)}
+              <TextInput
+                style={[GlobalStyles.input]}
+                placeholder="Input Here (Optional)"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                onChangeText={(val) => handleChange('othersStatus', val)}
+                value={reportData.othersStatus}
+                editable={canSubmit}
+              />
+              {errors.othersStatus && <Text style={GlobalStyles.errorText}>{errors.othersStatus}</Text>}
             </View>
 
-            {/* Initial Needs Assessment Checklist */}
-            <View style={RDANAStyles.section}>
-              <Text style={RDANAStyles.sectionTitle}>Initial Needs Assessment Checklist</Text>
-              {['Relief Packs', 'Hot Meals', 'Hygiene Kits', 'Drinking Water', 'Rice Packs'].map((item) => {
-                const field = item.toLowerCase().replace(/\s/g, '');
-                return (
-                  <View key={item} style={{ marginBottom: 10 }}>
-                    {renderLabel(item, false)}
-                    <View style={{ flexDirection: 'row', justifyContent: 'flex-start' }}>
-                      {needsOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option}
-                          style={[
-                            RDANAStyles.addButton,
-                            {
-                              backgroundColor: reportData[field] === option ? '#00BCD4' : '#E0E0E0',
-                              marginRight: 10,
-                              paddingHorizontal: 15,
-                              paddingVertical: 8,
-                            },
-                          ]}
-                          onPress={() => handleNeedsSelect(field, option)}
-                        >
-                          <Text style={[RDANAStyles.addbuttonText, { color: reportData[field] === option ? 'white' : '#333' }]}>
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+            <View style={GlobalStyles.section}>
+              <Text style={styles.sectionTitle}>Initial Needs Assessment Checklist (Optional)</Text>
+              {[
+                { label: 'Relief Packs', field: 'reliefPacks' },
+                { label: 'Hot Meals', field: 'hotMeals' },
+                { label: 'Hygiene Kits', field: 'hygieneKits' },
+                { label: 'Drinking Water', field: 'drinkingWater' },
+                { label: 'Rice Packs', field: 'ricePacks' },
+              ].map(({ label, field }) => (
+                <TouchableOpacity
+                  key={field}
+                  onPress={() => handleNeedsSelect(field)}
+                  style={styles.checkboxContainer}
+                  disabled={!canSubmit}
+                >
+                  <View style={styles.checkboxBox}>
+                    {checklist[field] && <Ionicons name="checkmark" style={styles.checkmark} />}
                   </View>
-                );
-              })}
-
+                  <Text style={styles.checkboxLabel}>{label}</Text>
+                </TouchableOpacity>
+              ))}
               {renderLabel('Other Immediate Needs', false)}
               <TextInput
-                style={RDANAStyles.input}
+                style={[GlobalStyles.input]}
                 placeholder="Enter Items"
-                onChangeText={(val) => handleChange('otherImmediateNeeds', val)}
-                value={reportData.otherImmediateNeeds}
+                placeholderTextColor={Theme.colors.placeholderColor}
+                onChangeText={(val) => handleChange('otherNeeds', val)}
+                value={reportData.otherNeeds}
+                editable={canSubmit}
               />
-
+              {errors.otherNeeds && <Text style={GlobalStyles.errorText}>{errors.otherNeeds}</Text>}
               {renderLabel('Estimated Quantity', false)}
               <TextInput
-                style={RDANAStyles.input}
+                style={[GlobalStyles.input]}
                 placeholder="Estimated No. of Families to Benefit"
-                onChangeText={(val) => handleChange('estimatedQuantity', val)}
-                value={reportData.estimatedQuantity}
+                placeholderTextColor={Theme.colors.placeholderColor}
+                onChangeText={(val) => handleChange('estQty', val)}
+                value={reportData.estQty}
                 keyboardType="numeric"
+                editable={canSubmit}
               />
+              {errors.estQty && <Text style={GlobalStyles.errorText}>{errors.estQty}</Text>}
             </View>
 
-            {/* Initial Response Actions */}
-            <View style={RDANAStyles.section}>
-              <Text style={RDANAStyles.sectionTitle}>Initial Response Actions</Text>
-              {renderLabel('Response Groups Involved', false)}
-              <TextInput
-                style={RDANAStyles.input}
-                placeholder="Enter Organization's Name"
-                onChangeText={(val) => handleChange('responseGroupsInvolved', val)}
-                value={reportData.responseGroupsInvolved}
-              />
+            <View style={GlobalStyles.section}>
+              <Text style={styles.sectionTitle}>Initial Response Actions</Text>
+              {renderLabel('Response Groups Involved', true)}
+              <View ref={(ref) => (inputContainerRefs.responseGroup = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.responseGroup && GlobalStyles.inputError]}
+                  placeholder="Enter Organization's Name"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('responseGroup', val)}
+                  value={reportData.responseGroup}
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.responseGroup && <Text style={GlobalStyles.errorText}>{errors.responseGroup}</Text>}
 
-              {renderLabel('Relief Assistance Deployed', false)}
-              <TextInput
-                style={RDANAStyles.input}
-                placeholder="Enter Relief Assistance"
-                onChangeText={(val) => handleChange('reliefAssistanceDeployed', val)}
-                value={reportData.reliefAssistanceDeployed}
-              />
+              {renderLabel('Relief Assistance Deployed', true)}
+              <View ref={(ref) => (inputContainerRefs.reliefDeployed = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.reliefDeployed && GlobalStyles.inputError]}
+                  placeholder="Enter Relief Assistance"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('reliefDeployed', val)}
+                  value={reportData.reliefDeployed}
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.reliefDeployed && <Text style={GlobalStyles.errorText}>{errors.reliefDeployed}</Text>}
 
-              {renderLabel('Number of Families Served', false)}
-              <TextInput
-                style={RDANAStyles.input}
-                placeholder="Enter Number of Families"
-                onChangeText={(val) => handleChange('numberOfFamiliesServed', val)}
-                value={reportData.numberOfFamiliesServed}
-                keyboardType="numeric"
-              />
+              {renderLabel('Number of Families Served', true)}
+              <View ref={(ref) => (inputContainerRefs.familiesServed = ref)}>
+                <TextInput
+                  style={[GlobalStyles.input, errors.familiesServed && GlobalStyles.inputError]}
+                  placeholder="Enter Number of Families"
+                  placeholderTextColor={Theme.colors.placeholderColor}
+                  onChangeText={(val) => handleChange('familiesServed', val)}
+                  value={reportData.familiesServed}
+                  keyboardType="numeric"
+                  editable={canSubmit}
+                />
+              </View>
+              {errors.familiesServed && <Text style={GlobalStyles.errorText}>{errors.familiesServed}</Text>}
             </View>
 
-            {/* Submit Button */}
-            <TouchableOpacity style={RDANAStyles.button} onPress={handleSubmit}>
-              <Text style={RDANAStyles.buttonText}>Proceed</Text>
-            </TouchableOpacity>
+            <View style={{ marginHorizontal: 15 }}>
+              <TouchableOpacity
+                style={[GlobalStyles.button, !canSubmit && { opacity: 0.6 }]}
+                onPress={() => {
+                  if (!canSubmit) {
+                    setModalConfig({
+                      title: 'Permission Error',
+                      message: 'You do not have permission to submit reports.',
+                      onConfirm: () => setModalVisible(false),
+                      confirmText: 'OK',
+                    });
+                    setModalVisible(true);
+                    return;
+                  }
+
+                  const newErrors = {};
+                  let allRequiredBlank = true;
+
+                  requiredFields.forEach((field) => {
+                    const value = reportData[field];
+                    if (value === null || (typeof value === 'string' && value.trim() === '')) {
+                      newErrors[field] = requiredFieldsErrors[field];
+                    } else {
+                      allRequiredBlank = false;
+                    }
+                  });
+
+                  if (allRequiredBlank) {
+                    setModalConfig({
+                      title: 'Incomplete Data',
+                      message: 'Please fill in required fields.',
+                      onConfirm: () => setModalVisible(false),
+                      confirmText: 'OK',
+                    });
+                    setModalVisible(true);
+                    return;
+                  }
+
+                  if (affectedMunicipalities.length === 0) {
+                    newErrors.community = 'Please add at least one municipality.';
+                  }
+
+                  const gatheredDate = parseDate(reportData.Date_of_Information_Gathered);
+                  const gatheredTime = parseTimeToDate(reportData.Time_of_Information_Gathered);
+                  const occurrenceDate = parseDate(reportData.Date_of_Occurrence);
+                  const occurrenceTime = parseTimeToDate(reportData.Time_of_Occurrence);
+                  if (gatheredDate && gatheredTime && occurrenceDate && occurrenceTime) {
+                    if (!isWithin24To48Hours(gatheredDate, gatheredTime, occurrenceDate, occurrenceTime)) {
+                      newErrors.Date_of_Information_Gathered = 'Date must be 24-48 hours after the occurrence.';
+                      newErrors.Time_of_Information_Gathered = 'Time must be 24-48 hours after the occurrence.';
+                      ToastAndroid.show('Date must be 24-48 hours after the occurrence.', ToastAndroid.SHORT);
+                    }
+                  }
+
+                  if (Object.keys(newErrors).length > 0) {
+                    setErrors(newErrors);
+                    if (!allRequiredBlank) {
+                      setModalConfig({
+                        title: 'Incomplete Data',
+                        message: `Please fill in the following:\n${Object.values(newErrors).join('\n')}`,
+                        onConfirm: () => setModalVisible(false),
+                        confirmText: 'OK',
+                      });
+                      setModalVisible(true);
+                    }
+                    return;
+                  }
+
+                  const completeReportData = Object.keys(reportData).reduce((acc, key) => {
+                    if (!municipalityFields.includes(key)) {
+                      acc[key] = reportData[key];
+                    }
+                    return acc;
+                  }, {});
+
+                  console.log('Navigating to RDANASummary with reportData:', completeReportData);
+                  console.log('Lifeline Status Fields:', {
+                    residentialhousesStatus: completeReportData.residentialhousesStatus,
+                    transportationandmobilityStatus: completeReportData.transportationandmobilityStatus,
+                    electricitypowergridStatus: completeReportData.electricitypowergridStatus,
+                    communicationnetworksinternetStatus: completeReportData.communicationnetworksinternetStatus,
+                    hospitalsruralhealthunitsStatus: completeReportData.hospitalsruralhealthunitsStatus,
+                    watersupplysystemStatus: completeReportData.watersupplysystemStatus,
+                    marketbusinessandcommercialestablishmentsStatus: completeReportData.marketbusinessandcommercialestablishmentsStatus,
+                    othersStatus: completeReportData.othersStatus,
+                  });
+                  console.log('Affected Municipalities:', affectedMunicipalities);
+
+                  navigation.navigate('RDANASummary', { reportData: completeReportData, affectedMunicipalities });
+                }}
+                disabled={!canSubmit}
+              >
+                <Text style={GlobalStyles.buttonText}>Proceed</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
-      </SafeAreaView>
-    </View>
-    
+      </KeyboardAvoidingView>
+
+      <OperationCustomModal
+        visible={deleteModalVisible}
+        title="Confirm Delete"
+        message="Are you sure you want to delete this municipality?"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        confirmText="Delete"
+        cancelText="Cancel"
+        showCancel={true}
+      />
+      <OperationCustomModal
+        visible={modalVisible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        confirmText={modalConfig.confirmText}
+      />
+    </SafeAreaView>
   );
 };
 

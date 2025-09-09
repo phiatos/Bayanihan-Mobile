@@ -6,71 +6,81 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.primary,
     width: '100%',
+    overflow: 'hidden',
   },
   drawerScroll: {
     backgroundColor: Theme.colors.primary,
+     overflow: 'hidden',
   },
-  userHeader: {
-    padding: 20,
-    paddingTop: 80,
-    marginLeft: -15,
-    marginRight: -15,
-    marginTop: -70,
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'column',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
+    userHeader: {
+      flexDirection: 'row',   
+      alignItems: 'center',  
+      padding: 10,      
+      borderBottomColor: Theme.colors.white,
+      borderBottomWidth: 1,
+      position: 'relative'    
   },
-  header: {
-    marginLeft: 90,
-    marginRight: -15,
-    marginTop: -65,
+    profileImage: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,      
+      marginRight: 15,   
+      backgroundColor: Theme.colors.lightBg,
   },
-  profileImage: {
-    height: 80,
-    width: 80,
-    borderRadius: 40,
-    marginBottom: 10,
+    header: {
+      flexDirection: 'column', 
+      justifyContent: 'center',
   },
-  userRole: {
+  organization: {
+    fontSize: 14,
     color: Theme.colors.white,
     fontFamily: 'Poppins_Regular',
-    marginRight: 5,
-    fontSize: 12,
   },
-    userName: {
+  organizationContainer: {
+    minHeight: 20,
+  },
+  userName: {
     color: Theme.colors.white,
-    fontSize: 18,
+    fontSize: 15,
     fontFamily: 'Poppins_Bold',
-    marginBottom: 5,
   },
   drawerListContainer: {
     flex: 1,
     backgroundColor: Theme.colors.primary,
-    paddingTop: 10,
+    paddingTop: 20,
     color: Theme.colors.white,
     fontFamily:'Poppins_Regular',
-    
+    overflow: 'hidden',
   },
   footer: {
-    padding: 20,
+    paddingHorizontal: 30,
+    paddingBottom: 40,
     color: Theme.colors.white
-
   },
   footerButton: {
-    paddingVertical: 15,
+    paddingVertical: 5,
   },
   footerButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-
   },
   footerButtonText: {
     fontSize: 13,
-    fontFamily: 'Poppins_Regular',
-    marginLeft: 5,
+    fontFamily: 'Poppins_Medium',
+    marginLeft: 25,
     color: Theme.colors.white
-
+  },
+    modalContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  icon: {
+    marginBottom: 10,
+  },
+  modalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#333',
   },
 });
 

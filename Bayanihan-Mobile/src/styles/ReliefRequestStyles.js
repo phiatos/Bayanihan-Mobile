@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
 import Theme from '../constants/theme';
 
 const spacing = {
@@ -22,31 +22,10 @@ const borderWidth = {
   thick: 3,
 };
 
+const windowHeight = Dimensions.get('window').height;
+const maxDropdownHeight = windowHeight * 0.3;
+
 export default StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.lightBg,
-  },
-
-  scrollViewContent: {
-    paddingVertical: spacing.small, 
-  },
-
-  section: {
-    marginVertical: spacing.small,
-    marginHorizontal: spacing.medium,
-    borderWidth: borderWidth.thick,
-    borderColor: Theme.colors.primary,
-    borderRadius: borderRadius.medium,
-    padding: spacing.small,
-    backgroundColor: Theme.colors.lightBg,
-    shadowColor: Theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,  
-  },
-
   sectionTitle: {
     fontSize: 18,
     marginBottom: spacing.small,
@@ -54,154 +33,269 @@ export default StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Poppins_SemiBold',
   },
-
-  form: {
-    marginHorizontal: 10,
-  },
-
-  formTitle: {
-    fontSize: 13,
-    color: Theme.colors.primary,
-    marginBottom: 5,
-    fontFamily: 'Poppins_Bold',
-  },
-
-  input: {
-    borderWidth: borderWidth.thin,
-    borderColor: '#605D67',
-    borderRadius: borderRadius.large,
-    padding: spacing.small,
-    marginBottom: spacing.small,
-    fontFamily: 'Poppins_Regular',
-    fontSize: 14,
-    color: Theme.colors.black,
-  },
-
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-
-  requiredInput: {            
-  borderColor: '#D32F2F',  
-  fontWeight: '400'
+  requiredInput: {
+    borderColor: '#D32F2F',
   },
-  
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#AAA', 
-    borderRadius: 10, 
+    borderColor: '#AAA',
+    borderRadius: 10,
     backgroundColor: '#fff',
-    marginBottom: 10,            
   },
-
   errorText: {
     color: 'red',
     fontSize: 12,
     marginLeft: 10,
-},
-
-  addButtonContainer: {
-  flexDirection: 'row',
-  justifyContent: 'flex-end',
-  paddingHorizontal: 10,
-},
-
-addButton: {
-  paddingVertical: 10,
-  paddingHorizontal: 20,
-  backgroundColor: '#00BCD4',
-  borderRadius: 10,
-  shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 10
-},
-
-  addbuttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 13,
-    paddingHorizontal: 10,
-    fontFamily: 'Poppins_SemiBold', 
+    marginBottom: spacing.medium,
   },
-
-  addedItems:{
+  pickerContainer: {
+    borderWidth: borderWidth.thin, 
+    borderColor: '#605D67', 
+    borderRadius: borderRadius.large, 
+    paddingHorizontal: 0, 
+    paddingVertical:0, 
+    height: 48, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    textAlign:'center',
+  },
+  pickerRequiredInput: {
+    borderColor: '#D32F2F', 
+  },
+  addedItems: {
     fontFamily: 'Poppins_Medium',
     fontSize: 18,
     color: '#14AEBB',
-
+    marginBottom: spacing.small,
   },
-
-  tableRow: {
+  summaryTable: {
+    marginBottom: 20,
+  },
+  summaryTableRow: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
+  },
+  summaryTableHeader: {
+    alignItems: 'left',
     paddingVertical: 10,
+    backgroundColor: Theme.colors.primary,  
   },
-  tableHeader: {
-    textAlign: 'left',
-    paddingLeft: 10,    
-    fontFamily: 'Poppins_Bold',
-    color: '#4059A5', 
-  },
-  tableCell: {
-    textAlign: 'left',
+  summaryTableHeaderCell: {
     paddingLeft: 10,
-    fontFamily: 'Poppins_Regular'
+    color: Theme.colors.white,
+    fontFamily: 'Poppins_SemiBold',
+    fontSize: 12,
   },
-
+  summaryTableCell: {
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    maxWidth: 100, 
+    textAlign: 'left',
+    fontFamily: 'Poppins_Regular',
+    paddingVertical: 5,
+    fontSize: 12,
+    
+  },
   icon: {
-    padding: 10, 
+    padding: 10,
   },
-
-  button: {
-    backgroundColor: '#00BCD4',
-    padding: 13,
-    borderRadius: 10,
-    marginTop: 10,
+  dropdownContainer: {
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderWidth: borderWidth.thin,
+    borderColor: '#ccc',
+    maxHeight: maxDropdownHeight,
+    zIndex: 1000,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 30,
-    marginHorizontal: 10
+    elevation: 5,
   },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',  
-    fontSize: 15,          
-    fontFamily: 'Poppins_Bold'
+  dropdownItem: {
+    padding: spacing.small,
+    borderBottomWidth: borderWidth.thin,
+    borderBottomColor: '#eee',
   },
-  dropdownContainer: {
-      position: 'absolute',
-      top: 50, // Adjust based on TextInput height
-      left: 0,
-      right: 0,
-      backgroundColor: '#fff',
-      borderWidth: 1,
-      borderColor: '#ccc',
-      borderRadius: 5,
-      maxHeight: 150,
-      zIndex: 1000,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 5,
-    },
-    dropdownItem: {
-      padding: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: '#eee',
-    },
-    dropdownItemText: {
-      fontSize: 16,
-      color: '#333',
-    },
+  dropdownItemText: {
+    fontSize: 16,
+    color: '#333',
+    fontFamily: 'Poppins_Regular',
+  },
+  secondaryDropdownContainer:{
+    width: '100%',
+    height: 50,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+  },
+   modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 20,
+    width: '80%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontFamily: 'Poppins_SemiBold',
+    fontSize: 20,
+    color: '#333',
+    marginBottom: 10,
+  },
+  modalContent: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalIcon: {
+    marginBottom: 10,
+  },
+  modalMessage: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  confirmButton: {
+    backgroundColor: '#00BCD4',
+  },
+  cancelButton: {
+    backgroundColor: '#FF0000',
+  },
+  modalButtonText: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 16,
+    color: '#fff',
+  },
+  toastContainer: {
+    position: 'absolute',
+    bottom: 50,
+    left: 20,
+    right: 20,
+    backgroundColor: Theme.colors.lightBg,
+    borderRadius: 10,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  toastIcon: {
+    marginRight: 10,
+  },
+  toastContent: {
+    flex: 1,
+  },
+  toastTitle: {
+    fontFamily: 'Poppins_SemiBold',
+    fontSize: 16,
+    color: Theme.colors.black,
+  },
+  toastMessage: {
+    fontFamily: 'Poppins_Regular',
+    fontSize: 12,
+    color: Theme.colors.black,
+  },
+
+  // Summary Styles
+  label: {
+    fontSize: 14,
+    color: Theme.colors.primary,
+    textTransform: 'capitalize',
+    fontFamily: 'Poppins_SemiBold',
+  },
+  value: {
+    fontSize: 14,
+    color: '#000000',
+    marginTop: 2,
+    fontFamily: 'Poppins_Regular',
+  },
+  table: {
+    marginVertical: 20,
+    
+  },
+  tableRow: {
+    flexDirection: 'row',
+  },
+  tableHeader: {
+    textAlign: 'left',
+    // alignItems: 'center',
+    paddingVertical: 10,
+    backgroundColor: Theme.colors.primary,
+  },
+  tableHeaderText: {
+    fontFamily: 'Poppins_SemiBold',
+    color: Theme.colors.white,
+    fontSize: 12,
+    paddingLeft: 10
+  },
+  tableCell: {
+    textAlign: 'left',
+    fontFamily: 'Poppins_Regular',
+    paddingVertical: 5,
+    fontSize: 12,
+  },
+  cell: {
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    maxWidth: 100, 
+
+  },
+  modalContent: {
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'center',
+  },
+  modalIcon: {
+    marginBottom: 15,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 24,
+    fontFamily: 'Poppins_Regular',
+    textAlign: 'center',
+  },
 });

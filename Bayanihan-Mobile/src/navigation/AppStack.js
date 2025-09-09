@@ -1,25 +1,35 @@
-// src/navigation/AppStack.js
-import React from 'react';
+import React, { useContext, useEffect } from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { signOut } from 'firebase/auth';
+import { Alert, Platform } from 'react-native';
+import { auth } from '../configuration/firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ReliefRequestScreen from '../screens/ReliefRequestScreen';
 import ReliefSummary from '../screens/ReliefSummary';
 import ReportSubmissionScreen from '../screens/ReportSubmissionScreen';
-import ReportSummary from '../screens/ReportSummary'; 
-import CustomDrawer from '../components/CustomDrawer';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import ReportSummary from '../screens/ReportSummary';
 import Theme from '../constants/theme';
 import RDANAScreen from '../screens/RDANAScreen';
 import RDANASummary from '../screens/RDANASummary';
-import CallforDonations from '../screens/CallforDonations';
 import DashboardScreen from '../screens/Dashboard';
+import CallForDonationsSummary from '../screens/CallForDonationsSummary';
+import CallforDonations from '../screens/CallforDonations';
+import CommunityBoard from '../screens/CommunityBoard';
+import { AuthContext } from '../context/AuthContext';
+import CustomDrawer from '../components/CustomDrawer';
+import CreatePost from '../screens/CreatePost';
+import TransactionScreen from '../screens/SubmissionScreen';
+import TransactionDetailsScreen from '../screens/SubmissionDetailsScreen';
+import CommentSection from '../screens/CommentSection';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 
+// RDANA Stack
 const RDANAStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="RDANAScreen" component={RDANAScreen} />
@@ -27,12 +37,15 @@ const RDANAStack = () => (
   </Stack.Navigator>
 );
 
+// Call for Donations Stack
 const CallforDonationsStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="CallforDonations" component={CallforDonations} />
+    <Stack.Screen name="CallForDonationsSummary" component={CallForDonationsSummary} />
   </Stack.Navigator>
 );
 
+// Relief Request Stack
 const RequestStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="ReliefRequest" component={ReliefRequestScreen} />
@@ -40,6 +53,7 @@ const RequestStack = () => (
   </Stack.Navigator>
 );
 
+// Report Submission Stack
 const ReportStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="ReportSubmission" component={ReportSubmissionScreen} />
@@ -47,10 +61,39 @@ const ReportStack = () => (
   </Stack.Navigator>
 );
 
-const AppStack = ({ onSignOut }) => {
+// Community Board Stack 
+const CommunityBoardStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="CommunityBoard" component={CommunityBoard} />
+    <Stack.Screen name="CreatePost" component={CreatePost} />
+    <Stack.Screen name="CommentSection" component={CommentSection} />
+  </Stack.Navigator>
+);
+
+// Transaction Stack
+const SubmissionStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="TransactionScreen" component={TransactionScreen} />
+    <Stack.Screen name="TransactionDetailsScreen" component={TransactionDetailsScreen} />
+  </Stack.Navigator>
+);
+
+const AppStack = () => {
+  const { setUser } = useContext(AuthContext);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      await AsyncStorage.removeItem('user_session'); // Clear session
+      setUser(null);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Sign out error:`, error);
+    }
+  };
+
   return (
     <Drawer.Navigator
-      drawerContent={(props) => <CustomDrawer {...props} onSignOut={onSignOut} />}
+      drawerContent={(props) => <CustomDrawer {...props} onSignOut={handleSignOut} />}
       screenOptions={{
         headerShown: false,
         drawerActiveBackgroundColor: 'white',
@@ -65,13 +108,15 @@ const AppStack = ({ onSignOut }) => {
           width: 270,
         },
       }}
+      initialRouteName="Volunteer Dashboard"
+      useLegacyImplementation={false}
     >
       <Drawer.Screen
-        name="Home"
+        name="Activated ABVN Map"
         component={HomeScreen}
         options={{
           drawerIcon: ({ color }) => (
-            <Ionicons name="home" size={22} color={color} />
+            <Ionicons name="map" size={22} color={color} />
           ),
         }}
       />
@@ -80,7 +125,7 @@ const AppStack = ({ onSignOut }) => {
         component={DashboardScreen}
         options={{
           drawerIcon: ({ color }) => (
-            <Ionicons name="person" size={22} color={color} />
+            <Ionicons name="people" size={22} color={color} />
           ),
         }}
       />
@@ -94,20 +139,20 @@ const AppStack = ({ onSignOut }) => {
         }}
       />
       <Drawer.Screen
+        name="Community Board"
+        component={CommunityBoardStack}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="newspaper" size={22} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
         name="RDANA"
         component={RDANAStack}
         options={{
           drawerIcon: ({ color }) => (
             <Ionicons name="clipboard" size={22} color={color} />
-          ),
-        }}
-      />
-      <Drawer.Screen
-        name="Relief Request"
-        component={RequestStack}
-        options={{
-          drawerIcon: ({ color }) => (
-            <Ionicons name="cube" size={22} color={color} />
           ),
         }}
       />
@@ -121,6 +166,15 @@ const AppStack = ({ onSignOut }) => {
         }}
       />
       <Drawer.Screen
+        name="Relief Request"
+        component={RequestStack}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="cube" size={22} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
         name="Reports Submission"
         component={ReportStack}
         options={{
@@ -129,7 +183,15 @@ const AppStack = ({ onSignOut }) => {
           ),
         }}
       />
-      
+      <Drawer.Screen
+        name="Submissions History"
+        component={SubmissionStack}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Ionicons name="file-tray-stacked" size={22} color={color} />
+          ),
+        }}
+      />
     </Drawer.Navigator>
   );
 };

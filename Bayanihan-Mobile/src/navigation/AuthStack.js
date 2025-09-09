@@ -6,16 +6,11 @@ import RecoveryScreen from '../screens/RecoveryScreen';
 
 const Stack = createNativeStackNavigator();
 
-const AuthStack = ({ onLogin }) => {
+const AuthStack = () => {
   return (
-    <Stack.Navigator
-      initialRouteName="Login"
-      screenOptions={{ headerShown: false }}
-    >
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-      <Stack.Screen name="Login">
-        {(props) => <LoginScreen {...props} onLogin={onLogin} />}
-      </Stack.Screen>
+      <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="RecoveryScreen" component={RecoveryScreen} />
     </Stack.Navigator>
   );
