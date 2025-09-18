@@ -38,7 +38,7 @@ try {
 }
 
 const database = getDatabase(app);
-const storage = getStorage(app, 'bayanihan-5ce7e.firebasestorage.app');
+const storage = getStorage(app, 'bayanihan-new-472410.firebasestorage.app');
 const db = getFirestore(app);
 
 export { app, auth, database, storage, db };
