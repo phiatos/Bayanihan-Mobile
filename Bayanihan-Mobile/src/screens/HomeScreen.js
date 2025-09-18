@@ -6,7 +6,6 @@ import {
   Dimensions,
   FlatList,
   ImageBackground,
-  Modal,
   SafeAreaView,
   Text,
   TextInput,
@@ -16,6 +15,7 @@ import {
   StatusBar,
   Keyboard,
   Platform,
+  Modal
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import WebView from 'react-native-webview';
@@ -34,15 +34,11 @@ const { height, width } = Dimensions.get('window');
 const HomeScreen = ({ navigation }) => {
   const [location, setLocation] = useState(null);
   const [permissionStatus, setPermissionStatus] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [hasShownModal, setHasShownModal] = useState(false);
   const [searchBarVisible, setSearchBarVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [activations, setActivations] = useState([]);
   const [mapType, setMapType] = useState('hybrid');
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-  const slideAnim = useRef(new Animated.Value(height)).current;
   const searchAnim = useRef(new Animated.Value(0)).current;
   const { user } = useContext(AuthContext);
   const webViewRef = useRef(null);
@@ -69,19 +65,34 @@ const HomeScreen = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    if (!hasShownModal && !permissionStatus) {
-      setModalVisible(true);
-      setHasShownModal(true);
-    }
-  }, [hasShownModal, permissionStatus]);
-
-  useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: modalVisible ? 0 : height,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [modalVisible]);
+    const checkPermissionStatus = async () => {
+      try {
+        const hasShownModal = await AsyncStorage.getItem('hasShownLocationModal');
+        const { status } = await Location.getForegroundPermissionsAsync();
+        setPermissionStatus(status);
+        if (status === 'granted') {
+          let loc = await Location.getCurrentPositionAsync({});
+          if (loc.coords.accuracy > 50) {
+            ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
+          }
+          setLocation({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+        } else if (hasShownModal === 'true' && status !== 'granted') {
+          setPermissionStatus('denied');
+          navigation.navigate('Dashboard');
+          ToastAndroid.show('Location access is required to view the map.', ToastAndroid.BOTTOM);
+        }
+      } catch (error) {
+        console.error('Permission check error:', error);
+        setPermissionStatus('denied');
+        navigation.navigate('Dashboard');
+        ToastAndroid.show('Failed to check location permission. Please enable it in Dashboard.', ToastAndroid.BOTTOM);
+      }
+    };
+    checkPermissionStatus();
+  }, [navigation]);
 
   useEffect(() => {
     Animated.timing(searchAnim, {
@@ -138,30 +149,6 @@ const HomeScreen = ({ navigation }) => {
     }, 300);
   };
 
-  const handleRequestPermission = async () => {
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      setPermissionStatus(status);
-      if (status === 'granted') {
-        let loc = await Location.getCurrentPositionAsync({});
-        if (loc.coords.accuracy > 50) {
-          ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
-        }
-        setLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
-        setModalVisible(false);
-      } else {
-        setPermissionStatus('denied');
-        setModalVisible(false);
-      }
-    } catch (error) {
-      console.error('Permission error:', error);
-      ToastAndroid.show('Failed to request location permission. Please try again.', ToastAndroid.SHORT);
-    }
-  };
-
   const handleRetryPermission = async () => {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -175,20 +162,17 @@ const HomeScreen = ({ navigation }) => {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
         });
-        setModalVisible(false);
+        await AsyncStorage.setItem('hasShownLocationModal', 'true');
       } else {
         setPermissionStatus('denied');
-        setModalVisible(false);
+        navigation.navigate('Dashboard');
+        ToastAndroid.show('Location access is required to view the map.', ToastAndroid.BOTTOM);
       }
     } catch (error) {
       console.error('Permission retry error:', error);
-      ToastAndroid.show('Failed to retry permission. Please try again.', ToastAndroid.BOTTOM);
+      ToastAndroid.show('Failed to retry permission. Please try again in Dashboard.', ToastAndroid.BOTTOM);
+      navigation.navigate('Dashboard');
     }
-  };
-
-  const closeModal = () => {
-    setPermissionStatus('denied');
-    setModalVisible(false);
   };
 
   const toggleSearchBar = () => {
@@ -281,7 +265,8 @@ const HomeScreen = ({ navigation }) => {
 
   const returnToUserLocation = async () => {
     if (permissionStatus !== 'granted') {
-      ToastAndroid.show('Please enable location access to return to your current location.', ToastAndroid.BOTTOM);
+      ToastAndroid.show('Please enable location access in Dashboard to return to your current location.', ToastAndroid.BOTTOM);
+      navigation.navigate('Dashboard');
       return;
     }
 
@@ -623,7 +608,6 @@ const HomeScreen = ({ navigation }) => {
       let currentUser = user;
 
       if (!currentUser?.id) {
-        // Try to load cached user from AsyncStorage
         try {
           const cachedUser = await AsyncStorage.getItem('user_session');
           if (cachedUser) {
@@ -639,7 +623,6 @@ const HomeScreen = ({ navigation }) => {
             setFirstName(null);
             setLastName(null);
             setIsLoading(false);
-            // Optionally navigate to login screen after a delay
             setTimeout(() => {
               navigation.navigate('Login');
             }, 3000);
@@ -672,7 +655,6 @@ const HomeScreen = ({ navigation }) => {
           console.log('fetchUserData: User data fetched:', userData);
         } else {
           console.warn('fetchUserData: No user document found for ID:', currentUser.id);
-          // Use cached user data as fallback
           setContactPerson(currentUser.contactPerson || null);
           setFirstName(currentUser.firstName || null);
           setLastName(currentUser.lastName || null);
@@ -687,7 +669,6 @@ const HomeScreen = ({ navigation }) => {
           console.log(`fetchUserData: Retrying fetch (${retryCount + 1}/${maxRetries})...`);
           setTimeout(() => fetchUserData(retryCount + 1, maxRetries), 1000);
         } else {
-          // Use cached user data as fallback
           setContactPerson(currentUser.contactPerson || null);
           setFirstName(currentUser.firstName || null);
           setLastName(currentUser.lastName || null);
@@ -732,7 +713,6 @@ const HomeScreen = ({ navigation }) => {
                 console.log('WebView message:', event.nativeEvent.data);
               }}
             />
-            {/* Header */}
             <View blurAmount={20} tint="light" style={styles.headerContainer}>
               <LinearGradient
                 colors={['rgba(185, 185, 185, 0.12)', 'rgba(77, 77, 77, 0.2)']}
@@ -758,7 +738,6 @@ const HomeScreen = ({ navigation }) => {
                 </View>
               </LinearGradient>
             </View>
-            {/* Other Overlays */}
             <View style={styles.overlayContainer}>
               <View style={styles.searchWrapper}>
                 <Animated.View
@@ -876,103 +855,72 @@ const HomeScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
-          </KeyboardAvoidingView>
-        ) : (
-          <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
-            <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-            <LinearGradient
-              colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
-              start={{ x: 1, y: 0.5 }}
-              end={{ x: 1, y: 1 }}
-              style={GlobalStyles.gradientContainer}
-            >
-              <View style={GlobalStyles.newheaderContainer}>
-                <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
-                  <Ionicons name="menu" size={32} color={Theme.colors.primary} />
-                </TouchableOpacity>
-                <View style={styles.headerUserContainer}>
-                  <Text style={[styles.userName, { color: Theme.colors.primary, marginLeft: 70 }]}>{getUserName()}</Text>
-                </View>
+        </KeyboardAvoidingView>
+      ) : (
+        <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
+          <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+          <LinearGradient
+            colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+            start={{ x: 1, y: 0.5 }}
+            end={{ x: 1, y: 1 }}
+            style={GlobalStyles.gradientContainer}
+          >
+            <View style={GlobalStyles.newheaderContainer}>
+              <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+                <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+              </TouchableOpacity>
+              <View style={styles.headerUserContainer}>
+                <Text style={[styles.userName, { color: Theme.colors.primary, marginLeft: 70 }]}>{getUserName()}</Text>
               </View>
-            </LinearGradient>
-            <View style={{ paddingHorizontal: 20, marginTop: 100 }}>
-              {permissionStatus === 'denied' && (
-                <View style={styles.permissionDeniedContainer}>
-                  <MaterialIcons
-                    name="location-off"
-                    size={48}
-                    style={{ color: '#EE5757', marginBottom: 10 }}
-                  />
-                  <Text style={styles.permissionDeniedContainerHeader}>Location Access Denied</Text>
-                  <Text style={styles.permissionDeniedContainerText}>
-                    Please enable location access to view the map and experience our services.
-                  </Text>
-                  <TouchableOpacity style={styles.retryButton} onPress={handleRetryPermission}>
-                    <Text style={styles.retryButtonText}>Enable Location</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
             </View>
-          </SafeAreaView>
-        )}
-        <Modal
-          animationType="none"
-          transparent={true}
-          visible={modalVisible}
-          onRequestClose={closeModal}
-        >
-          <View style={styles.modalOverlay}>
-            <Animated.View
-              style={[
-                styles.modalContainer,
-                {
-                  transform: [{ translateY: slideAnim }],
-                },
-              ]}
-            >
-              <MaterialIcons name="location-pin" size={84} style={{ color: '#EE5757' }} />
-              <Text style={styles.permissionDeniedHeader}>Where Are You?</Text>
-              <Text style={styles.permissionDeniedText}>
-                Let Bayanihan access your location to show position on the map.
-              </Text>
-              <View style={styles.permissionButtons}>
-                <TouchableOpacity style={styles.retryButton} onPress={handleRequestPermission}>
+          </LinearGradient>
+          <View style={{ paddingHorizontal: 20, marginTop: 100 }}>
+            {permissionStatus === 'denied' && (
+              <View style={styles.permissionDeniedContainer}>
+                <MaterialIcons
+                  name="location-off"
+                  size={48}
+                  style={{ color: '#EE5757', marginBottom: 10 }}
+                />
+                <Text style={styles.permissionDeniedContainerHeader}>Location Access Denied</Text>
+                <Text style={styles.permissionDeniedContainerText}>
+                  Please enable location access in Dashboard to view the map and experience our services.
+                </Text>
+                <TouchableOpacity style={styles.retryButton} onPress={handleRetryPermission}>
                   <Text style={styles.retryButtonText}>Allow Location Access</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
-                  <Text style={styles.closeButtonText}>Not Now</Text>
-                </TouchableOpacity>
               </View>
-            </Animated.View>
+            )}
           </View>
-        </Modal>
-        <Modal
-          animationType="none"
-          transparent={true}
-          visible={errorModal.visible}
-          onRequestClose={() => setErrorModal({ visible: false, message: '' })}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              <MaterialIcons name="error" size={84} style={{ color: '#EE5757' }} />
-              <Text style={styles.permissionDeniedHeader}>Error</Text>
-              <Text style={styles.permissionDeniedText}>{errorModal.message}</Text>
-              <TouchableOpacity
-                style={styles.retryButton}
-                onPress={() => {
-                  setErrorModal({ visible: false, message: '' });
-                  if (errorModal.message.includes('log in')) {
-                    navigation.navigate('Login');
-                  }
-                }}
-              >
-                <Text style={styles.retryButtonText}>OK</Text>
-              </TouchableOpacity>
-            </View>
+        </SafeAreaView>
+      )}
+      <Modal
+        animationType="none"
+        transparent={true}
+        visible={errorModal.visible}
+        onRequestClose={() => setErrorModal({ visible: false, message: '' })}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <MaterialIcons name="error" size={84} style={{ color: '#EE5757' }} />
+            <Text style={styles.permissionDeniedHeader}>Error</Text>
+            <Text style={styles.permissionDeniedText}>{errorModal.message}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => {
+                setErrorModal({ visible: false, message: '' });
+                if (errorModal.message.includes('log in')) {
+                  navigation.navigate('Login');
+                }
+              }}
+            >
+              <Text style={styles.retryButtonText}>OK</Text>
+            </TouchableOpacity>
           </View>
-        </Modal>
-      </SafeAreaView>
-    );
-  };
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+};
 
 export default HomeScreen;

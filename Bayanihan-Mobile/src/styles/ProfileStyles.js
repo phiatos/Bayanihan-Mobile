@@ -107,11 +107,20 @@ export default StyleSheet.create({
     height: '100%',
     borderRadius: borderRadius.small,
   },
+   iconAndTextWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  labelText: {
+    marginLeft: 5, 
+    fontFamily: 'Poppins_Regular',
+    fontSize: 13,
+
+  },
   checkText: {
-    fontSize: 12,
     color: Theme.colors.black,
     marginBottom: spacing.xsmall,
-    fontFamily: 'Poppins_Regular',
+   
   },
   modalOverlay: {
     position: 'absolute',

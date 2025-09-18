@@ -12,7 +12,7 @@ const Theme = {
     red: '#D32F2F',
     redHover: '#d63128',
     green: '#34C759',
-    greenHover: '#2fa84e',
+    greenHover: '#008000',
     lightBlue: '#e8f0fe',
     accentBlue: '#4A90E2',
     neonPrimary: '#00BCD4',

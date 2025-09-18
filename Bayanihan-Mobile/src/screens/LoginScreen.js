@@ -148,7 +148,6 @@ const LoginScreen = ({ navigation }) => {
 
       setUser({ id: updatedUser.uid, email: updatedUser.email, ...userData });
       ToastAndroid.show('Login successful.', ToastAndroid.SHORT);
-      navigation.navigate('Volunteer Dashboard');
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Auth error:`, error.code, error.message);
       if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {

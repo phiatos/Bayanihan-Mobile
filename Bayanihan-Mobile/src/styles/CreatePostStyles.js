@@ -61,13 +61,13 @@ export default StyleSheet.create({
   categoryPicker: {
     flex: 1,
     margin: spacing.small,
-    marginLeft: 160,
+    // marginLeft: 160,
     borderWidth: borderWidth.thin,
     borderColor: Theme.colors.primary,
     borderRadius: borderRadius.medium,
     backgroundColor: '#fff',
     justifyContent: 'center',
-    height: 40,
+    height: 20,
   },
   picker: {
     textAlign: 'center',
@@ -75,10 +75,41 @@ export default StyleSheet.create({
   },
   pickerItems: {
     fontFamily: 'Poppins_Regular',
-    fontSize: 13,
+    fontSize: 14,
     color: Theme.colors.black,
     textAlign: 'center',
   },
+
+    container: {
+      marginVertical: 10,
+      paddingHorizontal: 10,
+    },
+    dropdown: {
+      height: 40,
+      borderColor: Theme.colors.primary,
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      backgroundColor: Theme.colors.lightBg,
+      marginLeft: 160,
+      elevation: 10
+    },
+    placeholderStyle: {
+      fontSize: 14,
+      color: Theme.colors.placeholder,
+      fontFamily: 'Poppins_Regular',
+    },
+    selectedTextStyle: {
+      fontSize: 14,
+      color: Theme.colors.black,
+      fontFamily: 'Poppins_Regular',
+    },
+    itemTextStyle: {
+      fontSize: 14,
+      color: Theme.colors.black,
+      fontFamily: 'Poppins_Regular',
+    },
+
   label: {
     fontSize: 14,
     color: '#00BCD4',

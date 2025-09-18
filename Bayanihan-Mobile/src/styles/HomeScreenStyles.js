@@ -24,23 +24,22 @@ const borderWidth = {
   thick: 3,
 };
 
-const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 0 : StatusBar.currentHeight || 0; // Use 0 for iOS as safeAreaInsets will handle it
+const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 0 : StatusBar.currentHeight || 0; 
 const HEADER_HEIGHT = 50;
 const NAVIGATION_BAR_HEIGHT = 45;
 
 export const styles = StyleSheet.create({
   subContainer: {
-    flex: 1, // Remove display: 'flex' as it's redundant in React Native
-    // Removed marginBottom: 40 to allow map to reach bottom edge
+    flex: 1, 
   },
   map: {
     flex: 1,
-    width: '100%', // Explicitly set to ensure edge-to-edge
-    height: '100%', // Explicitly set to ensure edge-to-edge
+    width: '100%', 
+    height: '100%', 
   },
   headerContainer: {
     position: 'absolute',
-    top: 40, // Adjusted to use safeAreaInsets.top in component
+    top: 40, 
     left: 0,
     right: 0,
     height: HEADER_HEIGHT,
@@ -86,7 +85,7 @@ export const styles = StyleSheet.create({
   },
   overlayContainer: {
     position: 'absolute',
-    top: HEADER_HEIGHT + 40, // Adjusted to use safeAreaInsets.top in component
+    top: HEADER_HEIGHT + 40, 
     left: 0,
     right: 0,
     zIndex: 900,
@@ -165,7 +164,7 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     right: 20,
-    bottom: 0, // Adjusted to use safeAreaInsets.bottom in component
+    bottom: 0, 
     flexDirection: 'row',
     justifyContent: 'center',
     padding: 10,

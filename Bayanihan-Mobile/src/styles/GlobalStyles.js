@@ -119,7 +119,7 @@ export default StyleSheet.create({
   },
   input: {
     borderWidth: borderWidth.thin,
-    borderColor: '#605D67',
+    borderColor: Theme.colors.black,
     borderRadius: borderRadius.large,
     padding: spacing.small,
     fontFamily: 'Poppins_Regular',
@@ -134,6 +134,17 @@ export default StyleSheet.create({
   inputError: {
     borderColor: 'red',
     borderWidth: 1,
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+    borderWidth: borderWidth.thin,
+    borderColor: Theme.colors.black,
+    borderRadius: borderRadius.large,
+    fontFamily: 'Poppins_Regular',
+    fontSize: 14,
+    padding: spacing.small,
+    color: Theme.colors.black,
   },
   imageContainer: {
     marginTop: 10,
@@ -214,6 +225,33 @@ export default StyleSheet.create({
     fontSize: 16,
   },
 
+    dropdown: {
+      height: 40,
+      borderColor: Theme.colors.primary,
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      backgroundColor: Theme.colors.lightBg,
+      elevation: 10
+    },
+    placeholderStyle: {
+      fontSize: 14,
+      color: Theme.colors.placeholder,
+      fontFamily: 'Poppins_Regular',
+    },
+    selectedTextStyle: {
+      fontSize: 14,
+      color: Theme.colors.black,
+      fontFamily: 'Poppins_Regular',
+    },
+    itemTextStyle: {
+      fontSize: 14,
+      color: Theme.colors.black,
+      fontFamily: 'Poppins_Regular',
+    },
+
+
+
   // Summary Pages
   summarySection: {
     marginVertical: 10,
@@ -271,7 +309,7 @@ export default StyleSheet.create({
   backButtonText: {
     color: Theme.colors.blue,
     fontSize: 16,
-    fontFamily: 'Poppins_Medium',
+    fontFamily: 'Poppins_SemiBold',
   },
   submitButton: {
     flex: 1,
@@ -296,6 +334,12 @@ export default StyleSheet.create({
   modalIcon: {
     marginBottom: 10,
   },
+    modalTitle: {
+    fontSize: 20,
+    color: Theme.colors.black,
+    textAlign: 'center',
+    fontFamily: 'Poppins_Bold',
+},
   modalMessage: {
     fontSize: 14,
     color: Theme.colors.black,
@@ -317,12 +361,6 @@ export default StyleSheet.create({
     alignItems: 'center',
     elevation: 5,
     width: '80%',
-},
-  modalTitle: {
-    fontSize: 20,
-    color: Theme.colors.black,
-    textAlign: 'center',
-    fontFamily: 'Poppins_Bold',
 },
   modalButton: {
     backgroundColor: Theme.colors.primary,

@@ -11,12 +11,13 @@ import styles from '../styles/ReliefRequestStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { logActivity, logSubmission } from '../components/logSubmission'; 
 import { useAuth } from '../context/AuthContext';
+import CustomModal from '../components/CustomModal';
   
 const ReliefSummary = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
-  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = 'Admin' } = route.params || {};
+  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = user.organization || 'Admin' } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [addedItems, setAddedItems] = useState(initialItems);
   const [modalVisible, setModalVisible] = useState(false);
@@ -61,14 +62,6 @@ const ReliefSummary = () => {
     if (!user) {
       console.error('No user available. Cannot submit request.');
       setErrorMessage('User not authenticated. Please log in again.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!organizationName || organizationName === 'Admin') {
-      console.error('Organization name not available.');
-      setErrorMessage('Organization name not loaded. Please try again.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
@@ -339,7 +332,7 @@ const ReliefSummary = () => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <OperationCustomModal
+      <CustomModal
         visible={modalVisible}
         title={errorMessage ? 'Error' : 'Request Submitted'}
         message={

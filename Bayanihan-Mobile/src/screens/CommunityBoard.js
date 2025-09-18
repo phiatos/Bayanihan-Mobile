@@ -14,6 +14,8 @@ import { Picker } from '@react-native-picker/picker';
 import { Menu, MenuOptions, MenuOption, MenuProvider, MenuTrigger } from 'react-native-popup-menu';
 import styles from '../styles/CommunityBoardStyles';
 import useOperationCheck from '../components/useOperationCheck';
+import { Dropdown } from 'react-native-element-dropdown';
+
 
 const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
   const [retryCount, setRetryCount] = useState(0);
@@ -203,7 +205,7 @@ const CommunityBoard = () => {
               console.log(`Post ${postId} copied to posts/deleted/${user.id}/${postId}`);
               await remove(ref(database, `posts/${postId}`));
               console.log(`Post ${postId} removed from posts`);
-              ToastAndroid.show('Post moved to deleted posts.', ToastAndroid.BOTTOM);
+              ToastAndroid.show('Post deleted', ToastAndroid.BOTTOM);
             } catch (error) {
               console.error(`Error moving post ${postId} to deleted:`, error);
               ToastAndroid.show('Failed to delete post: ' + error.message, ToastAndroid.LONG);

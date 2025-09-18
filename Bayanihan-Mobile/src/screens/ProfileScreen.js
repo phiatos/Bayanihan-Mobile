@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
+  signOut,
   updatePassword,
 } from 'firebase/auth';
 import { get, getDatabase, ref, update } from 'firebase/database';
@@ -17,6 +18,7 @@ import {
   StyleSheet,
   Dimensions,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -33,7 +35,7 @@ import { logActivity, logSubmission } from '../components/logSubmission';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const { user } = useAuth();
+  const { user, onSignOut } = useAuth();
   const [profileData, setProfileData] = useState({
     organization: '',
     hq: '',
@@ -87,8 +89,16 @@ const ProfileScreen = () => {
   useEffect(() => {
     const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
       setLoading(true);
-      if (!user?.id) {
-        console.error(`[${new Date().toISOString()}] No user logged in`);
+      if (!auth.currentUser?.uid) {
+        console.error(`[${new Date().toISOString()}] No user logged in, auth.currentUser:`, auth.currentUser);
+        setProfileData({
+          organization: '',
+          hq: ' ',
+          contactPerson: ' ',
+          email: ' ',
+          mobile: ' ',
+          role: ' ',
+        });
         setLoading(false);
         setCustomModal({
           visible: true,
@@ -99,10 +109,7 @@ const ProfileScreen = () => {
               <Text style={styles.message}>No user logged in. Please log in again.</Text>
             </View>
           ),
-          onConfirm: () => {
-            closeModal();
-            navigation.navigate('Login');
-          },
+          onConfirm: closeModal,
           confirmText: 'OK',
           showCancel: false,
         });
@@ -110,9 +117,9 @@ const ProfileScreen = () => {
       }
 
       try {
-        console.log(`[${new Date().toISOString()}] Fetching user data for ID:`, user.id);
+        console.log(`[${new Date().toISOString()}] Fetching user data for UID:`, auth.currentUser.uid, 'user.id:', user?.id);
         const db = getDatabase();
-        const userRef = ref(db, `users/${user.id}`);
+        const userRef = ref(db, `users/${auth.currentUser.uid}`);
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
           const data = snapshot.val();
@@ -136,103 +143,55 @@ const ProfileScreen = () => {
             role = role !== 'N/A' ? `${role} | ${data.adminPosition}` : data.adminPosition;
           }
 
-          const organization = data.organization || 'Not Assigned';
+          const organization = data.organization || 'Admin';
           setProfileData({
             organization,
             hq,
             contactPerson,
-            email: data.email || user.email || 'N/A',
+            email: data.email || auth.currentUser.email || 'N/A',
             mobile: data.mobile || 'N/A',
             role,
           });
-
-          console.log(`[${new Date().toISOString()}] User data fetched:`, { organization, hq, contactPerson, email: data.email || user.email, mobile: data.mobile, role });
-
-          const userAgreedVersion = data.terms_agreed_version || 0;
-          const termsPending = userAgreedVersion < currentTermsVersion;
-          const needsPasswordReset = data.password_needs_reset || false;
-
-          if (termsPending) {
-            setTermsModalVisible(true);
-            setIsNavigationBlocked(true);
-          } else if (needsPasswordReset) {
-            setPasswordNeedsReset(true);
-            setIsNavigationBlocked(true);
-            setCustomModal({
-              visible: true,
-              title: 'Password Change Required',
-              message: (
-                <View style={{ alignItems: 'center' }}>
-                  <Ionicons name="lock-closed" size={60} color="#FFD700" style={styles.icon} />
-                  <Text style={styles.message}>
-                    For security reasons, please change your password.
-                  </Text>
-                </View>
-              ),
-              onConfirm: closeModal,
-              confirmText: 'Understood',
-              showCancel: false,
-            });
-          } else {
-            setIsNavigationBlocked(false);
-          }
         } else {
-          console.warn(`[${new Date().toISOString()}] No user document found for ID:`, user.id);
-          setCustomModal({
-            visible: true,
-            title: 'Warning',
-            message: (
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="warning" size={60} color="#FFD700" style={styles.icon} />
-                <Text style={styles.message}>No profile data found. Please contact support.</Text>
-              </View>
-            ),
-            onConfirm: closeModal,
-            confirmText: 'OK',
-            showCancel: false,
-          });
+          console.warn(`[${new Date().toISOString()}] No user document found for UID:`, auth.currentUser.uid);
           setProfileData({
-            organization: 'Not Assigned',
-            hq: 'N/A',
-            contactPerson: 'Unknown',
-            email: user.email || 'N/A',
-            mobile: 'N/A',
-            role: 'N/A',
+            organization: user?.organization || 'Admin',
+            hq: user?.hq || 'N/A',
+            contactPerson: user?.contactPerson || 'Unknown',
+            email: auth.currentUser.email || 'N/A',
+            mobile: user?.mobile || 'N/A',
+            role: user?.role || 'N/A',
           });
         }
       } catch (error) {
-        if (retryCount < maxRetries && error.code === 'unavailable') {
-          console.log(`[${new Date().toISOString()}] Retrying fetch (${retryCount + 1}/${maxRetries})...`);
-          setTimeout(() => fetchUserData(retryCount + 1, maxRetries), 1000);
-        } else {
-          setCustomModal({
-            visible: true,
-            title: 'Error',
-            message: (
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
-                <Text style={styles.message}>Failed to fetch profile data: {error.message}</Text>
-              </View>
-            ),
-            onConfirm: closeModal,
-            confirmText: 'OK',
-            showCancel: false,
-          });
-          setProfileData({
-            organization: 'Not Assigned',
-            hq: 'N/A',
-            contactPerson: 'Unknown',
-            email: user.email || 'N/A',
-            mobile: 'N/A',
-            role: 'N/A',
-          });
-        }
+        console.error(`[${new Date().toISOString()}] Profile fetch error:`, error.message, error.code || 'N/A');
+        setProfileData({
+          organization: user?.organization || 'Admin',
+          hq: user?.hq || 'N/A',
+          contactPerson: user?.contactPerson || 'Unknown',
+          email: auth.currentUser.email || 'N/A',
+          mobile: user?.mobile || 'N/A',
+          role: user?.role || 'N/A',
+        });
+        setCustomModal({
+          visible: true,
+          title: 'Error',
+          message: (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
+              <Text style={styles.message}>Failed to fetch profile data: {error.message}</Text>
+            </View>
+          ),
+          onConfirm: closeModal,
+          confirmText: 'OK',
+          showCancel: false,
+        });
       } finally {
         setLoading(false);
       }
     };
 
-    if (user?.id) {
+    if (auth.currentUser?.uid) {
       fetchUserData();
     } else {
       setLoading(false);
@@ -311,21 +270,18 @@ const ProfileScreen = () => {
       return;
     }
 
-    if (!user?.id) {
+    if (!auth.currentUser?.uid) {
       console.error(`[${new Date().toISOString()}] No user logged in for password change`);
       setCustomModal({
         visible: true,
         title: 'Not Logged In',
         message: (
           <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
+            <Ionicons name="alert-circle" size={60} color={Theme.colors.red} style={styles.icon} />
             <Text style={styles.message}>Please log in to change your password.</Text>
           </View>
         ),
-        onConfirm: () => {
-          closeModal();
-          navigation.navigate('Login');
-        },
+        onConfirm: closeModal,
         confirmText: 'OK',
         showCancel: false,
       });
@@ -339,7 +295,7 @@ const ProfileScreen = () => {
         title: 'Error',
         message: (
           <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
+            <Ionicons name="alert-circle" size={60} color={Theme.colors.red} style={styles.icon} />
             <Text style={styles.message}>Please fill in all password fields.</Text>
           </View>
         ),
@@ -357,7 +313,7 @@ const ProfileScreen = () => {
         title: 'Error',
         message: (
           <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
+            <Ionicons name="alert-circle" size={60} color={Theme.colors.red} style={styles.icon} />
             <Text style={styles.message}>New password and confirmation do not match.</Text>
           </View>
         ),
@@ -376,7 +332,7 @@ const ProfileScreen = () => {
         title: 'Weak Password',
         message: (
           <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
+            <Ionicons name="alert-circle" size={60} color={Theme.colors.red} style={styles.icon} />
             <Text style={styles.message}>
               Your new password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a symbol.
             </Text>
@@ -392,21 +348,25 @@ const ProfileScreen = () => {
     setSubmitting(true);
 
     try {
-      const userEmail = user.email || profileData.email;
+      const userEmail = auth.currentUser.email || profileData.email;
       if (!userEmail) {
         throw new Error('No email associated with this user for re-authentication.');
       }
 
-      console.log(`[${new Date().toISOString()}] Attempting to re-authenticate user:`, user.id);
+      console.log(`[${new Date().toISOString()}] Attempting to re-authenticate user:`, auth.currentUser.uid);
       const credential = EmailAuthProvider.credential(userEmail, currentPassword);
       await reauthenticateWithCredential(auth.currentUser, credential);
+      console.log(`[${new Date().toISOString()}] Re-authentication successful`);
+
       await updatePassword(auth.currentUser, newPassword);
+      console.log(`[${new Date().toISOString()}] Password updated`);
 
       const db = getDatabase();
-      await update(ref(db, `users/${user.id}`), {
+      await update(ref(db, `users/${auth.currentUser.uid}`), {
         lastPasswordChange: new Date().toISOString(),
         password_needs_reset: false,
       });
+      console.log(`[${new Date().toISOString()}] Database updated`);
 
       let submissionId;
       try {
@@ -416,9 +376,8 @@ const ProfileScreen = () => {
         submissionId = `fallback-${Date.now()}`;
       }
 
-      const organization = profileData.organization || 'Not Assigned';
+      const organization = profileData.organization || 'Admin';
       const submissionData = { action: 'password_change', newPasswordLength: newPassword.length };
-
       console.log(`[${new Date().toISOString()}] Preparing to log password change:`, {
         collection: 'profile',
         submissionData,
@@ -426,20 +385,31 @@ const ProfileScreen = () => {
         organization,
       });
 
-      await logActivity(user.id, 'User changed their password', submissionId, organization);
-      await logSubmission('profile', submissionData, submissionId, organization);
+      await logActivity(auth.currentUser.uid, 'User changed their password', submissionId, organization);
+      await logSubmission('profile', submissionData, submissionId, organization, auth.currentUser.uid);
+      console.log(`[${new Date().toISOString()}] Activity and submission logged`);
 
-      console.log(`[${new Date().toISOString()}] Password updated successfully for user:`, user.id);
       setCustomModal({
         visible: true,
         title: 'Success',
         message: (
           <View style={{ alignItems: 'center' }}>
-            <Ionicons name="checkmark-circle" size={60} color="#00BCD4" style={styles.icon} />
-            <Text style={styles.message}>Your password has been updated successfully.</Text>
+            <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={styles.icon} />
+            <Text style={styles.message}>Your password has been updated successfully. Click OK to sign out.</Text>
           </View>
         ),
-        onConfirm: () => {
+        onConfirm: async () => {
+          try {
+            console.log(`[${new Date().toISOString()}] Auth object before sign-out:`, auth);
+            await signOut(auth);
+            if (onSignOut) {
+              onSignOut();
+              console.log(`[${new Date().toISOString()}] onSignOut called`);
+            }
+          } catch (error) {
+            console.error(`[${new Date().toISOString()}] Sign out error:`, error.message);
+            Alert.alert('Error', 'Failed to sign out: ' + error.message);
+          }
           closeModal();
           setCurrentPassword('');
           setNewPassword('');
@@ -466,7 +436,7 @@ const ProfileScreen = () => {
         title: 'Error',
         message: (
           <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
+            <Ionicons name="alert-circle" size={60} color={Theme.colors.red} style={styles.icon} />
             <Text style={styles.message}>{errorMessage}</Text>
           </View>
         ),
@@ -487,7 +457,7 @@ const ProfileScreen = () => {
         title: 'Error',
         message: (
           <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
+            <Ionicons name="alert-circle" size={60} color={Theme.colors.red} style={styles.icon} />
             <Text style={styles.message}>You must agree to the Terms and Conditions.</Text>
           </View>
         ),
@@ -498,7 +468,7 @@ const ProfileScreen = () => {
       return;
     }
 
-    if (!user?.id) {
+    if (!auth.currentUser?.uid) {
       console.error(`[${new Date().toISOString()}] No user logged in for terms agreement`);
       setCustomModal({
         visible: true,
@@ -509,10 +479,7 @@ const ProfileScreen = () => {
             <Text style={styles.message}>Please log in to agree to the terms.</Text>
           </View>
         ),
-        onConfirm: () => {
-          closeModal();
-          navigation.navigate('Login');
-        },
+        onConfirm: closeModal,
         confirmText: 'OK',
         showCancel: false,
       });
@@ -536,7 +503,7 @@ const ProfileScreen = () => {
         submissionId = `fallback-${Date.now()}`;
       }
 
-      const organization = profileData.organization || 'Not Assigned';
+      const organization = profileData.organization || 'Admin';
       console.log(`[${new Date().toISOString()}] Preparing to log terms agreement:`, {
         collection: 'profile',
         submissionData,
@@ -544,15 +511,15 @@ const ProfileScreen = () => {
         organization,
       });
 
-      await update(ref(db, `users/${user.id}`), submissionData);
-      await logActivity(user.id, 'User agreed to terms and conditions', submissionId, organization);
-      await logSubmission('profile', submissionData, submissionId, organization);
+      await update(ref(db, `users/${auth.currentUser.uid}`), submissionData);
+      await logActivity(auth.currentUser.uid, 'User agreed to terms and conditions', submissionId, organization);
+      await logSubmission('profile', submissionData, submissionId, organization, auth.currentUser.uid);
 
-      console.log(`[${new Date().toISOString()}] Terms agreed successfully for user:`, user.id);
+      console.log(`[${new Date().toISOString()}] Terms agreed successfully for user:`, auth.currentUser.uid);
       setTermsModalVisible(false);
       setIsNavigationBlocked(false);
 
-      const snapshot = await get(ref(db, `users/${user.id}`));
+      const snapshot = await get(ref(db, `users/${auth.currentUser.uid}`));
       const userData = snapshot.val();
       const needsPasswordReset = userData?.password_needs_reset || false;
 
@@ -730,7 +697,7 @@ const ProfileScreen = () => {
                 onPress={handleAgreeTerms}
                 disabled={!agreedTerms}
               >
-                <Text style={styles.modalButtonText}>Agree and Continue</Text>
+                <Text style={styles.modalButtonText}> Agree and Continue</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -779,7 +746,7 @@ const ProfileScreen = () => {
               title={customModal.title}
               message={customModal.message}
               onConfirm={customModal.onConfirm}
-              onCancel={closeModal}
+              onCancel={customModal.onCancel}
               confirmText={customModal.confirmText}
               showCancel={customModal.showCancel}
             />
@@ -852,7 +819,7 @@ const ProfileScreen = () => {
 
                 {showPasswordStrength && (
                   <View style={styles.strengthContainer}>
-                    <Text style={[styles.strengthText, { fontFamily: 'Poppins-SemiBold' }]}>
+                    <Text style={[styles.strengthText, { fontFamily: 'Poppins_SemiBold' }]}>
                       Password Strength: {passwordStrength.strength}
                     </Text>
                     <View style={styles.strengthBarContainer}>
@@ -873,14 +840,15 @@ const ProfileScreen = () => {
                       ['A number', passwordStrength.checks.hasNumber],
                       ['A symbol (!@#$ etc.)', passwordStrength.checks.hasSymbol],
                     ].map(([text, passed], idx) => (
-                      <Text
-                        key={idx}
-                        style={[
-                          styles.checkText,
-                          { fontFamily: 'Poppins-Regular', color: passed ? '#008000' : '#FF4D4D' },
-                        ]}
-                      >
-                        {passed ? '✅' : '❌'} {text}
+                      <Text key={idx} style={styles.checkText}>
+                        <View style={styles.iconAndTextWrapper}>
+                          {passed ? (
+                            <Ionicons name="checkmark-circle" size={18} color={Theme.colors.greenHover} />
+                          ) : (
+                            <Ionicons name="close-circle" size={18} color="red" />
+                          )}
+                          <Text style={[styles.labelText, { color: passed ? Theme.colors.greenHover : Theme.colors.red }]}>{text}</Text>
+                        </View>
                       </Text>
                     ))}
                   </View>
