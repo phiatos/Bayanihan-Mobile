@@ -130,6 +130,7 @@ export default StyleSheet.create({
     color: 'red',
     fontSize: 12,
     marginLeft: 10,
+    fontFamily: 'Poppins_Regular'
   },
   inputError: {
     borderColor: 'red',
@@ -174,6 +175,12 @@ export default StyleSheet.create({
   imageUploadText:{
     fontFamily: 'Poppins_Regular',
     fontSize: 14,
+  },
+  openMap:{
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%', 
   },
   supplementaryButtonContainer: {
     flexDirection: 'row',
@@ -235,9 +242,9 @@ export default StyleSheet.create({
       elevation: 10
     },
     placeholderStyle: {
-      fontSize: 14,
-      color: Theme.colors.placeholder,
       fontFamily: 'Poppins_Regular',
+      color: Theme.colors.placeholderColor,
+      fontSize: 14,
     },
     selectedTextStyle: {
       fontSize: 14,

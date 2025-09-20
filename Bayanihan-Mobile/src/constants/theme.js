@@ -1,6 +1,7 @@
 const Theme = {
   colors: {
     primary: '#14AEBB',
+    table: '#14aebb',
     accent: '#FA3B99',
     lightBg: '#FFF9F0',
     white: '#FFFFFF',
@@ -16,7 +17,7 @@ const Theme = {
     lightBlue: '#e8f0fe',
     accentBlue: '#4A90E2',
     neonPrimary: '#00BCD4',
-    placeholderColor: '#777'
+    placeholderColor: '#777777ff'
   },
 };
 

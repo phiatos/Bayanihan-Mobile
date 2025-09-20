@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import React, { useRef, useState, useEffect } from 'react';
 import {
   Dimensions,
@@ -13,7 +13,9 @@ import {
   Animated,
   ScrollView,
   StatusBar,
+  Modal,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { Dropdown } from 'react-native-element-dropdown';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import GlobalStyles from '../styles/GlobalStyles';
@@ -47,7 +49,7 @@ const CustomToast = ({ visible, title, message, onDismiss }) => {
     }
     return () => {
       if (timer) clearTimeout(timer);
-      Animated.timing(fadeAnim).stop(); 
+      Animated.timing(fadeAnim).stop();
     };
   }, [visible, fadeAnim, onDismiss]);
 
@@ -64,31 +66,143 @@ const CustomToast = ({ visible, title, message, onDismiss }) => {
   );
 };
 
+const leafletHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { margin: 0; }
+    #map { height: calc(100vh - 60px); width: 100%; }
+    #searchContainer { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 1000; display: flex; align-items: center; background: white; padding: 5px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    #searchInput { flex: 1; padding: 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; margin-right: 5px; }
+    #suggestions { position: absolute; top: 50px; left: 10px; right: 10px; background: white; border: 1px solid #ccc; max-height: 200px; overflow-y: auto; z-index: 1000; }
+    .suggestion-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
+    .suggestion-item:hover { background: #f0f0f0; }
+    #confirmBtn { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 10px 20px; background: #14aebb; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 1000; }
+  </style>
+</head>
+<body>
+  <div id="searchContainer">
+    <input id="searchInput" type="text" placeholder="Search for a location" />
+  </div>
+  <div id="suggestions" style="display: none;"></div>
+  <div id="map"></div>
+  <button id="confirmBtn">Confirm Location</button>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    let map = L.map('map').setView([14.5995, 120.9842], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 18,
+    }).addTo(map);
+
+    let marker = L.marker([14.5995, 120.9842], { draggable: true }).addTo(map);
+    let currentLocation = { lat: 14.5995, lon: 120.9842, address: '' };
+
+    marker.on('dragend', async function (e) {
+      currentLocation.lat = marker.getLatLng().lat;
+      currentLocation.lon = marker.getLatLng().lng;
+      try {
+        const response = await fetch(
+          'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + currentLocation.lat + '&lon=' + currentLocation.lon
+        );
+        const data = await response.json();
+        currentLocation.address = data.display_name || '';
+        document.getElementById('searchInput').value = currentLocation.address;
+      } catch (error) {
+        console.error('Reverse geocoding error:', error);
+      }
+    });
+
+    map.on('click', async function (e) {
+      marker.setLatLng(e.latlng);
+      currentLocation.lat = e.latlng.lat;
+      currentLocation.lon = e.latlng.lng;
+      try {
+        const response = await fetch(
+          'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + e.latlng.lat + '&lon=' + e.latlng.lng
+        );
+        const data = await response.json();
+        currentLocation.address = data.display_name || '';
+        document.getElementById('searchInput').value = currentLocation.address;
+      } catch (error) {
+        console.error('Reverse geocoding error:', error);
+      }
+    });
+
+    document.getElementById('searchInput').addEventListener('input', async function (e) {
+      const query = e.target.value;
+      if (query.length < 3) {
+        document.getElementById('suggestions').style.display = 'none';
+        return;
+      }
+      try {
+        const response = await fetch(
+          'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query) + '&limit=5'
+        );
+        const results = await response.json();
+        const suggestionsDiv = document.getElementById('suggestions');
+        suggestionsDiv.innerHTML = '';
+        results.forEach(result => {
+          const div = document.createElement('div');
+          div.className = 'suggestion-item';
+          div.textContent = result.display_name;
+          div.onclick = function () {
+            map.setView([result.lat, result.lon], 13);
+            marker.setLatLng([result.lat, result.lon]);
+            currentLocation = { lat: result.lat, lon: result.lon, address: result.display_name };
+            document.getElementById('searchInput').value = result.display_name;
+            suggestionsDiv.style.display = 'none';
+          };
+          suggestionsDiv.appendChild(div);
+        });
+        suggestionsDiv.style.display = results.length > 0 ? 'block' : 'none';
+      } catch (error) {
+        console.error('Search error:', error);
+      }
+    });
+
+    document.getElementById('confirmBtn').addEventListener('click', function () {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        latitude: currentLocation.lat,
+        longitude: currentLocation.lon,
+        formattedAddress: currentLocation.address
+      }));
+    });
+  </script>
+</body>
+</html>
+`;
+
 const ReliefRequestScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { user } = useAuth(); // Get user from AuthContext
+  const { user } = useAuth();
   const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const [errors, setErrors] = useState({});
   const [reportData, setReportData] = useState({
-    contactPerson: route.params?.reportData?.contactPerson || '',
-    contactNumber: route.params?.reportData?.contactNumber || '',
-    email: route.params?.reportData?.email || '',
-    address: route.params?.reportData?.address || '',
-    city: route.params?.reportData?.city || '',
-    donationCategory: route.params?.reportData?.donationCategory || '',
-    itemName: route.params?.reportData?.itemName || '',
-    quantity: route.params?.reportData?.quantity || '',
-    notes: route.params?.reportData?.notes || '',
+    contactPerson: route.params?.reportData?.contactPerson || user?.contactPerson || '',
+    contactNumber: route.params?.reportData?.contactNumber || user?.mobile || '',
+    email: route.params?.reportData?.email || user?.email || '',
+    address: {
+      formattedAddress: route.params?.reportData?.address?.formattedAddress || '',
+      latitude: route.params?.reportData?.address?.latitude || null,
+      longitude: route.params?.reportData?.address?.longitude || null,
+    },
+    category: route.params?.reportData?.category || '',
+    itemName: '',
+    quantity: '',
+    notes: '',
   });
   const [items, setItems] = useState(route.params?.addedItems || []);
   const [isItemDropdownVisible, setIsItemDropdownVisible] = useState(false);
   const [filteredItems, setFilteredItems] = useState([]);
   const [toastVisible, setToastVisible] = useState(false);
-  const [toastConfig, setToastConfig] = useState({
-    title: '',
-    message: '',
-  });
+  const [toastConfig, setToastConfig] = useState({ title: '', message: '' });
+  const [mapModalVisible, setMapModalVisible] = useState(false);
   const itemInputRef = useRef(null);
   const flatListRef = useRef(null);
   const insets = useSafeAreaInsets();
@@ -97,45 +211,53 @@ const ReliefRequestScreen = () => {
     if (route.params?.reportData) {
       setReportData((prev) => ({
         ...prev,
-        ...route.params.reportData,
         contactPerson: route.params.reportData.contactPerson || user?.contactPerson || prev.contactPerson,
+        contactNumber: route.params.reportData.contactNumber || user?.mobile || prev.contactNumber,
         email: route.params.reportData.email || user?.email || prev.email,
+        address: {
+          formattedAddress: route.params.reportData.address?.formattedAddress || prev.address.formattedAddress,
+          latitude: route.params.reportData.address?.latitude || prev.address.latitude,
+          longitude: route.params.reportData.address?.longitude || prev.address.longitude,
+        },
+        category: route.params.reportData.category || prev.category,
       }));
     }
     if (route.params?.addedItems) {
       setItems(route.params.addedItems);
     }
-    if (route.params?.reportData?.donationCategory) {
-      setFilteredItems(itemSuggestions[route.params.reportData.donationCategory] || []);
+    if (route.params?.reportData?.category) {
+      setFilteredItems(itemSuggestions[route.params.reportData.category] || []);
     }
   }, [route.params, user]);
 
-  const contactRequiredFields = [
-    'contactPerson',
-    'contactNumber',
-    'email',
-    'address',
-    'city',
-    'donationCategory',
-  ];
-  const itemInputRequiredFields = ['donationCategory', 'itemName', 'quantity'];
+  const requiredFields = ['contactPerson', 'contactNumber', 'email', 'address.formattedAddress', 'category'];
+  const itemInputRequiredFields = ['category', 'itemName', 'quantity'];
 
-  const categories = ['Food', 'Clothing', 'Medicine', 'Shelter', 'Water'];
+  const categories = ['Relief Packs', 'Hot Meals', 'Hygiene Kits', 'Drinking Water', 'Rice Packs', 'Other Essentials'];
   const itemSuggestions = {
-    Food: ['Rice', 'Canned Goods', 'Noodles', 'Biscuits', 'Dried Fruits'],
+    'Relief Packs': ['Rice', 'Canned Goods', 'Noodles', 'Biscuits', 'Dried Fruits'],
+    'Hot Meals': ['Rice', 'Canned Goods', 'Vegetables', 'Meat', 'Spices'],
+    'Hygiene Kits': ['Soap', 'Toothpaste', 'Toothbrush', 'Shampoo', 'Sanitary Pads'],
+    'Medical Supplies': ['Bandages', 'Antiseptics', 'Painkillers', 'Antibiotics', 'Vitamins'],
     Clothing: ['Shirts', 'Pants', 'Jackets', 'Socks', 'Underwear'],
-    Medicine: ['Painkillers', 'Antibiotics', 'Bandages', 'Antiseptics', 'Vitamins'],
     Shelter: ['Tents', 'Blankets', 'Sleeping Bags', 'Tarps', 'Pillows'],
-    Water: ['Bottled Water', 'Water Filters', 'Water Jugs', 'Purification Tablets'],
   };
 
   const capitalizeFirstLetter = (string) => {
     if (!string) return string;
-    return string.charAt(0).toUpperCase() + string.slice(1);
+    return string.replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
   const handleChange = (field, value) => {
-    setReportData((prevData) => ({ ...prevData, [field]: value }));
+    if (field.includes('address.')) {
+      const addressField = field.split('.')[1];
+      setReportData((prev) => ({
+        ...prev,
+        address: { ...prev.address, [addressField]: value },
+      }));
+    } else {
+      setReportData((prev) => ({ ...prev, [field]: value }));
+    }
 
     if (value.trim() !== '') {
       setErrors((prev) => {
@@ -146,8 +268,10 @@ const ReliefRequestScreen = () => {
     }
 
     if (field === 'contactNumber') {
-      if (value && !/^[0-9]{11}$/.test(value)) {
-        setErrors((prev) => ({ ...prev, contactNumber: 'Phone number must be 11 digits' }));
+      const cleanedValue = value.replace(/\D/g, '');
+      setReportData((prev) => ({ ...prev, contactNumber: cleanedValue }));
+      if (cleanedValue && !/^[0-9]{11}$/.test(cleanedValue)) {
+        setErrors((prev) => ({ ...prev, contactNumber: 'Contact number must be exactly 11 digits' }));
       } else {
         setErrors((prev) => {
           const newErrors = { ...prev };
@@ -156,7 +280,9 @@ const ReliefRequestScreen = () => {
         });
       }
     } else if (field === 'email') {
-      if (value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+      const cleanedValue = value.replace(/\s/g, '');
+      setReportData((prev) => ({ ...prev, email: cleanedValue }));
+      if (cleanedValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedValue)) {
         setErrors((prev) => ({ ...prev, email: 'Email is not valid' }));
       } else {
         setErrors((prev) => {
@@ -165,23 +291,24 @@ const ReliefRequestScreen = () => {
           return newErrors;
         });
       }
+    } else if (field === 'contactPerson') {
+      const cleanedValue = value.replace(/[^a-zA-Z\s]/g, '');
+      setReportData((prev) => ({ ...prev, contactPerson: capitalizeFirstLetter(cleanedValue) }));
     }
 
-    if (field === 'donationCategory') {
-      setReportData((prevData) => ({ ...prevData, itemName: '' }));
+    if (field === 'category') {
+      setReportData((prev) => ({ ...prev, itemName: '' }));
       setFilteredItems(itemSuggestions[value] || []);
       setIsItemDropdownVisible(false);
     }
 
-    if (field === 'itemName' && reportData.donationCategory) {
-      const suggestions = itemSuggestions[reportData.donationCategory] || [];
+    if (field === 'itemName' && reportData.category) {
+      const suggestions = itemSuggestions[reportData.category] || [];
       if (value.trim() === '') {
         setFilteredItems(suggestions);
         setIsItemDropdownVisible(false);
       } else {
-        const filtered = suggestions.filter((item) =>
-          item.toLowerCase().includes(value.toLowerCase())
-        );
+        const filtered = suggestions.filter((item) => item.toLowerCase().includes(value.toLowerCase()));
         setFilteredItems(filtered);
         setIsItemDropdownVisible(true);
       }
@@ -189,7 +316,7 @@ const ReliefRequestScreen = () => {
   };
 
   const handleItemSelect = (item) => {
-    setReportData((prevData) => ({ ...prevData, itemName: item }));
+    setReportData((prev) => ({ ...prev, itemName: item }));
     setIsItemDropdownVisible(false);
     setErrors((prev) => {
       const newErrors = { ...prev };
@@ -197,15 +324,13 @@ const ReliefRequestScreen = () => {
       return newErrors;
     });
     itemInputRef.current?.blur();
-    setTimeout(() => {
-      itemInputRef.current?.focus();
-    }, 0);
+    setTimeout(() => itemInputRef.current?.focus(), 0);
   };
 
   const handleItemFocus = () => {
-    if (reportData.donationCategory) {
+    if (reportData.category) {
       setIsItemDropdownVisible(true);
-      setFilteredItems(itemSuggestions[reportData.donationCategory] || []);
+      setFilteredItems(itemSuggestions[reportData.category] || []);
     }
     scrollToInput('itemName');
   };
@@ -219,9 +344,8 @@ const ReliefRequestScreen = () => {
       contactPerson: 0,
       contactNumber: 0,
       email: 0,
-      address: 0,
-      city: 0,
-      donationCategory: 0,
+      'address.formattedAddress': 0,
+      category: 0,
       itemName: 1,
       quantity: 1,
       notes: 1,
@@ -229,6 +353,23 @@ const ReliefRequestScreen = () => {
     const index = sectionMap[field] || 0;
     if (flatListRef.current) {
       flatListRef.current.scrollToIndex({ index, animated: true });
+    }
+  };
+
+  const handleWebViewMessage = (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      setReportData((prev) => ({
+        ...prev,
+        address: {
+          formattedAddress: data.formattedAddress || '',
+          latitude: parseFloat(data.latitude) || null,
+          longitude: parseFloat(data.longitude) || null,
+        },
+      }));
+      setMapModalVisible(false);
+    } catch (error) {
+      console.error('WebView message error:', error);
     }
   };
 
@@ -268,15 +409,14 @@ const ReliefRequestScreen = () => {
     }
 
     const newItem = {
-      donationCategory: reportData.donationCategory,
-      itemName: reportData.itemName,
-      quantity: reportData.quantity,
-      notes: reportData.notes || '',
+      name: reportData.itemName,
+      quantity: Number(reportData.quantity),
+      notes: reportData.notes || 'N/A',
     };
     setItems([...items, newItem]);
     setModalConfig({
       title: 'Item Saved',
-      message: `Saved:\nCategory: ${newItem.donationCategory}\nItem: ${newItem.itemName}\nQuantity: ${newItem.quantity}\nNotes: ${newItem.notes || 'None'}`,
+      message: `Saved:\nItem: ${newItem.name}\nQuantity: ${newItem.quantity}\nNotes: ${newItem.notes}`,
       onConfirm: () => setModalVisible(false),
       confirmText: 'OK',
       showCancel: false,
@@ -333,8 +473,8 @@ const ReliefRequestScreen = () => {
     const newErrors = {};
     let allRequiredBlank = true;
 
-    contactRequiredFields.forEach((field) => {
-      const value = reportData[field];
+    requiredFields.forEach((field) => {
+      const value = field.includes('address.') ? reportData.address[field.split('.')[1]] : reportData[field];
       if (value === null || (typeof value === 'string' && value.trim() === '')) {
         const fieldName = field.replace(/([A-Z])/g, ' $1').trim();
         newErrors[field] = `${capitalizeFirstLetter(fieldName)} is required`;
@@ -344,10 +484,10 @@ const ReliefRequestScreen = () => {
     });
 
     if (reportData.contactNumber && !/^[0-9]{11}$/.test(reportData.contactNumber)) {
-      newErrors.contactNumber = 'Phone number must be 11 digits';
+      newErrors.contactNumber = 'Contact number must be exactly 11 digits';
     }
 
-    if (reportData.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(reportData.email)) {
+    if (reportData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reportData.email)) {
       newErrors.email = 'Email is not valid';
     }
 
@@ -389,7 +529,7 @@ const ReliefRequestScreen = () => {
       return;
     }
 
-    navigation.navigate('ReliefSummary', { reportData, addedItems: items, organizationName }); // Added organizationName
+    navigation.navigate('ReliefSummary', { reportData, addedItems: items, organizationName });
   };
 
   const renderLabel = (label, isRequired) => (
@@ -428,10 +568,11 @@ const ReliefRequestScreen = () => {
           contentContainerStyle={[GlobalStyles.scrollViewContent]}
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
+          ref={flatListRef}
         >
           <View style={GlobalStyles.form}>
             <View style={GlobalStyles.section}>
-              <Text style={styles.sectionTitle}>Contact Information</Text>
+              <Text style={GlobalStyles.sectionTitle}>Contact Information</Text>
 
               {renderLabel('Contact Person', true)}
               <View>
@@ -443,9 +584,7 @@ const ReliefRequestScreen = () => {
                   value={reportData.contactPerson}
                 />
               </View>
-              {errors.contactPerson && (
-                <Text style={GlobalStyles.errorText}>{errors.contactPerson}</Text>
-              )}
+              {errors.contactPerson && <Text style={GlobalStyles.errorText}>{errors.contactPerson}</Text>}
 
               {renderLabel('Contact Number', true)}
               <View>
@@ -458,9 +597,7 @@ const ReliefRequestScreen = () => {
                   keyboardType="numeric"
                 />
               </View>
-              {errors.contactNumber && (
-                <Text style={GlobalStyles.errorText}>{errors.contactNumber}</Text>
-              )}
+              {errors.contactNumber && <Text style={GlobalStyles.errorText}>{errors.contactNumber}</Text>}
 
               {renderLabel('Email', true)}
               <View>
@@ -475,52 +612,55 @@ const ReliefRequestScreen = () => {
               </View>
               {errors.email && <Text style={GlobalStyles.errorText}>{errors.email}</Text>}
 
-              {renderLabel('Exact Drop-off Address', true)}
-              <View>
+              {renderLabel('Drop-off Address', true)}
+              <View style={{ flexDirection: 'column', gap: 10, margin: 0, width: '100%' }}>
                 <TextInput
-                  style={[GlobalStyles.input, errors.address && GlobalStyles.inputError]}
+                  style={[
+                    GlobalStyles.input,
+                    { width: '100%' },
+                    errors['address.formattedAddress'] && GlobalStyles.inputError
+                  ]}
                   placeholder="Enter Drop-Off Address"
                   placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('address', val)}
-                  value={reportData.address}
+                  onChangeText={(val) => handleChange('address.formattedAddress', val)}
+                  value={reportData.address.formattedAddress}
                 />
+                <TouchableOpacity
+                  style={[
+                    GlobalStyles.supplementaryButton, GlobalStyles.openMap
+                  ]}
+                  onPress={() => setMapModalVisible(true)}
+                >
+                  <MaterialIcons name="pin-drop" size={24} color={Theme.colors.accentBlue} />
+                  <Text style={GlobalStyles.supplementaryButtonText}>Pin Location</Text>
+                </TouchableOpacity>
               </View>
-              {errors.address && <Text style={GlobalStyles.errorText}>{errors.address}</Text>}
 
-              {renderLabel('City', true)}
-              <View>
-                <TextInput
-                  style={[GlobalStyles.input, errors.city && GlobalStyles.inputError]}
-                  placeholder="Enter City"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('city', val)}
-                  value={reportData.city}
-                />
-              </View>
-              {errors.city && <Text style={GlobalStyles.errorText}>{errors.city}</Text>}
+                            
+              {errors['address.formattedAddress'] && (
+                <Text style={GlobalStyles.errorText}>{errors['address.formattedAddress']}</Text>
+              )}
 
-              {renderLabel('Donation Category', true)}
-              <View style={[GlobalStyles.input, styles.pickerContainer, errors.donationCategory && GlobalStyles.inputError]}>
+              {renderLabel('Request Category', true)}
+              <View style={[GlobalStyles.input, styles.pickerContainer, errors.category && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%' }}
-                  placeholderStyle={{ fontFamily: 'Poppins_Regular', color: '#777', fontSize: 14 }}
+                  placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
                   selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14 }}
                   itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
                   data={categories.map((c) => ({ label: c, value: c }))}
                   labelField="label"
                   valueField="value"
                   placeholder="Select Category"
-                  value={reportData.donationCategory}
-                  onChange={(item) => handleChange('donationCategory', item.value)}
+                  value={reportData.category}
+                  onChange={(item) => handleChange('category', item.value)}
                 />
               </View>
-              {errors.donationCategory && (
-                <Text style={GlobalStyles.errorText}>{errors.donationCategory}</Text>
-              )}
+              {errors.category && <Text style={GlobalStyles.errorText}>{errors.category}</Text>}
             </View>
 
             <View style={[GlobalStyles.section, { zIndex: 1000 }]}>
-              <Text style={styles.sectionTitle}>Requested Items</Text>
+              <Text style={GlobalStyles.sectionTitle}>Requested Items</Text>
 
               {renderLabel('Item Name', true)}
               <View style={{ position: 'relative', zIndex: 1500 }}>
@@ -529,16 +669,14 @@ const ReliefRequestScreen = () => {
                   placeholder="Select or Type Item"
                   placeholderTextColor={Theme.colors.placeholderColor}
                   value={reportData.itemName}
-                  onChangeText={(val) => {
-                    handleChange('itemName', val);
-                  }}
+                  onChangeText={(val) => handleChange('itemName', val)}
                   onFocus={handleItemFocus}
                   onBlur={handleBlur}
-                  editable={!!reportData.donationCategory && canSubmit}
+                  editable={!!reportData.category && canSubmit}
                   style={[GlobalStyles.input, errors.itemName && GlobalStyles.inputError]}
                 />
-                {!reportData.donationCategory && (reportData.itemName || errors.itemName) && (
-                  <Text style={GlobalStyles.errorText}>Please select a Donation Category first.</Text>
+                {!reportData.category && (reportData.itemName || errors.itemName) && (
+                  <Text style={GlobalStyles.errorText}>Please select a Request Category first.</Text>
                 )}
                 {isItemDropdownVisible && filteredItems.length > 0 && (
                   <View style={[styles.dropdownContainer, { maxHeight: maxDropdownHeight, zIndex: 1500 }]}>
@@ -570,10 +708,10 @@ const ReliefRequestScreen = () => {
                   onChangeText={(val) => handleChange('quantity', val)}
                   value={reportData.quantity}
                   keyboardType="numeric"
-                  editable={!!reportData.donationCategory && canSubmit}
+                  editable={!!reportData.category && canSubmit}
                 />
-                {!reportData.donationCategory && (reportData.quantity || errors.quantity) && (
-                  <Text style={GlobalStyles.errorText}>Please select a Donation Category first.</Text>
+                {!reportData.category && (reportData.quantity || errors.quantity) && (
+                  <Text style={GlobalStyles.errorText}>Please select a Request Category first.</Text>
                 )}
               </View>
               {errors.quantity && <Text style={GlobalStyles.errorText}>{errors.quantity}</Text>}
@@ -586,10 +724,10 @@ const ReliefRequestScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('notes', val)}
                   value={reportData.notes}
-                  editable={!!reportData.donationCategory && canSubmit}
+                  editable={!!reportData.category && canSubmit}
                 />
-                {!reportData.donationCategory && reportData.notes && (
-                  <Text style={GlobalStyles.errorText}>Please select a Donation Category first.</Text>
+                {!reportData.category && reportData.notes && (
+                  <Text style={GlobalStyles.errorText}>Please select a Request Category first.</Text>
                 )}
               </View>
               {errors.notes && <Text style={GlobalStyles.errorText}>{errors.notes}</Text>}
@@ -636,18 +774,14 @@ const ReliefRequestScreen = () => {
                               <Text style={styles.tableCell}>{index + 1}</Text>
                             </View>
                             <View style={[styles.cell, { minWidth: 100 }]}>
-                              <Text style={styles.tableCell}>{item.itemName}</Text>
+                              <Text style={styles.tableCell}>{item.name}</Text>
                             </View>
                             <View style={[styles.cell, { minWidth: 100 }]}>
                               <Text style={styles.tableCell}>{item.quantity}</Text>
                             </View>
                             <View style={[styles.cell, { minWidth: 150, flex: 1 }]}>
-                              <Text
-                                style={styles.tableCell}
-                                numberOfLines={100}
-                                ellipsizeMode="tail"
-                              >
-                                {item.notes || 'None'}
+                              <Text style={styles.tableCell} numberOfLines={100} ellipsizeMode="tail">
+                                {item.notes || 'N/A'}
                               </Text>
                             </View>
                             <View style={[styles.cell, { minWidth: 100, alignContent: 'center' }]}>
@@ -675,6 +809,31 @@ const ReliefRequestScreen = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={mapModalVisible}
+        animationType="slide"
+        onRequestClose={() => setMapModalVisible(false)}
+      >
+        <SafeAreaView style={{ flex: 1, }}>
+          <View style={{ flex: 1, }}>
+            <View style={styles.mapModalHeader}>
+              <Text style={styles.mapModalHeaderText}>Pin Drop-Off Address </Text>
+               <TouchableOpacity
+                style={{ padding: 10, justifyContent: 'flex-end' }}
+                onPress={() => setMapModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={Theme.colors.black} />
+              </TouchableOpacity>
+            </View>
+            <WebView
+              source={{ html: leafletHtml }}
+              style={{ flex: 1 }}
+              onMessage={handleWebViewMessage}
+            />
+          </View>
+        </SafeAreaView>
+      </Modal>
 
       <OperationCustomModal
         visible={modalVisible}

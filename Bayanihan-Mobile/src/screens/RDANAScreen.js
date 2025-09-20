@@ -3,7 +3,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { auth, database } from '../configuration/firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ref as databaseRef, get, query, orderByChild, equalTo } from 'firebase/database';
+import { ref as databaseRef, get, query, orderByChild, equalTo, push, set } from 'firebase/database';
 import React, { useRef, useState, useEffect } from 'react';
 import {
   Dimensions,
@@ -17,8 +17,9 @@ import {
   TouchableOpacity,
   View,
   Modal,
+  ScrollView as RNScrollView,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { Dropdown } from 'react-native-element-dropdown';
 import { ScrollView } from 'react-native-gesture-handler';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/RDANAStyles';
@@ -27,92 +28,154 @@ import OperationCustomModal from '../components/OperationCustomModal';
 import useOperationCheck from '../components/useOperationCheck';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../context/AuthContext'; 
-
+import { useAuth } from '../context/AuthContext';
+import regions from '../data/region.json';
+import provinces from '../data/province.json';
+import cities from '../data/city.json';
+import barangays from '../data/barangay.json';
+import CustomModal from '../components/CustomModal';
 
 const LIFELINE_STATUS_OPTIONS = {
   'Residential Houses': [
-    { label: 'Select from one of the following', value: '' },
+    { label: 'Select from one of the following', value: null},
     { label: 'Some houses are flooded/damaged.', value: 'Some houses are flooded/damaged.' },
     { label: 'Many houses are flooded/damaged.', value: 'Many houses are flooded/damaged.' },
     { label: 'An entire community is flooded/damaged.', value: 'An entire community is flooded/damaged.' },
   ],
   'Transportation and Mobility': [
-    { label: 'Select from one of the following', value: '' },
+    { label: 'Select from one of the following', value: null },
     { label: 'Roads are clear of debris and/or flood; passable.', value: 'Roads are clear of debris and/or flood; passable.' },
     { label: 'Some roads are blocked by debris and/or flood.', value: 'Some roads are blocked by debris and/or flood.' },
     { label: 'Most roads are blocked by debris and/or flood; not passable.', value: 'Most roads are blocked by debris and/or flood; not passable.' },
   ],
   'Electricity, Power Grid': [
-    { label: 'Select from one of the following', value: '' },
+    { label: 'Select from one of the following', value: null },
     { label: 'There is electricity.', value: 'There is electricity.' },
     { label: 'Some places do not have electricity.', value: 'Some places do not have electricity.' },
     { label: 'The entire area has no electricity.', value: 'The entire area has no electricity.' },
   ],
   'Communication Networks, Internet': [
-    { label: 'Select from one of the following', value: '' },
+    { label: 'Select from one of the following', value: null},
     { label: 'Communication lines are up.', value: 'Communication lines are up.' },
     { label: 'There is intermittent signal available.', value: 'There is intermittent signal available.' },
     { label: 'Communication lines are down.', value: 'Communication lines are down.' },
   ],
   'Hospitals, Rural Health Units': [
-    { label: 'Select from one of the following', value: '' },
+    { label: 'Select from one of the following', value: null },
     { label: 'Hospitals are open.', value: 'Hospitals are open.' },
     { label: 'Some hospitals are open.', value: 'Some hospitals are open.' },
     { label: 'No hospitals are open.', value: 'No hospitals are open.' },
   ],
   'Water Supply System': [
-    { label: 'Select from one of the following', value: '' },
+    { label: 'Select from one of the following', value: null },
     { label: 'Clean water is available.', value: 'Clean water is available.' },
     { label: 'Only some locations have clean water.', value: 'Only some locations have clean water.' },
     { label: 'No clean water is available.', value: 'No clean water is available.' },
   ],
   'Market, Business, and Commercial Establishments': [
-    { label: 'Select from one of the following', value: '' },
+    { label: 'Select from one of the following', value: null},
     { label: 'Establishments are open.', value: 'Establishments are open.' },
     { label: 'Some establishments are open.', value: 'Some establishments are open.' },
     { label: 'No establishments are open.', value: 'No establishments are open.' },
   ],
 };
 
-const RDANAScreen = ({navigation}) => {
-    const { user } = useAuth(); 
+const ProgressSteps = ({ sections, currentSection, setCurrentSection, scrollViewRef }) => {
+  const handleStepPress = (index) => {
+    setCurrentSection(index);
+    scrollViewRef.current?.scrollTo({ y: index * Dimensions.get('window').height * 0.8, animated: true });
+  };
+
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        marginBottom: 10,
+        backgroundColor: 'transparent',
+      }}
+    >
+      {sections.map((section, index) => (
+        <View
+          key={index}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            flex: 1,
+            minWidth: 50,
+            justifyContent: 'center',
+          }}
+        >
+          <TouchableOpacity onPress={() => handleStepPress(index)}>
+            <View
+              style={[styles.progressCircles,{
+                backgroundColor: index <= currentSection ? Theme.colors.accent : '#E0E0E0',
+              }]}
+            >
+              <Text
+                style={[styles.progressNumbers,{color: index <= currentSection ? Theme.colors.lightBg : Theme.colors.black,}]}
+              >
+                {index + 1}
+              </Text>
+            </View>
+            {index === currentSection && (
+              <Text
+                style={styles.progressStepsText}
+              >
+                {section}
+              </Text>
+            )}
+          </TouchableOpacity>
+          {index < sections.length - 1 && (
+            <View
+              style={{
+                flex: 1,
+                height: 2,
+                backgroundColor: index < currentSection ? Theme.colors.accent : '#E0E0E0',
+                marginHorizontal: 5,
+              }}
+            />
+          )}
+        </View>
+      ))}
+    </View>
+  );
+};
+
+const RDANAScreen = ({ navigation }) => {
+  const { user } = useAuth();
   const route = useRoute();
   const [errors, setErrors] = useState({});
   const inputContainerRefs = useRef({}).current;
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
-  const [requiredFieldsModalVisible, setRequiredFieldsModalVisible] = useState(false);
+  const [deleteType, setDeleteType] = useState('');
   const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const insets = useSafeAreaInsets();
+  const [currentSection, setCurrentSection] = useState(0);
+  const scrollViewRef = useRef(null);
+
+  const sections = ['Step 1', 'Step 2', 'Step 3', 'Step 4'];
 
   const requiredFieldsErrors = {
     Date_of_Information_Gathered: 'Please provide the date when information was gathered (within 24-48 hours of occurrence).',
     Date_of_Occurrence: 'Please specify the date of the disaster occurrence.',
-    Local_Authorities_Persons_Contacted_for_Information: 'Please list the local authorities or persons contacted.',
-    Locations_and_Areas_Affected_Barangay: 'Please enter the affected barangay.',
-    Locations_and_Areas_Affected_City_Municipality: 'Please enter the affected city or municipality.',
-    Locations_and_Areas_Affected_Province: 'Please enter the affected province.',
-    Name_of_the_Organizations_Involved: 'Please provide the name of the organization involved.',
-    Site_Location_Address_Barangay: 'Please enter the site location barangay.',
-    Site_Location_Address_City_Municipality: 'Please enter the site location city or municipality.',
-    Site_Location_Address_Province: 'Please enter the site location province.',
+    Local_Authorities_Persons_Contacted_for_Information: 'Please add at least one local authority or person contacted.',
+    Locations_and_Areas_Affected: 'Please add at least one affected location.',
+    Name_of_the_Organizations_Involved: 'Please add at least one organization involved.',
+    Site_Location_Address_Province: 'Please select the site location province.',
+    Site_Location_Address_City_Municipality: 'Please select the site location city or municipality.',
+    Site_Location_Address_Barangay: 'Please select the site location barangay.',
     Time_of_Information_Gathered: 'Please provide the time when information was gathered (within 24-48 hours of occurrence).',
     Time_of_Occurrence: 'Please specify the time of the disaster occurrence.',
     Type_of_Disaster: 'Please select the type of disaster.',
-    community: 'Please add at least one municipality.',
-    totalPop: 'Please provide the total population.',
-    affected: 'Please provide the number of affected population.',
-    deaths: 'Please enter the number of deaths.',
-    injured: 'Please enter the number of injured persons.',
-    missing: 'Please enter the number of missing persons.',
-    children: 'Please enter the number of affected children.',
-    women: 'Please enter the number of affected women.',
-    seniors: 'Please enter the number of affected senior citizens.',
-    pwd: 'Please enter the number of affected persons with disabilities.',
-    responseGroup: 'Please specify the response groups involved.',
-    reliefDeployed: 'Please detail the relief assistance deployed.',
-    familiesServed: 'Please enter the number of families served.',
+    Affected_Municipalities: 'Please add at least one affected municipality.',
+    responseGroup: 'Please add at least one response group.',
+    reliefDeployed: 'Please add at least one relief assistance entry.',
+    familiesServed: 'Please add at least one entry for families served.',
   };
 
   const formatDate = (date) => {
@@ -120,7 +183,7 @@ const RDANAScreen = ({navigation}) => {
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
-    return `${day}-${month}-${year}`; 
+    return `${day}-${month}-${year}`;
   };
 
   const formatTime = (date) => {
@@ -128,7 +191,7 @@ const RDANAScreen = ({navigation}) => {
     let hours = date.getHours();
     const minutes = date.getMinutes().toString().padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12; 
+    hours = hours % 12 || 12;
     return `${hours}:${minutes} ${ampm}`;
   };
 
@@ -157,26 +220,21 @@ const RDANAScreen = ({navigation}) => {
     const occurrenceDateTime = new Date(occurrenceDate);
     occurrenceDateTime.setHours(occurrenceTime.getHours(), occurrenceTime.getMinutes(), 0, 0);
     const diffMs = gatheredDateTime - occurrenceDateTime;
-    if (diffMs < 0) return false; 
+    if (diffMs < 0) return false;
     const diffHours = diffMs / (1000 * 60 * 60);
-    return diffHours >= 24 && diffHours <= 48; 
+    return diffHours >= 24 && diffHours <= 48;
   };
 
   const initialReportData = {
-    Date_of_Information_Gathered: route.params?.reportData?.Date_of_Information_Gathered || '',
-    Date_of_Occurrence: route.params?.reportData?.Date_of_Occurrence || '',
-    Local_Authorities_Persons_Contacted_for_Information: route.params?.reportData?.Local_Authorities_Persons_Contacted_for_Information || '',
-    Locations_and_Areas_Affected_Barangay: route.params?.reportData?.Locations_and_Areas_Affected_Barangay || '',
-    Locations_and_Areas_Affected_City_Municipality: route.params?.reportData?.Locations_and_Areas_Affected_City_Municipality || '',
-    Locations_and_Areas_Affected_Province: route.params?.reportData?.Locations_and_Areas_Affected_Province || '',
-    Name_of_the_Organizations_Involved: route.params?.reportData?.Name_of_the_Organizations_Involved || '',
-    Site_Location_Address_Barangay: route.params?.reportData?.Site_Location_Address_Barangay || '',
-    Site_Location_Address_City_Municipality: route.params?.reportData?.Site_Location_Address_City_Municipality || '',
-    Site_Location_Address_Province: route.params?.reportData?.Site_Location_Address_Province || '',
-    Time_of_Information_Gathered: route.params?.reportData?.Time_of_Information_Gathered || '',
-    Time_of_Occurrence: route.params?.reportData?.Time_of_Occurrence || '',
+    Date_of_Information_Gathered: route.params?.reportData?.Date_and_Time_of_Information_Gathered?.split('T')[0] || '',
+    Time_of_Information_Gathered: route.params?.reportData?.Date_and_Time_of_Information_Gathered?.split('T')[1] || '',
+    Date_of_Occurrence: route.params?.reportData?.Date_and_Time_of_Occurrence?.split('T')[0] || '',
+    Time_of_Occurrence: route.params?.reportData?.Date_and_Time_of_Occurrence?.split('T')[1] || '',
     Type_of_Disaster: route.params?.reportData?.Type_of_Disaster || '',
     summary: route.params?.reportData?.summary || '',
+    Site_Location_Address_Province: route.params?.reportData?.Site_Location_Address_Province || '',
+    Site_Location_Address_City_Municipality: route.params?.reportData?.Site_Location_Address_City_Municipality || '',
+    Site_Location_Address_Barangay: route.params?.reportData?.Site_Location_Address_Barangay || '',
     community: '',
     affected: '',
     children: '',
@@ -200,20 +258,27 @@ const RDANAScreen = ({navigation}) => {
     hygieneKits: route.params?.reportData?.hygieneKits || 'No',
     drinkingWater: route.params?.reportData?.drinkingWater || 'No',
     ricePacks: route.params?.reportData?.ricePacks || 'No',
-    otherNeeds: route.params?.reportData?.otherNeeds || '',
-    estQty: route.params?.reportData?.estQty || '',
-    responseGroup: route.params?.reportData?.responseGroup || '',
-    reliefDeployed: route.params?.reportData?.reliefDeployed || '',
-    familiesServed: route.params?.reportData?.familiesServed || '',
   };
-  const [reportData, setReportData] = useState(initialReportData);
 
+  const [reportData, setReportData] = useState(initialReportData);
+  const [authoritiesAndOrganizations, setAuthoritiesAndOrganizations] = useState(route.params?.authoritiesAndOrganizations || []);
+  const [affectedLocations, setAffectedLocations] = useState(
+    route.params?.reportData?.Locations_and_Areas_Affected
+      ? route.params.reportData.Locations_and_Areas_Affected.split(', ').map((location) => {
+          const [province, city, barangay] = location.split(' / ');
+          return { province, city, barangay };
+        })
+      : []
+  );
+  const [affectedMunicipalities, setAffectedMunicipalities] = useState(route.params?.affectedMunicipalities || []);
+  const [immediateNeeds, setImmediateNeeds] = useState(route.params?.immediateNeeds || []);
+  const [initialResponse, setInitialResponse] = useState(route.params?.initialResponse || []);
   const [checklist, setChecklist] = useState({
-    reliefPacks: reportData.reliefPacks === 'Yes',
-    hotMeals: reportData.hotMeals === 'Yes',
-    hygieneKits: reportData.hygieneKits === 'Yes',
-    drinkingWater: reportData.drinkingWater === 'Yes',
-    ricePacks: reportData.ricePacks === 'Yes',
+    reliefPacks: route.params?.reportData?.reliefPacks === 'Yes' || false,
+    hotMeals: route.params?.reportData?.hotMeals === 'Yes' || false,
+    hygieneKits: route.params?.reportData?.hygieneKits === 'Yes' || false,
+    drinkingWater: route.params?.reportData?.drinkingWater === 'Yes' || false,
+    ricePacks: route.params?.reportData?.ricePacks === 'Yes' || false,
   });
 
   const [showDatePicker, setShowDatePicker] = useState({
@@ -232,7 +297,7 @@ const RDANAScreen = ({navigation}) => {
   });
 
   const disasterTypes = [
-    { label: 'Type of Disaster', value: '' },
+    { label: 'Select Type of Disaster', value: '' },
     { label: 'Earthquake', value: 'Earthquake' },
     { label: 'Typhoon', value: 'Typhoon' },
     { label: 'Flood', value: 'Flood' },
@@ -240,39 +305,32 @@ const RDANAScreen = ({navigation}) => {
     { label: 'Fire', value: 'Fire' },
   ];
 
-  const [affectedMunicipalities, setAffectedMunicipalities] = useState(route.params?.affectedMunicipalities || []);
+  const provinceOptions = provinces.map((province) => ({
+    label: province.province_name,
+    value: province.province_name,
+  }));
 
-  const requiredFields = [
-    'Date_of_Information_Gathered',
-    'Date_of_Occurrence',
-    'Local_Authorities_Persons_Contacted_for_Information',
-    'Locations_and_Areas_Affected_Barangay',
-    'Locations_and_Areas_Affected_City_Municipality',
-    'Locations_and_Areas_Affected_Province',
-    'Name_of_the_Organizations_Involved',
-    'Site_Location_Address_Barangay',
-    'Site_Location_Address_City_Municipality',
-    'Site_Location_Address_Province',
-    'Time_of_Information_Gathered',
-    'Time_of_Occurrence',
-    'Type_of_Disaster',
-    'responseGroup',
-    'reliefDeployed',
-    'familiesServed',
-  ];
+  const getCityOptions = (provinceName) => {
+    const selectedProvince = provinces.find((p) => p.province_name === provinceName);
+    const provinceCode = selectedProvince ? selectedProvince.province_code : '';
+    return cities
+      .filter((city) => city.province_code === provinceCode)
+      .map((city) => ({
+        label: city.city_name,
+        value: city.city_name,
+      }));
+  };
 
-  const municipalityFields = [
-    'community',
-    'totalPop',
-    'affected',
-    'deaths',
-    'injured',
-    'missing',
-    'children',
-    'women',
-    'seniors',
-    'pwd',
-  ];
+  const getBarangayOptions = (cityName) => {
+    const selectedCity = cities.find((c) => c.city_name === cityName);
+    const cityCode = selectedCity ? selectedCity.city_code : '';
+    return barangays
+      .filter((barangay) => barangay.city_code === cityCode)
+      .map((barangay) => ({
+        label: barangay.brgy_name,
+        value: barangay.brgy_name,
+      }));
+  };
 
   const sanitizeInput = (value, field) => {
     let sanitized = value;
@@ -286,7 +344,7 @@ const RDANAScreen = ({navigation}) => {
       field.includes('Province') ||
       field.includes('Relief') ||
       field.includes('responseGroup') ||
-      field === 'otherNeeds'
+      field.includes('otherNeeds')
     ) {
       sanitized = sanitized.replace(/[^a-zA-Z\sñÑ,-]/g, '');
     }
@@ -321,6 +379,41 @@ const RDANAScreen = ({navigation}) => {
         delete newErrors[field];
         return newErrors;
       });
+    }
+
+    if (field === 'Site_Location_Address_Province') {
+      setReportData((prev) => ({
+        ...prev,
+        Site_Location_Address_City_Municipality: '',
+        Site_Location_Address_Barangay: '',
+        Locations_and_Areas_Affected_Province: value,
+        Locations_and_Areas_Affected_City_Municipality: '',
+        Locations_and_Areas_Affected_Barangay: '',
+        community: '',
+      }));
+    }
+
+    if (field === 'Site_Location_Address_City_Municipality') {
+      setReportData((prev) => ({
+        ...prev,
+        Site_Location_Address_Barangay: '',
+        community: '',
+      }));
+    }
+
+    if (field === 'Locations_and_Areas_Affected_Province') {
+      setReportData((prev) => ({
+        ...prev,
+        Locations_and_Areas_Affected_City_Municipality: '',
+        Locations_and_Areas_Affected_Barangay: '',
+      }));
+    }
+
+    if (field === 'Locations_and_Areas_Affected_City_Municipality') {
+      setReportData((prev) => ({
+        ...prev,
+        Locations_and_Areas_Affected_Barangay: '',
+      }));
     }
   };
 
@@ -384,7 +477,7 @@ const RDANAScreen = ({navigation}) => {
     });
   };
 
-  const handleDelete = (index) => {
+  const handleDelete = (index, type) => {
     if (!canSubmit) {
       setModalConfig({
         title: 'Permission Error',
@@ -397,20 +490,33 @@ const RDANAScreen = ({navigation}) => {
     }
 
     setDeleteIndex(index);
+    setDeleteType(type);
     setDeleteModalVisible(true);
   };
 
   const confirmDelete = () => {
-    if (deleteIndex !== null) {
-      setAffectedMunicipalities((prev) => prev.filter((_, i) => i !== deleteIndex));
+    if (deleteIndex !== null && deleteType) {
+      if (deleteType === 'authorityOrg') {
+        setAuthoritiesAndOrganizations((prev) => prev.filter((_, i) => i !== deleteIndex));
+      } else if (deleteType === 'affectedLocation') {
+        setAffectedLocations((prev) => prev.filter((_, i) => i !== deleteIndex));
+      } else if (deleteType === 'municipality') {
+        setAffectedMunicipalities((prev) => prev.filter((_, i) => i !== deleteIndex));
+      } else if (deleteType === 'immediateNeed') {
+        setImmediateNeeds((prev) => prev.filter((_, i) => i !== deleteIndex));
+      } else if (deleteType === 'initialResponse') {
+        setInitialResponse((prev) => prev.filter((_, i) => i !== deleteIndex));
+      }
       setDeleteModalVisible(false);
       setDeleteIndex(null);
+      setDeleteType('');
     }
   };
 
   const cancelDelete = () => {
     setDeleteModalVisible(false);
     setDeleteIndex(null);
+    setDeleteType('');
   };
 
   const validateMunicipalityInputs = () => {
@@ -428,17 +534,57 @@ const RDANAScreen = ({navigation}) => {
     } = reportData;
 
     const newErrors = {};
-    if (!community || !community.trim()) newErrors.community = requiredFieldsErrors.community;
-    if (!totalPop || !totalPop.trim()) newErrors.totalPop = requiredFieldsErrors.totalPop;
-    if (!affected || !affected.trim()) newErrors.affected = requiredFieldsErrors.affected;
-    if (!deaths || !deaths.trim()) newErrors.deaths = requiredFieldsErrors.deaths;
-    if (!injured || !injured.trim()) newErrors.injured = requiredFieldsErrors.injured;
-    if (!missing || !missing.trim()) newErrors.missing = requiredFieldsErrors.missing;
-    if (!children || !children.trim()) newErrors.children = requiredFieldsErrors.children;
-    if (!women || !women.trim()) newErrors.women = requiredFieldsErrors.women;
-    if (!seniors || !seniors.trim()) newErrors.seniors = requiredFieldsErrors.seniors;
-    if (!pwd || !pwd.trim()) newErrors.pwd = requiredFieldsErrors.pwd;
+    if (!community || !community.trim()) newErrors.community = 'Please select an affected municipality.';
+    if (!totalPop || !totalPop.trim()) newErrors.totalPop = 'Please provide the total population.';
+    if (!affected || !affected.trim()) newErrors.affected = 'Please provide the number of affected population.';
+    if (!deaths || !deaths.trim()) newErrors.deaths = 'Please enter the number of deaths.';
+    if (!injured || !injured.trim()) newErrors.injured = 'Please enter the number of injured persons.';
+    if (!missing || !missing.trim()) newErrors.missing = 'Please enter the number of missing persons.';
+    if (!children || !children.trim()) newErrors.children = 'Please enter the number of affected children.';
+    if (!women || !women.trim()) newErrors.women = 'Please enter the number of affected women.';
+    if (!seniors || !seniors.trim()) newErrors.seniors = 'Please enter the number of affected senior citizens.';
+    if (!pwd || !pwd.trim()) newErrors.pwd = 'Please enter the number of affected persons with disabilities.';
 
+    const totalPopNum = parseInt(totalPop) || 0;
+    const affectedNum = parseInt(affected) || 0;
+    const deathsNum = parseInt(deaths) || 0;
+    const injuredNum = parseInt(injured) || 0;
+    const missingNum = parseInt(missing) || 0;
+    const childrenNum = parseInt(children) || 0;
+    const womenNum = parseInt(women) || 0;
+    const seniorsNum = parseInt(seniors) || 0;
+    const pwdNum = parseInt(pwd) || 0;
+
+    if (affectedNum > totalPopNum) {
+      newErrors.affected = 'Affected population cannot exceed total population.';
+    }
+    if ((deathsNum + injuredNum + missingNum) > affectedNum) {
+      newErrors.casualties = 'Deaths + Injured + Missing cannot exceed affected population.';
+    }
+    if ((childrenNum + womenNum + seniorsNum + pwdNum) > affectedNum) {
+      newErrors.demographics = 'Demographic groups cannot exceed affected population.';
+    }
+    if (totalPopNum === 0 && affectedNum > 0) {
+      newErrors.totalPop = 'Total population is zero but affected people exist.';
+    }
+
+    return { isValid: Object.keys(newErrors).length === 0, newErrors };
+  };
+
+  const validateImmediateNeedsInputs = () => {
+    const { otherNeeds, estQty } = reportData;
+    const newErrors = {};
+    if (!otherNeeds || !otherNeeds.trim()) newErrors.otherNeeds = 'Please enter the need.';
+    if (!estQty || !estQty.trim()) newErrors.estQty = 'Please enter the estimated quantity.';
+    return { isValid: Object.keys(newErrors).length === 0, newErrors };
+  };
+
+  const validateInitialResponseInputs = () => {
+    const { responseGroup, reliefDeployed, familiesServed } = reportData;
+    const newErrors = {};
+    if (!responseGroup || !responseGroup.trim()) newErrors.responseGroup = 'Please enter the response group.';
+    if (!reliefDeployed || !reliefDeployed.trim()) newErrors.reliefDeployed = 'Please enter the relief assistance.';
+    if (!familiesServed || !familiesServed.trim()) newErrors.familiesServed = 'Please enter the number of families served.';
     return { isValid: Object.keys(newErrors).length === 0, newErrors };
   };
 
@@ -449,12 +595,408 @@ const RDANAScreen = ({navigation}) => {
     </Text>
   );
 
+  const handleAddAuthorityOrOrganization = (type) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
+    const value = type === 'authority' ? reportData.Local_Authorities_Persons_Contacted_for_Information : reportData.Name_of_the_Organizations_Involved;
+    if (!value || !value.trim()) {
+      setErrors((prev) => ({
+        ...prev,
+        [type === 'authority' ? 'Local_Authorities_Persons_Contacted_for_Information' : 'Name_of_the_Organizations_Involved']: `Please enter a ${type}.`,
+      }));
+      return;
+    }
+
+    setAuthoritiesAndOrganizations((prev) => [
+      ...prev,
+      { authority: type === 'authority' ? value : '', organization: type === 'organization' ? value : '' },
+    ]);
+    setReportData((prev) => ({
+      ...prev,
+      [type === 'authority' ? 'Local_Authorities_Persons_Contacted_for_Information' : 'Name_of_the_Organizations_Involved']: '',
+    }));
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors[type === 'authority' ? 'Local_Authorities_Persons_Contacted_for_Information' : 'Name_of_the_Organizations_Involved'];
+      return newErrors;
+    });
+    ToastAndroid.show(`${type === 'authority' ? 'Authority' : 'Organization'} added`, ToastAndroid.SHORT);
+  };
+
+  const handleAddAffectedLocation = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
+    const { Locations_and_Areas_Affected_Province, Locations_and_Areas_Affected_City_Municipality, Locations_and_Areas_Affected_Barangay } = reportData;
+    if (!Locations_and_Areas_Affected_Province || !Locations_and_Areas_Affected_City_Municipality || !Locations_and_Areas_Affected_Barangay) {
+      setErrors((prev) => ({
+        ...prev,
+        Locations_and_Areas_Affected_Province: !Locations_and_Areas_Affected_Province ? 'Please select a province.' : prev.Locations_and_Areas_Affected_Province,
+        Locations_and_Areas_Affected_City_Municipality: !Locations_and_Areas_Affected_City_Municipality ? 'Please select a city/municipality.' : prev.Locations_and_Areas_Affected_City_Municipality,
+        Locations_and_Areas_Affected_Barangay: !Locations_and_Areas_Affected_Barangay ? 'Please select a barangay.' : prev.Locations_and_Areas_Affected_Barangay,
+      }));
+      return;
+    }
+
+    setAffectedLocations((prev) => [
+      ...prev,
+      {
+        province: Locations_and_Areas_Affected_Province,
+        city: Locations_and_Areas_Affected_City_Municipality,
+        barangay: Locations_and_Areas_Affected_Barangay,
+      },
+    ]);
+    setReportData((prev) => ({
+      ...prev,
+      Locations_and_Areas_Affected_City_Municipality: '',
+      Locations_and_Areas_Affected_Barangay: '',
+    }));
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.Locations_and_Areas_Affected_Province;
+      delete newErrors.Locations_and_Areas_Affected_City_Municipality;
+      delete newErrors.Locations_and_Areas_Affected_Barangay;
+      return newErrors;
+    });
+    ToastAndroid.show('Location added', ToastAndroid.SHORT);
+  };
+
+  const handleAddMunicipality = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
+    const { isValid, newErrors } = validateMunicipalityInputs();
+    if (!isValid) {
+      setErrors(newErrors);
+      ToastAndroid.show('Please fill out all required fields correctly.', ToastAndroid.SHORT);
+      return;
+    }
+
+    const newMunicipality = {
+      community: reportData.community,
+      totalPop: reportData.totalPop,
+      affected: reportData.affected,
+      deaths: reportData.deaths,
+      injured: reportData.injured,
+      missing: reportData.missing,
+      children: reportData.children,
+      women: reportData.women,
+      seniors: reportData.seniors,
+      pwd: reportData.pwd,
+    };
+
+    setAffectedMunicipalities((prev) => [...prev, newMunicipality]);
+    ToastAndroid.show('Municipality added', ToastAndroid.SHORT);
+    setReportData((prev) => ({
+      ...prev,
+      community: '',
+      totalPop: '',
+      affected: '',
+      deaths: '',
+      injured: '',
+      missing: '',
+      children: '',
+      women: '',
+      seniors: '',
+      pwd: '',
+    }));
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      ['community', 'totalPop', 'affected', 'deaths', 'injured', 'missing', 'children', 'women', 'seniors', 'pwd'].forEach((field) => delete newErrors[field]);
+      return newErrors;
+    });
+  };
+
+  const handleAddImmediateNeed = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
+    const { isValid, newErrors } = validateImmediateNeedsInputs();
+    if (!isValid) {
+      setErrors(newErrors);
+      ToastAndroid.show('Please fill out all required fields.', ToastAndroid.SHORT);
+      return;
+    }
+
+    setImmediateNeeds((prev) => [
+      ...prev,
+      { need: reportData.otherNeeds, qty: reportData.estQty },
+    ]);
+    setReportData((prev) => ({
+      ...prev,
+      otherNeeds: '',
+      estQty: '',
+    }));
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.otherNeeds;
+      delete newErrors.estQty;
+      return newErrors;
+    });
+    ToastAndroid.show('Need added', ToastAndroid.SHORT);
+  };
+
+  const handleAddInitialResponse = () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
+    const { isValid, newErrors } = validateInitialResponseInputs();
+    if (!isValid) {
+      setErrors(newErrors);
+      ToastAndroid.show('Please fill out all required fields.', ToastAndroid.SHORT);
+      return;
+    }
+
+    setInitialResponse((prev) => [
+      ...prev,
+      {
+        group: reportData.responseGroup,
+        assistance: reportData.reliefDeployed,
+        families: reportData.familiesServed,
+      },
+    ]);
+    setReportData((prev) => ({
+      ...prev,
+      responseGroup: '',
+      reliefDeployed: '',
+      familiesServed: '',
+    }));
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.responseGroup;
+      delete newErrors.reliefDeployed;
+      delete newErrors.familiesServed;
+      return newErrors;
+    });
+    ToastAndroid.show('Response added', ToastAndroid.SHORT);
+  };
+
+  const handleNavigation = (direction) => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
+    let newSection = currentSection;
+    if (direction === 'next' && currentSection < sections.length - 1) {
+      const requiredFieldsForSection = {
+        0: ['Site_Location_Address_Province', 'Site_Location_Address_City_Municipality', 'Site_Location_Address_Barangay', 'Date_of_Information_Gathered', 'Time_of_Information_Gathered', 'Type_of_Disaster', 'Date_of_Occurrence', 'Time_of_Occurrence'],
+        1: [],
+        2: [],
+        3: [],
+      }[currentSection];
+
+      const newErrors = {};
+      requiredFieldsForSection.forEach((field) => {
+        if (!reportData[field] || reportData[field].trim() === '') {
+          newErrors[field] = requiredFieldsErrors[field];
+        }
+      });
+
+      if (currentSection === 0 && authoritiesAndOrganizations.length === 0) {
+        newErrors.Local_Authorities_Persons_Contacted_for_Information = requiredFieldsErrors.Local_Authorities_Persons_Contacted_for_Information;
+        newErrors.Name_of_the_Organizations_Involved = requiredFieldsErrors.Name_of_the_Organizations_Involved;
+      }
+
+      if (currentSection === 0 && affectedLocations.length === 0) {
+        newErrors.Locations_and_Areas_Affected = requiredFieldsErrors.Locations_and_Areas_Affected;
+      }
+
+      if (currentSection === 1 && affectedMunicipalities.length === 0) {
+        newErrors.Affected_Municipalities = requiredFieldsErrors.Affected_Municipalities;
+      }
+
+      if (currentSection === 3 && initialResponse.length === 0) {
+        newErrors.responseGroup = requiredFieldsErrors.responseGroup;
+        newErrors.reliefDeployed = requiredFieldsErrors.reliefDeployed;
+        newErrors.familiesServed = requiredFieldsErrors.familiesServed;
+      }
+
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        ToastAndroid.show('Please fill out all required fields.', ToastAndroid.SHORT);
+        return;
+      }
+
+      newSection = currentSection + 1;
+    } else if (direction === 'back' && currentSection > 0) {
+      newSection = currentSection - 1;
+    }
+    setCurrentSection(newSection);
+    scrollViewRef.current?.scrollTo({ y: newSection * Dimensions.get('window').height * 0.8, animated: true });
+  };
+
+  const generateUniqueId = async () => {
+    let attempts = 0;
+    const maxAttempts = 3;
+    while (attempts < maxAttempts) {
+      const randomNum = Math.floor(100 + Math.random() * 900);
+      const customId = `RDANA-${randomNum}`;
+      const snapshot = await get(query(databaseRef(database, 'rdana/submitted'), orderByChild('rdanaId'), equalTo(customId)));
+      if (!snapshot.exists()) return customId;
+      attempts++;
+    }
+    throw new Error('Unable to generate a unique RDANA ID.');
+  };
+
+  const handleSubmit = async () => {
+    if (!canSubmit) {
+      setModalConfig({
+        title: 'Permission Error',
+        message: 'You do not have permission to submit reports.',
+        onConfirm: () => setModalVisible(false),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
+    if (!user) {
+      setModalConfig({
+        title: 'Sign In Required',
+        message: 'Please sign in to submit a report.',
+        onConfirm: () => navigation.navigate('Login'),
+        confirmText: 'OK',
+      });
+      setModalVisible(true);
+      return;
+    }
+
+    const requiredFields = [
+      'Date_of_Information_Gathered',
+      'Date_of_Occurrence',
+      'Site_Location_Address_Province',
+      'Site_Location_Address_City_Municipality',
+      'Site_Location_Address_Barangay',
+      'Time_of_Information_Gathered',
+      'Time_of_Occurrence',
+      'Type_of_Disaster',
+    ];
+
+    const newErrors = {};
+    requiredFields.forEach((field) => {
+      if (!reportData[field] || reportData[field].trim() === '') {
+        newErrors[field] = requiredFieldsErrors[field];
+      }
+    });
+
+    if (authoritiesAndOrganizations.length === 0) {
+      newErrors.Local_Authorities_Persons_Contacted_for_Information = requiredFieldsErrors.Local_Authorities_Persons_Contacted_for_Information;
+      newErrors.Name_of_the_Organizations_Involved = requiredFieldsErrors.Name_of_the_Organizations_Involved;
+    }
+
+    if (affectedLocations.length === 0) {
+      newErrors.Locations_and_Areas_Affected = requiredFieldsErrors.Locations_and_Areas_Affected;
+    }
+
+    if (affectedMunicipalities.length === 0) {
+      newErrors.Affected_Municipalities = requiredFieldsErrors.Affected_Municipalities;
+    }
+
+    if (initialResponse.length === 0) {
+      newErrors.responseGroup = requiredFieldsErrors.responseGroup;
+      newErrors.reliefDeployed = requiredFieldsErrors.reliefDeployed;
+      newErrors.familiesServed = requiredFieldsErrors.familiesServed;
+    }
+
+    if (!isWithin24To48Hours(
+      parseDate(reportData.Date_of_Information_Gathered),
+      parseTimeToDate(reportData.Time_of_Information_Gathered),
+      parseDate(reportData.Date_of_Occurrence),
+      parseTimeToDate(reportData.Time_of_Occurrence)
+    )) {
+      newErrors.Date_of_Information_Gathered = 'Information must be gathered within 24-48 hours of occurrence.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      ToastAndroid.show('Please fill out all required fields correctly.', ToastAndroid.SHORT);
+      return;
+    }
+
+    // Combine date and time fields
+    const dateTimeOfInformationGathered = `${reportData.Date_of_Information_Gathered}T${reportData.Time_of_Information_Gathered}`;
+    const dateTimeOfOccurrence = `${reportData.Date_of_Occurrence}T${reportData.Time_of_Occurrence}`;
+    // Combine locations into a single string
+    const locationsAndAreasAffected = affectedLocations
+      .map((loc) => `${loc.province} / ${loc.city} / ${loc.barangay}`)
+      .join(', ');
+
+    const summaryReportData = {
+      ...reportData,
+      Date_and_Time_of_Information_Gathered: dateTimeOfInformationGathered || '',
+      Date_and_Time_of_Occurrence: dateTimeOfOccurrence || '',
+      Locations_and_Areas_Affected: locationsAndAreasAffected || '',
+      reliefPacks: checklist.reliefPacks ? 'Yes' : 'No',
+      hotMeals: checklist.hotMeals ? 'Yes' : 'No',
+      hygieneKits: checklist.hygieneKits ? 'Yes' : 'No',
+      drinkingWater: checklist.drinkingWater ? 'Yes' : 'No',
+      ricePacks: checklist.ricePacks ? 'Yes' : 'No',
+    };
+
+    navigation.navigate('RDANASummary', {
+      reportData: summaryReportData,
+      affectedMunicipalities,
+      authoritiesAndOrganizations,
+      immediateNeeds,
+      initialResponse,
+      organizationName: user.organization || 'Admin',
+    });
+  };
+
   const windowHeight = Dimensions.get('window').height;
+  const maxDropdownHeight = windowHeight * 0.3;
 
   return (
     <SafeAreaView style={[GlobalStyles.container]}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      {/* Header */}
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
@@ -471,55 +1013,159 @@ const RDANAScreen = ({navigation}) => {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 80 }}
+        style={{ flex: 1, marginTop: 100 }}
         keyboardVerticalOffset={0}
       >
+        <ProgressSteps
+          sections={sections}
+          currentSection={currentSection}
+          setCurrentSection={setCurrentSection}
+          scrollViewRef={scrollViewRef}
+        />
+
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={[GlobalStyles.scrollViewContent]}
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={GlobalStyles.form}>
+          {/* Step 1 */}
+          <View style={[GlobalStyles.form, { display: currentSection === 0 ? 'flex' : 'none' }]}>
             <View style={GlobalStyles.section}>
               <Text style={styles.sectionTitle}>Profile of the Disaster</Text>
-              {renderLabel('Site Location/Address (Barangay)', true)}
-              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Barangay = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.Site_Location_Address_Barangay && GlobalStyles.inputError]}
-                  placeholder="Enter Affected Barangay"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('Site_Location_Address_Barangay', val)}
-                  value={reportData.Site_Location_Address_Barangay}
-                  editable={canSubmit}
+              {renderLabel('Site Location/Address (Province)', true)}
+              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Province = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Site_Location_Address_Province && GlobalStyles.inputError]}>
+                <Dropdown
+                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                  placeholder="Select Province"
+                  placeholderStyle={GlobalStyles.placeholderStyle}
+                  selectedTextStyle={GlobalStyles.selectedTextStyle}
+                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                  data={provinceOptions} 
+                  labelField="label"
+                  valueField="value"
+                  value={reportData.Site_Location_Address_Province || null} 
+                  onChange={(item) =>
+                    handleChange('Site_Location_Address_Province', item.value)
+                  }
+                  containerStyle={{ maxHeight: maxDropdownHeight }}
+                  disable={!canSubmit}
+                  renderRightIcon={() => (
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholderColor}
+                    />
+                  )}
                 />
+
               </View>
-              {errors.Site_Location_Address_Barangay && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Barangay}</Text>}
+              {errors.Site_Location_Address_Province && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Province}</Text>}
 
               {renderLabel('Site Location/Address (City/Municipality)', true)}
-              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_City_Municipality = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.Site_Location_Address_City_Municipality && GlobalStyles.inputError]}
-                  placeholder="Enter Affected City/Municipality"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('Site_Location_Address_City_Municipality', val)}
-                  value={reportData.Site_Location_Address_City_Municipality}
-                  editable={canSubmit}
-                />
+              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_City_Municipality = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Site_Location_Address_City_Municipality && GlobalStyles.inputError]}>
+                <Dropdown
+                style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                placeholder="Select City/Municipality"
+                placeholderStyle={GlobalStyles.placeholderStyle}
+                selectedTextStyle={GlobalStyles.selectedTextStyle}
+                itemTextStyle={GlobalStyles.itemTextStyle}
+                itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                data={getCityOptions(reportData.Site_Location_Address_Province)} 
+                labelField="label"
+                valueField="value"
+                value={reportData.Site_Location_Address_City_Municipality || null}
+                onChange={(item) =>
+                  handleChange('Site_Location_Address_City_Municipality', item.value)
+                }
+                containerStyle={{ maxHeight: maxDropdownHeight }}
+                disable={!canSubmit || !reportData.Site_Location_Address_Province}
+                renderRightIcon={() => (
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color={Theme.colors.placeholderColor}
+                  />
+                )}
+              />
               </View>
               {errors.Site_Location_Address_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_City_Municipality}</Text>}
 
-              {renderLabel('Site Location/Address (Province)', true)}
-              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Province = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.Site_Location_Address_Province && GlobalStyles.inputError]}
-                  placeholder="Enter Affected Province"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('Site_Location_Address_Province', val)}
-                  value={reportData.Site_Location_Address_Province}
-                  editable={canSubmit}
+              {renderLabel('Site Location/Address (Barangay)', true)}
+              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Barangay = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Site_Location_Address_Barangay && GlobalStyles.inputError]}>
+                <Dropdown
+                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                  placeholder="Select Barangay"
+                  placeholderStyle={GlobalStyles.placeholderStyle}
+                  selectedTextStyle={GlobalStyles.selectedTextStyle}
+                  itemTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
+                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                  data={getBarangayOptions(reportData.Site_Location_Address_City_Municipality)} 
+                  labelField="label"
+                  valueField="value"
+                  value={reportData.Site_Location_Address_Barangay || null} 
+                  onChange={(item) =>
+                    handleChange('Site_Location_Address_Barangay', item.value)
+                  }
+                  containerStyle={{ maxHeight: maxDropdownHeight }}
+                  disable={!canSubmit || !reportData.Site_Location_Address_City_Municipality}
+                  renderRightIcon={() => (
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholderColor}
+                    />
+                  )}
                 />
+
               </View>
-              {errors.Site_Location_Address_Province && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Province}</Text>}
+              {errors.Site_Location_Address_Barangay && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Barangay}</Text>}
+
+              {renderLabel('Date and Time Information was Gathered', true)}
+               <View style={GlobalStyles.row}>
+                <TouchableOpacity
+                  style={[GlobalStyles.input, { flex: 1, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, errors.Date_of_Information_Gathered && GlobalStyles.inputError]}
+                  onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, Date_of_Information_Gathered: true }))}
+                >
+                  <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Date_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor }}>
+                    {reportData.Date_of_Information_Gathered || 'dd/mm/yyyy'}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={20} color={Theme.colors.black} />
+                </TouchableOpacity>
+                {showDatePicker.Date_of_Information_Gathered && (
+                  <DateTimePicker
+                    value={tempDate.Date_of_Information_Gathered || new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={(event, date) => handleDateChange('Date_of_Information_Gathered', event, date)}
+                  />
+                )}
+                <TouchableOpacity
+                  style={[GlobalStyles.input, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, errors.Time_of_Information_Gathered && GlobalStyles.inputError]}
+                  onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, Time_of_Information_Gathered: true }))}
+                >
+                  <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Time_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor }}>
+                    {reportData.Time_of_Information_Gathered || '--:-- --'}
+                  </Text>
+                  <Ionicons name="time-outline" size={20} color={Theme.colors.black} />
+                </TouchableOpacity>
+                {showTimePicker.Time_of_Information_Gathered && (
+                  <DateTimePicker
+                    value={tempDate.Time_of_Information_Gathered || new Date()}
+                    mode="time"
+                    display="default"
+                    onChange={(event, time) => handleTimeChange('Time_of_Information_Gathered', event, time)}
+                  />
+                )}
+              </View>
+              {(errors.Date_of_Information_Gathered || errors.Time_of_Information_Gathered) && (
+                <Text style={GlobalStyles.errorText}>{errors.Date_of_Information_Gathered || errors.Time_of_Information_Gathered}</Text>
+              )}
 
               {renderLabel('Local Authorities/ Persons Contacted for Information', true)}
               <View ref={(ref) => (inputContainerRefs.Local_Authorities_Persons_Contacted_for_Information = ref)}>
@@ -532,52 +1178,14 @@ const RDANAScreen = ({navigation}) => {
                   editable={canSubmit}
                 />
               </View>
+              <TouchableOpacity
+                style={[GlobalStyles.supplementaryButton, { marginTop: 10 }, !reportData.Local_Authorities_Persons_Contacted_for_Information && { opacity: 0.6 }]}
+                onPress={() => handleAddAuthorityOrOrganization('authority')}
+                disabled={!canSubmit || !reportData.Local_Authorities_Persons_Contacted_for_Information}
+              >
+                <Text style={GlobalStyles.supplementaryButtonText}>Add Authority</Text>
+              </TouchableOpacity>
               {errors.Local_Authorities_Persons_Contacted_for_Information && <Text style={GlobalStyles.errorText}>{errors.Local_Authorities_Persons_Contacted_for_Information}</Text>}
-
-              {renderLabel('Date of Information Gathered', true)}
-              <View ref={(ref) => (inputContainerRefs.Date_of_Information_Gathered = ref)}>
-                <TouchableOpacity
-                  style={[GlobalStyles.input, errors.Date_of_Information_Gathered && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
-                  onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, Date_of_Information_Gathered: true }))}
-                >
-                  <Text style={{ flex: 1, color: reportData.Date_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular'}}>
-                    {reportData.Date_of_Information_Gathered || 'dd/mm/yyyy'}
-                  </Text>
-                  <Ionicons name="calendar" size={24} color="#00BCD4" />
-                </TouchableOpacity>
-                {showDatePicker.Date_of_Information_Gathered && canSubmit && (
-                  <DateTimePicker
-                    value={tempDate.Date_of_Information_Gathered || new Date()}
-                    mode="date"
-                    display="default"
-                    onChange={(event, date) => handleDateChange('Date_of_Information_Gathered', event, date)}
-                  />
-                )}
-              </View>
-              {errors.Date_of_Information_Gathered && <Text style={GlobalStyles.errorText}>{errors.Date_of_Information_Gathered}</Text>}
-
-              {renderLabel('Time of Information Gathered', true)}
-              <View ref={(ref) => (inputContainerRefs.Time_of_Information_Gathered = ref)}>
-                <TouchableOpacity
-                  style={[GlobalStyles.input, errors.Time_of_Information_Gathered && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
-                  onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, Time_of_Information_Gathered: true }))}
-                >
-                  <Text style={{ flex: 1, color: reportData.Time_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular' }}>
-                    {reportData.Time_of_Information_Gathered || '--:-- --'}
-                  </Text>
-                  <Ionicons name="time" size={24} color="#00BCD4" />
-                </TouchableOpacity>
-                {showTimePicker.Time_of_Information_Gathered && canSubmit && (
-                  <DateTimePicker
-                    value={tempDate.Time_of_Information_Gathered || new Date()}
-                    mode="time"
-                    display="default"
-                    is24Hour={false}
-                    onChange={(event, time) => handleTimeChange('Time_of_Information_Gathered', event, time)}
-                  />
-                )}
-              </View>
-              {errors.Time_of_Information_Gathered && <Text style={GlobalStyles.errorText}>{errors.Time_of_Information_Gathered}</Text>}
 
               {renderLabel('Name of Organization Involved', true)}
               <View ref={(ref) => (inputContainerRefs.Name_of_the_Organizations_Involved = ref)}>
@@ -590,130 +1198,276 @@ const RDANAScreen = ({navigation}) => {
                   editable={canSubmit}
                 />
               </View>
+              <TouchableOpacity
+                style={[GlobalStyles.supplementaryButton, { marginTop: 10 }, !reportData.Name_of_the_Organizations_Involved && { opacity: 0.6 }]}
+                onPress={() => handleAddAuthorityOrOrganization('organization')}
+                disabled={!canSubmit || !reportData.Name_of_the_Organizations_Involved}
+              >
+                <Text style={GlobalStyles.supplementaryButtonText}>Add Organization</Text>
+              </TouchableOpacity>
               {errors.Name_of_the_Organizations_Involved && <Text style={GlobalStyles.errorText}>{errors.Name_of_the_Organizations_Involved}</Text>}
-            </View>
 
+             {authoritiesAndOrganizations.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                <View style={styles.table}>
+                  {/* Header Row */}
+                  <View style={[styles.tableRow, { minWidth: 200, }]}>
+                    <Text style={[styles.tableHeader, { minWidth: 200, borderTopLeftRadius: 10, textAlign: 'center' }]}>
+                      AUTHORITIES/ PERSONS
+                    </Text>
+                    <Text style={[styles.tableHeader, { minWidth: 200, textAlign: 'center' }]}>
+                      ORGANIZATIONS INVOLVED
+                    </Text>
+                    <Text style={[styles.tableHeader, { minWidth: 80, borderTopRightRadius: 10, textAlign: 'center' }]}>
+                      ACTION
+                    </Text>
+                  </View>
+
+                  {/* Data Rows */}
+                  {authoritiesAndOrganizations.map((item, index) => (
+                    <View key={index} style={[styles.tableRow, { minWidth: 300 }]}>
+                      <Text style={[styles.tableCell, { minWidth: 200, textAlign: 'center' }]}>
+                        {item.authority || ' '}
+                      </Text>
+                      <Text style={[styles.tableCell, { minWidth: 200, textAlign: 'center' }]}>
+                        {item.organization || ' '}
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.tableCell, { minWidth: 80, alignItems: 'center', textAlign: 'center' }]}
+                        onPress={() => handleDelete(index, 'authorityOrg')}
+                        disabled={!canSubmit}
+                      >
+                        <Ionicons name="trash" size={20} color="red" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+
+            </View>
             <View style={GlobalStyles.section}>
               <Text style={styles.sectionTitle}>Modality</Text>
-              {renderLabel('Locations and Areas Affected (Barangay)', true)}
-              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Barangay = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_Barangay && GlobalStyles.inputError]}
-                  placeholder="Enter Affected Barangay"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('Locations_and_Areas_Affected_Barangay', val)}
-                  value={reportData.Locations_and_Areas_Affected_Barangay}
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.Locations_and_Areas_Affected_Barangay && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Barangay}</Text>}
-
-              {renderLabel('Locations and Areas Affected (City/Municipality)', true)}
-              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_City_Municipality = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_City_Municipality && GlobalStyles.inputError]}
-                  placeholder="Enter Affected City/Municipality"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('Locations_and_Areas_Affected_City_Municipality', val)}
-                  value={reportData.Locations_and_Areas_Affected_City_Municipality}
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.Locations_and_Areas_Affected_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_City_Municipality}</Text>}
-
               {renderLabel('Locations and Areas Affected (Province)', true)}
-              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Province = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.Locations_and_Areas_Affected_Province && GlobalStyles.inputError]}
-                  placeholder="Enter Province"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('Locations_and_Areas_Affected_Province', val)}
+              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Province = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Locations_and_Areas_Affected_Province && GlobalStyles.inputError]}>
+                <Dropdown
+                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                  placeholderStyle={GlobalStyles.placeholderStyle}
+                  selectedTextStyle={GlobalStyles.selectedTextStyle}
+                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                  data={[{ label: 'Select Province', value: '' }, ...provinceOptions]}
+                  labelField="label"
+                  valueField="value"
+                  placeholder="Select Province"
                   value={reportData.Locations_and_Areas_Affected_Province}
-                  editable={canSubmit}
+                  onChange={(item) => handleChange('Locations_and_Areas_Affected_Province', item.value)}
+                  containerStyle={{ maxHeight: maxDropdownHeight }}
+                  disable={!canSubmit}
+                  renderRightIcon={() => (
+                    <Ionicons name="chevron-down" size={18} color={Theme.colors.placeholderColor} />
+                  )}
                 />
               </View>
               {errors.Locations_and_Areas_Affected_Province && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Province}</Text>}
 
+              {renderLabel('Locations and Areas Affected (City/Municipality)', true)}
+              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_City_Municipality = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Locations_and_Areas_Affected_City_Municipality && GlobalStyles.inputError]}>
+                <Dropdown
+                style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                placeholder="Select City/Municipality"
+                placeholderStyle={GlobalStyles.placeholderStyle}
+                selectedTextStyle={GlobalStyles.selectedTextStyle}
+                itemTextStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  fontSize: 14,
+                  color: Theme.colors.black,
+                }}
+                itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                data={getCityOptions(reportData.Locations_and_Areas_Affected_Province)} 
+                labelField="label"
+                valueField="value"
+                value={reportData.Locations_and_Areas_Affected_City_Municipality || null}
+                onChange={(item) =>
+                  handleChange('Locations_and_Areas_Affected_City_Municipality', item.value)
+                }
+                containerStyle={{ maxHeight: maxDropdownHeight }}
+                disable={!canSubmit || !reportData.Locations_and_Areas_Affected_Province}
+                renderRightIcon={() => (
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color={Theme.colors.placeholderColor}
+                  />
+                )}
+              />
+
+              </View>
+              {errors.Locations_and_Areas_Affected_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_City_Municipality}</Text>}
+
+              {renderLabel('Locations and Areas Affected (Barangay)', true)}
+              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Barangay = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Locations_and_Areas_Affected_Barangay && GlobalStyles.inputError]}>
+                <Dropdown
+                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                  placeholderStyle={GlobalStyles.placeholderStyle}
+                  selectedTextStyle={GlobalStyles.selectedTextStyle}
+                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                  data={[
+                    { label: 'Select Barangay', value: '' },
+                    ...getBarangayOptions(reportData.Locations_and_Areas_Affected_City_Municipality),
+                  ]}
+                  labelField="label"
+                  valueField="value"
+                  placeholder="Select Barangay"
+                  value={reportData.Locations_and_Areas_Affected_Barangay}
+                  onChange={(item) =>
+                    handleChange('Locations_and_Areas_Affected_Barangay', item.value)
+                  }
+                  containerStyle={{ maxHeight: maxDropdownHeight }}
+                  disable={
+                    !canSubmit || !reportData.Locations_and_Areas_Affected_City_Municipality
+                  } 
+                  renderRightIcon={() => (
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholderColor}
+                    />
+                  )}
+                />
+
+              </View>
+              {errors.Locations_and_Areas_Affected_Barangay && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Barangay}</Text>}
+
+              <TouchableOpacity
+                style={[GlobalStyles.supplementaryButton, { marginTop: 10 }, (!reportData.Locations_and_Areas_Affected_Province || !reportData.Locations_and_Areas_Affected_City_Municipality || !reportData.Locations_and_Areas_Affected_Barangay) && { opacity: 0.6 }]}
+                onPress={handleAddAffectedLocation}
+                disabled={!canSubmit || !reportData.Locations_and_Areas_Affected_Province || !reportData.Locations_and_Areas_Affected_City_Municipality || !reportData.Locations_and_Areas_Affected_Barangay}
+              >
+                <Text style={GlobalStyles.supplementaryButtonText}>Add Location</Text>
+              </TouchableOpacity>
+              {errors.Locations_and_Areas_Affected && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected}</Text>}
+
+             {affectedLocations.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                <View style={styles.table}>
+                  {/* Header Row */}
+                  <View style={[styles.tableRow, { minWidth: 680 }]}>
+                    <Text style={[styles.tableHeader, { minWidth: 200, borderTopLeftRadius: 10 }]}>
+                      PROVINCE
+                    </Text>
+                    <Text style={[styles.tableHeader, { minWidth: 200 }]}>
+                      CITY/MUNICIPALITY
+                    </Text>
+                    <Text style={[styles.tableHeader, { minWidth: 200 }]}>
+                      BARANGAY
+                    </Text>
+                    <Text style={[styles.tableHeader, { minWidth: 80, borderTopRightRadius: 10 }]}>
+                      ACTION
+                    </Text>
+                  </View>
+
+                  {/* Data Rows */}
+                  {affectedLocations.map((item, index) => (
+                    <View key={index} style={[styles.tableRow, { minWidth: 680 }]}>
+                      <Text style={[styles.tableCell, { minWidth: 200 }]}>
+                        {item.province}
+                      </Text>
+                      <Text style={[styles.tableCell, { minWidth: 200 }]}>
+                        {item.city}
+                      </Text>
+                      <Text style={[styles.tableCell, { minWidth: 200 }]}>
+                        {item.barangay}
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.tableCell, { minWidth: 80, alignItems: 'center' }]}
+                        onPress={() => handleDelete(index, 'affectedLocation')}
+                        disabled={!canSubmit}
+                      >
+                        <Ionicons name="trash" size={20} color="red" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+              <Text style={[styles.sectionTitle, {marginTop: 20}]}>Disaster Details</Text>
               {renderLabel('Type of Disaster', true)}
               <View
                 style={[GlobalStyles.input, styles.pickerContainer, errors.Type_of_Disaster && GlobalStyles.inputError]}
                 ref={(ref) => (inputContainerRefs.Type_of_Disaster = ref)}
               >
-                <Picker
-                  selectedValue={reportData.Type_of_Disaster}
-                  onValueChange={(value) => handleChange('Type_of_Disaster', value)}
-                  style={{
-                    fontFamily: 'Poppins_Regular',
-                    fontSize: 14,
-                    color: reportData.Type_of_Disaster ? Theme.colors.black : Theme.colors.placeholderColor,
-                    height: 68,
-                    width: '100%',
-                    textAlign: 'center',
-                  }}
-                  dropdownIconColor="#00BCD4"
-                  enabled={canSubmit}
-                >
-                  {disasterTypes.map((option) => (
-                    <Picker.Item
-                      key={option.value}
-                      label={option.label}
-                      value={option.value}
-                      style={{ fontFamily: 'Poppins_Regular', textAlign: 'center', fontSize: 14 }}
+                <Dropdown
+                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                  placeholder="Select Type of Disaster"
+                  placeholderStyle={GlobalStyles.placeholderStyle}
+                  selectedTextStyle={GlobalStyles.selectedTextStyle}
+                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                  data={disasterTypes} 
+                  labelField="label"
+                  valueField="value"
+                  value={reportData.Type_of_Disaster || null} 
+                  onChange={(item) => handleChange('Type_of_Disaster', item.value)}
+                  containerStyle={{ maxHeight: maxDropdownHeight }}
+                  disable={!canSubmit}
+                  renderRightIcon={() => (
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholderColor}
                     />
-                  ))}
-                </Picker>
+                  )}
+                />
+
               </View>
               {errors.Type_of_Disaster && <Text style={GlobalStyles.errorText}>{errors.Type_of_Disaster}</Text>}
 
-              {renderLabel('Date of Occurrence', true)}
-              <View ref={(ref) => (inputContainerRefs.Date_of_Occurrence = ref)}>
+              {renderLabel('Date and Time of Occurrence', true)}
+                <View style={GlobalStyles.row}>
                 <TouchableOpacity
-                  style={[GlobalStyles.input, errors.Date_of_Occurrence && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
+                  style={[GlobalStyles.input, { flex: 1, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, errors.Date_of_Occurrence && GlobalStyles.inputError]}
                   onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, Date_of_Occurrence: true }))}
                 >
-                  <Text style={{ flex: 1, color: reportData.Date_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular'}}>
+                  <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Date_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor }}>
                     {reportData.Date_of_Occurrence || 'dd/mm/yyyy'}
                   </Text>
-                  <Ionicons name="calendar" size={24} color="#00BCD4" />
+                  <Ionicons name="calendar-outline" size={20} color={Theme.colors.black} />
                 </TouchableOpacity>
-                {showDatePicker.Date_of_Occurrence && canSubmit && (
+                {showDatePicker.Date_of_Occurrence && (
                   <DateTimePicker
                     value={tempDate.Date_of_Occurrence || new Date()}
                     mode="date"
                     display="default"
-                    textColor={Theme.colors.black}
                     onChange={(event, date) => handleDateChange('Date_of_Occurrence', event, date)}
                   />
                 )}
-              </View>
-              {errors.Date_of_Occurrence && <Text style={GlobalStyles.errorText}>{errors.Date_of_Occurrence}</Text>}
-
-              {renderLabel('Time of Occurrence', true)}
-              <View ref={(ref) => (inputContainerRefs.Time_of_Occurrence = ref)}>
                 <TouchableOpacity
-                  style={[GlobalStyles.input, errors.Time_of_Occurrence && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}
+                  style={[GlobalStyles.input, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, errors.Time_of_Occurrence && GlobalStyles.inputError]}
                   onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, Time_of_Occurrence: true }))}
                 >
-                  <Text style={{ flex: 1, color: reportData.Time_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular'}}>
+                  <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Time_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor }}>
                     {reportData.Time_of_Occurrence || '--:-- --'}
                   </Text>
-                  <Ionicons name="time" size={24} color="#00BCD4" />
+                  <Ionicons name="time-outline" size={20} color={Theme.colors.black} />
                 </TouchableOpacity>
-                {showTimePicker.Time_of_Occurrence && canSubmit && (
+                {showTimePicker.Time_of_Occurrence && (
                   <DateTimePicker
                     value={tempDate.Time_of_Occurrence || new Date()}
                     mode="time"
                     display="default"
-                    is24Hour={false}
                     onChange={(event, time) => handleTimeChange('Time_of_Occurrence', event, time)}
                   />
                 )}
               </View>
-              {errors.Time_of_Occurrence && <Text style={GlobalStyles.errorText}>{errors.Time_of_Occurrence}</Text>}
+              {(errors.Date_of_Occurrence || errors.Time_of_Occurrence) && (
+                <Text style={GlobalStyles.errorText}>{errors.Date_of_Occurrence || errors.Time_of_Occurrence}</Text>
+              )}
 
-              {renderLabel('Summary of Disaster/Incident (optional)', false)}
+              {renderLabel('Summary of the Disaster', false)}
               <TextInput
-                style={[GlobalStyles.input, { height: 100, textAlignVertical: 'top' }]}
+                style={[GlobalStyles.textArea, errors.summary && GlobalStyles.inputError]}
                 placeholder="Enter Summary"
                 placeholderTextColor={Theme.colors.placeholderColor}
                 multiline
@@ -724,42 +1478,192 @@ const RDANAScreen = ({navigation}) => {
               />
               {errors.summary && <Text style={GlobalStyles.errorText}>{errors.summary}</Text>}
             </View>
+          </View>
 
+          {/* Step 2 */}
+          <View style={[GlobalStyles.form, { display: currentSection === 1 ? 'flex' : 'none' }]}>
             <View style={GlobalStyles.section}>
               <Text style={styles.sectionTitle}>Initial Effects</Text>
+              {renderLabel('Affected Municipalities/Communities', true)}
+              <View ref={(ref) => (inputContainerRefs.community = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.community && GlobalStyles.inputError]}>
+                <Dropdown
+                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                  placeholder="Select City"
+                  placeholderStyle={GlobalStyles.placeholderStyle}
+                  selectedTextStyle={GlobalStyles.selectedTextStyle}
+                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                  data={getCityOptions(reportData.Site_Location_Address_Province)}
+                  labelField="label"
+                  valueField="value"
+                  value={reportData.community || null} 
+                  onChange={(item) => handleChange('community', item.value)}
+                  containerStyle={{ maxHeight: maxDropdownHeight }}
+                  disable={!canSubmit || !reportData.Site_Location_Address_Province}
+                  renderRightIcon={() => (
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholderColor}
+                    />
+                  )}
+                />
+
+              </View>
+              {errors.community && <Text style={GlobalStyles.errorText}>{errors.community}</Text>}
+
+              {renderLabel('Total Population', true)}
+              <TextInput
+                style={[GlobalStyles.input, errors.totalPop && GlobalStyles.inputError]}
+                placeholder="Enter Total Population"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                keyboardType="numeric"
+                onChangeText={(val) => handleChange('totalPop', val)}
+                value={reportData.totalPop}
+                editable={canSubmit}
+              />
+              {errors.totalPop && <Text style={GlobalStyles.errorText}>{errors.totalPop}</Text>}
+
+              {renderLabel('Affected Population', true)}
+              <TextInput
+                style={[GlobalStyles.input, errors.affected && GlobalStyles.inputError]}
+                placeholder="Enter Affected Population"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                keyboardType="numeric"
+                onChangeText={(val) => handleChange('affected', val)}
+                value={reportData.affected}
+                editable={canSubmit}
+              />
+              {errors.affected && <Text style={GlobalStyles.errorText}>{errors.affected}</Text>}
+
+              {renderLabel('Number of Deaths', true)}
+              <TextInput
+                style={[GlobalStyles.input, errors.deaths && GlobalStyles.inputError]}
+                placeholder="Enter Number of Deaths"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                keyboardType="numeric"
+                onChangeText={(val) => handleChange('deaths', val)}
+                value={reportData.deaths}
+                editable={canSubmit}
+              />
+              {errors.deaths && <Text style={GlobalStyles.errorText}>{errors.deaths}</Text>}
+
+              {renderLabel('Number of Injured', true)}
+              <TextInput
+                style={[GlobalStyles.input, errors.injured && GlobalStyles.inputError]}
+                placeholder="Enter Number of Injured"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                keyboardType="numeric"
+                onChangeText={(val) => handleChange('injured', val)}
+                value={reportData.injured}
+                editable={canSubmit}
+              />
+              {errors.injured && <Text style={GlobalStyles.errorText}>{errors.injured}</Text>}
+
+              {renderLabel('Number of Missing', true)}
+              <TextInput
+                style={[GlobalStyles.input, errors.missing && GlobalStyles.inputError]}
+                placeholder="Enter Number of Missing"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                keyboardType="numeric"
+                onChangeText={(val) => handleChange('missing', val)}
+                value={reportData.missing}
+                editable={canSubmit}
+              />
+              {errors.missing && <Text style={GlobalStyles.errorText}>{errors.missing}</Text>}
+
+              {renderLabel('Number of Affected Children', true)}
+              <TextInput
+                style={[GlobalStyles.input, errors.children && GlobalStyles.inputError]}
+                placeholder="Enter Number of Affected Children"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                keyboardType="numeric"
+                onChangeText={(val) => handleChange('children', val)}
+                value={reportData.children}
+                editable={canSubmit}
+              />
+              {errors.children && <Text style={GlobalStyles.errorText}>{errors.children}</Text>}
+
+              {renderLabel('Number of Affected Women', true)}
+              <TextInput
+                style={[GlobalStyles.input, errors.women && GlobalStyles.inputError]}
+                placeholder="Enter Number of Affected Women"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                keyboardType="numeric"
+                onChangeText={(val) => handleChange('women', val)}
+                value={reportData.women}
+                editable={canSubmit}
+              />
+              {errors.women && <Text style={GlobalStyles.errorText}>{errors.women}</Text>}
+
+              {renderLabel('Number of Affected Senior Citizens', true)}
+              <TextInput
+                style={[GlobalStyles.input, errors.seniors && GlobalStyles.inputError]}
+                placeholder="Enter Number of Affected Senior Citizens"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                keyboardType="numeric"
+                onChangeText={(val) => handleChange('seniors', val)}
+                value={reportData.seniors}
+                editable={canSubmit}
+              />
+              {errors.seniors && <Text style={GlobalStyles.errorText}>{errors.seniors}</Text>}
+
+              {renderLabel('Number of Affected Persons with Disabilities', true)}
+              <TextInput
+                style={[GlobalStyles.input, errors.pwd && GlobalStyles.inputError]}
+                placeholder="Enter Number of Affected PWD"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                keyboardType="numeric"
+                onChangeText={(val) => handleChange('pwd', val)}
+                value={reportData.pwd}
+                editable={canSubmit}
+              />
+              {errors.pwd && <Text style={GlobalStyles.errorText}>{errors.pwd}</Text>}
+
+              {(errors.casualties || errors.demographics) && (
+                <Text style={GlobalStyles.errorText}>{errors.casualties || errors.demographics}</Text>
+              )}
+
+              <TouchableOpacity
+                style={[GlobalStyles.supplementaryButton, { marginTop: 10 }, (!reportData.community || !reportData.totalPop || !reportData.affected || !reportData.deaths || !reportData.injured || !reportData.missing || !reportData.children || !reportData.women || !reportData.seniors || !reportData.pwd) && { opacity: 0.6 }]}
+                onPress={handleAddMunicipality}
+                disabled={!canSubmit || !reportData.community || !reportData.totalPop || !reportData.affected || !reportData.deaths || !reportData.injured || !reportData.missing || !reportData.children || !reportData.women || !reportData.seniors || !reportData.pwd}
+              >
+                <Text style={GlobalStyles.supplementaryButtonText}>Add Municipality</Text>
+              </TouchableOpacity>
+              {errors.Affected_Municipalities && <Text style={GlobalStyles.errorText}>{errors.Affected_Municipalities}</Text>}
+
               {affectedMunicipalities.length > 0 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={true}>
                   <View style={styles.table}>
-                    <View style={[styles.tableRow, { minWidth: 1300 }]}>
-                      <Text style={[styles.tableHeader, { minWidth: 50, borderTopLeftRadius: 10 }]}>#</Text>
-                      <Text style={[styles.tableHeader, { minWidth: 250, fontSize: 11 }]}>AFFECTED MUNICIPALITIES/COMMUNITIES</Text>
-                      <Text style={[styles.tableHeader, { minWidth: 140 }]}>TOTAL POPULATION</Text>
-                      <Text style={[styles.tableHeader, { minWidth: 170 }]}>AFFECTED POPULATION</Text>
-                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>DEATHS</Text>
-                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>INJURED</Text>
-                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>MISSING</Text>
-                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>CHILDREN</Text>
-                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>WOMEN</Text>
-                      <Text style={[styles.tableHeader, { minWidth: 120 }]}>SENIOR CITIZENS</Text>
-                      <Text style={[styles.tableHeader, { minWidth: 80 }]}>PWD</Text>
+                    <View style={[styles.tableRow, { minWidth: 1080 }]}>
+                      <Text style={[styles.tableHeader, { minWidth: 200, borderTopLeftRadius: 10 }]}>MUNICIPALITY</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 100 }]}>TOTAL POP.</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 100 }]}>AFFECTED</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 100 }]}>DEATHS</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 100 }]}>INJURED</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 100 }]}>MISSING</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 100 }]}>CHILDREN</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 100 }]}>WOMEN</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 100 }]}>SENIORS</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 100 }]}>PWD</Text>
                       <Text style={[styles.tableHeader, { minWidth: 80, borderTopRightRadius: 10 }]}>ACTION</Text>
                     </View>
                     {affectedMunicipalities.map((item, index) => (
-                      <View key={index} style={[styles.tableRow, { minWidth: 1300 }]}>
-                        <Text style={[styles.tableCell, { minWidth: 50 }]}>{index + 1}</Text>
-                        <Text style={[styles.tableCell, { minWidth: 250 }]}>{item.community || 'N/A'}</Text>
-                        <Text style={[styles.tableCell, { minWidth: 140 }]}>{item.totalPop || 'N/A'}</Text>
-                        <Text style={[styles.tableCell, { minWidth: 170 }]}>{item.affected || 'N/A'}</Text>
-                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.deaths || 'N/A'}</Text>
-                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.injured || 'N/A'}</Text>
-                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.missing || 'N/A'}</Text>
-                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.children || 'N/A'}</Text>
-                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.women || 'N/A'}</Text>
-                        <Text style={[styles.tableCell, { minWidth: 120 }]}>{item.seniors || 'N/A'}</Text>
-                        <Text style={[styles.tableCell, { minWidth: 80 }]}>{item.pwd || 'N/A'}</Text>
+                      <View key={index} style={[styles.tableRow, { minWidth: 1080 }]}>
+                        <Text style={[styles.tableCell, { minWidth: 200 }]}>{item.community}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 100 }]}>{item.totalPop}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 100 }]}>{item.affected}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 100 }]}>{item.deaths}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 100 }]}>{item.injured}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 100 }]}>{item.missing}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 100 }]}>{item.children}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 100 }]}>{item.women}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 100 }]}>{item.seniors}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 100 }]}>{item.pwd}</Text>
                         <TouchableOpacity
                           style={[styles.tableCell, { minWidth: 80, alignItems: 'center' }]}
-                          onPress={() => handleDelete(index)}
+                          onPress={() => handleDelete(index, 'municipality')}
                           disabled={!canSubmit}
                         >
                           <Ionicons name="trash" size={20} color="red" />
@@ -769,477 +1673,256 @@ const RDANAScreen = ({navigation}) => {
                   </View>
                 </ScrollView>
               )}
-
-              {renderLabel('Affected Municipalities/Communities', true)}
-              <View ref={(ref) => (inputContainerRefs.community = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.community && GlobalStyles.inputError]}
-                  placeholder="Enter Municipalities/Communities"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('community', val)}
-                  value={reportData.community}
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.community && <Text style={GlobalStyles.errorText}>{errors.community}</Text>}
-
-              {renderLabel('Total Population', true)}
-              <View ref={(ref) => (inputContainerRefs.totalPop = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.totalPop && GlobalStyles.inputError]}
-                  placeholder="Enter Total Population"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('totalPop', val)}
-                  value={reportData.totalPop}
-                  keyboardType="numeric"
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.totalPop && <Text style={GlobalStyles.errorText}>{errors.totalPop}</Text>}
-
-              {renderLabel('Affected Population', true)}
-              <View ref={(ref) => (inputContainerRefs.affected = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.affected && GlobalStyles.inputError]}
-                  placeholder="Enter Affected Population"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('affected', val)}
-                  value={reportData.affected}
-                  keyboardType="numeric"
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.affected && <Text style={GlobalStyles.errorText}>{errors.affected}</Text>}
-
-              {renderLabel('Deaths', true)}
-              <View ref={(ref) => (inputContainerRefs.deaths = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.deaths && GlobalStyles.inputError]}
-                  placeholder="No. of Deaths"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('deaths', val)}
-                  value={reportData.deaths}
-                  keyboardType="numeric"
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.deaths && <Text style={GlobalStyles.errorText}>{errors.deaths}</Text>}
-
-              {renderLabel('Injured', true)}
-              <View ref={(ref) => (inputContainerRefs.injured = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.injured && GlobalStyles.inputError]}
-                  placeholder="No. of Injured"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('injured', val)}
-                  value={reportData.injured}
-                  keyboardType="numeric"
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.injured && <Text style={GlobalStyles.errorText}>{errors.injured}</Text>}
-
-              {renderLabel('Missing', true)}
-              <View ref={(ref) => (inputContainerRefs.missing = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.missing && GlobalStyles.inputError]}
-                  placeholder="No. of Missing"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('missing', val)}
-                  value={reportData.missing}
-                  keyboardType="numeric"
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.missing && <Text style={GlobalStyles.errorText}>{errors.missing}</Text>}
-
-              {renderLabel('Children', true)}
-              <View ref={(ref) => (inputContainerRefs.children = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.children && GlobalStyles.inputError]}
-                  placeholder="No. of Children"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('children', val)}
-                  value={reportData.children}
-                  keyboardType="numeric"
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.children && <Text style={GlobalStyles.errorText}>{errors.children}</Text>}
-
-              {renderLabel('Women', true)}
-              <View ref={(ref) => (inputContainerRefs.women = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.women && GlobalStyles.inputError]}
-                  placeholder="No. of Women"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('women', val)}
-                  value={reportData.women}
-                  keyboardType="numeric"
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.women && <Text style={GlobalStyles.errorText}>{errors.women}</Text>}
-
-              {renderLabel('Senior Citizens', true)}
-              <View ref={(ref) => (inputContainerRefs.seniors = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.seniors && GlobalStyles.inputError]}
-                  placeholder="No. of Senior Citizens"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('seniors', val)}
-                  value={reportData.seniors}
-                  keyboardType="numeric"
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.seniors && <Text style={GlobalStyles.errorText}>{errors.seniors}</Text>}
-
-              {renderLabel('PWD', true)}
-              <View ref={(ref) => (inputContainerRefs.pwd = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.pwd && GlobalStyles.inputError]}
-                  placeholder="No. of PWD"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('pwd', val)}
-                  value={reportData.pwd}
-                  keyboardType="numeric"
-                  editable={canSubmit}
-                />
-              </View>
-              {errors.pwd && <Text style={GlobalStyles.errorText}>{errors.pwd}</Text>}
-
-              <View style={GlobalStyles.supplementaryButtonContainer}>
-                <TouchableOpacity
-                  style={[GlobalStyles.supplementaryButton, !canSubmit && { opacity: 0.6 }]}
-                  onPress={() => {
-                    if (!canSubmit) {
-                      setModalConfig({
-                        title: 'Permission Error',
-                        message: 'You do not have permission to submit reports.',
-                        onConfirm: () => setModalVisible(false),
-                        confirmText: 'OK',
-                      });
-                      setModalVisible(true);
-                      return;
-                    }
-
-                    const { isValid, newErrors } = validateMunicipalityInputs();
-                    if (!isValid) {
-                      setErrors(newErrors);
-                      ToastAndroid.show('Please fill out the Initial Effects fields before adding an entry.', ToastAndroid.SHORT);
-                      return;
-                    }
-
-                    const newMunicipality = {
-                      community: reportData.community,
-                      totalPop: reportData.totalPop,
-                      affected: reportData.affected,
-                      deaths: reportData.deaths,
-                      injured: reportData.injured,
-                      missing: reportData.missing,
-                      children: reportData.children,
-                      women: reportData.women,
-                      seniors: reportData.seniors,
-                      pwd: reportData.pwd,
-                    };
-
-                    setAffectedMunicipalities((prev) => [...prev, newMunicipality]);
-                    ToastAndroid.show('Municipality Saved', ToastAndroid.SHORT);
-                    setReportData((prev) => ({
-                      ...prev,
-                      community: '',
-                      totalPop: '',
-                      affected: '',
-                      deaths: '',
-                      injured: '',
-                      missing: '',
-                      children: '',
-                      women: '',
-                      seniors: '',
-                      pwd: '',
-                    }));
-                    setErrors((prev) => {
-                      const newErrors = { ...prev };
-                      municipalityFields.forEach((field) => delete newErrors[field]);
-                      return newErrors;
-                    });
-                  }}
-                  disabled={!canSubmit}
-                >
-                  <Text style={GlobalStyles.supplementaryButtonText}>Add Row</Text>
-                </TouchableOpacity>
-              </View>
             </View>
+          </View>
 
+          {/* Step 3 */}
+          <View style={[GlobalStyles.form, { display: currentSection === 2 ? 'flex' : 'none' }]}>
             <View style={GlobalStyles.section}>
-              <Text style={styles.sectionTitle}>
-                Status of Lifelines, Social Structure, and Critical Facilities (optional)
+              <Text style={styles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities (optional)
               </Text>
-              {[
-                'Residential Houses',
-                'Transportation and Mobility',
-                'Electricity, Power Grid',
-                'Communication Networks, Internet',
-                'Hospitals, Rural Health Units',
-                'Water Supply System',
-                'Market, Business, and Commercial Establishments',
-              ].map((item) => {
-                const field = `${item
-                  .toLowerCase()
-                  .replace(/[^a-z0-9]/g, '')}Status`;
-                const currentItemOptions = LIFELINE_STATUS_OPTIONS[item] || [];
-
-                return (
-                  <View key={item}>
-                    {renderLabel(item, false)}
-                    <View
-                      style={[GlobalStyles.input, styles.pickerContainer]}
-                      ref={(ref) => (inputContainerRefs[field] = ref)}
-                    >
-                      <Picker
-                        selectedValue={reportData[field]}
-                        onValueChange={(value) => handleChange(field, value)}
-                        style={{
-                          fontFamily: 'Poppins_Regular',
-                          fontSize: 14,
-                          color: reportData[field] ? Theme.colors.black : '#999',
-                          height: 68,
-                          width: '100%',
-                          textAlign: 'center',
-                        }}
-                        dropdownIconColor="#00BCD4"
-                        enabled={canSubmit}
-                      >
-                        {currentItemOptions.map((option) => (
-                          <Picker.Item
-                            key={option.value}
-                            label={option.label}
-                            value={option.value}
-                            style={{ fontFamily: 'Poppins_Regular', textAlign: 'center', fontSize: 14 }}
-                          />
-                        ))}
-                      </Picker>
-                    </View>
-                    {errors[field] && <Text style={GlobalStyles.errorText}>{errors[field]}</Text>}
+              {Object.keys(LIFELINE_STATUS_OPTIONS).map((lifeline) => (
+                <View key={lifeline}>
+                  {renderLabel(lifeline, false)}
+                  <View style={[GlobalStyles.input, styles.pickerContainer, errors[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`] && GlobalStyles.inputError]}>
+                    <Dropdown
+                      style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                      placeholderStyle={GlobalStyles.placeholderStyle}
+                      selectedTextStyle={GlobalStyles.selectedTextStyle}
+                      itemTextStyle={GlobalStyles.itemTextStyle}
+                      itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                      data={LIFELINE_STATUS_OPTIONS[lifeline]}
+                      labelField="label"
+                      valueField="value"
+                      placeholder={`Select ${lifeline} Status`}
+                      value={reportData[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`]}
+                      onChange={(item) => handleChange(`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`, item.value)}
+                      containerStyle={{ maxHeight: maxDropdownHeight }}
+                      disable={!canSubmit}
+                      renderRightIcon={() => (
+                        <Ionicons name="chevron-down" size={18} color={Theme.colors.placeholderColor} />
+                      )}
+                    />
                   </View>
-                );
-              })}
-              {renderLabel('Others', false)}
-              <TextInput
-                style={[GlobalStyles.input]}
-                placeholder="Input Here (Optional)"
-                placeholderTextColor={Theme.colors.placeholderColor}
-                onChangeText={(val) => handleChange('othersStatus', val)}
-                value={reportData.othersStatus}
-                editable={canSubmit}
-              />
-              {errors.othersStatus && <Text style={GlobalStyles.errorText}>{errors.othersStatus}</Text>}
-            </View>
-
-            <View style={GlobalStyles.section}>
-              <Text style={styles.sectionTitle}>Initial Needs Assessment Checklist (Optional)</Text>
-              {[
-                { label: 'Relief Packs', field: 'reliefPacks' },
-                { label: 'Hot Meals', field: 'hotMeals' },
-                { label: 'Hygiene Kits', field: 'hygieneKits' },
-                { label: 'Drinking Water', field: 'drinkingWater' },
-                { label: 'Rice Packs', field: 'ricePacks' },
-              ].map(({ label, field }) => (
-                <TouchableOpacity
-                  key={field}
-                  onPress={() => handleNeedsSelect(field)}
-                  style={styles.checkboxContainer}
-                  disabled={!canSubmit}
-                >
-                  <View style={styles.checkboxBox}>
-                    {checklist[field] && <Ionicons name="checkmark" style={styles.checkmark} />}
-                  </View>
-                  <Text style={styles.checkboxLabel}>{label}</Text>
-                </TouchableOpacity>
+                  {errors[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`] && (
+                    <Text style={GlobalStyles.errorText}>{errors[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`]}</Text>
+                  )}
+                </View>
               ))}
+            </View>
+          </View>
+
+          {/* Step 4 */}
+          <View style={[GlobalStyles.form, { display: currentSection === 3 ? 'flex' : 'none' }]}>
+            <View style={GlobalStyles.section}>
+              <Text style={styles.sectionTitle}>Checklist of Immediate Needs</Text>
+            {[
+              { key: 'reliefPacks', label: 'Relief Packs' },
+              { key: 'hotMeals', label: 'Hot Meals' },
+              { key: 'hygieneKits', label: 'Hygiene Kits' },
+              { key: 'drinkingWater', label: 'Drinking Water' },
+              { key: 'ricePacks', label: 'Rice Packs' },
+            ].map(({ key, label }) => (
+              <TouchableOpacity
+                key={key}
+                style={styles.checkboxContainer}
+                onPress={() => handleNeedsSelect(key)}
+                disabled={!canSubmit}
+              >
+                 <View style={styles.checkboxBox}>
+                  {checklist[key] && <Ionicons name="checkmark" style={styles.checkmark} />}
+                   </View>
+                <Text
+                  style={[
+                    styles.checkboxLabel,
+                    checklist[key] && styles.checklistTextSelected
+                  ]}
+                >
+                  {(label)}
+                </Text>
+               
+              </TouchableOpacity>
+            ))}
+
+
               {renderLabel('Other Immediate Needs', false)}
               <TextInput
-                style={[GlobalStyles.input]}
-                placeholder="Enter Items"
+                style={[GlobalStyles.input, errors.otherNeeds && GlobalStyles.inputError]}
+                placeholder="Enter Other Needs"
                 placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('otherNeeds', val)}
                 value={reportData.otherNeeds}
                 editable={canSubmit}
               />
               {errors.otherNeeds && <Text style={GlobalStyles.errorText}>{errors.otherNeeds}</Text>}
+
               {renderLabel('Estimated Quantity', false)}
               <TextInput
-                style={[GlobalStyles.input]}
-                placeholder="Estimated No. of Families to Benefit"
+                style={[GlobalStyles.input, errors.estQty && GlobalStyles.inputError]}
+                placeholder="Enter Estimated Quantity"
                 placeholderTextColor={Theme.colors.placeholderColor}
+                keyboardType="numeric"
                 onChangeText={(val) => handleChange('estQty', val)}
                 value={reportData.estQty}
-                keyboardType="numeric"
                 editable={canSubmit}
               />
               {errors.estQty && <Text style={GlobalStyles.errorText}>{errors.estQty}</Text>}
+
+              <TouchableOpacity
+                style={[GlobalStyles.supplementaryButton, { marginTop: 10 }, (!reportData.otherNeeds || !reportData.estQty) && { opacity: 0.6 }]}
+                onPress={handleAddImmediateNeed}
+                disabled={!canSubmit || !reportData.otherNeeds || !reportData.estQty}
+              >
+                <Text style={GlobalStyles.supplementaryButtonText}>Add Need</Text>
+              </TouchableOpacity>
+
+              {immediateNeeds.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                  <View style={styles.table}>
+                    <View style={[styles.tableRow, { minWidth: 480 }]}>
+                      <Text style={[styles.tableHeader, { minWidth: 200, borderTopLeftRadius: 10 }]}>NEED</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 200 }]}>QUANTITY</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 80, borderTopRightRadius: 10 }]}>ACTION</Text>
+                    </View>
+                    {immediateNeeds.map((item, index) => (
+                      <View key={index} style={[styles.tableRow, { minWidth: 480 }]}>
+                        <Text style={[styles.tableCell, { minWidth: 200 }]}>{item.need}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 200 }]}>{item.qty}</Text>
+                        <TouchableOpacity
+                          style={[styles.tableCell, { minWidth: 80, alignItems: 'center' }]}
+                          onPress={() => handleDelete(index, 'immediateNeed')}
+                          disabled={!canSubmit}
+                        >
+                          <Ionicons name="trash" size={20} color="red" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
+              )}
             </View>
 
             <View style={GlobalStyles.section}>
-              <Text style={styles.sectionTitle}>Initial Response Actions</Text>
-              {renderLabel('Response Groups Involved', true)}
-              <View ref={(ref) => (inputContainerRefs.responseGroup = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.responseGroup && GlobalStyles.inputError]}
-                  placeholder="Enter Organization's Name"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('responseGroup', val)}
-                  value={reportData.responseGroup}
-                  editable={canSubmit}
-                />
-              </View>
+              <Text style={styles.sectionTitle}>Initial Response</Text>
+              {renderLabel('Response Group', true)}
+              <TextInput
+                style={[GlobalStyles.input, errors.responseGroup && GlobalStyles.inputError]}
+                placeholder="Enter Response Group"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                onChangeText={(val) => handleChange('responseGroup', val)}
+                value={reportData.responseGroup}
+                editable={canSubmit}
+              />
               {errors.responseGroup && <Text style={GlobalStyles.errorText}>{errors.responseGroup}</Text>}
 
               {renderLabel('Relief Assistance Deployed', true)}
-              <View ref={(ref) => (inputContainerRefs.reliefDeployed = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.reliefDeployed && GlobalStyles.inputError]}
-                  placeholder="Enter Relief Assistance"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('reliefDeployed', val)}
-                  value={reportData.reliefDeployed}
-                  editable={canSubmit}
-                />
-              </View>
+              <TextInput
+                style={[GlobalStyles.input, errors.reliefDeployed && GlobalStyles.inputError]}
+                placeholder="Enter Relief Assistance"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                onChangeText={(val) => handleChange('reliefDeployed', val)}
+                value={reportData.reliefDeployed}
+                editable={canSubmit}
+              />
               {errors.reliefDeployed && <Text style={GlobalStyles.errorText}>{errors.reliefDeployed}</Text>}
 
               {renderLabel('Number of Families Served', true)}
-              <View ref={(ref) => (inputContainerRefs.familiesServed = ref)}>
-                <TextInput
-                  style={[GlobalStyles.input, errors.familiesServed && GlobalStyles.inputError]}
-                  placeholder="Enter Number of Families"
-                  placeholderTextColor={Theme.colors.placeholderColor}
-                  onChangeText={(val) => handleChange('familiesServed', val)}
-                  value={reportData.familiesServed}
-                  keyboardType="numeric"
-                  editable={canSubmit}
-                />
-              </View>
+              <TextInput
+                style={[GlobalStyles.input, errors.familiesServed && GlobalStyles.inputError]}
+                placeholder="Enter Number of Families Served"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                keyboardType="numeric"
+                onChangeText={(val) => handleChange('familiesServed', val)}
+                value={reportData.familiesServed}
+                editable={canSubmit}
+              />
               {errors.familiesServed && <Text style={GlobalStyles.errorText}>{errors.familiesServed}</Text>}
-            </View>
 
-            <View style={{ marginHorizontal: 15 }}>
               <TouchableOpacity
-                style={[GlobalStyles.button, !canSubmit && { opacity: 0.6 }]}
-                onPress={() => {
-                  if (!canSubmit) {
-                    setModalConfig({
-                      title: 'Permission Error',
-                      message: 'You do not have permission to submit reports.',
-                      onConfirm: () => setModalVisible(false),
-                      confirmText: 'OK',
-                    });
-                    setModalVisible(true);
-                    return;
-                  }
+                style={[GlobalStyles.supplementaryButton, { marginTop: 10 }, (!reportData.responseGroup || !reportData.reliefDeployed || !reportData.familiesServed) && { opacity: 0.6 }]}
+                onPress={handleAddInitialResponse}
+                disabled={!canSubmit || !reportData.responseGroup || !reportData.reliefDeployed || !reportData.familiesServed}
+              >
+                <Text style={GlobalStyles.supplementaryButtonText}>Add Response</Text>
+              </TouchableOpacity>
 
-                  const newErrors = {};
-                  let allRequiredBlank = true;
+              {initialResponse.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                  <View style={styles.table}>
+                    <View style={[styles.tableRow, { minWidth: 680 }]}>
+                      <Text style={[styles.tableHeader, { minWidth: 200, borderTopLeftRadius: 10 }]}>RESPONSE GROUP</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 200 }]}>RELIEF ASSISTANCE</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 200 }]}>FAMILIES SERVED</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 80, borderTopRightRadius: 10 }]}>ACTION</Text>
+                    </View>
+                    {initialResponse.map((item, index) => (
+                      <View key={index} style={[styles.tableRow, { minWidth: 680 }]}>
+                        <Text style={[styles.tableCell, { minWidth: 200 }]}>{item.group}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 200 }]}>{item.assistance}</Text>
+                        <Text style={[styles.tableCell, { minWidth: 200 }]}>{item.families}</Text>
+                        <TouchableOpacity
+                          style={[styles.tableCell, { minWidth: 80, alignItems: 'center' }]}
+                          onPress={() => handleDelete(index, 'initialResponse')}
+                          disabled={!canSubmit}
+                        >
+                          <Ionicons name="trash" size={20} color="red" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
+              )}
+            </View>
+          </View>
 
-                  requiredFields.forEach((field) => {
-                    const value = reportData[field];
-                    if (value === null || (typeof value === 'string' && value.trim() === '')) {
-                      newErrors[field] = requiredFieldsErrors[field];
-                    } else {
-                      allRequiredBlank = false;
-                    }
-                  });
-
-                  if (allRequiredBlank) {
-                    setModalConfig({
-                      title: 'Incomplete Data',
-                      message: 'Please fill in required fields.',
-                      onConfirm: () => setModalVisible(false),
-                      confirmText: 'OK',
-                    });
-                    setModalVisible(true);
-                    return;
-                  }
-
-                  if (affectedMunicipalities.length === 0) {
-                    newErrors.community = 'Please add at least one municipality.';
-                  }
-
-                  const gatheredDate = parseDate(reportData.Date_of_Information_Gathered);
-                  const gatheredTime = parseTimeToDate(reportData.Time_of_Information_Gathered);
-                  const occurrenceDate = parseDate(reportData.Date_of_Occurrence);
-                  const occurrenceTime = parseTimeToDate(reportData.Time_of_Occurrence);
-                  if (gatheredDate && gatheredTime && occurrenceDate && occurrenceTime) {
-                    if (!isWithin24To48Hours(gatheredDate, gatheredTime, occurrenceDate, occurrenceTime)) {
-                      newErrors.Date_of_Information_Gathered = 'Date must be 24-48 hours after the occurrence.';
-                      newErrors.Time_of_Information_Gathered = 'Time must be 24-48 hours after the occurrence.';
-                      ToastAndroid.show('Date must be 24-48 hours after the occurrence.', ToastAndroid.SHORT);
-                    }
-                  }
-
-                  if (Object.keys(newErrors).length > 0) {
-                    setErrors(newErrors);
-                    if (!allRequiredBlank) {
-                      setModalConfig({
-                        title: 'Incomplete Data',
-                        message: `Please fill in the following:\n${Object.values(newErrors).join('\n')}`,
-                        onConfirm: () => setModalVisible(false),
-                        confirmText: 'OK',
-                      });
-                      setModalVisible(true);
-                    }
-                    return;
-                  }
-
-                  const completeReportData = Object.keys(reportData).reduce((acc, key) => {
-                    if (!municipalityFields.includes(key)) {
-                      acc[key] = reportData[key];
-                    }
-                    return acc;
-                  }, {});
-
-                  console.log('Navigating to RDANASummary with reportData:', completeReportData);
-                  console.log('Lifeline Status Fields:', {
-                    residentialhousesStatus: completeReportData.residentialhousesStatus,
-                    transportationandmobilityStatus: completeReportData.transportationandmobilityStatus,
-                    electricitypowergridStatus: completeReportData.electricitypowergridStatus,
-                    communicationnetworksinternetStatus: completeReportData.communicationnetworksinternetStatus,
-                    hospitalsruralhealthunitsStatus: completeReportData.hospitalsruralhealthunitsStatus,
-                    watersupplysystemStatus: completeReportData.watersupplysystemStatus,
-                    marketbusinessandcommercialestablishmentsStatus: completeReportData.marketbusinessandcommercialestablishmentsStatus,
-                    othersStatus: completeReportData.othersStatus,
-                  });
-                  console.log('Affected Municipalities:', affectedMunicipalities);
-
-                  navigation.navigate('RDANASummary', { reportData: completeReportData, affectedMunicipalities });
-                }}
-                disabled={!canSubmit}
+          {/* Navigation Buttons */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 15, marginTop: -30, marginBottom: 40}}>
+            {currentSection > 0 && (
+              <TouchableOpacity
+                style={[GlobalStyles.backButton, { flex: 1, marginVertical: 10}]}
+                onPress={() => handleNavigation('back')}
+              >
+                <Text style={GlobalStyles.backButtonText}>Back</Text>
+              </TouchableOpacity>
+            )}
+            {currentSection < sections.length - 1 ? (
+              <TouchableOpacity
+                style={[GlobalStyles.button, { flex: 2, marginLeft: 5, }]}
+                onPress={() => handleNavigation('next')}
+              >
+                <Text style={GlobalStyles.buttonText}>Next</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[ GlobalStyles.button, { flex: 2, marginLeft: 5 }]}
+                onPress={handleSubmit}
               >
                 <Text style={GlobalStyles.buttonText}>Proceed</Text>
               </TouchableOpacity>
-            </View>
+            )}
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
 
-      <OperationCustomModal
-        visible={deleteModalVisible}
-        title="Confirm Delete"
-        message="Are you sure you want to delete this municipality?"
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-        confirmText="Delete"
-        cancelText="Cancel"
-        showCancel={true}
-      />
-      <OperationCustomModal
-        visible={modalVisible}
-        title={modalConfig.title}
-        message={modalConfig.message}
-        onConfirm={modalConfig.onConfirm}
-        confirmText={modalConfig.confirmText}
-      />
+        {/* Delete Confirmation Modal */}
+        <CustomModal
+          visible={deleteModalVisible}
+          title="Confirm Delete"
+          message="Are you sure you want to delete this entry?"
+          onConfirm={confirmDelete}
+          onCancel={cancelDelete}
+          confirmText="Delete"
+          cancelText="Cancel"
+        />
+
+        {/* General Modal */}
+        <OperationCustomModal
+          visible={modalVisible}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          onConfirm={modalConfig.onConfirm}
+          confirmText={modalConfig.confirmText}
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

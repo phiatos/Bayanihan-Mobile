@@ -173,7 +173,7 @@ export default StyleSheet.create({
     backgroundColor: Theme.colors.accent,
     lineHeight: 24,
     borderRadius: borderRadius.small,
-    borderColor: Theme.colors.accent
+    // borderColor: Theme.colors.accent
   },
   checkboxLabel: {
     flex: 1,

@@ -146,27 +146,6 @@ export default StyleSheet.create({
     width: '100%',
     height: '100%'
   },
-  openMap: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#00BCD4',
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginVertical: 10,
-  },
-  openMapText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 14,
-    fontFamily: 'Poppins_SemiBold',
-  },
   overlayContainer: {
     position: 'absolute',
     top: 10,

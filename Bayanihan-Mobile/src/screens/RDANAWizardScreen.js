@@ -226,18 +226,15 @@ const RDANAScreen = ({ navigation }) => {
   };
 
   const initialReportData = {
-    Date_of_Information_Gathered: route.params?.reportData?.Date_of_Information_Gathered || '',
-    Date_of_Occurrence: route.params?.reportData?.Date_of_Occurrence || '',
-    Time_of_Information_Gathered: route.params?.reportData?.Time_of_Information_Gathered || '',
-    Time_of_Occurrence: route.params?.reportData?.Time_of_Occurrence || '',
+    Date_of_Information_Gathered: route.params?.reportData?.Date_and_Time_of_Information_Gathered?.split('T')[0] || '',
+    Time_of_Information_Gathered: route.params?.reportData?.Date_and_Time_of_Information_Gathered?.split('T')[1] || '',
+    Date_of_Occurrence: route.params?.reportData?.Date_and_Time_of_Occurrence?.split('T')[0] || '',
+    Time_of_Occurrence: route.params?.reportData?.Date_and_Time_of_Occurrence?.split('T')[1] || '',
     Type_of_Disaster: route.params?.reportData?.Type_of_Disaster || '',
     summary: route.params?.reportData?.summary || '',
     Site_Location_Address_Province: route.params?.reportData?.Site_Location_Address_Province || '',
     Site_Location_Address_City_Municipality: route.params?.reportData?.Site_Location_Address_City_Municipality || '',
     Site_Location_Address_Barangay: route.params?.reportData?.Site_Location_Address_Barangay || '',
-    Locations_and_Areas_Affected_Province: route.params?.reportData?.Locations_and_Areas_Affected_Province || '',
-    Locations_and_Areas_Affected_City_Municipality: route.params?.reportData?.Locations_and_Areas_Affected_City_Municipality || '',
-    Locations_and_Areas_Affected_Barangay: route.params?.reportData?.Locations_and_Areas_Affected_Barangay || '',
     community: '',
     affected: '',
     children: '',
@@ -261,25 +258,27 @@ const RDANAScreen = ({ navigation }) => {
     hygieneKits: route.params?.reportData?.hygieneKits || 'No',
     drinkingWater: route.params?.reportData?.drinkingWater || 'No',
     ricePacks: route.params?.reportData?.ricePacks || 'No',
-    otherNeeds: '',
-    estQty: '',
-    responseGroup: '',
-    reliefDeployed: '',
-    familiesServed: '',
   };
-  const [reportData, setReportData] = useState(initialReportData);
-  const [authoritiesAndOrganizations, setAuthoritiesAndOrganizations] = useState(route.params?.reportData?.authoritiesAndOrganizations || []);
-  const [affectedLocations, setAffectedLocations] = useState(route.params?.reportData?.affectedLocations || []);
-  const [affectedMunicipalities, setAffectedMunicipalities] = useState(route.params?.reportData?.affectedMunicipalities || []);
-  const [immediateNeeds, setImmediateNeeds] = useState(route.params?.reportData?.immediateNeeds || []);
-  const [initialResponse, setInitialResponse] = useState(route.params?.reportData?.initialResponse || []);
 
+  const [reportData, setReportData] = useState(initialReportData);
+  const [authoritiesAndOrganizations, setAuthoritiesAndOrganizations] = useState(route.params?.authoritiesAndOrganizations || []);
+  const [affectedLocations, setAffectedLocations] = useState(
+    route.params?.reportData?.Locations_and_Areas_Affected
+      ? route.params.reportData.Locations_and_Areas_Affected.split(', ').map((location) => {
+          const [province, city, barangay] = location.split(' / ');
+          return { province, city, barangay };
+        })
+      : []
+  );
+  const [affectedMunicipalities, setAffectedMunicipalities] = useState(route.params?.affectedMunicipalities || []);
+  const [immediateNeeds, setImmediateNeeds] = useState(route.params?.immediateNeeds || []);
+  const [initialResponse, setInitialResponse] = useState(route.params?.initialResponse || []);
   const [checklist, setChecklist] = useState({
-    reliefPacks: route.params?.reportData?.reliefPacks === 'Yes',
-    hotMeals: route.params?.reportData?.hotMeals === 'Yes',
-    hygieneKits: route.params?.reportData?.hygieneKits === 'Yes',
-    drinkingWater: route.params?.reportData?.drinkingWater === 'Yes',
-    ricePacks: route.params?.reportData?.ricePacks === 'Yes',
+    reliefPacks: route.params?.reportData?.reliefPacks === 'Yes' || false,
+    hotMeals: route.params?.reportData?.hotMeals === 'Yes' || false,
+    hygieneKits: route.params?.reportData?.hygieneKits === 'Yes' || false,
+    drinkingWater: route.params?.reportData?.drinkingWater === 'Yes' || false,
+    ricePacks: route.params?.reportData?.ricePacks === 'Yes' || false,
   });
 
   const [showDatePicker, setShowDatePicker] = useState({
@@ -962,50 +961,34 @@ const RDANAScreen = ({ navigation }) => {
       return;
     }
 
-    // Prepare submission object without submitting to Firebase
-    const lifelines = [
-      { structure: 'Residential Houses', status: reportData.residentialhousesStatus || 'N/A' },
-      { structure: 'Transportation and Mobility', status: reportData.transportationandmobilityStatus || 'N/A' },
-      { structure: 'Electricity, Power Grid', status: reportData.electricitypowergridStatus || 'N/A' },
-      { structure: 'Communication Networks, Internet', status: reportData.communicationnetworksinternetStatus || 'N/A' },
-      { structure: 'Hospitals, Rural Health Units', status: reportData.hospitalsruralhealthunitsStatus || 'N/A' },
-      { structure: 'Water Supply System', status: reportData.watersupplysystemStatus || 'N/A' },
-      { structure: 'Market, Business, and Commercial Establishments', status: reportData.marketbusinessandcommercialestablishmentsStatus || 'N/A' },
-      { structure: 'Others', status: reportData.othersStatus || 'N/A' },
-    ].filter((item) => item.status !== 'N/A');
+    // Combine date and time fields
+    const dateTimeOfInformationGathered = `${reportData.Date_of_Information_Gathered}T${reportData.Time_of_Information_Gathered}`;
+    const dateTimeOfOccurrence = `${reportData.Date_of_Occurrence}T${reportData.Time_of_Occurrence}`;
+    // Combine locations into a single string
+    const locationsAndAreasAffected = affectedLocations
+      .map((loc) => `${loc.province} / ${loc.city} / ${loc.barangay}`)
+      .join(', ');
 
-    const submission = {
-      rdanaId: '', // Will be generated in RDANASummary
-      timestamp: Date.now(),
-      userUid: user.uid,
-      reportData: {
-        profile: {
-          province: reportData.Site_Location_Address_Province,
-          city: reportData.Site_Location_Address_City_Municipality,
-          barangay: reportData.Site_Location_Address_Barangay,
-          infoDate: reportData.Date_of_Information_Gathered,
-          infoTime: reportData.Time_of_Information_Gathered,
-          authorities: authoritiesAndOrganizations,
-          affectedLocations,
-          disasterType: reportData.Type_of_Disaster,
-          occurrenceDate: reportData.Date_of_Occurrence,
-          occurrenceTime: reportData.Time_of_Occurrence,
-          summary: reportData.summary,
-        },
-        disasterEffects: affectedMunicipalities,
-        lifelines,
-        checklist: Object.keys(checklist).filter((key) => checklist[key]).map((key) => ({
-          label: key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase()),
-          value: key,
-        })),
-        immediateNeeds,
-        initialResponse,
-      },
-      status: 'Pending', // Mark as pending until submitted
+    const summaryReportData = {
+      ...reportData,
+      Date_and_Time_of_Information_Gathered: dateTimeOfInformationGathered || '',
+      Date_and_Time_of_Occurrence: dateTimeOfOccurrence || '',
+      Locations_and_Areas_Affected: locationsAndAreasAffected || '',
+      reliefPacks: checklist.reliefPacks ? 'Yes' : 'No',
+      hotMeals: checklist.hotMeals ? 'Yes' : 'No',
+      hygieneKits: checklist.hygieneKits ? 'Yes' : 'No',
+      drinkingWater: checklist.drinkingWater ? 'Yes' : 'No',
+      ricePacks: checklist.ricePacks ? 'Yes' : 'No',
     };
 
-    // Navigate to RDANASummary with submission data
-    navigation.navigate('RDANASummary', { submission });
+    navigation.navigate('RDANASummary', {
+      reportData: summaryReportData,
+      affectedMunicipalities,
+      authoritiesAndOrganizations,
+      immediateNeeds,
+      initialResponse,
+      organizationName: user.organization || 'Admin',
+    });
   };
 
   const windowHeight = Dimensions.get('window').height;
@@ -1054,45 +1037,78 @@ const RDANAScreen = ({ navigation }) => {
               <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Province = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Site_Location_Address_Province && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
-                  selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
-                  itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
+                  placeholder="Select Province"
+                  placeholderStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    color: Theme.colors.placeholderColor,
+                    fontSize: 14,
+                  }}
+                  selectedTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
+                  itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14 }}
                   itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={[{ label: 'Select Province', value: '' }, ...provinceOptions]}
+                  data={provinceOptions} 
                   labelField="label"
                   valueField="value"
-                  placeholder="Select Province"
-                  value={reportData.Site_Location_Address_Province}
-                  onChange={(item) => handleChange('Site_Location_Address_Province', item.value)}
+                  value={reportData.Site_Location_Address_Province || null} 
+                  onChange={(item) =>
+                    handleChange('Site_Location_Address_Province', item.value)
+                  }
                   containerStyle={{ maxHeight: maxDropdownHeight }}
                   disable={!canSubmit}
                   renderRightIcon={() => (
-                    <Ionicons name="chevron-down" size={20} color={Theme.colors.black} />
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholderColor}
+                    />
                   )}
                 />
+
               </View>
               {errors.Site_Location_Address_Province && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Province}</Text>}
 
               {renderLabel('Site Location/Address (City/Municipality)', true)}
               <View ref={(ref) => (inputContainerRefs.Site_Location_Address_City_Municipality = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Site_Location_Address_City_Municipality && GlobalStyles.inputError]}>
                 <Dropdown
-                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
-                  selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
-                  itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
-                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={[{ label: 'Select City/Municipality', value: '' }, ...getCityOptions(reportData.Site_Location_Address_Province)]}
-                  labelField="label"
-                  valueField="value"
-                  placeholder="Select City/Municipality"
-                  value={reportData.Site_Location_Address_City_Municipality}
-                  onChange={(item) => handleChange('Site_Location_Address_City_Municipality', item.value)}
-                  containerStyle={{ maxHeight: maxDropdownHeight }}
-                  disable={!canSubmit || !reportData.Site_Location_Address_Province}
-                  renderRightIcon={() => (
-                    <Ionicons name="chevron-down" size={20} color={Theme.colors.black} />
-                  )}
-                />
+                style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                placeholder="Select City/Municipality"
+                placeholderStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  color: Theme.colors.placeholderColor,
+                  fontSize: 14,
+                }}
+                selectedTextStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  fontSize: 14,
+                  color: Theme.colors.black,
+                }}
+                itemTextStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  fontSize: 14,
+                  color: Theme.colors.black,
+                }}
+                itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                data={getCityOptions(reportData.Site_Location_Address_Province)} 
+                labelField="label"
+                valueField="value"
+                value={reportData.Site_Location_Address_City_Municipality || null}
+                onChange={(item) =>
+                  handleChange('Site_Location_Address_City_Municipality', item.value)
+                }
+                containerStyle={{ maxHeight: maxDropdownHeight }}
+                disable={!canSubmit || !reportData.Site_Location_Address_Province}
+                renderRightIcon={() => (
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color={Theme.colors.placeholderColor}
+                  />
+                )}
+              />
               </View>
               {errors.Site_Location_Address_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_City_Municipality}</Text>}
 
@@ -1100,22 +1116,41 @@ const RDANAScreen = ({ navigation }) => {
               <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Barangay = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Site_Location_Address_Barangay && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
-                  selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
-                  itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
+                  placeholder="Select Barangay"
+                  placeholderStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    color: Theme.colors.placeholderColor,
+                    fontSize: 14,
+                  }}
+                  selectedTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
+                  itemTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
                   itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={[{ label: 'Select Barangay', value: '' }, ...getBarangayOptions(reportData.Site_Location_Address_City_Municipality)]}
+                  data={getBarangayOptions(reportData.Site_Location_Address_City_Municipality)} 
                   labelField="label"
                   valueField="value"
-                  placeholder="Select Barangay"
-                  value={reportData.Site_Location_Address_Barangay}
-                  onChange={(item) => handleChange('Site_Location_Address_Barangay', item.value)}
+                  value={reportData.Site_Location_Address_Barangay || null} 
+                  onChange={(item) =>
+                    handleChange('Site_Location_Address_Barangay', item.value)
+                  }
                   containerStyle={{ maxHeight: maxDropdownHeight }}
                   disable={!canSubmit || !reportData.Site_Location_Address_City_Municipality}
                   renderRightIcon={() => (
-                    <Ionicons name="chevron-down" size={20} color={Theme.colors.black} />
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholderColor}
+                    />
                   )}
                 />
+
               </View>
               {errors.Site_Location_Address_Barangay && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Barangay}</Text>}
 
@@ -1126,7 +1161,7 @@ const RDANAScreen = ({ navigation }) => {
                   onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, Date_of_Information_Gathered: true }))}
                 >
                   <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Date_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor }}>
-                    {reportData.Date_of_Information_Gathered || 'Select Date'}
+                    {reportData.Date_of_Information_Gathered || 'dd/mm/yyyy'}
                   </Text>
                   <Ionicons name="calendar-outline" size={20} color={Theme.colors.black} />
                 </TouchableOpacity>
@@ -1143,7 +1178,7 @@ const RDANAScreen = ({ navigation }) => {
                   onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, Time_of_Information_Gathered: true }))}
                 >
                   <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Time_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor }}>
-                    {reportData.Time_of_Information_Gathered || 'Select Time'}
+                    {reportData.Time_of_Information_Gathered || '--:-- --'}
                   </Text>
                   <Ionicons name="time-outline" size={20} color={Theme.colors.black} />
                 </TouchableOpacity>
@@ -1258,7 +1293,7 @@ const RDANAScreen = ({ navigation }) => {
                   containerStyle={{ maxHeight: maxDropdownHeight }}
                   disable={!canSubmit}
                   renderRightIcon={() => (
-                    <Ionicons name="chevron-down" size={20} color={Theme.colors.black} />
+                    <Ionicons name="chevron-down" size={18} color={Theme.colors.placeholderColor} />
                   )}
                 />
               </View>
@@ -1267,23 +1302,42 @@ const RDANAScreen = ({ navigation }) => {
               {renderLabel('Locations and Areas Affected (City/Municipality)', true)}
               <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_City_Municipality = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Locations_and_Areas_Affected_City_Municipality && GlobalStyles.inputError]}>
                 <Dropdown
-                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
-                  selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
-                  itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
-                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={[{ label: 'Select City/Municipality', value: '' }, ...getCityOptions(reportData.Locations_and_Areas_Affected_Province)]}
-                  labelField="label"
-                  valueField="value"
-                  placeholder="Select City/Municipality"
-                  value={reportData.Locations_and_Areas_Affected_City_Municipality}
-                  onChange={(item) => handleChange('Locations_and_Areas_Affected_City_Municipality', item.value)}
-                  containerStyle={{ maxHeight: maxDropdownHeight }}
-                  disable={!canSubmit || !reportData.Locations_and_Areas_Affected_Province}
-                  renderRightIcon={() => (
-                    <Ionicons name="chevron-down" size={20} color={Theme.colors.black} />
-                  )}
-                />
+                style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                placeholder="Select City/Municipality"
+                placeholderStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  color: Theme.colors.placeholderColor,
+                  fontSize: 14,
+                }}
+                selectedTextStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  fontSize: 14,
+                  color: Theme.colors.black,
+                }}
+                itemTextStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  fontSize: 14,
+                  color: Theme.colors.black,
+                }}
+                itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                data={getCityOptions(reportData.Locations_and_Areas_Affected_Province)} 
+                labelField="label"
+                valueField="value"
+                value={reportData.Locations_and_Areas_Affected_City_Municipality || null}
+                onChange={(item) =>
+                  handleChange('Locations_and_Areas_Affected_City_Municipality', item.value)
+                }
+                containerStyle={{ maxHeight: maxDropdownHeight }}
+                disable={!canSubmit || !reportData.Locations_and_Areas_Affected_Province}
+                renderRightIcon={() => (
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color={Theme.colors.placeholderColor}
+                  />
+                )}
+              />
+
               </View>
               {errors.Locations_and_Areas_Affected_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_City_Municipality}</Text>}
 
@@ -1291,22 +1345,46 @@ const RDANAScreen = ({ navigation }) => {
               <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Barangay = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Locations_and_Areas_Affected_Barangay && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
-                  selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
-                  itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
+                  placeholderStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    color: Theme.colors.placeholderColor,
+                    fontSize: 14,
+                  }}
+                  selectedTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
+                  itemTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
                   itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={[{ label: 'Select Barangay', value: '' }, ...getBarangayOptions(reportData.Locations_and_Areas_Affected_City_Municipality)]}
+                  data={[
+                    { label: 'Select Barangay', value: '' },
+                    ...getBarangayOptions(reportData.Locations_and_Areas_Affected_City_Municipality),
+                  ]}
                   labelField="label"
                   valueField="value"
                   placeholder="Select Barangay"
                   value={reportData.Locations_and_Areas_Affected_Barangay}
-                  onChange={(item) => handleChange('Locations_and_Areas_Affected_Barangay', item.value)}
+                  onChange={(item) =>
+                    handleChange('Locations_and_Areas_Affected_Barangay', item.value)
+                  }
                   containerStyle={{ maxHeight: maxDropdownHeight }}
-                  disable={!canSubmit || !reportData.Locations_and_Areas_Affected_City_Municipality}
+                  disable={
+                    !canSubmit || !reportData.Locations_and_Areas_Affected_City_Municipality
+                  } 
                   renderRightIcon={() => (
-                    <Ionicons name="chevron-down" size={20} color={Theme.colors.black} />
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholderColor}
+                    />
                   )}
                 />
+
               </View>
               {errors.Locations_and_Areas_Affected_Barangay && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Barangay}</Text>}
 
@@ -1362,7 +1440,7 @@ const RDANAScreen = ({ navigation }) => {
                 </View>
               </ScrollView>
             )}
-
+              <Text style={[styles.sectionTitle, {marginTop: 20}]}>Disaster Details</Text>
               {renderLabel('Type of Disaster', true)}
               <View
                 style={[GlobalStyles.input, styles.pickerContainer, errors.Type_of_Disaster && GlobalStyles.inputError]}
@@ -1370,22 +1448,39 @@ const RDANAScreen = ({ navigation }) => {
               >
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
-                  selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
-                  itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
+                  placeholder="Select Type of Disaster"
+                  placeholderStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    color: Theme.colors.placeholderColor,
+                    fontSize: 14,
+                  }}
+                  selectedTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
+                  itemTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
                   itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={disasterTypes}
+                  data={disasterTypes} 
                   labelField="label"
                   valueField="value"
-                  placeholder="Select Type of Disaster"
-                  value={reportData.Type_of_Disaster}
+                  value={reportData.Type_of_Disaster || null} 
                   onChange={(item) => handleChange('Type_of_Disaster', item.value)}
                   containerStyle={{ maxHeight: maxDropdownHeight }}
                   disable={!canSubmit}
                   renderRightIcon={() => (
-                    <Ionicons name="chevron-down" size={20} color={Theme.colors.black} />
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholderColor}
+                    />
                   )}
                 />
+
               </View>
               {errors.Type_of_Disaster && <Text style={GlobalStyles.errorText}>{errors.Type_of_Disaster}</Text>}
 
@@ -1396,7 +1491,7 @@ const RDANAScreen = ({ navigation }) => {
                   onPress={() => canSubmit && setShowDatePicker((prev) => ({ ...prev, Date_of_Occurrence: true }))}
                 >
                   <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Date_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor }}>
-                    {reportData.Date_of_Occurrence || 'Select Date'}
+                    {reportData.Date_of_Occurrence || 'dd/mm/yyyy'}
                   </Text>
                   <Ionicons name="calendar-outline" size={20} color={Theme.colors.black} />
                 </TouchableOpacity>
@@ -1413,7 +1508,7 @@ const RDANAScreen = ({ navigation }) => {
                   onPress={() => canSubmit && setShowTimePicker((prev) => ({ ...prev, Time_of_Occurrence: true }))}
                 >
                   <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Time_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor }}>
-                    {reportData.Time_of_Occurrence || 'Select Time'}
+                    {reportData.Time_of_Occurrence || '--:-- --'}
                   </Text>
                   <Ionicons name="time-outline" size={20} color={Theme.colors.black} />
                 </TouchableOpacity>
@@ -1453,22 +1548,39 @@ const RDANAScreen = ({ navigation }) => {
               <View ref={(ref) => (inputContainerRefs.community = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.community && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
-                  selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
-                  itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
+                  placeholder="Select City"
+                  placeholderStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    color: Theme.colors.placeholderColor,
+                    fontSize: 14,
+                  }}
+                  selectedTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
+                  itemTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
                   itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={[{ label: 'Select Municipality', value: '' }, ...getCityOptions(reportData.Site_Location_Address_Province)]}
+                  data={getCityOptions(reportData.Site_Location_Address_Province)}
                   labelField="label"
                   valueField="value"
-                  placeholder="Select Municipality"
-                  value={reportData.community}
+                  value={reportData.community || null} 
                   onChange={(item) => handleChange('community', item.value)}
                   containerStyle={{ maxHeight: maxDropdownHeight }}
                   disable={!canSubmit || !reportData.Site_Location_Address_Province}
                   renderRightIcon={() => (
-                    <Ionicons name="chevron-down" size={20} color={Theme.colors.black} />
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholderColor}
+                    />
                   )}
                 />
+
               </View>
               {errors.community && <Text style={GlobalStyles.errorText}>{errors.community}</Text>}
 
@@ -1675,21 +1787,34 @@ const RDANAScreen = ({ navigation }) => {
           <View style={[GlobalStyles.form, { display: currentSection === 3 ? 'flex' : 'none' }]}>
             <View style={GlobalStyles.section}>
               <Text style={styles.sectionTitle}>Checklist of Immediate Needs</Text>
-              <View style={styles.checklistContainer}>
-                {Object.keys(checklist).map((key) => (
-                  <TouchableOpacity
-                    key={key}
-                    style={[styles.checklistItem, checklist[key] && styles.checklistItemSelected]}
-                    onPress={() => handleNeedsSelect(key)}
-                    disabled={!canSubmit}
-                  >
-                    <Text style={[styles.checklistText, checklist[key] && styles.checklistTextSelected]}>
-                      {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
-                    </Text>
-                    {checklist[key] && <Ionicons name="checkmark-circle" size={20} color={Theme.colors.accent} />}
-                  </TouchableOpacity>
-                ))}
-              </View>
+            {[
+              { key: 'reliefPacks', label: 'Relief Packs' },
+              { key: 'hotMeals', label: 'Hot Meals' },
+              { key: 'hygieneKits', label: 'Hygiene Kits' },
+              { key: 'drinkingWater', label: 'Drinking Water' },
+              { key: 'ricePacks', label: 'Rice Packs' },
+            ].map(({ key, label }) => (
+              <TouchableOpacity
+                key={key}
+                style={styles.checkboxContainer}
+                onPress={() => handleNeedsSelect(key)}
+                disabled={!canSubmit}
+              >
+                 <View style={styles.checkboxBox}>
+                  {checklist[key] && <Ionicons name="checkmark" style={styles.checkmark} />}
+                   </View>
+                <Text
+                  style={[
+                    styles.checkboxLabel,
+                    checklist[key] && styles.checklistTextSelected
+                  ]}
+                >
+                  {(label)}
+                </Text>
+               
+              </TouchableOpacity>
+            ))}
+
 
               {renderLabel('Other Immediate Needs', false)}
               <TextInput
@@ -1822,25 +1947,25 @@ const RDANAScreen = ({ navigation }) => {
           </View>
 
           {/* Navigation Buttons */}
-          <View style={[GlobalStyles.buttonContainer, { marginTop: 20, marginBottom: 20 }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 15, marginTop: -30, marginBottom: 40}}>
             {currentSection > 0 && (
               <TouchableOpacity
-                style={[GlobalStyles.button, GlobalStyles.backButton]}
+                style={[GlobalStyles.backButton, { flex: 1, marginVertical: 10}]}
                 onPress={() => handleNavigation('back')}
               >
-                <Text style={GlobalStyles.buttonText}>Back</Text>
+                <Text style={GlobalStyles.backButtonText}>Back</Text>
               </TouchableOpacity>
             )}
             {currentSection < sections.length - 1 ? (
               <TouchableOpacity
-                style={[GlobalStyles.button, GlobalStyles.submitButton]}
+                style={[GlobalStyles.button, { flex: 2, marginLeft: 5, }]}
                 onPress={() => handleNavigation('next')}
               >
                 <Text style={GlobalStyles.buttonText}>Next</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[GlobalStyles.button, GlobalStyles.submitButton]}
+                style={[ GlobalStyles.button, { flex: 2, marginLeft: 5 }]}
                 onPress={handleSubmit}
               >
                 <Text style={GlobalStyles.buttonText}>Proceed</Text>

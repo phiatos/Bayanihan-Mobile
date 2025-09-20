@@ -9,15 +9,15 @@ import OperationCustomModal from '../components/OperationCustomModal';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReliefRequestStyles';
 import { LinearGradient } from 'expo-linear-gradient';
-import { logActivity, logSubmission } from '../components/logSubmission'; 
+import { logActivity, logSubmission } from '../components/logSubmission';
 import { useAuth } from '../context/AuthContext';
 import CustomModal from '../components/CustomModal';
-  
+
 const ReliefSummary = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
-  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = user.organization || 'Admin' } = route.params || {};
+  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = user?.organization || '[Unknown Org]' } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [addedItems, setAddedItems] = useState(initialItems);
   const [modalVisible, setModalVisible] = useState(false);
@@ -28,7 +28,6 @@ const ReliefSummary = () => {
 
   useEffect(() => {
     if (!user) {
-      console.warn('No user is logged in');
       setErrorMessage('User not authenticated. Please log in.');
       setModalVisible(true);
       setTimeout(() => {
@@ -37,21 +36,26 @@ const ReliefSummary = () => {
       }, 3000);
       return;
     }
-    console.log('Logged-in user ID:', user.id);
-    console.log('Volunteer organization:', organizationName);
-  }, [user, navigation, organizationName]);
+  }, [user, navigation]);
 
-  const notifyAdmin = async (message, requestRefKey, contactPerson, volunteerOrganization) => {
+  const notifyAdmin = async (message, calamityType, location, details, requestId, senderName, organization) => {
     try {
-      const notificationRef = ref(database, 'notifications');
-      await push(notificationRef, {
+      const identifier = `request_${requestId}_${Date.now()}`;
+      const key = push(ref(database, 'notifications')).key;
+      await set(ref(database, `notifications/${key}`), {
         message,
-        requestRefKey,
-        contactPerson,
-        volunteerOrganization,
+        calamityType: calamityType || null,
+        location: location || null,
+        details: details || null,
+        eventId: null,
+        requestId,
+        senderName,
+        organization,
+        identifier,
         timestamp: serverTimestamp(),
+        read: false,
+        type: 'admin',
       });
-      console.log('Admin notified successfully:', message);
     } catch (error) {
       console.error('Failed to notify admin:', error.message);
     }
@@ -60,70 +64,51 @@ const ReliefSummary = () => {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     if (!user) {
-      console.error('No user available. Cannot submit request.');
       setErrorMessage('User not authenticated. Please log in again.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
 
-    const contactPerson = reportData.contactPerson?.trim();
-    const contactNumber = reportData.contactNumber?.trim();
-    const email = reportData.email?.trim();
-    const address = reportData.address?.trim();
-    const city = reportData.city?.trim();
-    const donationCategory = reportData.donationCategory;
+    const { contactPerson, contactNumber, email, address, category } = reportData;
+    const { formattedAddress, latitude, longitude } = address || {};
 
-    if (!contactPerson) {
-      console.log('Validation failed: Contact person is empty');
+    if (!contactPerson?.trim()) {
       setErrorMessage('Please enter the contact person’s name.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
 
-    if (!contactNumber || !/^\d{10,}$/.test(contactNumber)) {
-      console.log('Validation failed: Invalid contact number', { contactNumber });
-      setErrorMessage('Please enter a valid contact number (at least 10 digits).');
+    if (!contactNumber?.trim() || !/^[0-9]{11}$/.test(contactNumber)) {
+      setErrorMessage('Please enter a valid contact number (exactly 11 digits).');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^@\s]+$/.test(email)) {
-      console.log('Validation failed: Invalid email', { email });
+    if (!email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setErrorMessage('Please enter a valid email address.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
 
-    if (!address) {
-      console.log('Validation failed: Address is empty');
+    if (!formattedAddress?.trim()) {
       setErrorMessage('Please enter the drop-off address.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
 
-    if (!city) {
-      console.log('Validation failed: City is empty');
-      setErrorMessage('Please enter the city.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!donationCategory) {
-      console.log('Validation failed: Donation category not selected');
-      setErrorMessage('Please select a donation category.');
+    if (!category) {
+      setErrorMessage('Please select a request category.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
 
     if (addedItems.length === 0) {
-      console.log('Validation failed: No items added');
       setErrorMessage('Please add at least one item before proceeding.');
       setModalVisible(true);
       setIsSubmitting(false);
@@ -131,45 +116,115 @@ const ReliefSummary = () => {
     }
 
     try {
-      console.log('Preparing to submit request to Firebase');
       const newRequest = {
-        contactPerson,
-        contactNumber,
-        email,
-        address,
-        city,
-        category: donationCategory,
+        contactPerson: contactPerson.trim(),
+        contactNumber: contactNumber.trim(),
+        email: email.trim(),
+        address: {
+          formattedAddress: formattedAddress.trim(),
+          latitude: latitude || null,
+          longitude: longitude || null,
+        },
+        category,
         volunteerOrganization: organizationName,
         userUid: user.id,
-        items: addedItems.map((item) => ({
-          name: item.itemName,
-          quantity: item.quantity,
-          notes: item.notes || '',
-          category: item.donationCategory || donationCategory,
-        })),
+        items: addedItems,
         timestamp: serverTimestamp(),
+        status: 'Pending',
       };
 
-      console.log('Submitting request to Firebase:', newRequest);
       const requestRef = push(ref(database, 'requestRelief/requests'));
-      const submissionId = requestRef.key;
-      const message = `New relief request submitted by ${contactPerson} from ${organizationName} for ${donationCategory} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
-      await notifyAdmin(message, submissionId, contactPerson, organizationName);
+      const requestId = requestRef.key;
+      const userRequestRef = ref(database, `users/${user.id}/requests/${requestId}`);
+      const message = `New relief request submitted by ${contactPerson} from ${organizationName} for ${category}.`;
+
+      const sampleRequests = [
+        {
+          contactPerson: `${contactPerson} (Sample 1)`,
+          contactNumber: '09123456789',
+          email: `sample1@${email.split('@')[1]}`,
+          category: 'Relief Packs',
+          volunteerOrganization: organizationName,
+          userUid: user.id,
+          address: {
+            formattedAddress: '123 Sample St, Quezon City, Metro Manila',
+            latitude: '14.6760',
+            longitude: '121.0437',
+          },
+          items: [
+            { name: 'Bandages', quantity: 100, notes: 'Sterile' },
+            { name: 'Antiseptics', quantity: 50, notes: 'Alcohol-based' },
+          ],
+          timestamp: serverTimestamp(),
+          status: 'Pending',
+        },
+        {
+          contactPerson: `${contactPerson} (Sample 2)`,
+          contactNumber: '09876543210',
+          email: `sample2@${email.split('@')[1]}`,
+          category: 'Hot Meals',
+          volunteerOrganization: organizationName,
+          userUid: user.id,
+          address: {
+            formattedAddress: '456 Relief Ave, Manila, Metro Manila',
+            latitude: '14.5995',
+            longitude: '120.9842',
+          },
+          items: [
+            { name: 'Canned Goods', quantity: 200, notes: 'Assorted' },
+            { name: 'Rice', quantity: 50, notes: '50kg sacks' },
+          ],
+          timestamp: serverTimestamp(),
+          status: 'Approved',
+        },
+        {
+          contactPerson: `${contactPerson} (Sample 3)`,
+          contactNumber: '09712345678',
+          email: `sample3@${email.split('@')[1]}`,
+          category: 'Hygiene Kits',
+          volunteerOrganization: organizationName,
+          userUid: user.id,
+          address: {
+            formattedAddress: '789 Aid Rd, Pasig City, Metro Manila',
+            latitude: '14.5764',
+            longitude: '121.0851',
+          },
+          items: [
+            { name: 'Blankets', quantity: 75, notes: 'Warm' },
+            { name: 'Jackets', quantity: 30, notes: 'Adult sizes' },
+          ],
+          timestamp: serverTimestamp(),
+          status: 'Delivered',
+        },
+      ];
 
       await Promise.all([
         set(requestRef, newRequest),
-        logActivity('Submitted a Relief Request', submissionId, user.id, organizationName),
-        logSubmission('requestRelief/requests', newRequest, submissionId, organizationName, user.id),  
+        set(userRequestRef, newRequest),
+        logActivity('Submitted a Relief Request', requestId, user.id, organizationName),
+        logSubmission('requestRelief/requests', newRequest, requestId, organizationName, user.id),
+        notifyAdmin(message, null, null, null, requestId, contactPerson, organizationName),
       ]);
-      console.log('Data saved to Firebase successfully');
+
+      const samplePromises = sampleRequests.map(async (sampleRequest) => {
+        const sampleRequestRef = push(ref(database, 'requestRelief/requests'));
+        const sampleRequestId = sampleRequestRef.key;
+        const sampleUserRequestRef = ref(database, `users/${user.id}/requests/${sampleRequestId}`);
+        const sampleMessage = `Sample relief request submitted by ${sampleRequest.contactPerson} from ${organizationName} for ${sampleRequest.category}.`;
+        await Promise.all([
+          set(sampleRequestRef, sampleRequest),
+          set(sampleUserRequestRef, sampleRequest),
+          notifyAdmin(sampleMessage, null, null, null, sampleRequestId, sampleRequest.contactPerson, organizationName),
+        ]);
+      });
+
+      await Promise.all(samplePromises);
 
       setReportData({});
       setAddedItems([]);
-
       setErrorMessage(null);
       setModalVisible(true);
     } catch (error) {
-      console.error('Error in handleSubmit:', error.message);
       setErrorMessage('Failed to submit request: ' + error.message);
       setModalVisible(true);
     } finally {
@@ -220,18 +275,14 @@ const ReliefSummary = () => {
 
   const renderItem = ({ item, index }) => (
     <View style={styles.summaryTableRow}>
-      <Text style={[styles.summaryTableCell, { minWidth: 100 }]}>
-        {item.itemName || 'N/A'}
-      </Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 100 }]}>
-        {item.quantity || '0'}
-      </Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 100 }]}>{item.name || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 100 }]}>{item.quantity || '0'}</Text>
       <Text
         style={[styles.summaryTableCell, { minWidth: 150, flex: 1 }]}
         numberOfLines={100}
         ellipsizeMode="tail"
       >
-        {item.notes || 'None'}
+        {item.notes || 'N/A'}
       </Text>
       <View style={[styles.summaryTableCell, { minWidth: 100 }]}>
         <TouchableOpacity onPress={() => handleDelete(index)}>
@@ -241,7 +292,10 @@ const ReliefSummary = () => {
     </View>
   );
 
-  const formatLabel = (key) => key.replace(/([A-Z])/g, ' $1').toLowerCase();
+  const formatLabel = (key) => {
+    if (key === 'address') return 'Drop-off Address';
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase());
+  };
 
   return (
     <SafeAreaView style={GlobalStyles.container}>
@@ -275,14 +329,14 @@ const ReliefSummary = () => {
             <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
             <View style={GlobalStyles.summarySection}>
               <Text style={GlobalStyles.summarySectionTitle}>Contact Information</Text>
-              {['contactPerson', 'contactNumber', 'email', 'address', 'city', 'donationCategory'].map(
-                (field) => (
-                  <View key={field} style={styles.fieldContainer}>
-                    <Text style={styles.label}>{formatLabel(field)}:</Text>
-                    <Text style={styles.value}>{reportData[field] || 'N/A'}</Text>
-                  </View>
-                )
-              )}
+              {['contactPerson', 'contactNumber', 'email', 'address', 'category'].map((field) => (
+                <View key={field} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{formatLabel(field)}:</Text>
+                  <Text style={styles.value}>
+                    {field === 'address' ? reportData[field]?.formattedAddress || 'N/A' : reportData[field] || 'N/A'}
+                  </Text>
+                </View>
+              ))}
             </View>
 
             <View style={GlobalStyles.summarySection}>
@@ -339,23 +393,13 @@ const ReliefSummary = () => {
           <View style={GlobalStyles.modalContent}>
             {errorMessage ? (
               <>
-                <Ionicons
-                  name="warning-outline"
-                  size={60}
-                  color="#FF0000"
-                  style={GlobalStyles.modalIcon}
-                />
+                <Ionicons name="warning-outline" size={60} color="#FF0000" style={GlobalStyles.modalIcon} />
                 <Text style={GlobalStyles.modalMessage}>{errorMessage}</Text>
               </>
             ) : (
               <>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={60}
-                  color={Theme.colors.primary}
-                  style={GlobalStyles.modalIcon}
-                />
-                <Text style={GlobalStyles.modalMessage}>Your relief request has been successfully submitted!</Text>
+                <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={GlobalStyles.modalIcon} />
+                <Text style={GlobalStyles.modalMessage}>Your relief request and sample data have been successfully submitted!</Text>
               </>
             )}
           </View>

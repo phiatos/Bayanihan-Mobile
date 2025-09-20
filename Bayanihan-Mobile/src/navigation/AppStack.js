@@ -36,7 +36,7 @@ const Stack = createNativeStackNavigator();
 const RDANAStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     {/* <Stack.Screen name="TrialScreen" component={TrialScreen} /> */}
-    <Stack.Screen name="RDANAWizardScreen" component={RDANAWizardScreen} />
+    {/* <Stack.Screen name="RDANAWizardScreen" component={RDANAWizardScreen} /> */}
     <Stack.Screen name="RDANAScreen" component={RDANAScreen} />
     <Stack.Screen name="RDANASummary" component={RDANASummary} />
   </Stack.Navigator>

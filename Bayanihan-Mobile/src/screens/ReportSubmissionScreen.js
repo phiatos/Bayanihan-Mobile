@@ -1043,6 +1043,7 @@ const ReportSubmissionScreen = () => {
                 selectTextOnFocus={false}
               />
               {renderLabel('Area of Operation', true)}
+              <View style={{gap:10}}>
               <TextInput
                 style={[GlobalStyles.input, errors.AreaOfOperation && GlobalStyles.inputError]}
                 placeholder="e.g. Purok 2, Brgy. Maligaya, Rosario"
@@ -1055,13 +1056,15 @@ const ReportSubmissionScreen = () => {
                 editable={canSubmit}
               />
               <TouchableOpacity
-                style={[styles.openMap]}
+                style={[GlobalStyles.supplementaryButton, GlobalStyles.openMap]}
                 onPress={handleOpenMap}
               >
-                <MaterialIcons name="pin-drop" size={28} style={{ color: 'white' }} />
-                <Text style={styles.openMapText}> Pin Location</Text>
+                <MaterialIcons name="pin-drop" size={28} color={Theme.colors.accentBlue} />
+                <Text style={GlobalStyles.supplementaryButtonText}> Pin Location</Text>
               </TouchableOpacity>
+              </View>
               {errors.AreaOfOperation && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.AreaOfOperation}</Text>}
+              
               {renderLabel('Date of Report', true)}
               <View style={[GlobalStyles.input, errors.DateOfReport && GlobalStyles.inputError, { flexDirection: 'row', alignItems: 'center' }]}>
                 <Text style={{ flex: 1, color: reportData.DateOfReport ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular' }}>
