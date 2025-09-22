@@ -93,45 +93,6 @@ export default StyleSheet.create({
     padding: 10,
   },
 
-  // Map Modal
-  mapModalHeader:{
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between', 
-    padding: 10,
-  },
-  mapModalHeaderText:{
-    fontSize: 18, 
-    fontFamily: 'Poppins_SemiBold', 
-    color: Theme.colors.accent 
-  },
-  overlayContainer: {
-      position: 'absolute',
-      top: 10,
-      left: 0,
-      right: 0,
-      zIndex: 900,
-    },
-  searchWrapper: {
-      paddingHorizontal: 20,
-      marginTop: 10,
-    },
-  searchContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderColor: Theme.colors.primary,
-      elevation: 10,
-      backgroundColor: Theme.colors.lightBg,
-      borderWidth: 1,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-    },
-  searchIcon: {
-      paddingVertical: 10,
-      marginLeft: 2, 
-    },
   suggestionsContainer: {
       position: 'absolute',
       left: 0,

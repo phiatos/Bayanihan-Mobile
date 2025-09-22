@@ -87,59 +87,44 @@ const ProgressSteps = ({ sections, currentSection, setCurrentSection, scrollView
   };
 
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        marginBottom: 10,
-        backgroundColor: 'transparent',
-      }}
-    >
+    <View style={styles.progressContainer}>
       {sections.map((section, index) => (
-        <View
-          key={index}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            flex: 1,
-            minWidth: 50,
-            justifyContent: 'center',
-          }}
-        >
-          <TouchableOpacity onPress={() => handleStepPress(index)}>
+        <React.Fragment key={index}>
+          <TouchableOpacity onPress={() => handleStepPress(index)} style={{ alignItems: 'center' }}>
             <View
-              style={[styles.progressCircles,{
-                backgroundColor: index <= currentSection ? Theme.colors.accent : '#E0E0E0',
-              }]}
+              style={[
+                styles.progressCircles,
+                {
+                  backgroundColor:
+                    index <= currentSection ? Theme.colors.accent : '#E0E0E0',
+                },
+              ]}
             >
               <Text
-                style={[styles.progressNumbers,{color: index <= currentSection ? Theme.colors.lightBg : Theme.colors.black,}]}
+                style={[
+                  styles.progressNumbers,
+                  {
+                    color:
+                      index <= currentSection
+                        ? Theme.colors.accent
+                        : Theme.colors.black,
+                  },
+                ]}
               >
                 {index + 1}
               </Text>
             </View>
             {index === currentSection && (
-              <Text
-                style={styles.progressStepsText}
-              >
-                {section}
-              </Text>
+              <Text style={styles.progressStepsText}>{section}</Text>
             )}
           </TouchableOpacity>
+
           {index < sections.length - 1 && (
             <View
-              style={{
-                flex: 1,
-                height: 2,
-                backgroundColor: index < currentSection ? Theme.colors.accent : '#E0E0E0',
-                marginHorizontal: 5,
-              }}
+              style={[styles.progressLines, {backgroundColor: index < currentSection ? Theme.colors.accent : '#E0E0E0',}]}
             />
           )}
-        </View>
+        </React.Fragment>
       ))}
     </View>
   );
@@ -192,6 +177,7 @@ const RDANAScreen = ({ navigation }) => {
     const minutes = date.getMinutes().toString().padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
     hours = hours % 12 || 12;
+    hours = hours.toString().padStart(2, '0'); // Ensure 2-digit hours
     return `${hours}:${minutes} ${ampm}`;
   };
 
@@ -202,7 +188,7 @@ const RDANAScreen = ({ navigation }) => {
   };
 
   const parseTimeToDate = (timeStr) => {
-    if (!timeStr || !/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(timeStr)) return null;
+    if (!timeStr || !/^\d{2}:\d{2}\s?(AM|PM)$/i.test(timeStr)) return null;
     const [time, ampm] = timeStr.split(' ');
     const [hours, minutes] = time.split(':').map(Number);
     let adjustedHours = hours;
@@ -879,7 +865,7 @@ const RDANAScreen = ({ navigation }) => {
     while (attempts < maxAttempts) {
       const randomNum = Math.floor(100 + Math.random() * 900);
       const customId = `RDANA-${randomNum}`;
-      const snapshot = await get(query(databaseRef(database, 'rdana/submitted'), orderByChild('rdanaId'), equalTo(customId)));
+      const snapshot = await get(query(databaseRef(database, 'rdana/submitted')));
       if (!snapshot.exists()) return customId;
       attempts++;
     }
@@ -961,9 +947,31 @@ const RDANAScreen = ({ navigation }) => {
       return;
     }
 
-    // Combine date and time fields
-    const dateTimeOfInformationGathered = `${reportData.Date_of_Information_Gathered}T${reportData.Time_of_Information_Gathered}`;
-    const dateTimeOfOccurrence = `${reportData.Date_of_Occurrence}T${reportData.Time_of_Occurrence}`;
+    // Combine date and time fields in ISO format for RDANAVerif compatibility
+    const gatheredDateTime = parseDate(reportData.Date_of_Information_Gathered);
+    const gatheredTime = parseTimeToDate(reportData.Time_of_Information_Gathered);
+    const occurrenceDateTime = parseDate(reportData.Date_of_Occurrence);
+    const occurrenceTime = parseTimeToDate(reportData.Time_of_Occurrence);
+
+    const dateTimeOfInformationGathered = gatheredDateTime && gatheredTime
+      ? new Date(
+          gatheredDateTime.getFullYear(),
+          gatheredDateTime.getMonth(),
+          gatheredDateTime.getDate(),
+          gatheredTime.getHours(),
+          gatheredTime.getMinutes()
+        ).toISOString()
+      : '';
+    const dateTimeOfOccurrence = occurrenceDateTime && occurrenceTime
+      ? new Date(
+          occurrenceDateTime.getFullYear(),
+          occurrenceDateTime.getMonth(),
+          occurrenceDateTime.getDate(),
+          occurrenceTime.getHours(),
+          occurrenceTime.getMinutes()
+        ).toISOString()
+      : '';
+
     // Combine locations into a single string
     const locationsAndAreasAffected = affectedLocations
       .map((loc) => `${loc.province} / ${loc.city} / ${loc.barangay}`)
@@ -971,14 +979,49 @@ const RDANAScreen = ({ navigation }) => {
 
     const summaryReportData = {
       ...reportData,
-      Date_and_Time_of_Information_Gathered: dateTimeOfInformationGathered || '',
-      Date_and_Time_of_Occurrence: dateTimeOfOccurrence || '',
+      Date_and_Time_of_Information_Gathered: dateTimeOfInformationGathered,
+      Date_and_Time_of_Occurrence: dateTimeOfOccurrence,
       Locations_and_Areas_Affected: locationsAndAreasAffected || '',
       reliefPacks: checklist.reliefPacks ? 'Yes' : 'No',
       hotMeals: checklist.hotMeals ? 'Yes' : 'No',
       hygieneKits: checklist.hygieneKits ? 'Yes' : 'No',
       drinkingWater: checklist.drinkingWater ? 'Yes' : 'No',
       ricePacks: checklist.ricePacks ? 'Yes' : 'No',
+      profile: {
+        province: reportData.Site_Location_Address_Province,
+        city: reportData.Site_Location_Address_City_Municipality,
+        barangay: reportData.Site_Location_Address_Barangay,
+        infoDate: dateTimeOfInformationGathered,
+        authorities: authoritiesAndOrganizations.map(item => ({
+          authority: item.authority,
+          organization: item.organization
+        })),
+        affectedLocations: affectedLocations,
+        disasterType: reportData.Type_of_Disaster,
+        occurrenceDate: dateTimeOfOccurrence,
+        summary: reportData.summary
+      },
+      disasterEffects: affectedMunicipalities.map(m => [
+        m.community,
+        m.totalPop,
+        m.affected,
+        m.deaths,
+        m.injured,
+        m.missing,
+        m.children,
+        m.women,
+        m.seniors,
+        m.pwd
+      ]),
+      lifelines: Object.keys(LIFELINE_STATUS_OPTIONS).map(lifeline => ({
+        structure: lifeline,
+        status: reportData[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`] || 'N/A'
+      })).concat(reportData.othersStatus ? [{ structure: 'Others', status: reportData.othersStatus }] : []),
+      checklist: Object.keys(checklist).filter(key => checklist[key]).map(key => key),
+      immediateNeeds: immediateNeeds,
+      initialResponse: initialResponse,
+      userUid: user.uid,
+      currentUserGroupName: user.organization || 'Admin'
     };
 
     navigation.navigate('RDANASummary', {
@@ -1030,11 +1073,11 @@ const RDANAScreen = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
         >
           {/* Step 1 */}
-          <View style={[GlobalStyles.form, { display: currentSection === 0 ? 'flex' : 'none' }]}>
+          <View style={[GlobalStyles.form, { display: currentSection === 0 ? 'flex' : 'none', marginTop: 10}]}>
             <View style={GlobalStyles.section}>
               <Text style={styles.sectionTitle}>Profile of the Disaster</Text>
               {renderLabel('Site Location/Address (Province)', true)}
-              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Province = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Site_Location_Address_Province && GlobalStyles.inputError]}>
+              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Province = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.Site_Location_Address_Province && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                   placeholder="Select Province"
@@ -1064,7 +1107,7 @@ const RDANAScreen = ({ navigation }) => {
               {errors.Site_Location_Address_Province && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Province}</Text>}
 
               {renderLabel('Site Location/Address (City/Municipality)', true)}
-              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_City_Municipality = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Site_Location_Address_City_Municipality && GlobalStyles.inputError]}>
+              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_City_Municipality = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.Site_Location_Address_City_Municipality && GlobalStyles.inputError]}>
                 <Dropdown
                 style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                 placeholder="Select City/Municipality"
@@ -1093,7 +1136,7 @@ const RDANAScreen = ({ navigation }) => {
               {errors.Site_Location_Address_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_City_Municipality}</Text>}
 
               {renderLabel('Site Location/Address (Barangay)', true)}
-              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Barangay = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Site_Location_Address_Barangay && GlobalStyles.inputError]}>
+              <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Barangay = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.Site_Location_Address_Barangay && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                   placeholder="Select Barangay"
@@ -1135,7 +1178,7 @@ const RDANAScreen = ({ navigation }) => {
                   <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Date_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor }}>
                     {reportData.Date_of_Information_Gathered || 'dd/mm/yyyy'}
                   </Text>
-                  <Ionicons name="calendar-outline" size={20} color={Theme.colors.black} />
+                  <Ionicons name="calendar-outline" size={20} color={Theme.colors.placeholderColor} />
                 </TouchableOpacity>
                 {showDatePicker.Date_of_Information_Gathered && (
                   <DateTimePicker
@@ -1152,7 +1195,7 @@ const RDANAScreen = ({ navigation }) => {
                   <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Time_of_Information_Gathered ? Theme.colors.black : Theme.colors.placeholderColor }}>
                     {reportData.Time_of_Information_Gathered || '--:-- --'}
                   </Text>
-                  <Ionicons name="time-outline" size={20} color={Theme.colors.black} />
+                  <Ionicons name="time-outline" size={20} color={Theme.colors.placeholderColor} />
                 </TouchableOpacity>
                 {showTimePicker.Time_of_Information_Gathered && (
                   <DateTimePicker
@@ -1247,9 +1290,10 @@ const RDANAScreen = ({ navigation }) => {
 
             </View>
             <View style={GlobalStyles.section}>
-              <Text style={styles.sectionTitle}>Modality</Text>
+               <Text style={styles.sectionTitle}>Modality</Text>
+              <View style={[styles.section, {marginBottom: 20}]}>
               {renderLabel('Locations and Areas Affected (Province)', true)}
-              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Province = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Locations_and_Areas_Affected_Province && GlobalStyles.inputError]}>
+              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Province = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.Locations_and_Areas_Affected_Province && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                   placeholderStyle={GlobalStyles.placeholderStyle}
@@ -1272,7 +1316,7 @@ const RDANAScreen = ({ navigation }) => {
               {errors.Locations_and_Areas_Affected_Province && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Province}</Text>}
 
               {renderLabel('Locations and Areas Affected (City/Municipality)', true)}
-              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_City_Municipality = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Locations_and_Areas_Affected_City_Municipality && GlobalStyles.inputError]}>
+              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_City_Municipality = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.Locations_and_Areas_Affected_City_Municipality && GlobalStyles.inputError]}>
                 <Dropdown
                 style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                 placeholder="Select City/Municipality"
@@ -1306,7 +1350,7 @@ const RDANAScreen = ({ navigation }) => {
               {errors.Locations_and_Areas_Affected_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_City_Municipality}</Text>}
 
               {renderLabel('Locations and Areas Affected (Barangay)', true)}
-              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Barangay = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Locations_and_Areas_Affected_Barangay && GlobalStyles.inputError]}>
+              <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Barangay = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.Locations_and_Areas_Affected_Barangay && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                   placeholderStyle={GlobalStyles.placeholderStyle}
@@ -1392,10 +1436,12 @@ const RDANAScreen = ({ navigation }) => {
                 </View>
               </ScrollView>
             )}
-              <Text style={[styles.sectionTitle, {marginTop: 20}]}>Disaster Details</Text>
+         </View>
+         <View style={styles.section}>
+              <Text style={[styles.sectionTitle, {marginTop: 10} ]}>Disaster Details</Text>
               {renderLabel('Type of Disaster', true)}
               <View
-                style={[GlobalStyles.input, styles.pickerContainer, errors.Type_of_Disaster && GlobalStyles.inputError]}
+                style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.Type_of_Disaster && GlobalStyles.inputError]}
                 ref={(ref) => (inputContainerRefs.Type_of_Disaster = ref)}
               >
                 <Dropdown
@@ -1433,7 +1479,7 @@ const RDANAScreen = ({ navigation }) => {
                   <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Date_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor }}>
                     {reportData.Date_of_Occurrence || 'dd/mm/yyyy'}
                   </Text>
-                  <Ionicons name="calendar-outline" size={20} color={Theme.colors.black} />
+                  <Ionicons name="calendar-outline" size={20} color={Theme.colors.placeholderColor} />
                 </TouchableOpacity>
                 {showDatePicker.Date_of_Occurrence && (
                   <DateTimePicker
@@ -1450,7 +1496,7 @@ const RDANAScreen = ({ navigation }) => {
                   <Text style={{ fontFamily: 'Poppins_Regular', color: reportData.Time_of_Occurrence ? Theme.colors.black : Theme.colors.placeholderColor }}>
                     {reportData.Time_of_Occurrence || '--:-- --'}
                   </Text>
-                  <Ionicons name="time-outline" size={20} color={Theme.colors.black} />
+                  <Ionicons name="time-outline" size={20} color={Theme.colors.placeholderColor} />
                 </TouchableOpacity>
                 {showTimePicker.Time_of_Occurrence && (
                   <DateTimePicker
@@ -1477,6 +1523,7 @@ const RDANAScreen = ({ navigation }) => {
                 editable={canSubmit}
               />
               {errors.summary && <Text style={GlobalStyles.errorText}>{errors.summary}</Text>}
+              </View>
             </View>
           </View>
 
@@ -1485,7 +1532,7 @@ const RDANAScreen = ({ navigation }) => {
             <View style={GlobalStyles.section}>
               <Text style={styles.sectionTitle}>Initial Effects</Text>
               {renderLabel('Affected Municipalities/Communities', true)}
-              <View ref={(ref) => (inputContainerRefs.community = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.community && GlobalStyles.inputError]}>
+              <View ref={(ref) => (inputContainerRefs.community = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.community && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                   placeholder="Select City"
@@ -1574,7 +1621,7 @@ const RDANAScreen = ({ navigation }) => {
 
               {renderLabel('Number of Affected Children', true)}
               <TextInput
-                style={[GlobalStyles.input, errors.children && GlobalStyles.inputError]}
+                style={[GlobalStyles.input,errors.children && GlobalStyles.inputError]}
                 placeholder="Enter Number of Affected Children"
                 placeholderTextColor={Theme.colors.placeholderColor}
                 keyboardType="numeric"
@@ -1599,7 +1646,7 @@ const RDANAScreen = ({ navigation }) => {
               {renderLabel('Number of Affected Senior Citizens', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.seniors && GlobalStyles.inputError]}
-                placeholder="Enter Number of Affected Senior Citizens"
+                placeholder="Enter Number of Affected Seniors"
                 placeholderTextColor={Theme.colors.placeholderColor}
                 keyboardType="numeric"
                 onChangeText={(val) => handleChange('seniors', val)}
@@ -1608,7 +1655,7 @@ const RDANAScreen = ({ navigation }) => {
               />
               {errors.seniors && <Text style={GlobalStyles.errorText}>{errors.seniors}</Text>}
 
-              {renderLabel('Number of Affected Persons with Disabilities', true)}
+              {renderLabel('Number of Affected PWD', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.pwd && GlobalStyles.inputError]}
                 placeholder="Enter Number of Affected PWD"
@@ -1619,10 +1666,8 @@ const RDANAScreen = ({ navigation }) => {
                 editable={canSubmit}
               />
               {errors.pwd && <Text style={GlobalStyles.errorText}>{errors.pwd}</Text>}
-
-              {(errors.casualties || errors.demographics) && (
-                <Text style={GlobalStyles.errorText}>{errors.casualties || errors.demographics}</Text>
-              )}
+              {errors.casualties && <Text style={GlobalStyles.errorText}>{errors.casualties}</Text>}
+              {errors.demographics && <Text style={GlobalStyles.errorText}>{errors.demographics}</Text>}
 
               <TouchableOpacity
                 style={[GlobalStyles.supplementaryButton, { marginTop: 10 }, (!reportData.community || !reportData.totalPop || !reportData.affected || !reportData.deaths || !reportData.injured || !reportData.missing || !reportData.children || !reportData.women || !reportData.seniors || !reportData.pwd) && { opacity: 0.6 }]}
@@ -1636,8 +1681,8 @@ const RDANAScreen = ({ navigation }) => {
               {affectedMunicipalities.length > 0 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={true}>
                   <View style={styles.table}>
-                    <View style={[styles.tableRow, { minWidth: 1080 }]}>
-                      <Text style={[styles.tableHeader, { minWidth: 200, borderTopLeftRadius: 10 }]}>MUNICIPALITY</Text>
+                    <View style={[styles.tableRow, { minWidth: 980 }]}>
+                      <Text style={[styles.tableHeader, { minWidth: 200, borderTopLeftRadius: 10 }]}>COMMUNITY</Text>
                       <Text style={[styles.tableHeader, { minWidth: 100 }]}>TOTAL POP.</Text>
                       <Text style={[styles.tableHeader, { minWidth: 100 }]}>AFFECTED</Text>
                       <Text style={[styles.tableHeader, { minWidth: 100 }]}>DEATHS</Text>
@@ -1650,7 +1695,7 @@ const RDANAScreen = ({ navigation }) => {
                       <Text style={[styles.tableHeader, { minWidth: 80, borderTopRightRadius: 10 }]}>ACTION</Text>
                     </View>
                     {affectedMunicipalities.map((item, index) => (
-                      <View key={index} style={[styles.tableRow, { minWidth: 1080 }]}>
+                      <View key={index} style={[styles.tableRow, { minWidth: 980 }]}>
                         <Text style={[styles.tableCell, { minWidth: 200 }]}>{item.community}</Text>
                         <Text style={[styles.tableCell, { minWidth: 100 }]}>{item.totalPop}</Text>
                         <Text style={[styles.tableCell, { minWidth: 100 }]}>{item.affected}</Text>
@@ -1679,14 +1724,14 @@ const RDANAScreen = ({ navigation }) => {
           {/* Step 3 */}
           <View style={[GlobalStyles.form, { display: currentSection === 2 ? 'flex' : 'none' }]}>
             <View style={GlobalStyles.section}>
-              <Text style={styles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities (optional)
-              </Text>
+              <Text style={styles.sectionTitle}>Status of Lifelines, Social Structures, and Critical Facilities</Text>
               {Object.keys(LIFELINE_STATUS_OPTIONS).map((lifeline) => (
                 <View key={lifeline}>
                   {renderLabel(lifeline, false)}
-                  <View style={[GlobalStyles.input, styles.pickerContainer, errors[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`] && GlobalStyles.inputError]}>
+                  <View style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`] && GlobalStyles.inputError]}>
                     <Dropdown
                       style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                      placeholder={`Select ${lifeline} Status`}
                       placeholderStyle={GlobalStyles.placeholderStyle}
                       selectedTextStyle={GlobalStyles.selectedTextStyle}
                       itemTextStyle={GlobalStyles.itemTextStyle}
@@ -1694,8 +1739,7 @@ const RDANAScreen = ({ navigation }) => {
                       data={LIFELINE_STATUS_OPTIONS[lifeline]}
                       labelField="label"
                       valueField="value"
-                      placeholder={`Select ${lifeline} Status`}
-                      value={reportData[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`]}
+                      value={reportData[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`] || null}
                       onChange={(item) => handleChange(`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`, item.value)}
                       containerStyle={{ maxHeight: maxDropdownHeight }}
                       disable={!canSubmit}
@@ -1710,56 +1754,47 @@ const RDANAScreen = ({ navigation }) => {
                 </View>
               ))}
               {renderLabel('Others', false)}
-                      <TextInput
-                        style={[GlobalStyles.input, errors.othersStatus && GlobalStyles.inputError]}
-                        placeholder="Input Here (optional)"
-                        placeholderTextColor={Theme.colors.placeholderColor}
-                        keyboardType="text"
-                        onChangeText={(val) => handleChange('othersStatus', val)}
-                        value={reportData.othersStatus}
-                        editable={canSubmit}
-                      />
+              <TextInput
+                style={[GlobalStyles.textArea, errors.othersStatus && GlobalStyles.inputError]}
+                placeholder="Enter Other Status"
+                placeholderTextColor={Theme.colors.placeholderColor}
+                multiline
+                numberOfLines={4}
+                onChangeText={(val) => handleChange('othersStatus', val)}
+                value={reportData.othersStatus}
+                editable={canSubmit}
+              />
               {errors.othersStatus && <Text style={GlobalStyles.errorText}>{errors.othersStatus}</Text>}
             </View>
+            
           </View>
 
           {/* Step 4 */}
           <View style={[GlobalStyles.form, { display: currentSection === 3 ? 'flex' : 'none' }]}>
             <View style={GlobalStyles.section}>
-              <Text style={styles.sectionTitle}>Checklist of Immediate Needs</Text>
-            {[
-              { key: 'reliefPacks', label: 'Relief Packs' },
-              { key: 'hotMeals', label: 'Hot Meals' },
-              { key: 'hygieneKits', label: 'Hygiene Kits' },
-              { key: 'drinkingWater', label: 'Drinking Water' },
-              { key: 'ricePacks', label: 'Rice Packs' },
-            ].map(({ key, label }) => (
-              <TouchableOpacity
-                key={key}
-                style={styles.checkboxContainer}
-                onPress={() => handleNeedsSelect(key)}
-                disabled={!canSubmit}
-              >
-                 <View style={styles.checkboxBox}>
-                  {checklist[key] && <Ionicons name="checkmark" style={styles.checkmark} />}
-                   </View>
-                <Text
-                  style={[
-                    styles.checkboxLabel,
-                    checklist[key] && styles.checklistTextSelected
-                  ]}
-                >
-                  {(label)}
-                </Text>
-               
-              </TouchableOpacity>
-            ))}
-
-
-              {renderLabel('Other Immediate Needs', false)}
+              
+              <Text style={styles.sectionTitle}>Initial Needs Assessment Checklist</Text>
+              {['reliefPacks', 'hotMeals', 'hygieneKits', 'drinkingWater', 'ricePacks'].map((item) => (
+                <View key={item} style={styles.checkboxContainer}>
+                  <TouchableOpacity
+                    style={[styles.checkbox, checklist[item] && styles.checkmark]}
+                    onPress={() => handleNeedsSelect(item)}
+                    disabled={!canSubmit}
+                  >
+                    {checklist[item] && <Ionicons name="checkmark" size={20} color={Theme.colors.white} />}
+                  </TouchableOpacity>
+                  <Text style={styles.checkboxLabel}>
+                    {item
+                      .replace(/([A-Z])/g, ' $1')
+                      .replace(/^./, (str) => str.toUpperCase())}
+                  </Text>
+                </View>
+              ))}
+              <Text style={styles.sectionTitle}>Immediate Needs</Text>
+              {renderLabel('Item Needed', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.otherNeeds && GlobalStyles.inputError]}
-                placeholder="Enter Other Needs"
+                placeholder="Enter Item Needed"
                 placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('otherNeeds', val)}
                 value={reportData.otherNeeds}
@@ -1767,7 +1802,7 @@ const RDANAScreen = ({ navigation }) => {
               />
               {errors.otherNeeds && <Text style={GlobalStyles.errorText}>{errors.otherNeeds}</Text>}
 
-              {renderLabel('Estimated Quantity', false)}
+              {renderLabel('Estimated Quantity', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.estQty && GlobalStyles.inputError]}
                 placeholder="Enter Estimated Quantity"
@@ -1791,8 +1826,8 @@ const RDANAScreen = ({ navigation }) => {
                 <ScrollView horizontal showsHorizontalScrollIndicator={true}>
                   <View style={styles.table}>
                     <View style={[styles.tableRow, { minWidth: 480 }]}>
-                      <Text style={[styles.tableHeader, { minWidth: 200, borderTopLeftRadius: 10 }]}>NEED</Text>
-                      <Text style={[styles.tableHeader, { minWidth: 200 }]}>QUANTITY</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 200, borderTopLeftRadius: 10 }]}>ITEM NEEDED</Text>
+                      <Text style={[styles.tableHeader, { minWidth: 200 }]}>EST. QUANTITY</Text>
                       <Text style={[styles.tableHeader, { minWidth: 80, borderTopRightRadius: 10 }]}>ACTION</Text>
                     </View>
                     {immediateNeeds.map((item, index) => (
@@ -1812,10 +1847,9 @@ const RDANAScreen = ({ navigation }) => {
                 </ScrollView>
               )}
             </View>
-
             <View style={GlobalStyles.section}>
               <Text style={styles.sectionTitle}>Initial Response</Text>
-              {renderLabel('Response Group', true)}
+              {renderLabel('Response Group Involved', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.responseGroup && GlobalStyles.inputError]}
                 placeholder="Enter Response Group"
@@ -1886,7 +1920,7 @@ const RDANAScreen = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Navigation Buttons */}
+         {/* Navigation Buttons */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 15, marginTop: -30, marginBottom: 40}}>
             {currentSection > 0 && (
               <TouchableOpacity
@@ -1912,28 +1946,27 @@ const RDANAScreen = ({ navigation }) => {
               </TouchableOpacity>
             )}
           </View>
+
         </ScrollView>
-
-        {/* Delete Confirmation Modal */}
-        <CustomModal
-          visible={deleteModalVisible}
-          title="Confirm Delete"
-          message="Are you sure you want to delete this entry?"
-          onConfirm={confirmDelete}
-          onCancel={cancelDelete}
-          confirmText="Delete"
-          cancelText="Cancel"
-        />
-
-        {/* General Modal */}
-        <OperationCustomModal
-          visible={modalVisible}
-          title={modalConfig.title}
-          message={modalConfig.message}
-          onConfirm={modalConfig.onConfirm}
-          confirmText={modalConfig.confirmText}
-        />
       </KeyboardAvoidingView>
+
+      <OperationCustomModal
+        visible={modalVisible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        confirmText={modalConfig.confirmText}
+      />
+
+      <CustomModal
+        visible={deleteModalVisible}
+        title="Confirm Delete"
+        message="Are you sure you want to delete this item?"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </SafeAreaView>
   );
 };

@@ -136,6 +136,17 @@ export default StyleSheet.create({
     borderColor: 'red',
     borderWidth: 1,
   },
+  pickerContainer: {
+    borderWidth: borderWidth.thin, 
+    borderColor: Theme.colors.black, 
+    borderRadius: borderRadius.large, 
+    paddingHorizontal: 0, 
+    paddingVertical:0,  
+    height: 43, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    textAlign:'left'
+  },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
@@ -164,7 +175,6 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_Regular',
     borderColor: Theme.colors.primary,
     height: 50,
-    
   },  
   image: {
     width: 250,
@@ -232,7 +242,21 @@ export default StyleSheet.create({
     fontSize: 16,
   },
 
-    dropdown: {
+  // Map Modal
+  mapModalHeader:{
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between', 
+    padding: 10,
+  },
+  mapModalHeaderText:{
+    fontSize: 18, 
+    fontFamily: 'Poppins_SemiBold', 
+    color: Theme.colors.accent 
+  },
+
+  // Dropdown Styles
+  dropdown: {
       height: 40,
       borderColor: Theme.colors.primary,
       borderWidth: 1,

@@ -18,7 +18,7 @@
     "@oclif/core": "^4.4.1",
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-community/blur": "^4.4.1",
-    "@react-native-community/datetimepicker": "8.4.4",
+    "@react-native-community/datetimepicker": "^8.4.5",
     "@react-native-community/geolocation": "^3.4.0",
     "@react-native-community/slider": "5.0.1",
     "@react-native-firebase/app": "^22.2.0",
@@ -66,6 +66,7 @@
     "react-native": "0.81.4",
     "react-native-animatable": "^1.4.0",
     "react-native-autocomplete-input": "^5.5.6",
+    "react-native-date-picker": "^5.0.13",
     "react-native-dropdown-picker": "^5.4.6",
     "react-native-element-dropdown": "^2.12.4",
     "react-native-fontawesome": "^7.0.0",
@@ -94,7 +95,7 @@
     "@babel/core": "^7.20.0",
     "@react-native-community/cli": "latest",
     "@types/react": "~19.1.10",
-    "expo": "54.0.7",
+    "expo": "~54.0.9",
     "typescript": "~5.9.2"
   },
   "expo": {

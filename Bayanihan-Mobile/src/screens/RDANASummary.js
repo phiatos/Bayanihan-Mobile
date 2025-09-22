@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
-import { ref as databaseRef, push, serverTimestamp, set } from 'firebase/database';
+import { ref as databaseRef, push, serverTimestamp, set, get, query } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { database } from '../configuration/firebaseConfig';
@@ -32,6 +32,20 @@ const RDANASummary = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  // Utility function to format date inputs to ISO 8601 for storage
+  const formatDateForStorage = (dateStr) => {
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid date format');
+      }
+      return date.toISOString(); // e.g., "2025-09-21T20:30:00.000Z"
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Date formatting error:`, error.message);
+      return null;
+    }
+  };
 
   useEffect(() => {
     try {
@@ -152,7 +166,6 @@ const RDANASummary = () => {
       return;
     }
 
-    // Validation for required fields
     const { Site_Location_Address_Province, Site_Location_Address_City_Municipality, Site_Location_Address_Barangay, Type_of_Disaster, Date_and_Time_of_Information_Gathered } = reportData;
     
     if (!Site_Location_Address_Province?.trim()) {
@@ -190,6 +203,25 @@ const RDANASummary = () => {
       return;
     }
 
+    // Validate and format date fields
+    const formattedInfoDate = formatDateForStorage(Date_and_Time_of_Information_Gathered);
+    if (!formattedInfoDate) {
+      setErrorMessage('Invalid format for Date and Time of Information Gathered. Please use a valid date format (e.g., MM/DD/YYYY HH:MM).');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const formattedOccurrenceDate = reportData.Date_and_Time_of_Occurrence?.trim() 
+      ? formatDateForStorage(reportData.Date_and_Time_of_Occurrence)
+      : null;
+    if (reportData.Date_and_Time_of_Occurrence?.trim() && !formattedOccurrenceDate) {
+      setErrorMessage('Invalid format for Date and Time of Occurrence. Please use a valid date format (e.g., MM/DD/YYYY HH:MM).');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
     if (affectedMunicipalities.length === 0) {
       setErrorMessage('Please add at least one affected municipality.');
       setModalVisible(true);
@@ -198,7 +230,6 @@ const RDANASummary = () => {
     }
 
     try {
-      // Prepare checklist
       const checklistLabels = {
         reliefPacks: "Relief Packs",
         hotMeals: "Hot Meals",
@@ -210,7 +241,6 @@ const RDANASummary = () => {
         .filter(id => reportData[id] === 'Yes')
         .map(id => id);
 
-      // Prepare lifelines
       const lifelines = [
         { structure: 'Residential Houses', status: reportData.residentialhousesStatus || 'N/A' },
         { structure: 'Transportation and Mobility', status: reportData.transportationandmobilityStatus || 'N/A' },
@@ -222,9 +252,8 @@ const RDANASummary = () => {
         { structure: 'Others', status: reportData.othersStatus || 'N/A' },
       ];
 
-      // Prepare report data for Firebase
       const newReport = {
-        rdanaId: null, // Will be set after push
+        rdanaId: null, 
         timestamp: serverTimestamp(),
         currentUserGroupName: organizationName,
         userUid: user.id,
@@ -233,7 +262,7 @@ const RDANASummary = () => {
             province: Site_Location_Address_Province.trim() || '',
             city: Site_Location_Address_City_Municipality.trim() || '',
             barangay: Site_Location_Address_Barangay.trim() || '',
-            infoGatheredDate: Date_and_Time_of_Information_Gathered.trim() || '',
+            infoDate: formattedInfoDate, // Store in ISO 8601 format
             authorities: authoritiesAndOrganizations.map(row => ({
               authority: row.authority?.trim() || '',
               organization: row.organization?.trim() || ''
@@ -244,7 +273,7 @@ const RDANASummary = () => {
               barangay: loc.barangay?.trim() || ''
             })),
             disasterType: Type_of_Disaster.trim() || '',
-            occurrenceDate: reportData.Date_and_Time_of_Occurrence?.trim() || '',
+            occurrenceDate: formattedOccurrenceDate || '', // Store in ISO 8601 format or empty string
             summary: reportData.summary?.trim() || ''
           },
           disasterEffects: affectedMunicipalities.map(row => [
@@ -274,10 +303,33 @@ const RDANASummary = () => {
         status: 'Submitted'
       };
 
+      const generateUniqueId = async () => {
+        let attempts = 0;
+        const maxAttempts = 3;
+
+        while (attempts < maxAttempts) {
+          const randomNum = Math.floor(100 + Math.random() * 900); // Generate a random 3-digit number
+          const customId = `RDANA-${randomNum}`;
+          
+          // Check if this specific rdanaId already exists
+          const snapshot = await get(databaseRef(database, `rdana/submitted/${customId}`));
+          
+          if (!snapshot.exists()) {
+            console.log(`[${new Date().toISOString()}] Generated unique RDANA ID: ${customId}`);
+            return customId; // Return the unique ID if it doesn't exist
+          }
+          
+          console.log(`[${new Date().toISOString()}] RDANA ID ${customId} already exists, retrying...`);
+          attempts++;
+        }
+        
+        throw new Error('Unable to generate a unique RDANA ID after maximum attempts.');
+      };
+
       // Submit to Firebase
       const requestRef = push(databaseRef(database, 'rdana/submitted'));
-      const rdanaId = requestRef.key;
-      newReport.rdanaId = rdanaId; // Set rdanaId after push
+      const rdanaId = await generateUniqueId();
+      newReport.rdanaId = rdanaId; 
       const userRequestRef = databaseRef(database, `users/${user.id}/rdana/${rdanaId}`);
       const message = `New RDANA report "${Type_of_Disaster || 'N/A'}" submitted by ${reportData.Prepared_By?.trim() || 'Unknown'} from ${organizationName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
       const location = `${Site_Location_Address_Barangay || ''}, ${Site_Location_Address_City_Municipality || ''}, ${Site_Location_Address_Province || ''}`;
@@ -333,7 +385,7 @@ const RDANASummary = () => {
 
   const handleBack = () => {
     console.log(`[${new Date().toISOString()}] Navigating back with data:`, reportData, affectedMunicipalities, authoritiesAndOrganizations, immediateNeeds, initialResponse);
-    navigation.navigate('RDANAWizardScreen', { 
+    navigation.navigate('RDANAScreen', { 
       reportData, 
       affectedMunicipalities, 
       authoritiesAndOrganizations, 

@@ -28,6 +28,8 @@ import { KeyboardAvoidingView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getDatabase, ref, get } from 'firebase/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import bayanihanLogo from '../../assets/images/ab_logo.png';
+
 
 const { height, width } = Dimensions.get('window');
 
@@ -351,6 +353,10 @@ const HomeScreen = ({ navigation }) => {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+      
         <style>
           #map { height: 100%; width: 100%; }
           html, body { height: 100%; margin: 0; padding: 0; }
@@ -542,27 +548,27 @@ const HomeScreen = ({ navigation }) => {
             }
           }
 
-          function createPopup(marker, activation, logoUrl) {
+          function createPopup(marker, activation, bayanihanLogo) {
             const content = \`
               <div class="bayanihan-infowindow">
-                <h3>
-                  \${logoUrl ? 
-                    \`<img src="\${logoUrl}" alt="Bayanihan Logo" style="width: 24px; height: 24px;" />\` : 
+                <h3 style="color: black; font-family: 'Poppins', sans-serif;">
+                  \${bayanihanLogo ? 
+                    \`<img src="\${bayanihanLogo}" alt="Bayanihan Logo" style="width: 24px; height: 24px;" />\` : 
                     \`<span style="font-size: 24px;">🌟</span>\`
                   }
                   \${activation.organization}
                 </h3>
                 <p>
-                  <strong style="color: #007BFF;">📍 Location:</strong>
-                  <span>\${activation.areaOfOperation}</span>
+                  <strong style="color: black; font-weight: bold; font-family: 'Poppins', sans-serif">Area:</strong>
+                  <span style="font-family: 'Poppins', sans-serif;">\${activation.areaOfOperation}</span>
                 </p>
                 <p>
-                  <strong style="color: #007BFF;">🌍 Calamity:</strong>
-                  <span>\${activation.calamityType}\${activation.typhoonName ? \` (\${activation.typhoonName})\` : ''}</span>
+                  <strong style="color: black; font-weight: bold; font-family: 'Poppins', sans-serif">Calamity:</strong>
+                  <span style="font-family: 'Poppins', sans-serif;">\${activation.calamityType}\${activation.typhoonName ? \` (\${activation.typhoonName})\` : ''}</span>
                 </p>
                 <p>
-                  <strong style="color: #007BFF;">✅ Status:</strong>
-                  <span style="color: #388E3C; font-weight: bold;">Active</span>
+                  <strong style="color: black; font-weight: bold; font-family: 'Poppins', sans-serif">Status:</strong>
+                  <span style="color: #388E3C; font-weight: bold; font-family: 'Poppins', sans-serif;">Active</span>
                 </p>
               </div>
             \`;
@@ -670,10 +676,7 @@ const HomeScreen = ({ navigation }) => {
           setContactPerson(currentUser.contactPerson || null);
           setFirstName(currentUser.firstName || null);
           setLastName(currentUser.lastName || null);
-          setErrorModal({
-            visible: true,
-            message: `Failed to fetch user data: ${error.message}. Using cached data.`,
-          });
+          
         }
       } finally {
         setIsLoading(false);

@@ -1204,7 +1204,7 @@ const ReliefRequestScreen = () => {
               )}
 
               {renderLabel('Request Category', true)}
-              <View style={[GlobalStyles.input, styles.pickerContainer, errors.category && GlobalStyles.inputError]}>
+              <View style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.category && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%' }}
                   placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
@@ -1373,8 +1373,8 @@ const ReliefRequestScreen = () => {
       >
         <SafeAreaView style={{ flex: 1 }}>
           <View style={{ flex: 1 }}>
-            <View style={styles.mapModalHeader}>
-              <Text style={styles.mapModalHeaderText}>Pin Drop-Off Address</Text>
+            <View style={GlobalStyles.mapModalHeader}>
+              <Text style={GlobalStyles.mapModalHeaderText}>Pin Drop-Off Address</Text>
               <TouchableOpacity
                 style={{ padding: 10, justifyContent: 'flex-end' }}
                 onPress={() => setMapModalVisible(false)}
