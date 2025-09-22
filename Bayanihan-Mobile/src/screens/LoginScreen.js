@@ -79,11 +79,9 @@ const LoginScreen = ({ navigation }) => {
       const updatedUser = userCredential.user;
       console.log(`[${new Date().toISOString()}] Login successful, user:`, updatedUser.uid);
 
-      // Now that user is authenticated, fetch their specific data from DB (rules allow owner access)
       const userRef = ref(database, `users/${updatedUser.uid}`);
       const userSnapshot = await get(userRef);
       if (!userSnapshot.exists()) {
-        // Edge case: Auth user exists but no DB record (e.g., incomplete signup)
         console.log(`[${new Date().toISOString()}] No DB record for user:`, updatedUser.uid);
         ToastAndroid.show('User account not fully set up. Please register again.', ToastAndroid.SHORT);
         await signOut(auth);
@@ -148,7 +146,6 @@ const LoginScreen = ({ navigation }) => {
 
       setUser({ id: updatedUser.uid, email: updatedUser.email, ...userData });
       ToastAndroid.show('Login successful.', ToastAndroid.SHORT);
-      navigation.navigate('Volunteer Dashboard');
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Auth error:`, error.code, error.message);
       if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {

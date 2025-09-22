@@ -25,6 +25,9 @@ import CreatePost from '../screens/CreatePost';
 import TransactionScreen from '../screens/SubmissionScreen';
 import TransactionDetailsScreen from '../screens/SubmissionDetailsScreen';
 import CommentSection from '../screens/CommentSection';
+import RDANAWizardScreen from '../screens/RDANAWizardScreen';
+import TrialScreen from '../screens/TrialScreen';
+
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -32,6 +35,8 @@ const Stack = createNativeStackNavigator();
 // RDANA Stack
 const RDANAStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
+    {/* <Stack.Screen name="TrialScreen" component={TrialScreen} /> */}
+    {/* <Stack.Screen name="RDANAWizardScreen" component={RDANAWizardScreen} /> */}
     <Stack.Screen name="RDANAScreen" component={RDANAScreen} />
     <Stack.Screen name="RDANASummary" component={RDANASummary} />
   </Stack.Navigator>

@@ -26,17 +26,6 @@ const windowHeight = Dimensions.get('window').height;
 const maxDropdownHeight = windowHeight * 0.3;
 
 export default StyleSheet.create({
-  sectionTitle: {
-    fontSize: 18,
-    marginBottom: spacing.small,
-    color: Theme.colors.primary,
-    textAlign: 'center',
-    fontFamily: 'Poppins_SemiBold',
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
   requiredInput: {
     borderColor: '#D32F2F',
   },
@@ -47,12 +36,6 @@ export default StyleSheet.create({
     borderColor: '#AAA',
     borderRadius: 10,
     backgroundColor: '#fff',
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-    marginLeft: 10,
-    marginBottom: spacing.medium,
   },
   pickerContainer: {
     borderWidth: borderWidth.thin, 
@@ -109,6 +92,185 @@ export default StyleSheet.create({
   icon: {
     padding: 10,
   },
+
+  // Map Modal
+  mapModalHeader:{
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between', 
+    padding: 10,
+  },
+  mapModalHeaderText:{
+    fontSize: 18, 
+    fontFamily: 'Poppins_SemiBold', 
+    color: Theme.colors.accent 
+  },
+  overlayContainer: {
+      position: 'absolute',
+      top: 10,
+      left: 0,
+      right: 0,
+      zIndex: 900,
+    },
+  searchWrapper: {
+      paddingHorizontal: 20,
+      marginTop: 10,
+    },
+  searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderColor: Theme.colors.primary,
+      elevation: 10,
+      backgroundColor: Theme.colors.lightBg,
+      borderWidth: 1,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    },
+  searchIcon: {
+      paddingVertical: 10,
+      marginLeft: 2, 
+    },
+  suggestionsContainer: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      backgroundColor: Theme.colors.white,
+      borderRadius: 10,
+      marginTop: 50,
+      elevation: 5,
+      maxHeight: 200,
+      zIndex: 1000,
+      marginHorizontal: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      overflow: 'hidden',
+    },
+  suggestionItem: {
+      padding: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: Theme.colors.lightBlack,
+    },
+  suggestionText: {
+      fontSize: 14,
+      color: Theme.colors.black,
+      fontFamily: 'Poppins_Regular',
+    },
+  returnButton: {
+      position: 'absolute',
+      bottom: 0,
+      right: 20,
+      backgroundColor: Theme.colors.primary,
+      padding: 10,
+      borderRadius: 25,
+      elevation: 10,
+      zIndex: 1000,
+      borderWidth: 1,
+      borderColor: Theme.colors.primary,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    },
+  mapTypeButtonsContainer: {
+      position: 'absolute',
+      left: 10,
+      top: 60,
+      flexDirection: 'column',
+      gap: 8,
+      padding: 10,
+    },
+  mapTypeButton: {
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: '100%',
+      paddingHorizontal: 10,
+      paddingVertical: 9,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  mapTypeButtonActive: {
+    backgroundColor: Theme.colors.lightBg,
+    borderColor: Theme.colors.primary,
+  },
+  mapTypeButtonText: {
+    fontSize: 14,
+    color: Theme.colors.white,
+    marginLeft: 6,
+    fontFamily: 'Poppins_Regular',
+  },
+  mapTypeButtonTextActive: {
+    color: Theme.colors.primary,
+    fontFamily: 'Poppins_Regular',
+  },
+  modalButtonContainer: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
+
+  modalButton: {
+    backgroundColor: '#00BCD4',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 15,
+    marginRight: 10,
+    alignItems:'center'
+  },
+  modalButtonCancel:{
+    backgroundColor: Theme.colors.lightBg,
+    borderColor: Theme.colors.primary,
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 15,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily:'Poppins_Medium'
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    color: 'red',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  permissionModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  permissionModalContainer: {
+    backgroundColor: 'white',
+    padding: 25,
+    borderRadius: 15,
+    alignItems: 'center',
+    width: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+
+
   dropdownContainer: {
     position: 'absolute',
     top: 40,

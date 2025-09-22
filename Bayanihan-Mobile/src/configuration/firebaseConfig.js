@@ -5,16 +5,18 @@ import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
 import { getFirestore } from 'firebase/firestore';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDJxMv8GCaMvQT2QBW3CdzA3dV5X_T2KqQ",
-  authDomain: "bayanihan-5ce7e.firebaseapp.com",
-  databaseURL: "https://bayanihan-5ce7e-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "bayanihan-5ce7e",
-  storageBucket: "bayanihan-5ce7e.firebasestorage.app",
-  messagingSenderId: "593123849917",
-  appId: "1:593123849917:web:eb85a63a536eeff78ce9d4",
-  measurementId: "G-ZTQ9VXXVV0"
-};
+  const firebaseConfig = {
+    apiKey: "AIzaSyBkmXOJvnlBtzkjNyR6wyd9BgGM0BhN0L8",
+    authDomain: "bayanihan-new-472410.firebaseapp.com",
+    projectId: "bayanihan-new-472410",
+    storageBucket: "bayanihan-new-472410.firebasestorage.app",
+    messagingSenderId: "995982574131",
+    appId: "1:995982574131:web:3d45e358fad330c276d946",
+    measurementId: "G-CEVPTQZM9C",
+    databaseURL: "https://bayanihan-new-472410-default-rtdb.asia-southeast1.firebasedatabase.app/"
+  };
+
+  console.log("Firebase config in use:", firebaseConfig); 
 
 let app;
 if (!getApps().length) {
@@ -38,7 +40,7 @@ try {
 }
 
 const database = getDatabase(app);
-const storage = getStorage(app, 'bayanihan-5ce7e.firebasestorage.app');
+const storage = getStorage(app, 'bayanihan-new-472410.firebasestorage.app');
 const db = getFirestore(app);
 
 export { app, auth, database, storage, db };

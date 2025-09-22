@@ -37,43 +37,43 @@ import CustomModal from '../components/CustomModal';
 
 const LIFELINE_STATUS_OPTIONS = {
   'Residential Houses': [
-    { label: 'Select from one of the following', value: null},
+    { label: 'Select from one of the following', value: '' },
     { label: 'Some houses are flooded/damaged.', value: 'Some houses are flooded/damaged.' },
     { label: 'Many houses are flooded/damaged.', value: 'Many houses are flooded/damaged.' },
     { label: 'An entire community is flooded/damaged.', value: 'An entire community is flooded/damaged.' },
   ],
   'Transportation and Mobility': [
-    { label: 'Select from one of the following', value: null },
+    { label: 'Select from one of the following', value: '' },
     { label: 'Roads are clear of debris and/or flood; passable.', value: 'Roads are clear of debris and/or flood; passable.' },
     { label: 'Some roads are blocked by debris and/or flood.', value: 'Some roads are blocked by debris and/or flood.' },
     { label: 'Most roads are blocked by debris and/or flood; not passable.', value: 'Most roads are blocked by debris and/or flood; not passable.' },
   ],
   'Electricity, Power Grid': [
-    { label: 'Select from one of the following', value: null },
+    { label: 'Select from one of the following', value: '' },
     { label: 'There is electricity.', value: 'There is electricity.' },
     { label: 'Some places do not have electricity.', value: 'Some places do not have electricity.' },
     { label: 'The entire area has no electricity.', value: 'The entire area has no electricity.' },
   ],
   'Communication Networks, Internet': [
-    { label: 'Select from one of the following', value: null},
+    { label: 'Select from one of the following', value: '' },
     { label: 'Communication lines are up.', value: 'Communication lines are up.' },
     { label: 'There is intermittent signal available.', value: 'There is intermittent signal available.' },
     { label: 'Communication lines are down.', value: 'Communication lines are down.' },
   ],
   'Hospitals, Rural Health Units': [
-    { label: 'Select from one of the following', value: null },
+    { label: 'Select from one of the following', value: '' },
     { label: 'Hospitals are open.', value: 'Hospitals are open.' },
     { label: 'Some hospitals are open.', value: 'Some hospitals are open.' },
     { label: 'No hospitals are open.', value: 'No hospitals are open.' },
   ],
   'Water Supply System': [
-    { label: 'Select from one of the following', value: null },
+    { label: 'Select from one of the following', value: '' },
     { label: 'Clean water is available.', value: 'Clean water is available.' },
     { label: 'Only some locations have clean water.', value: 'Only some locations have clean water.' },
     { label: 'No clean water is available.', value: 'No clean water is available.' },
   ],
   'Market, Business, and Commercial Establishments': [
-    { label: 'Select from one of the following', value: null},
+    { label: 'Select from one of the following', value: '' },
     { label: 'Establishments are open.', value: 'Establishments are open.' },
     { label: 'Some establishments are open.', value: 'Some establishments are open.' },
     { label: 'No establishments are open.', value: 'No establishments are open.' },
@@ -1038,9 +1038,17 @@ const RDANAScreen = ({ navigation }) => {
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                   placeholder="Select Province"
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
-                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  placeholderStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    color: Theme.colors.placeholderColor,
+                    fontSize: 14,
+                  }}
+                  selectedTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
+                  itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14 }}
                   itemContainerStyle={{ maxHeight: maxDropdownHeight }}
                   data={provinceOptions} 
                   labelField="label"
@@ -1068,9 +1076,21 @@ const RDANAScreen = ({ navigation }) => {
                 <Dropdown
                 style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                 placeholder="Select City/Municipality"
-                placeholderStyle={GlobalStyles.placeholderStyle}
-                selectedTextStyle={GlobalStyles.selectedTextStyle}
-                itemTextStyle={GlobalStyles.itemTextStyle}
+                placeholderStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  color: Theme.colors.placeholderColor,
+                  fontSize: 14,
+                }}
+                selectedTextStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  fontSize: 14,
+                  color: Theme.colors.black,
+                }}
+                itemTextStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  fontSize: 14,
+                  color: Theme.colors.black,
+                }}
                 itemContainerStyle={{ maxHeight: maxDropdownHeight }}
                 data={getCityOptions(reportData.Site_Location_Address_Province)} 
                 labelField="label"
@@ -1097,8 +1117,16 @@ const RDANAScreen = ({ navigation }) => {
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                   placeholder="Select Barangay"
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
+                  placeholderStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    color: Theme.colors.placeholderColor,
+                    fontSize: 14,
+                  }}
+                  selectedTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
                   itemTextStyle={{
                     fontFamily: 'Poppins_Regular',
                     fontSize: 14,
@@ -1252,9 +1280,9 @@ const RDANAScreen = ({ navigation }) => {
               <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Province = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Locations_and_Areas_Affected_Province && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
-                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
+                  selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
+                  itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
                   itemContainerStyle={{ maxHeight: maxDropdownHeight }}
                   data={[{ label: 'Select Province', value: '' }, ...provinceOptions]}
                   labelField="label"
@@ -1276,8 +1304,16 @@ const RDANAScreen = ({ navigation }) => {
                 <Dropdown
                 style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                 placeholder="Select City/Municipality"
-                placeholderStyle={GlobalStyles.placeholderStyle}
-                selectedTextStyle={GlobalStyles.selectedTextStyle}
+                placeholderStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  color: Theme.colors.placeholderColor,
+                  fontSize: 14,
+                }}
+                selectedTextStyle={{
+                  fontFamily: 'Poppins_Regular',
+                  fontSize: 14,
+                  color: Theme.colors.black,
+                }}
                 itemTextStyle={{
                   fontFamily: 'Poppins_Regular',
                   fontSize: 14,
@@ -1309,9 +1345,21 @@ const RDANAScreen = ({ navigation }) => {
               <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Barangay = ref)} style={[GlobalStyles.input, styles.pickerContainer, errors.Locations_and_Areas_Affected_Barangay && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
-                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  placeholderStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    color: Theme.colors.placeholderColor,
+                    fontSize: 14,
+                  }}
+                  selectedTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
+                  itemTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
                   itemContainerStyle={{ maxHeight: maxDropdownHeight }}
                   data={[
                     { label: 'Select Barangay', value: '' },
@@ -1401,9 +1449,21 @@ const RDANAScreen = ({ navigation }) => {
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                   placeholder="Select Type of Disaster"
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
-                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  placeholderStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    color: Theme.colors.placeholderColor,
+                    fontSize: 14,
+                  }}
+                  selectedTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
+                  itemTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
                   itemContainerStyle={{ maxHeight: maxDropdownHeight }}
                   data={disasterTypes} 
                   labelField="label"
@@ -1489,9 +1549,21 @@ const RDANAScreen = ({ navigation }) => {
                 <Dropdown
                   style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                   placeholder="Select City"
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
-                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  placeholderStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    color: Theme.colors.placeholderColor,
+                    fontSize: 14,
+                  }}
+                  selectedTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
+                  itemTextStyle={{
+                    fontFamily: 'Poppins_Regular',
+                    fontSize: 14,
+                    color: Theme.colors.black,
+                  }}
                   itemContainerStyle={{ maxHeight: maxDropdownHeight }}
                   data={getCityOptions(reportData.Site_Location_Address_Province)}
                   labelField="label"
@@ -1679,17 +1751,16 @@ const RDANAScreen = ({ navigation }) => {
           {/* Step 3 */}
           <View style={[GlobalStyles.form, { display: currentSection === 2 ? 'flex' : 'none' }]}>
             <View style={GlobalStyles.section}>
-              <Text style={styles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities (optional)
-              </Text>
+              <Text style={styles.sectionTitle}>Status of Lifelines</Text>
               {Object.keys(LIFELINE_STATUS_OPTIONS).map((lifeline) => (
                 <View key={lifeline}>
                   {renderLabel(lifeline, false)}
                   <View style={[GlobalStyles.input, styles.pickerContainer, errors[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`] && GlobalStyles.inputError]}>
                     <Dropdown
                       style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                      placeholderStyle={GlobalStyles.placeholderStyle}
-                      selectedTextStyle={GlobalStyles.selectedTextStyle}
-                      itemTextStyle={GlobalStyles.itemTextStyle}
+                      placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
+                      selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
+                      itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
                       itemContainerStyle={{ maxHeight: maxDropdownHeight }}
                       data={LIFELINE_STATUS_OPTIONS[lifeline]}
                       labelField="label"
@@ -1700,7 +1771,7 @@ const RDANAScreen = ({ navigation }) => {
                       containerStyle={{ maxHeight: maxDropdownHeight }}
                       disable={!canSubmit}
                       renderRightIcon={() => (
-                        <Ionicons name="chevron-down" size={18} color={Theme.colors.placeholderColor} />
+                        <Ionicons name="chevron-down" size={20} color={Theme.colors.black} />
                       )}
                     />
                   </View>
@@ -1709,17 +1780,6 @@ const RDANAScreen = ({ navigation }) => {
                   )}
                 </View>
               ))}
-              {renderLabel('Others', false)}
-                      <TextInput
-                        style={[GlobalStyles.input, errors.othersStatus && GlobalStyles.inputError]}
-                        placeholder="Input Here (optional)"
-                        placeholderTextColor={Theme.colors.placeholderColor}
-                        keyboardType="text"
-                        onChangeText={(val) => handleChange('othersStatus', val)}
-                        value={reportData.othersStatus}
-                        editable={canSubmit}
-                      />
-              {errors.othersStatus && <Text style={GlobalStyles.errorText}>{errors.othersStatus}</Text>}
             </View>
           </View>
 

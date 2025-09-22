@@ -57,20 +57,21 @@
     "jsEngine": "hermes",
     "extra": {
       "eas": {
-        "projectId": "095ea5f5-79a3-4edf-af68-856ddae7e769"
+        "projectId": "b2922363-ee56-45ca-b956-cc0ba90e8b25"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {},
-     "androidStatusBar": {
+    "androidStatusBar": {
       "translucent": true,
       "backgroundColor": "#00000000"
     },
     "androidNavigationBar": {
       "visible": "immersive",
       "backgroundColor": "#00000000"
-    }
+    },
+    "owner": "louihv"
   }
 }

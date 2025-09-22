@@ -1,8 +1,10 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import React, { useEffect, useState, useRef } from 'react';
-import { ScrollView, Text, TouchableOpacity, View, StatusBar, Animated, Easing, ToastAndroid } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View, StatusBar, Animated, Easing, ToastAndroid, Modal, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, database } from '../configuration/firebaseConfig';
 import { onValue, ref } from 'firebase/database';
 import { useAuth } from '../context/AuthContext'; 
@@ -22,8 +24,13 @@ const DashboardScreen = ({ navigation }) => {
   ]);
   const [headerTitle, setHeaderTitle] = useState('Dashboard');
   const [organizationName, setOrganizationName] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [hasShownModal, setHasShownModal] = useState(false);
+  const [permissionStatus, setPermissionStatus] = useState(null);
+  const [location, setLocation] = useState(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const slideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
 
   const startAnimation = () => {
     fadeAnim.setValue(0);
@@ -50,6 +57,29 @@ const DashboardScreen = ({ navigation }) => {
       StatusBar.setBarStyle('light-content');
     };
   }, []);
+
+  useEffect(() => {
+    const checkModalStatus = async () => {
+      try {
+        const hasShown = await AsyncStorage.getItem('hasShownLocationModal');
+        if (hasShown !== 'true' && !hasShownModal && !permissionStatus) {
+          setModalVisible(true);
+          setHasShownModal(true);
+        }
+      } catch (error) {
+        console.error('Error checking modal status:', error);
+      }
+    };
+    checkModalStatus();
+  }, [hasShownModal, permissionStatus]);
+
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: modalVisible ? 0 : Dimensions.get('window').height,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [modalVisible]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -142,6 +172,38 @@ const DashboardScreen = ({ navigation }) => {
     };
   }, [user, navigation]);
 
+  const handleRequestPermission = async () => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      setPermissionStatus(status);
+      if (status === 'granted') {
+        let loc = await Location.getCurrentPositionAsync({});
+        if (loc.coords.accuracy > 50) {
+          ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
+        }
+        setLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+        setModalVisible(false);
+        await AsyncStorage.setItem('hasShownLocationModal', 'true');
+      } else {
+        setPermissionStatus('denied');
+        setModalVisible(false);
+        await AsyncStorage.setItem('hasShownLocationModal', 'true');
+      }
+    } catch (error) {
+      console.error('Permission error:', error);
+      ToastAndroid.show('Failed to request location permission. Please try again.', ToastAndroid.SHORT);
+    }
+  };
+
+  const closeModal = () => {
+    setPermissionStatus('denied');
+    setModalVisible(false);
+    AsyncStorage.setItem('hasShownLocationModal', 'true');
+  };
+
   return (
     <LinearGradient
       colors={['rgba(250, 59, 154, 0.43)', '#FFF9F0']}
@@ -217,6 +279,38 @@ const DashboardScreen = ({ navigation }) => {
             </Animated.View>
           ))}
         </ScrollView>
+
+        <Modal
+          animationType="none"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={closeModal}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View
+              style={[
+                styles.modalContainer,
+                {
+                  transform: [{ translateY: slideAnim }],
+                },
+              ]}
+            >
+              <MaterialIcons name="location-pin" size={84} style={{ color: '#EE5757' }} />
+              <Text style={styles.permissionDeniedHeader}>Where Are You?</Text>
+              <Text style={styles.permissionDeniedText}>
+                Let Bayanihan access your location to show position on the map.
+              </Text>
+              <View style={styles.permissionButtons}>
+                <TouchableOpacity style={styles.retryButton} onPress={handleRequestPermission}>
+                  <Text style={styles.retryButtonText}>Allow Location Access</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
+                  <Text style={styles.closeButtonText}>Not Now</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </LinearGradient>
   );

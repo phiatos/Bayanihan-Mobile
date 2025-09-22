@@ -34,10 +34,6 @@ export default StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Poppins_SemiBold',
   },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
   requiredInput: {
     borderColor: '#D32F2F',
   },
@@ -54,13 +50,41 @@ export default StyleSheet.create({
     color: 'red',
     fontSize: 12,
   },
+
+  //Progress Steps
+  progressCircles:{
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 0,
+  },
+  progressNumbers:{
+    fontFamily: 'Poppins_Regular',
+    fontSize: 12,
+  },
+  progressStepsText:{
+    fontFamily: 'Poppins_Regular',
+    fontSize: 10,
+    color: Theme.colors.accent,
+    position: 'absolute',
+    top: 26,
+    width: 50,
+    left: -15,
+    textAlign: 'center',
+  },
+
+
+  //Table
   table: {
     marginVertical: 20,
     borderTopLeftRadius: 10,
+    overflow: 'hidden',
+    
   },
   tableRow: {
     flexDirection: 'row',
-    
   },
   tableHeader: {
     textAlign: 'left',
@@ -113,15 +137,14 @@ export default StyleSheet.create({
     borderColor: '#605D67', 
     borderRadius: borderRadius.large, 
     paddingHorizontal: 0, 
-    paddingVertical:0, 
-    marginBottom: spacing.small, 
-    height: 48, 
+    paddingVertical:0,  
+    height: 43, 
     justifyContent: 'center', 
     alignItems: 'center', 
-    textAlign:'center'
+    textAlign:'left'
   },
   pickerRequiredInput: {
-    borderColor: '#D32F2F', 
+    borderColor: Theme.colors.red, 
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -137,12 +160,12 @@ export default StyleSheet.create({
     marginRight: spacing.small,
     alignItems: 'center',
     justifyContent: 'center',
-    // backgroundColor: Theme.colors.lightBg,
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 2 },
-    // shadowOpacity: 0.1,
-    // shadowRadius: 4,
-    // elevation: 3,
+    backgroundColor: Theme.colors.lightBg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   checkmark: {
     fontSize: 24,
@@ -150,7 +173,7 @@ export default StyleSheet.create({
     backgroundColor: Theme.colors.accent,
     lineHeight: 24,
     borderRadius: borderRadius.small,
-    borderColor: Theme.colors.accent
+    // borderColor: Theme.colors.accent
   },
   checkboxLabel: {
     flex: 1,
@@ -214,6 +237,8 @@ export default StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 6,
   },
+
+  // Modal
   modalContent: {
     alignItems: 'center',
     width: '100%',

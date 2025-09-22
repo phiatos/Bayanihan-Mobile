@@ -148,7 +148,7 @@ const CallForDonationsSummary = () => {
         image: imageBase64,
         status: 'Pending',
         userUid: user.id,
-        organization: organizationName, // Add for consistency
+        organization: organizationName, 
         timestamp: serverTimestamp(),
       };
 

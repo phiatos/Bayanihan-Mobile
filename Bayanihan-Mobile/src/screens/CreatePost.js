@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, ScrollView, Image, SafeAreaView, ToastAndroid } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { View, Text, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, ScrollView, Image, SafeAreaView, ToastAndroid, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -15,10 +14,21 @@ import GlobalStyles from '../styles/GlobalStyles';
 import Theme from '../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import styles from '../styles/CreatePostStyles';
-import { logActivity, logSubmission } from '../components/logSubmission';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { v4 as uuidv4 } from 'uuid';
+import { Dropdown } from 'react-native-element-dropdown';
+import { logActivity, logSubmission } from '../components/logSubmission';
+
+// Updated categories array to match the new structure
+const categories = [
+  { label: 'Select Category', value: '', disabled: true },
+  { label: 'Discussion', value: 'discussion' },
+  { label: 'Resource', value: 'resource' },
+  { label: 'Events', value: 'events' },
+  { label: 'Announcement', value: 'announcement' },
+];
 
 const CreatePost = () => {
   const navigation = useNavigation();
@@ -77,14 +87,6 @@ const CreatePost = () => {
       console.log(`[${new Date().toISOString()}] Video player initialized for:`, isShared ? initialData?.originalMediaUrl : media[0]?.uri);
     }
   );
-
-  const categories = [
-    { label: 'Select Category', value: '', disabled: true },
-    { label: 'Discussion', value: 'discussion' },
-    { label: 'Resource', value: 'resource' },
-    { label: 'Events', value: 'events' },
-    { label: 'Announcement', value: 'announcement' },
-  ];
 
   useEffect(() => {
     try {
@@ -433,181 +435,173 @@ const CreatePost = () => {
     }
   };
 
-const handleSubmit = async () => {
-  if (isSubmitting) {
-    console.warn(`[${new Date().toISOString()}] Submission already in progress`);
-    return;
-  }
-
-  try {
-    console.log(`[${new Date().toISOString()}] handleSubmit called with:`, { postType, title, content, category, mediaLength: media.length, link, isShared, shareCaption, postId });
-
-    if (!user?.id) {
-      throw new Error('No authenticated user found');
+  const handleSubmit = async () => {
+    if (isSubmitting) {
+      console.warn(`[${new Date().toISOString()}] Submission already in progress`);
+      return;
     }
 
-    if (!isShared) {
-      if (!title.trim()) {
-        throw new Error('Please provide a title');
-      }
-      if (!category) {
-        throw new Error('Please select a category');
-      }
-      if ((postType === 'image' || postType === 'video') && media.length === 0 && !initialData?.mediaUrls && !initialData?.mediaUrl) {
-        throw new Error(`Please select ${postType === 'image' ? 'image(s)' : 'a video'}`);
-      }
-      if (postType === 'link' && (!link.trim() || !/^https?:\/\//.test(link))) {
-        throw new Error('Please provide a valid URL starting with http:// or https://');
-      }
-    } else if (!shareCaption.trim()) {
-      throw new Error('Please provide a caption for the shared post');
-    }
+    try {
+      console.log(`[${new Date().toISOString()}] handleSubmit called with:`, { postType, title, content, category, mediaLength: media.length, link, isShared, shareCaption, postId });
 
-    setIsSubmitting(true);
-    setUploadProgress(0);
-
-    const userRef = ref(database, `users/${user.id}`);
-    const userSnapshot = await get(userRef);
-    if (!userSnapshot.exists()) {
-      console.warn(`[${new Date().toISOString()}] User data not found for user ID:`, user.id);
-      throw new Error('User data not found. Please ensure your account is properly set up.');
-    }
-    const userData = userSnapshot.val() || {};
-    const userName = userData.contactPerson || 
-      (userData.firstName || userData.lastName 
-        ? `${userData.firstName || ''} ${userData.lastName || ''}`.trim() 
-        : userData.displayName || 'Admin');
-    const organization = userData.organization || ' ';
-    console.log(`[${new Date().toISOString()}] User data fetched:`, { userName, organization });
-
-    let postData;
-    if (isShared) {
-      postData = {
-        userId: user.id,
-        userName,
-        organization,
-        timestamp: serverTimestamp(),
-        isShared: true,
-        shareCaption: shareCaption.trim(),
-        title: initialData?.originalTitle || '',
-        content: initialData?.originalContent || '',
-        category: initialData?.originalCategory || '',
-        mediaType: initialData?.originalMediaType || 'text',
-        mediaUrls: initialData?.originalMediaUrls && initialData.originalMediaUrls.length > 0 ? initialData.originalMediaUrls : [],
-        mediaUrl: initialData?.originalMediaUrl || '',
-        thumbnailUrl: initialData?.originalThumbnailUrl || '',
-        originalUserId: initialData?.originalUserId || '',
-        originalUserName: initialData?.originalUserName || 'Anonymous',
-        originalOrganization: initialData?.originalOrganization || '',
-        originalTimestamp: initialData?.originalTimestamp || 0,
-      };
-    } else {
-      postData = {
-        title: title.trim(),
-        content: content.trim(),
-        category,
-        userName,
-        organization,
-        timestamp: serverTimestamp(),
-        userId: user.id,
-        mediaType: postType,
-      };
-
-      if (postType === 'image' && media.length === 0) {
-        postData.mediaUrls = [];
-        console.log(`[${new Date().toISOString()}] Cleared mediaUrls for image post`);
-      }
-      if (postType === 'video' && media.length === 0) {
-        postData.mediaUrl = '';
-        postData.thumbnailUrl = '';
-        console.log(`[${new Date().toISOString()}] Cleared mediaUrl and thumbnailUrl for video post`);
+      if (!user?.id) {
+        throw new Error('No authenticated user found');
       }
 
-      console.log(`[${new Date().toISOString()}] Attempting to upload media for postType:`, postType);
-      if (postType === 'image' && media.length > 0) {
-        postData.mediaUrls = [];
-        for (const file of media) {
-          if (file.uri.startsWith('https://')) {
-            postData.mediaUrls.push(file.uri);
-            continue;
+      if (!isShared) {
+        if (!title.trim()) {
+          throw new Error('Please provide a title');
+        }
+        if (!category) {
+          throw new Error('Please select a category');
+        }
+        if ((postType === 'image' || postType === 'video') && media.length === 0 && !initialData?.mediaUrls && !initialData?.mediaUrl) {
+          throw new Error(`Please select ${postType === 'image' ? 'image(s)' : 'a video'}`);
+        }
+        if (postType === 'link' && (!link.trim() || !/^https?:\/\//.test(link))) {
+          throw new Error('Please provide a valid URL starting with http:// or https://');
+        }
+      } else if (!shareCaption.trim()) {
+        throw new Error('Please provide a caption for the shared post');
+      }
+
+      setIsSubmitting(true);
+      setUploadProgress(0);
+
+      const userRef = ref(database, `users/${user.id}`);
+      const userSnapshot = await get(userRef);
+      if (!userSnapshot.exists()) {
+        console.warn(`[${new Date().toISOString()}] User data not found for user ID:`, user.id);
+        throw new Error('User data not found. Please ensure your account is properly set up.');
+      }
+      const userData = userSnapshot.val() || {};
+      const userName = userData.contactPerson || 
+        (userData.firstName || userData.lastName 
+          ? `${userData.firstName || ''} ${userData.lastName || ''}`.trim() 
+          : userData.displayName || 'Admin');
+      const organization = userData.organization || ' ';
+      console.log(`[${new Date().toISOString()}] User data fetched:`, { userName, organization });
+
+      let postData;
+      if (isShared) {
+        postData = {
+          userId: user.id,
+          userName,
+          organization,
+          timestamp: serverTimestamp(),
+          isShared: true,
+          shareCaption: shareCaption.trim(),
+          title: initialData?.originalTitle || '',
+          content: initialData?.originalContent || '',
+          category: initialData?.originalCategory || '',
+          mediaType: initialData?.originalMediaType || 'text',
+          mediaUrls: initialData?.originalMediaUrls && initialData.originalMediaUrls.length > 0 ? initialData.originalMediaUrls : [],
+          mediaUrl: initialData?.originalMediaUrl || '',
+          thumbnailUrl: initialData?.originalThumbnailUrl || '',
+          originalUserId: initialData?.originalUserId || '',
+          originalUserName: initialData?.originalUserName || 'Anonymous',
+          originalOrganization: initialData?.originalOrganization || '',
+          originalTimestamp: initialData?.originalTimestamp || 0,
+        };
+      } else {
+        postData = {
+          title: title.trim(),
+          content: content.trim(),
+          category,
+          userName,
+          organization,
+          timestamp: serverTimestamp(),
+          userId: user.id,
+          mediaType: postType,
+        };
+
+        if (postType === 'image' && media.length === 0) {
+          postData.mediaUrls = [];
+          console.log(`[${new Date().toISOString()}] Cleared mediaUrls for image post`);
+        }
+        if (postType === 'video' && media.length === 0) {
+          postData.mediaUrl = '';
+          postData.thumbnailUrl = '';
+          console.log(`[${new Date().toISOString()}] Cleared mediaUrl and thumbnailUrl for video post`);
+        }
+
+        console.log(`[${new Date().toISOString()}] Attempting to upload media for postType:`, postType);
+        if (postType === 'image' && media.length > 0) {
+          postData.mediaUrls = [];
+          for (const file of media) {
+            if (file.uri.startsWith('https://')) {
+              postData.mediaUrls.push(file.uri);
+              continue;
+            }
+            const imagePath = `image_posts/${user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            console.log(`[${new Date().toISOString()}] Uploading image to:`, imagePath);
+            const downloadURL = await uploadMedia(file, imagePath);
+            postData.mediaUrls.push(downloadURL);
           }
-          const imagePath = `image_posts/${user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-          console.log(`[${new Date().toISOString()}] Uploading image to:`, imagePath);
-          const downloadURL = await uploadMedia(file, imagePath);
-          postData.mediaUrls.push(downloadURL);
+        }
+
+        if (postType === 'video' && media.length > 0) {
+          const file = media[0];
+          if (!file.uri.startsWith('https://')) {
+            const mediaPath = `video_posts/${user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            console.log(`[${new Date().toISOString()}] Uploading video to:`, mediaPath);
+            const downloadURL = await uploadMedia(file, mediaPath);
+            postData.mediaUrl = downloadURL;
+            if (file.thumbnailUri && !file.thumbnailUri.startsWith('https://')) {
+              const thumbnailPath = `video_posts/${user.id}/thumbnails/${Date.now()}_thumbnail.jpg`;
+              console.log(`[${new Date().toISOString()}] Uploading thumbnail to:`, thumbnailPath);
+              const thumbnailURL = await uploadMedia(
+                { uri: file.thumbnailUri, name: 'thumbnail.jpg', mimeType: 'image/jpeg' },
+                thumbnailPath
+              );
+              postData.thumbnailUrl = thumbnailURL;
+            } else if (file.thumbnailUri) {
+              postData.thumbnailUrl = file.thumbnailUri;
+            }
+          } else {
+            postData.mediaUrl = file.uri;
+            postData.thumbnailUrl = file.thumbnailUri || '';
+          }
+        }
+
+        if (postType === 'link') {
+          postData.mediaUrl = link.trim();
         }
       }
 
-      if (postType === 'video' && media.length > 0) {
-        const file = media[0];
-        if (!file.uri.startsWith('https://')) {
-          const mediaPath = `video_posts/${user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-          console.log(`[${new Date().toISOString()}] Uploading video to:`, mediaPath);
-          const downloadURL = await uploadMedia(file, mediaPath);
-          postData.mediaUrl = downloadURL;
-          if (file.thumbnailUri && !file.thumbnailUri.startsWith('https://')) {
-            const thumbnailPath = `video_posts/${user.id}/thumbnails/${Date.now()}_thumbnail.jpg`;
-            console.log(`[${new Date().toISOString()}] Uploading thumbnail to:`, thumbnailPath);
-            const thumbnailURL = await uploadMedia(
-              { uri: file.thumbnailUri, name: 'thumbnail.jpg', mimeType: 'image/jpeg' },
-              thumbnailPath
-            );
-            postData.thumbnailUrl = thumbnailURL;
-          } else if (file.thumbnailUri) {
-            postData.thumbnailUrl = file.thumbnailUri;
-          }
-        } else {
-          postData.mediaUrl = file.uri;
-          postData.thumbnailUrl = file.thumbnailUri || '';
+      if (postId) {
+        if (!postId) {
+          throw new Error('Post ID is undefined for update operation');
         }
+        const postRef = ref(database, `posts/${postId}`);
+        await update(postRef, postData);
+        await logActivity(user.id, 'Updated a post', postId, organization);
+        await logSubmission('posts', postData, postId, organization, user.id);
+        console.log(`[${new Date().toISOString()}] Post ${postId} updated in posts with data:`, postData);
+        ToastAndroid.show('Post updated successfully.', ToastAndroid.SHORT);
+      } else {
+        const postsRef = ref(database, 'posts');
+        const newPostRef = push(postsRef);
+        const submissionId = newPostRef.key;
+        if (!submissionId) {
+          throw new Error('Failed to generate submission ID for new post');
+        }
+        await set(newPostRef, postData);
+        await logActivity(user.id, `Created a new post in ${postData.category || 'shared post'}`, submissionId, organization);
+        await logSubmission('posts', postData, submissionId, organization, user.id);
+        console.log(`[${new Date().toISOString()}] Post ${submissionId} created in posts with data:`, postData);
+        ToastAndroid.show('Post created successfully.', ToastAndroid.SHORT);
       }
 
-      if (postType === 'link') {
-        postData.mediaUrl = link.trim();
-      }
+      navigation.goBack();
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error creating/updating post:`, error.message, error.code || 'N/A');
+      Alert.alert('Error', `Failed to create/update post: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+      setUploadProgress(0);
     }
-
-    // Log parameters before calling logSubmission
-    console.log(`[${new Date().toISOString()}] Preparing to log submission:`, {
-      collection: 'posts',
-      postData,
-      submissionId: postId || (postData.isShared ? null : push(ref(database, 'posts')).key),
-      organization,
-    });
-
-    if (postId) {
-      if (!postId) {
-        throw new Error('Post ID is undefined for update operation');
-      }
-      const postRef = ref(database, `posts/${postId}`);
-      await update(postRef, postData);
-      await logActivity(user.id, 'Updated a post', postId, organization);
-      await logSubmission('posts', postData, postId, organization);
-      console.log(`[${new Date().toISOString()}] Post ${postId} updated in posts with data:`, postData);
-      ToastAndroid.show('Post updated successfully.', ToastAndroid.SHORT);
-    } else {
-      const postsRef = ref(database, 'posts');
-      const newPostRef = push(postsRef);
-      const submissionId = newPostRef.key;
-      if (!submissionId) {
-        throw new Error('Failed to generate submission ID for new post');
-      }
-      await set(newPostRef, postData);
-      await logActivity(user.id, `Created a new post in ${postData.category || 'shared post'}`, submissionId, organization);
-      await logSubmission('posts', postData, submissionId, organization);
-      console.log(`[${new Date().toISOString()}] Post ${submissionId} created in posts with data:`, postData);
-      ToastAndroid.show('Post created successfully.', ToastAndroid.SHORT);
-    }
-
-    navigation.goBack();
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error creating/updating post:`, error.message, error.code || 'N/A');
-    Alert.alert('Error', `Failed to create/update post: ${error.message}`);
-  } finally {
-    setIsSubmitting(false);
-    setUploadProgress(0);
-  }
-};
+  };
 
   const handlePostTypeChange = (newPostType) => {
     if (isShared) {
@@ -666,10 +660,10 @@ const handleSubmit = async () => {
             {isShared ? (
               <>
                 <Text style={styles.sharedInfo}>
-                  Sharing post from {initialData?.originalUserName || 'Anonymous'} ({initialData?.originalOrganization || 'No organization'})
+                  Sharing post from {initialData?.originalUserName || ''} ({initialData?.originalOrganization || ''})
                 </Text>
                 <TextInput
-                  style={[styles.textArea, { height: Math.max(40, inputHeight), marginLeft: 10, color: Theme.colors.black }]}
+                  style={[GlobalStyles.textArea, { height: Math.max(40, inputHeight), marginLeft: 10, color: Theme.colors.black, fontFamily:'Poppins_Regular' }]}
                   value={shareCaption}
                   onChangeText={setShareCaption}
                   placeholder="Add a caption for your shared post"
@@ -722,25 +716,26 @@ const handleSubmit = async () => {
               </>
             ) : (
               <>
-                <View style={styles.categoryPicker}>
-                  <Picker
-                    selectedValue={category}
-                    onValueChange={(itemValue) => setCategory(itemValue)}
-                    style={styles.picker}
-                  >
-                    {categories.map((cat) => (
-                      <Picker.Item
-                        key={cat.value}
-                        label={cat.label}
-                        value={cat.value}
-                        style={styles.pickerItems}
-                        enabled={!cat.disabled}
-                      />
-                    ))}
-                  </Picker>
+                <View style={styles.container}>
+                <Dropdown
+                  style={styles.dropdown}
+                  data={categories}
+                  labelField="label"
+                  valueField="value"
+                  placeholder="Select a category"
+                  value={category}
+                  onChange={(item) => setCategory(item.value)}
+                  placeholderStyle={styles.placeholderStyle}
+                  selectedTextStyle={styles.selectedTextStyle}
+                  itemTextStyle={styles.itemTextStyle}
+                  itemContainerStyle={styles.itemContainerStyle}
+                  renderRightIcon={() => (
+                    <Ionicons name="chevron-down" size={18} color={Theme.colors.primary} />
+                  )}
+                />
                 </View>
                 <TextInput
-                  style={[styles.input, { fontSize: 20, fontFamily: 'Poppins_SemiBold', color: Theme.colors.black }]}
+                  style={[styles.input, { fontSize: 20, fontFamily: 'Poppins_Bold', color: Theme.colors.black }]}
                   value={title}
                   onChangeText={setTitle}
                   placeholder="Title"

@@ -75,7 +75,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'Poppins_Regular',
     borderWidth: 1,
     elevation: 1,
-    shadowColor: Theme.colors.black, // iOS shadow
+    shadowColor: Theme.colors.black, 
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.3,
   },
