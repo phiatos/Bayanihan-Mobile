@@ -1,2 +1,0 @@
-export const SET_STEPS = 'SET_STEPS';
-export const UPDATE_CURRENT_STEP = 'UPDATE_CURRENT_STEP';

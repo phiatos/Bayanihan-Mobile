@@ -112,11 +112,11 @@ export default StyleSheet.create({
       right: 0,
       zIndex: 900,
     },
-    searchWrapper: {
+  searchWrapper: {
       paddingHorizontal: 20,
       marginTop: 10,
     },
-    searchContainer: {
+  searchContainer: {
       flexDirection: 'row',
       alignItems: 'center',
       borderColor: Theme.colors.primary,
@@ -128,11 +128,11 @@ export default StyleSheet.create({
       shadowOpacity: 0.1,
       shadowRadius: 4,
     },
-    searchIcon: {
+  searchIcon: {
       paddingVertical: 10,
       marginLeft: 2, 
     },
-    suggestionsContainer: {
+  suggestionsContainer: {
       position: 'absolute',
       left: 0,
       right: 0,
@@ -149,17 +149,17 @@ export default StyleSheet.create({
       shadowRadius: 4,
       overflow: 'hidden',
     },
-    suggestionItem: {
+  suggestionItem: {
       padding: 10,
       borderBottomWidth: 1,
       borderBottomColor: Theme.colors.lightBlack,
     },
-    suggestionText: {
+  suggestionText: {
       fontSize: 14,
       color: Theme.colors.black,
       fontFamily: 'Poppins_Regular',
     },
-    returnButton: {
+  returnButton: {
       position: 'absolute',
       bottom: 0,
       right: 20,
@@ -175,7 +175,7 @@ export default StyleSheet.create({
       shadowOpacity: 0.1,
       shadowRadius: 4,
     },
-      mapTypeButtonsContainer: {
+  mapTypeButtonsContainer: {
       position: 'absolute',
       left: 10,
       top: 60,
@@ -183,15 +183,15 @@ export default StyleSheet.create({
       gap: 8,
       padding: 10,
     },
-    mapTypeButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: '100%',
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+  mapTypeButton: {
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: '100%',
+      paddingHorizontal: 10,
+      paddingVertical: 9,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   mapTypeButtonActive: {
     backgroundColor: Theme.colors.lightBg,

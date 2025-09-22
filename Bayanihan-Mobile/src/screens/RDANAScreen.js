@@ -1709,6 +1709,17 @@ const RDANAScreen = ({ navigation }) => {
                   )}
                 </View>
               ))}
+              {renderLabel('Others', false)}
+                      <TextInput
+                        style={[GlobalStyles.input, errors.othersStatus && GlobalStyles.inputError]}
+                        placeholder="Input Here (optional)"
+                        placeholderTextColor={Theme.colors.placeholderColor}
+                        keyboardType="text"
+                        onChangeText={(val) => handleChange('othersStatus', val)}
+                        value={reportData.othersStatus}
+                        editable={canSubmit}
+                      />
+              {errors.othersStatus && <Text style={GlobalStyles.errorText}>{errors.othersStatus}</Text>}
             </View>
           </View>
 

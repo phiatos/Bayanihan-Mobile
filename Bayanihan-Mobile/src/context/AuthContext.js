@@ -77,7 +77,6 @@ export const AuthProvider = ({ children }) => {
           }
         }
 
-        // Fallback to AsyncStorage
         const cachedUser = await AsyncStorage.getItem('user_session');
         if (cachedUser) {
           try {

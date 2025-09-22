@@ -101,6 +101,7 @@ const SubmissionDetailsScreen = () => {
     'callfordonation.timestamp': 'Submission Time',
     'callfordonation.organization': 'Organization Name',
     'callfordonation.image': 'Image',
+
     'posts.title': 'Post Title',
     'posts.content': 'Content',
     'posts.category': 'Category',
@@ -111,6 +112,7 @@ const SubmissionDetailsScreen = () => {
     'posts.thumbnailUrl': 'Thumbnail URL',
     'posts.userId': 'User ID',
     'posts.timestamp': 'Submission Time',
+
     'rdana.rdanaId': 'RDANA ID',
     'rdana.rdanaGroup': 'Organization Name',
     'rdana.siteLocation': 'Site Location',
@@ -137,6 +139,7 @@ const SubmissionDetailsScreen = () => {
     'rdana.modality.Locations_and_Areas_Affected': 'Areas Affected',
     'rdana.modality.Type_of_Disaster': 'Disaster Type',
     'rdana.modality.Date_and_Time_of_Occurrence': 'Date and Time of Occurrence',
+    'rdana.modality.Date_and_Time_of_Occurrence': 'Date & Time of Occurence',
     'rdana.summary': 'Summary',
     'rdana.affectedCommunities': 'Affected Communities',
     'rdana.structureStatus': 'Structure Status',
@@ -146,17 +149,22 @@ const SubmissionDetailsScreen = () => {
     'rdana.userUid': 'User ID',
     'rdana.status': 'Status',
     'rdana.timestamp': 'Submission Time',
+
     'requestRelief/requests.contactPerson': 'Contact Person',
     'requestRelief/requests.contactNumber': 'Contact Number',
     'requestRelief/requests.email': 'Email',
-    'requestRelief/requests.address': 'Address',
+    'requestRelief/requests.address.formattedAddress': 'Address',
+    'requestRelief/requests.address.latitude': 'Latitude',
+    'requestRelief/requests.address.longitude': 'Longitude',
     'requestRelief/requests.city': 'City',
     'requestRelief/requests.category': 'Category',
     'requestRelief/requests.volunteerOrganization': 'Organization Name',
     'requestRelief/requests.userUid': 'User ID',
     'requestRelief/requests.items': 'Items',
+    'requestRelief/requests.status': 'Status',
     'requestRelief/requests.timestamp': 'Submission Time',
     'requestRelief/requests.organizationName': 'Organization Name',
+
     'reports.reportID': 'Report ID',
     'reports.VolunteerGroupName': 'Volunteer Group Name',
     'reports.AreaOfOperation': 'Area of Operation',
@@ -179,8 +187,10 @@ const SubmissionDetailsScreen = () => {
     'reports.status': 'Status',
     'reports.userUid': 'User ID',
     'reports.timestamp': 'Submission Time',
+    
     'profile.action': 'Action',
     'profile.newPasswordLength': 'Password Length',
+
     'data.organizationName': 'Organization Name',
     'data.volunteerOrganization': 'Organization Name',
     'data.role': 'Role',

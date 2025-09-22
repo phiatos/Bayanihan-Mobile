@@ -5,7 +5,7 @@ import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
 import { getFirestore } from 'firebase/firestore';
 
-const firebaseConfig = {
+  const firebaseConfig = {
     apiKey: "AIzaSyBkmXOJvnlBtzkjNyR6wyd9BgGM0BhN0L8",
     authDomain: "bayanihan-new-472410.firebaseapp.com",
     projectId: "bayanihan-new-472410",
@@ -15,6 +15,8 @@ const firebaseConfig = {
     measurementId: "G-CEVPTQZM9C",
     databaseURL: "https://bayanihan-new-472410-default-rtdb.asia-southeast1.firebasedatabase.app/"
   };
+
+  console.log("Firebase config in use:", firebaseConfig); 
 
 let app;
 if (!getApps().length) {

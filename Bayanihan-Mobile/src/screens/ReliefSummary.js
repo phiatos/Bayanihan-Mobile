@@ -17,7 +17,7 @@ const ReliefSummary = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
-  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = user?.organization || '[Unknown Org]' } = route.params || {};
+  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = user?.organization || 'Admin' } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [addedItems, setAddedItems] = useState(initialItems);
   const [modalVisible, setModalVisible] = useState(false);
@@ -25,6 +25,8 @@ const ReliefSummary = () => {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  console.log(`[${new Date().toISOString()}]  ${initialReportData}`);
 
   useEffect(() => {
     if (!user) {
@@ -38,9 +40,9 @@ const ReliefSummary = () => {
     }
   }, [user, navigation]);
 
-  const notifyAdmin = async (message, calamityType, location, details, requestId, senderName, organization) => {
+  const notifyAdmin = async (message, calamityType, location, details, reliefrequestId, senderName, organization) => {
     try {
-      const identifier = `request_${requestId}_${Date.now()}`;
+      const identifier = `request_${reliefrequestId}_${Date.now()}`;
       const key = push(ref(database, 'notifications')).key;
       await set(ref(database, `notifications/${key}`), {
         message,
@@ -48,7 +50,7 @@ const ReliefSummary = () => {
         location: location || null,
         details: details || null,
         eventId: null,
-        requestId,
+        reliefrequestId,
         senderName,
         organization,
         identifier,
@@ -134,91 +136,17 @@ const ReliefSummary = () => {
       };
 
       const requestRef = push(ref(database, 'requestRelief/requests'));
-      const requestId = requestRef.key;
-      const userRequestRef = ref(database, `users/${user.id}/requests/${requestId}`);
+      const reliefrequestId = requestRef.key;
+      const userRequestRef = ref(database, `users/${user.id}/requests/${reliefrequestId}`);
       const message = `New relief request submitted by ${contactPerson} from ${organizationName} for ${category}.`;
-
-      const sampleRequests = [
-        {
-          contactPerson: `${contactPerson} (Sample 1)`,
-          contactNumber: '09123456789',
-          email: `sample1@${email.split('@')[1]}`,
-          category: 'Relief Packs',
-          volunteerOrganization: organizationName,
-          userUid: user.id,
-          address: {
-            formattedAddress: '123 Sample St, Quezon City, Metro Manila',
-            latitude: '14.6760',
-            longitude: '121.0437',
-          },
-          items: [
-            { name: 'Bandages', quantity: 100, notes: 'Sterile' },
-            { name: 'Antiseptics', quantity: 50, notes: 'Alcohol-based' },
-          ],
-          timestamp: serverTimestamp(),
-          status: 'Pending',
-        },
-        {
-          contactPerson: `${contactPerson} (Sample 2)`,
-          contactNumber: '09876543210',
-          email: `sample2@${email.split('@')[1]}`,
-          category: 'Hot Meals',
-          volunteerOrganization: organizationName,
-          userUid: user.id,
-          address: {
-            formattedAddress: '456 Relief Ave, Manila, Metro Manila',
-            latitude: '14.5995',
-            longitude: '120.9842',
-          },
-          items: [
-            { name: 'Canned Goods', quantity: 200, notes: 'Assorted' },
-            { name: 'Rice', quantity: 50, notes: '50kg sacks' },
-          ],
-          timestamp: serverTimestamp(),
-          status: 'Approved',
-        },
-        {
-          contactPerson: `${contactPerson} (Sample 3)`,
-          contactNumber: '09712345678',
-          email: `sample3@${email.split('@')[1]}`,
-          category: 'Hygiene Kits',
-          volunteerOrganization: organizationName,
-          userUid: user.id,
-          address: {
-            formattedAddress: '789 Aid Rd, Pasig City, Metro Manila',
-            latitude: '14.5764',
-            longitude: '121.0851',
-          },
-          items: [
-            { name: 'Blankets', quantity: 75, notes: 'Warm' },
-            { name: 'Jackets', quantity: 30, notes: 'Adult sizes' },
-          ],
-          timestamp: serverTimestamp(),
-          status: 'Delivered',
-        },
-      ];
 
       await Promise.all([
         set(requestRef, newRequest),
         set(userRequestRef, newRequest),
-        logActivity('Submitted a Relief Request', requestId, user.id, organizationName),
-        logSubmission('requestRelief/requests', newRequest, requestId, organizationName, user.id),
-        notifyAdmin(message, null, null, null, requestId, contactPerson, organizationName),
+        logActivity('Submitted a Relief Request', reliefrequestId, user.id, organizationName),
+        logSubmission('requestRelief/requests', newRequest, reliefrequestId, organizationName, user.id),
+        notifyAdmin(message, null, null, null, reliefrequestId, contactPerson, organizationName),
       ]);
-
-      const samplePromises = sampleRequests.map(async (sampleRequest) => {
-        const sampleRequestRef = push(ref(database, 'requestRelief/requests'));
-        const sampleRequestId = sampleRequestRef.key;
-        const sampleUserRequestRef = ref(database, `users/${user.id}/requests/${sampleRequestId}`);
-        const sampleMessage = `Sample relief request submitted by ${sampleRequest.contactPerson} from ${organizationName} for ${sampleRequest.category}.`;
-        await Promise.all([
-          set(sampleRequestRef, sampleRequest),
-          set(sampleUserRequestRef, sampleRequest),
-          notifyAdmin(sampleMessage, null, null, null, sampleRequestId, sampleRequest.contactPerson, organizationName),
-        ]);
-      });
-
-      await Promise.all(samplePromises);
 
       setReportData({});
       setAddedItems([]);
@@ -399,7 +327,7 @@ const ReliefSummary = () => {
             ) : (
               <>
                 <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={GlobalStyles.modalIcon} />
-                <Text style={GlobalStyles.modalMessage}>Your relief request and sample data have been successfully submitted!</Text>
+                <Text style={GlobalStyles.modalMessage}>Your relief request has been successfully submitted!</Text>
               </>
             )}
           </View>

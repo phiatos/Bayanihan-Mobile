@@ -1,4 +1,4 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
 import React, { useRef, useState, useEffect } from 'react';
 import {
   Dimensions,
@@ -18,6 +18,8 @@ import {
 import { WebView } from 'react-native-webview';
 import { Dropdown } from 'react-native-element-dropdown';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/ReliefRequestStyles';
 import Theme from '../constants/theme';
@@ -26,6 +28,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import OperationCustomModal from '../components/OperationCustomModal';
 import useOperationCheck from '../components/useOperationCheck';
 import { useAuth } from '../context/AuthContext';
+
+const { height } = Dimensions.get('window');
 
 const CustomToast = ({ visible, title, message, onDismiss }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -66,115 +70,174 @@ const CustomToast = ({ visible, title, message, onDismiss }) => {
   );
 };
 
-const leafletHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    body { margin: 0; }
-    #map { height: calc(100vh - 60px); width: 100%; }
-    #searchContainer { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 1000; display: flex; align-items: center; background: white; padding: 5px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-    #searchInput { flex: 1; padding: 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; margin-right: 5px; }
-    #suggestions { position: absolute; top: 50px; left: 10px; right: 10px; background: white; border: 1px solid #ccc; max-height: 200px; overflow-y: auto; z-index: 1000; }
-    .suggestion-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
-    .suggestion-item:hover { background: #f0f0f0; }
-    #confirmBtn { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 10px 20px; background: #14aebb; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 1000; }
-  </style>
-</head>
-<body>
-  <div id="searchContainer">
-    <input id="searchInput" type="text" placeholder="Search for a location" />
-  </div>
-  <div id="suggestions" style="display: none;"></div>
-  <div id="map"></div>
-  <button id="confirmBtn">Confirm Location</button>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    let map = L.map('map').setView([14.5995, 120.9842], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 18,
-    }).addTo(map);
-
-    let marker = L.marker([14.5995, 120.9842], { draggable: true }).addTo(map);
-    let currentLocation = { lat: 14.5995, lon: 120.9842, address: '' };
-
-    marker.on('dragend', async function (e) {
-      currentLocation.lat = marker.getLatLng().lat;
-      currentLocation.lon = marker.getLatLng().lng;
-      try {
-        const response = await fetch(
-          'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + currentLocation.lat + '&lon=' + currentLocation.lon
-        );
-        const data = await response.json();
-        currentLocation.address = data.display_name || '';
-        document.getElementById('searchInput').value = currentLocation.address;
-      } catch (error) {
-        console.error('Reverse geocoding error:', error);
-      }
-    });
-
-    map.on('click', async function (e) {
-      marker.setLatLng(e.latlng);
-      currentLocation.lat = e.latlng.lat;
-      currentLocation.lon = e.latlng.lng;
-      try {
-        const response = await fetch(
-          'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + e.latlng.lat + '&lon=' + e.latlng.lng
-        );
-        const data = await response.json();
-        currentLocation.address = data.display_name || '';
-        document.getElementById('searchInput').value = currentLocation.address;
-      } catch (error) {
-        console.error('Reverse geocoding error:', error);
-      }
-    });
-
-    document.getElementById('searchInput').addEventListener('input', async function (e) {
-      const query = e.target.value;
-      if (query.length < 3) {
-        document.getElementById('suggestions').style.display = 'none';
-        return;
-      }
-      try {
-        const response = await fetch(
-          'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query) + '&limit=5'
-        );
-        const results = await response.json();
-        const suggestionsDiv = document.getElementById('suggestions');
-        suggestionsDiv.innerHTML = '';
-        results.forEach(result => {
-          const div = document.createElement('div');
-          div.className = 'suggestion-item';
-          div.textContent = result.display_name;
-          div.onclick = function () {
-            map.setView([result.lat, result.lon], 13);
-            marker.setLatLng([result.lat, result.lon]);
-            currentLocation = { lat: result.lat, lon: result.lon, address: result.display_name };
-            document.getElementById('searchInput').value = result.display_name;
-            suggestionsDiv.style.display = 'none';
-          };
-          suggestionsDiv.appendChild(div);
-        });
-        suggestionsDiv.style.display = results.length > 0 ? 'block' : 'none';
-      } catch (error) {
-        console.error('Search error:', error);
-      }
-    });
-
-    document.getElementById('confirmBtn').addEventListener('click', function () {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        latitude: currentLocation.lat,
-        longitude: currentLocation.lon,
-        formattedAddress: currentLocation.address
-      }));
-    });
-  </script>
-</body>
-</html>
+const mapStyles = `
+  body { margin: 0; }
+  #map { height: 100vh; width: 100%; }
+  .overlay-container { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 1000; }
+  .search-wrapper { position: relative; }
+  .search-container { 
+    display: flex; 
+    align-items: center; 
+    background: #FFF9F0; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+    transition: all 0.3s ease; 
+    overflow: hidden;
+    border: solid 1px #14AEBB;
+  }
+  .search-container.closed { 
+    width: 45px; 
+    height: 45px; 
+    border-radius: 100%; 
+    padding-left: 1px; 
+  }
+  .search-container.open { 
+    width: 100%; 
+    height: 45px; 
+    border-radius: 30px; 
+    padding-left: 0; 
+  }
+  .search-icon {
+    display: block;       
+    text-align: center;    
+    padding: 15px 12px;
+    font-size: 25px;
+    cursor: pointer;
+    margin-top: 5px;
+    color: #14aebb;
+  }
+  .search-input-container { 
+    flex: 1; 
+    transition: opacity 0.3s ease, transform 0.3s ease; 
+    background: transparent;
+  }
+  .search-input-container.hidden { 
+    opacity: 0; 
+    transform: translateX(20px); 
+  }
+  .search-input-container.visible { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
+  .search-input { 
+    flex: 1; 
+    padding: 8px; 
+    font-size: 14px; 
+    border: none; 
+    outline: none; 
+    background: transparent;
+    font-family: 'Poppins', sans-serif; 
+    color: #000; 
+  }
+  .search-input::placeholder { 
+    color: #777; 
+  }
+  .suggestions-container { 
+    position: absolute; 
+    top: 50px; 
+    left: 0; 
+    right: 0; 
+    background: white; 
+    border: 1px solid #FFF9F0; 
+    max-height: 200px; 
+    overflow-y: auto; 
+    z-index: 1000; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+  }
+  .suggestion-item { 
+    padding: 10px; 
+    border-bottom: 1px solid #FFF9F0; 
+    cursor: pointer; 
+  }
+  .suggestion-item:hover { 
+    background: #FFF9F0; 
+  }
+  .return-button { 
+    position: absolute; 
+    top: 0; 
+    right: 0; 
+    background: #14aebb; 
+    padding: 12px;
+    border: none;
+    border-radius: 25px; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+    z-index: 1000; 
+    color: white;
+    font-size: 23px;
+    display: flex;              
+    align-items: center;  
+    justify-content: center;  
+    cursor: pointer;       
+  }
+  .map-type-buttons-container { 
+    position: absolute; 
+    top: 70px; 
+    left: 10px; 
+    z-index: 999; 
+    display: flex;           
+    flex-direction: column;    
+    gap: 8px;  
+  }
+  .map-type-button { 
+    display: flex;              
+    align-items: center;       
+    justify-content: center;   
+    width: 50px;            
+    height: 50px;              
+    background: rgba(0, 0, 0, 0.5); 
+    border-radius: 50%; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+    border: rgba(255, 255, 255, 0.2) solid 1px;
+  }
+  .map-type-button.active { 
+    background: #FFF9F0;
+    border: 1px solid #14aebb;
+  }
+  .map-type-icon { 
+    font-size: 22px; 
+    line-height: 1;          
+    display: flex;            
+    align-items: center;       
+    justify-content: center;   
+    color: #FFF9F0; 
+  }
+  .map-type-icon.active { 
+    color: #14aebb; 
+  }
+  .modal-button-container { 
+    position: absolute; 
+    bottom: 10px; 
+    left: 10px; 
+    right: 10px; 
+    display: flex; 
+    flex-direction: row;
+    justify-content: center; 
+    align-items: center;
+    z-index: 1000; 
+    padding: 10px; 
+  }
+  .modal-button, .modal-button-cancel { 
+    padding: 10px 15px; 
+    border-radius: 5px; 
+    text-align: center; 
+    font-family: 'Poppins', sans-serif; 
+    font-size: 14px; 
+  }
+  .modal-button { 
+    background: #14aebb; 
+    color: white; 
+    margin-right: 5px; 
+    border-radius: 15px;
+    border: solid transparent 1px;
+  }
+  .modal-button-cancel { 
+    background: #FFF9F0; 
+    color: #14aebb; 
+    border: 1px solid #14aebb; 
+    margin-left: 5px; 
+    border-radius: 15px;
+    font-family: 'Poppins', Helvetica;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);  
+  }
 `;
 
 const ReliefRequestScreen = () => {
@@ -184,8 +247,11 @@ const ReliefRequestScreen = () => {
   const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const [errors, setErrors] = useState({});
   const [reportData, setReportData] = useState({
-    contactPerson: route.params?.reportData?.contactPerson || user?.contactPerson || '',
-    contactNumber: route.params?.reportData?.contactNumber || user?.mobile || '',
+    contactPerson: 
+      route.params?.reportData?.organizationName ||
+      user?.organization ||
+      (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : '') ||
+      '',    contactNumber: route.params?.reportData?.contactNumber || user?.mobile || '',
     email: route.params?.reportData?.email || user?.email || '',
     address: {
       formattedAddress: route.params?.reportData?.address?.formattedAddress || '',
@@ -203,9 +269,391 @@ const ReliefRequestScreen = () => {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastConfig, setToastConfig] = useState({ title: '', message: '' });
   const [mapModalVisible, setMapModalVisible] = useState(false);
+  const [permissionStatus, setPermissionStatus] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const itemInputRef = useRef(null);
-  const flatListRef = useRef(null);
+  const webViewRef = useRef(null);
   const insets = useSafeAreaInsets();
+
+  const leafletHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      <link href='https://cdn.boxicons.com/fonts/basic/boxicons.min.css' rel='stylesheet'>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+      <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+      <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+      <style>
+        ${mapStyles}
+      </style>
+    </head>
+    <body>
+      <div class="overlay-container">
+        <div class="search-wrapper">
+          <div id="searchContainer" class="search-container closed">
+            <span id="searchIcon" class="search-icon"><i class='bxr bx-search'></i></span>
+            <div id="searchInputContainer" class="search-input-container hidden">
+              <input id="searchInput" class="search-input" type="text" placeholder="Search for a location" />
+            </div>
+          </div>
+          <div id="suggestions" class="suggestions-container"></div>
+          <button id="returnButton" class="return-button"><ion-icon name="locate-outline"></ion-icon></button>
+        </div>
+      </div>
+      <div class="map-type-buttons-container">
+        <button id="roadmapBtn" class="map-type-button active"><span class="map-type-icon active"><ion-icon name="map-outline"></ion-icon></span></button>
+        <button id="hybridBtn" class="map-type-button"><span class="map-type-icon"><i class='bxr bx-layers-minus-alt' style="font-size:30px;"></i></span></button>
+      </div>
+      <div id="map"></div>
+      <div class="modal-button-container">
+        <button id="confirmBtn" class="modal-button">Confirm Location</button>
+        <button id="cancelBtn" class="modal-button-cancel">Cancel</button>
+      </div>
+      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      <script>
+        let map = null;
+        let currentLayer = null;
+        let hybridLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: '&copy; Esri & OpenStreetMap',
+          maxZoom: 18,
+        });
+        let marker = null;
+        let currentLocation = { lat: ${reportData.address.latitude || 14.5995}, lon: ${reportData.address.longitude || 120.9842}, address: '${reportData.address.formattedAddress || ''}' };
+        let mapType = 'roadmap';
+        let searchBarVisible = false;
+
+        function initializeMap() {
+          try {
+            map = L.map('map', { zoomControl: false }).setView([currentLocation.lat, currentLocation.lon], 16);
+            currentLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+              maxZoom: 18,
+            }).addTo(map);
+            marker = L.marker([currentLocation.lat, currentLocation.lon], { draggable: true }).addTo(map);
+            if (currentLocation.address) {
+              document.getElementById('searchInput').value = currentLocation.address;
+            }
+
+            marker.on('dragend', async function (e) {
+              currentLocation.lat = marker.getLatLng().lat;
+              currentLocation.lon = marker.getLatLng().lng;
+              try {
+                const response = await fetch(
+                  'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + currentLocation.lat + '&lon=' + currentLocation.lon, {
+                  headers: { 'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)' }
+                });
+                const data = await response.json();
+                currentLocation.address = data.display_name || '';
+                document.getElementById('searchInput').value = currentLocation.address;
+              } catch (error) {
+                console.error('Reverse geocoding error:', error);
+              }
+            });
+
+            map.on('click', async function (e) {
+              marker.setLatLng(e.latlng);
+              currentLocation.lat = e.latlng.lat;
+              currentLocation.lon = e.latlng.lng;
+              try {
+                const response = await fetch(
+                  'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + e.latlng.lat + '&lon=' + e.latlng.lng, {
+                  headers: { 'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)' }
+                });
+                const data = await response.json();
+                currentLocation.address = data.display_name || '';
+                document.getElementById('searchInput').value = currentLocation.address;
+              } catch (error) {
+                console.error('Reverse geocoding error:', error);
+              }
+            });
+
+            document.getElementById('searchIcon').addEventListener('click', function () {
+              if (searchBarVisible) {
+                searchBarVisible = false;
+                document.getElementById('searchContainer').classList.remove('open');
+                document.getElementById('searchContainer').classList.add('closed');
+                document.getElementById('searchInputContainer').classList.remove('visible');
+                document.getElementById('searchInputContainer').classList.add('hidden');
+                document.getElementById('suggestions').style.display = 'none';
+                document.getElementById('searchInput').value = '';
+              } else {
+                searchBarVisible = true;
+                document.getElementById('searchContainer').classList.remove('closed');
+                document.getElementById('searchContainer').classList.add('open');
+                document.getElementById('searchInputContainer').classList.remove('hidden');
+                document.getElementById('searchInputContainer').classList.add('visible');
+                document.getElementById('searchInput').focus();
+              }
+            });
+
+            document.getElementById('searchInput').addEventListener('input', async function (e) {
+              const query = e.target.value;
+              if (query.length < 3) {
+                document.getElementById('suggestions').style.display = 'none';
+                return;
+              }
+              try {
+                const response = await fetch(
+                  'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query) + '&countrycodes=PH&limit=5', {
+                  headers: { 'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)' }
+                });
+                const results = await response.json();
+                const suggestionsDiv = document.getElementById('suggestions');
+                suggestionsDiv.innerHTML = '';
+                results.forEach(result => {
+                  const div = document.createElement('div');
+                  div.className = 'suggestion-item';
+                  div.textContent = result.display_name;
+                  div.dataset.placeId = result.place_id;
+                  div.onclick = function () {
+                    map.setView([result.lat, result.lon], 16);
+                    marker.setLatLng([result.lat, result.lon]);
+                    currentLocation = { lat: result.lat, lon: result.lon, address: result.display_name };
+                    document.getElementById('searchInput').value = result.display_name;
+                    suggestionsDiv.style.display = 'none';
+                  };
+                  suggestionsDiv.appendChild(div);
+                });
+                suggestionsDiv.style.display = results.length > 0 ? 'block' : 'none';
+              } catch (error) {
+                console.error('Search error:', error);
+              }
+            });
+
+            document.getElementById('returnButton').addEventListener('click', function () {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'requestUserLocation' }));
+            });
+
+            document.getElementById('roadmapBtn').addEventListener('click', function () {
+              if (mapType !== 'roadmap') {
+                map.removeLayer(hybridLayer);
+                currentLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                  maxZoom: 18,
+                }).addTo(map);
+                mapType = 'roadmap';
+                document.getElementById('roadmapBtn').classList.add('active');
+                document.getElementById('hybridBtn').classList.remove('active');
+                document.getElementById('roadmapBtn').querySelector('.map-type-icon').classList.add('active');
+                document.getElementById('hybridBtn').querySelector('.map-type-icon').classList.remove('active');
+              }
+            });
+
+            document.getElementById('hybridBtn').addEventListener('click', function () {
+              if (mapType !== 'hybrid') {
+                map.removeLayer(currentLayer);
+                currentLayer = hybridLayer.addTo(map);
+                mapType = 'hybrid';
+                document.getElementById('hybridBtn').classList.add('active');
+                document.getElementById('roadmapBtn').classList.remove('active');
+                document.getElementById('hybridBtn').querySelector('.map-type-icon').classList.add('active');
+                document.getElementById('roadmapBtn').querySelector('.map-type-icon').classList.remove('active');
+              }
+            });
+
+            document.getElementById('confirmBtn').addEventListener('click', function () {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                action: 'confirm',
+                latitude: currentLocation.lat,
+                longitude: currentLocation.lon,
+                formattedAddress: currentLocation.address
+              }));
+            });
+
+            document.getElementById('cancelBtn').addEventListener('click', function () {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'cancel' }));
+            });
+          } catch (error) {
+            console.error('Map initialization error:', error);
+          }
+        }
+
+        window.addEventListener('message', function(event) {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.action === 'setInitialLocation') {
+              currentLocation.lat = parseFloat(data.latitude) || 14.5995;
+              currentLocation.lon = parseFloat(data.longitude) || 120.9842;
+              currentLocation.address = data.formattedAddress || '';
+              if (map) {
+                map.setView([currentLocation.lat, currentLocation.lon], 16);
+                if (marker) {
+                  marker.setLatLng([currentLocation.lat, currentLocation.lon]);
+                } else {
+                  marker = L.marker([currentLocation.lat, currentLocation.lon], { draggable: true }).addTo(map);
+                }
+                document.getElementById('searchInput').value = currentLocation.address;
+              }
+            } else if (data.action === 'updateLocation') {
+              currentLocation.lat = parseFloat(data.latitude);
+              currentLocation.lon = parseFloat(data.longitude);
+              currentLocation.address = data.formattedAddress || '';
+              if (map) {
+                map.setView([currentLocation.lat, currentLocation.lon], 16);
+                if (marker) {
+                  marker.setLatLng([currentLocation.lat, currentLocation.lon]);
+                } else {
+                  marker = L.marker([currentLocation.lat, currentLocation.lon], { draggable: true }).addTo(map);
+                }
+                document.getElementById('searchInput').value = currentLocation.address;
+                marker.bindPopup(currentLocation.address || \`Lat: \${currentLocation.lat}, Lng: \${currentLocation.lon}\`).openPopup();
+              }
+            } else if (data.action === 'locationError') {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                action: 'showError',
+                message: data.message
+              }));
+            }
+          } catch (error) {
+            console.error('Message parsing error:', error);
+          }
+        });
+
+        document.addEventListener('DOMContentLoaded', initializeMap);
+      </script>
+    </body>
+    </html>
+  `;
+
+  useEffect(() => {
+    const checkPermissionStatus = async () => {
+      try {
+        const hasShownModal = await AsyncStorage.getItem('hasShownLocationModal');
+        const { status } = await Location.getForegroundPermissionsAsync();
+        setPermissionStatus(status);
+        if (status === 'granted') {
+          let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+          if (loc.coords.accuracy > 50) {
+            setModalConfig({
+              title: 'Low Location Accuracy',
+              message: 'Your location accuracy is low. The pin may not be precise.',
+              onConfirm: () => setModalVisible(false),
+              confirmText: 'OK',
+              showCancel: false,
+            });
+            setModalVisible(true);
+          }
+          const { latitude, longitude } = loc.coords;
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`, {
+              headers: { 'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)' }
+            });
+            const data = await response.json();
+            const formattedAddress = data.display_name || '';
+            setUserLocation({ latitude, longitude, formattedAddress });
+            if (!route.params?.reportData?.address?.formattedAddress) {
+              setReportData((prev) => ({
+                ...prev,
+                address: {
+                  formattedAddress,
+                  latitude,
+                  longitude,
+                },
+              }));
+            }
+          } catch (error) {
+            console.error('Reverse geocoding error:', error);
+            setModalConfig({
+              title: 'Location Error',
+              message: 'Failed to retrieve address. Please pin the location manually.',
+              onConfirm: () => setModalVisible(false),
+              confirmText: 'OK',
+              showCancel: false,
+            });
+            setModalVisible(true);
+          }
+        } else if (hasShownModal !== 'true') {
+          setModalConfig({
+            title: 'Location Permission Required',
+            message: 'Please enable location access to set your current location as the default drop-off address.',
+            onConfirm: async () => {
+              try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                setPermissionStatus(status);
+                if (status === 'granted') {
+                  let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+                  if (loc.coords.accuracy > 50) {
+                    setModalConfig({
+                      title: 'Low Location Accuracy',
+                      message: 'Your location accuracy is low. The pin may not be precise.',
+                      onConfirm: () => setModalVisible(false),
+                      confirmText: 'OK',
+                      showCancel: false,
+                    });
+                    setModalVisible(true);
+                  }
+                  const { latitude, longitude } = loc.coords;
+                  const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`, {
+                    headers: { 'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)' }
+                  });
+                  const data = await response.json();
+                  const formattedAddress = data.display_name || '';
+                  setUserLocation({ latitude, longitude, formattedAddress });
+                  if (!route.params?.reportData?.address?.formattedAddress) {
+                    setReportData((prev) => ({
+                      ...prev,
+                      address: {
+                        formattedAddress,
+                        latitude,
+                        longitude,
+                      },
+                    }));
+                  }
+                  await AsyncStorage.setItem('hasShownLocationModal', 'true');
+                } else {
+                  setPermissionStatus('denied');
+                  setModalConfig({
+                    title: 'Location Permission Denied',
+                    message: 'Location access is required to set the default drop-off address. Please enable it in your device settings.',
+                    onConfirm: () => setModalVisible(false),
+                    confirmText: 'OK',
+                    showCancel: false,
+                  });
+                  setModalVisible(true);
+                }
+              } catch (error) {
+                console.error('Permission retry error:', error);
+                setModalConfig({
+                  title: 'Location Error',
+                  message: 'Failed to retry permission. Please enable location access in your device settings.',
+                  onConfirm: () => setModalVisible(false),
+                  confirmText: 'OK',
+                  showCancel: false,
+                });
+                setModalVisible(true);
+              }
+            },
+            confirmText: 'Allow Location Access',
+            showCancel: true,
+            onCancel: () => {
+              setModalVisible(false);
+              AsyncStorage.setItem('hasShownLocationModal', 'true');
+            },
+          });
+          setModalVisible(true);
+        }
+      } catch (error) {
+        console.error('Permission check error:', error);
+        setPermissionStatus('denied');
+        setModalConfig({
+          title: 'Location Error',
+          message: 'Failed to check location permission. Please enable it in your device settings.',
+          onConfirm: () => setModalVisible(false),
+          confirmText: 'OK',
+          showCancel: false,
+        });
+        setModalVisible(true);
+      }
+    };
+    checkPermissionStatus();
+  }, [route.params]);
 
   useEffect(() => {
     if (route.params?.reportData) {
@@ -229,6 +677,19 @@ const ReliefRequestScreen = () => {
       setFilteredItems(itemSuggestions[route.params.reportData.category] || []);
     }
   }, [route.params, user]);
+
+  useEffect(() => {
+    if (mapModalVisible && (userLocation || reportData.address.latitude)) {
+      webViewRef.current?.injectJavaScript(`
+        window.postMessage(JSON.stringify({
+          action: 'setInitialLocation',
+          latitude: ${reportData.address.latitude || userLocation?.latitude || 14.5995},
+          longitude: ${reportData.address.longitude || userLocation?.longitude || 120.9842},
+          formattedAddress: "${reportData.address.formattedAddress || userLocation?.formattedAddress || ''}"
+        }));
+      `);
+    }
+  }, [mapModalVisible, userLocation, reportData.address]);
 
   const requiredFields = ['contactPerson', 'contactNumber', 'email', 'address.formattedAddress', 'category'];
   const itemInputRequiredFields = ['category', 'itemName', 'quantity'];
@@ -332,42 +793,145 @@ const ReliefRequestScreen = () => {
       setIsItemDropdownVisible(true);
       setFilteredItems(itemSuggestions[reportData.category] || []);
     }
-    scrollToInput('itemName');
   };
 
   const handleBlur = () => {
     setTimeout(() => setIsItemDropdownVisible(false), 200);
   };
 
-  const scrollToInput = (field) => {
-    const sectionMap = {
-      contactPerson: 0,
-      contactNumber: 0,
-      email: 0,
-      'address.formattedAddress': 0,
-      category: 0,
-      itemName: 1,
-      quantity: 1,
-      notes: 1,
-    };
-    const index = sectionMap[field] || 0;
-    if (flatListRef.current) {
-      flatListRef.current.scrollToIndex({ index, animated: true });
-    }
-  };
-
-  const handleWebViewMessage = (event) => {
+  const handleWebViewMessage = async (event) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      setReportData((prev) => ({
-        ...prev,
-        address: {
-          formattedAddress: data.formattedAddress || '',
-          latitude: parseFloat(data.latitude) || null,
-          longitude: parseFloat(data.longitude) || null,
-        },
-      }));
-      setMapModalVisible(false);
+      if (data.action === 'confirm') {
+        setReportData((prev) => ({
+          ...prev,
+          address: {
+            formattedAddress: data.formattedAddress || '',
+            latitude: parseFloat(data.latitude) || null,
+            longitude: parseFloat(data.longitude) || null,
+          },
+        }));
+        setMapModalVisible(false);
+      } else if (data.action === 'cancel') {
+        setMapModalVisible(false);
+      } else if (data.action === 'requestUserLocation') {
+        if (permissionStatus !== 'granted') {
+          webViewRef.current?.injectJavaScript(`
+            window.postMessage(JSON.stringify({
+              action: 'showError',
+              message: 'Location permission denied. Please enable location access in your device settings.'
+            }));
+          `);
+          setModalConfig({
+            title: 'Location Permission Denied',
+            message: 'Please enable location access in your device settings to return to your current location.',
+            onConfirm: async () => {
+              try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                setPermissionStatus(status);
+                if (status === 'granted') {
+                  let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+                  if (loc.coords.accuracy > 50) {
+                    setModalConfig({
+                      title: 'Low Location Accuracy',
+                      message: 'Your location accuracy is low. The pin may not be precise.',
+                      onConfirm: () => setModalVisible(false),
+                      confirmText: 'OK',
+                      showCancel: false,
+                    });
+                    setModalVisible(true);
+                  }
+                  const { latitude, longitude } = loc.coords;
+                  const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`, {
+                    headers: { 'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)' }
+                  });
+                  const data = await response.json();
+                  const formattedAddress = data.display_name || '';
+                  setUserLocation({ latitude, longitude, formattedAddress });
+                  webViewRef.current?.injectJavaScript(`
+                    window.postMessage(JSON.stringify({
+                      action: 'updateLocation',
+                      latitude: ${latitude},
+                      longitude: ${longitude},
+                      formattedAddress: "${formattedAddress.replace(/"/g, '\\"')}"
+                    }));
+                  `);
+                } else {
+                  setPermissionStatus('denied');
+                  setModalConfig({
+                    title: 'Location Permission Denied',
+                    message: 'Location access is required to set the default drop-off address. Please enable it in your device settings.',
+                    onConfirm: () => setModalVisible(false),
+                    confirmText: 'OK',
+                    showCancel: false,
+                  });
+                  setModalVisible(true);
+                }
+              } catch (error) {
+                console.error('Permission retry error:', error);
+                webViewRef.current?.injectJavaScript(`
+                  window.postMessage(JSON.stringify({
+                    action: 'showError',
+                    message: 'Failed to retry permission. Please enable location access in your device settings.'
+                  }));
+                `);
+              }
+            },
+            confirmText: 'Allow Location Access',
+            showCancel: true,
+            onCancel: () => setModalVisible(false),
+          });
+          setModalVisible(true);
+          return;
+        }
+        try {
+          let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+          if (loc.coords.accuracy > 50) {
+            setModalConfig({
+              title: 'Low Location Accuracy',
+              message: 'Your location accuracy is low. The pin may not be precise.',
+              onConfirm: () => setModalVisible(false),
+              confirmText: 'OK',
+              showCancel: false,
+            });
+            setModalVisible(true);
+          }
+          const { latitude, longitude } = loc.coords;
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`, {
+            headers: { 'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)' }
+          });
+          const data = await response.json();
+          const formattedAddress = data.display_name || '';
+          setUserLocation({ latitude, longitude, formattedAddress });
+          webViewRef.current?.injectJavaScript(`
+            window.postMessage(JSON.stringify({
+              action: 'updateLocation',
+              latitude: ${latitude},
+              longitude: ${longitude},
+              formattedAddress: "${formattedAddress.replace(/"/g, '\\"')}"
+            }));
+          `);
+        } catch (error) {
+          console.error('Location fetch error:', error);
+          webViewRef.current?.injectJavaScript(`
+            window.postMessage(JSON.stringify({
+              action: 'showError',
+              message: 'Failed to fetch location. Please try again.'
+            }));
+          `);
+        }
+      } else if (data.action === 'showError') {
+        setModalConfig({
+          title: 'Location Error',
+          message: data.message,
+          onConfirm: () => setModalVisible(false),
+          confirmText: 'OK',
+          showCancel: false,
+        });
+        setModalVisible(true);
+      }
     } catch (error) {
       console.error('WebView message error:', error);
     }
@@ -529,6 +1093,7 @@ const ReliefRequestScreen = () => {
       return;
     }
 
+    console.log('Navigating to ReliefSummary with reportData:', reportData);
     navigation.navigate('ReliefSummary', { reportData, addedItems: items, organizationName });
   };
 
@@ -539,8 +1104,7 @@ const ReliefRequestScreen = () => {
     </Text>
   );
 
-  const windowHeight = Dimensions.get('window').height;
-  const maxDropdownHeight = windowHeight * 0.3;
+  const maxDropdownHeight = height * 0.3;
 
   return (
     <SafeAreaView style={GlobalStyles.container}>
@@ -568,7 +1132,6 @@ const ReliefRequestScreen = () => {
           contentContainerStyle={[GlobalStyles.scrollViewContent]}
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
-          ref={flatListRef}
         >
           <View style={GlobalStyles.form}>
             <View style={GlobalStyles.section}>
@@ -582,6 +1145,7 @@ const ReliefRequestScreen = () => {
                   placeholderTextColor={Theme.colors.placeholderColor}
                   onChangeText={(val) => handleChange('contactPerson', val)}
                   value={reportData.contactPerson}
+                  editable={false}
                 />
               </View>
               {errors.contactPerson && <Text style={GlobalStyles.errorText}>{errors.contactPerson}</Text>}
@@ -595,6 +1159,7 @@ const ReliefRequestScreen = () => {
                   onChangeText={(val) => handleChange('contactNumber', val)}
                   value={reportData.contactNumber}
                   keyboardType="numeric"
+                  editable={false}
                 />
               </View>
               {errors.contactNumber && <Text style={GlobalStyles.errorText}>{errors.contactNumber}</Text>}
@@ -608,6 +1173,7 @@ const ReliefRequestScreen = () => {
                   onChangeText={(val) => handleChange('email', val)}
                   value={reportData.email}
                   keyboardType="email-address"
+                  editable={false}
                 />
               </View>
               {errors.email && <Text style={GlobalStyles.errorText}>{errors.email}</Text>}
@@ -618,7 +1184,7 @@ const ReliefRequestScreen = () => {
                   style={[
                     GlobalStyles.input,
                     { width: '100%' },
-                    errors['address.formattedAddress'] && GlobalStyles.inputError
+                    errors['address.formattedAddress'] && GlobalStyles.inputError,
                   ]}
                   placeholder="Enter Drop-Off Address"
                   placeholderTextColor={Theme.colors.placeholderColor}
@@ -626,17 +1192,13 @@ const ReliefRequestScreen = () => {
                   value={reportData.address.formattedAddress}
                 />
                 <TouchableOpacity
-                  style={[
-                    GlobalStyles.supplementaryButton, GlobalStyles.openMap
-                  ]}
+                  style={[GlobalStyles.supplementaryButton, GlobalStyles.openMap]}
                   onPress={() => setMapModalVisible(true)}
                 >
                   <MaterialIcons name="pin-drop" size={24} color={Theme.colors.accentBlue} />
                   <Text style={GlobalStyles.supplementaryButtonText}>Pin Location</Text>
                 </TouchableOpacity>
               </View>
-
-                            
               {errors['address.formattedAddress'] && (
                 <Text style={GlobalStyles.errorText}>{errors['address.formattedAddress']}</Text>
               )}
@@ -680,20 +1242,15 @@ const ReliefRequestScreen = () => {
                 )}
                 {isItemDropdownVisible && filteredItems.length > 0 && (
                   <View style={[styles.dropdownContainer, { maxHeight: maxDropdownHeight, zIndex: 1500 }]}>
-                    <FlatList
-                      data={filteredItems}
-                      keyExtractor={(item) => item}
-                      nestedScrollEnabled
-                      keyboardShouldPersistTaps="handled"
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={styles.dropdownItem}
-                          onPress={() => handleItemSelect(item)}
-                        >
-                          <Text style={styles.dropdownItemText}>{item}</Text>
-                        </TouchableOpacity>
-                      )}
-                    />
+                    {filteredItems.map((item, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.dropdownItem}
+                        onPress={() => handleItemSelect(item)}
+                      >
+                        <Text style={styles.dropdownItemText}>{item}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 )}
               </View>
@@ -767,7 +1324,6 @@ const ReliefRequestScreen = () => {
                       <FlatList
                         data={items}
                         keyExtractor={(_, index) => index.toString()}
-                        nestedScrollEnabled
                         renderItem={({ item, index }) => (
                           <View style={styles.tableRow}>
                             <View style={[styles.cell, { minWidth: 100 }]}>
@@ -815,11 +1371,11 @@ const ReliefRequestScreen = () => {
         animationType="slide"
         onRequestClose={() => setMapModalVisible(false)}
       >
-        <SafeAreaView style={{ flex: 1, }}>
-          <View style={{ flex: 1, }}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={{ flex: 1 }}>
             <View style={styles.mapModalHeader}>
-              <Text style={styles.mapModalHeaderText}>Pin Drop-Off Address </Text>
-               <TouchableOpacity
+              <Text style={styles.mapModalHeaderText}>Pin Drop-Off Address</Text>
+              <TouchableOpacity
                 style={{ padding: 10, justifyContent: 'flex-end' }}
                 onPress={() => setMapModalVisible(false)}
               >
@@ -827,9 +1383,21 @@ const ReliefRequestScreen = () => {
               </TouchableOpacity>
             </View>
             <WebView
+              ref={webViewRef}
               source={{ html: leafletHtml }}
               style={{ flex: 1 }}
               onMessage={handleWebViewMessage}
+              onError={(syntheticEvent) => {
+                console.error('WebView error:', syntheticEvent.nativeEvent);
+                setModalConfig({
+                  title: 'Map Error',
+                  message: 'Failed to load the map. Please check your internet connection.',
+                  onConfirm: () => setModalVisible(false),
+                  confirmText: 'OK',
+                  showCancel: false,
+                });
+                setModalVisible(true);
+              }}
             />
           </View>
         </SafeAreaView>
