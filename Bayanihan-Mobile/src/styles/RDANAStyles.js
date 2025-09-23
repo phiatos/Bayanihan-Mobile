@@ -187,6 +187,7 @@ export default StyleSheet.create({
   checkboxLabel: {
     flex: 1,
     fontSize: 14,
+    paddingLeft: 5,
     color: Theme.colors.black,
     fontFamily: 'Poppins_Regular',
   },

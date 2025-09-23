@@ -1,550 +1,926 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '../context/AuthContext';
-import CustomModal from '../components/CustomModal';
-import GlobalStyles from '../styles/GlobalStyles';
-import styles from '../styles/RDANAStyles';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import React, { useContext, useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Dimensions,
+  FlatList,
+  ImageBackground,
+  SafeAreaView,
+  Text,
+  TextInput,
+  ToastAndroid,
+  TouchableOpacity,
+  View,
+  StatusBar,
+  Keyboard,
+  Platform,
+  Modal
+} from 'react-native';
+import Feather from 'react-native-vector-icons/Feather';
+import WebView from 'react-native-webview';
 import Theme from '../constants/theme';
-import { logActivity } from '../components/logSubmission';
+import { AuthContext } from '../context/AuthContext';
+import GlobalStyles from '../styles/GlobalStyles';
+import { styles } from '../styles/HomeScreenStyles';
+import { LinearGradient } from 'expo-linear-gradient';
+import { KeyboardAvoidingView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getDatabase, ref, get } from 'firebase/database';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const RDANAScreen = () => {
-  const navigation = useNavigation();
-  const { user } = useAuth();
-  const [reportData, setReportData] = useState({
-    Site_Location_Address_Province: '',
-    Site_Location_Address_City_Municipality: '',
-    Site_Location_Address_Barangay: '',
-    Date_and_Time_of_Information_Gathered: '',
-    Locations_and_Areas_Affected: '',
-    Type_of_Disaster: '',
-    Date_and_Time_of_Occurrence: '',
-    summary: '',
-    reliefPacks: 'No',
-    hotMeals: 'No',
-    hygieneKits: 'No',
-    drinkingWater: 'No',
-    ricePacks: 'No',
-    residentialhousesStatus: '',
-    transportationandmobilityStatus: '',
-    electricitypowergridStatus: '',
-    communicationnetworksinternetStatus: '',
-    hospitalsruralhealthunitsStatus: '',
-    watersupplysystemStatus: '',
-    marketbusinessandcommercialestablishmentsStatus: '',
-    othersStatus: '',
-    Prepared_By: user?.displayName || '',
-  });
-  const [affectedMunicipalities, setAffectedMunicipalities] = useState([]);
-  const [authoritiesAndOrganizations, setAuthoritiesAndOrganizations] = useState([]);
-  const [immediateNeeds, setImmediateNeeds] = useState([]);
-  const [initialResponse, setInitialResponse] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(null);
-  const [showInfoDatePicker, setShowInfoDatePicker] = useState(false);
-  const [showOccurrenceDatePicker, setShowOccurrenceDatePicker] = useState(false);
+const { height, width } = Dimensions.get('window');
+
+const HomeScreen = ({ navigation }) => {
+  const [location, setLocation] = useState(null);
+  const [permissionStatus, setPermissionStatus] = useState(null);
+  const [searchBarVisible, setSearchBarVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [mapType, setMapType] = useState('osm'); // 'osm' or 'satellite'
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const searchAnim = useRef(new Animated.Value(0)).current;
+  const { user } = useContext(AuthContext);
+  const webViewRef = useRef(null);
+  const searchTimeout = useRef(null);
+  const insets = useSafeAreaInsets();
+  const [contactPerson, setContactPerson] = useState(null);
+  const [firstName, setFirstName] = useState(null);
+  const [lastName, setLastName] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
 
   useEffect(() => {
-    if (!user) {
-      setErrorMessage('User not authenticated. Please log in.');
-      setModalVisible(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigation.navigate('Login');
-      }, 3000);
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    const checkPermissionStatus = async () => {
+      try {
+        const hasShownModal = await AsyncStorage.getItem('hasShownLocationModal');
+        const { status } = await Location.getForegroundPermissionsAsync();
+        setPermissionStatus(status);
+        if (status === 'granted') {
+          let loc = await Location.getCurrentPositionAsync({});
+          if (loc.coords.accuracy > 50) {
+            ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
+          }
+          setLocation({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+        } else if (hasShownModal === 'true' && status !== 'granted') {
+          setPermissionStatus('denied');
+          navigation.navigate('Dashboard');
+          ToastAndroid.show('Location access is required to view the map.', ToastAndroid.BOTTOM);
+        }
+      } catch (error) {
+        console.error('Permission check error:', error);
+        setPermissionStatus('denied');
+        navigation.navigate('Dashboard');
+        ToastAndroid.show('Failed to check location permission. Please enable it in Dashboard.', ToastAndroid.BOTTOM);
+      }
+    };
+    checkPermissionStatus();
+  }, [navigation]);
+
+  useEffect(() => {
+    Animated.timing(searchAnim, {
+      toValue: searchBarVisible ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [searchBarVisible]);
+
+  const toggleMapType = (type) => {
+    setMapType(type);
+    const script = `
+      if (window.map) {
+        map.eachLayer((layer) => {
+          if (layer instanceof L.TileLayer) {
+            map.removeLayer(layer);
+          }
+        });
+        const tileLayer = "${type}" === "osm" ? 
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          }) :
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '&copy; <a href="https://www.esri.com/">Esri</a>'
+          });
+        tileLayer.addTo(map);
+      } else {
+        console.error("Map not initialized");
+      }
+    `;
+    webViewRef.current?.injectJavaScript(script);
+  };
+
+  const fetchSuggestions = async (query) => {
+    if (!query.trim()) {
+      setSuggestions([]);
+      return;
     }
-  }, [user, navigation]);
 
-  const handleInputChange = (key, value) => {
-    setReportData(prev => ({ ...prev, [key]: value }));
-  };
-
-  // === START OF CHANGES ===
-  // Modified to store dates as ISO 8601 strings for compatibility with rdana_verification.js
-  const handleDateChange = (key, event, selectedDate) => {
-    if (event.type === 'set' && selectedDate) {
-      // Store date as ISO 8601 string (e.g., "2025-09-21T20:30:00Z")
-      const isoDateString = selectedDate.toISOString();
-      setReportData(prev => ({ ...prev, [key]: isoDateString }));
-    }
-    if (key === 'Date_and_Time_of_Information_Gathered') {
-      setShowInfoDatePicker(Platform.OS === 'ios');
-    } else if (key === 'Date_and_Time_of_Occurrence') {
-      setShowOccurrenceDatePicker(Platform.OS === 'ios');
-    }
-  };
-  // === END OF CHANGES ===
-
-  const addMunicipality = () => {
-    setAffectedMunicipalities(prev => [...prev, {
-      community: '',
-      totalPop: '',
-      affected: '',
-      deaths: '',
-      injured: '',
-      missing: '',
-      children: '',
-      women: '',
-      seniors: '',
-      pwd: ''
-    }]);
-  };
-
-  const updateMunicipality = (index, key, value) => {
-    setAffectedMunicipalities(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [key]: value };
-      return updated;
-    });
-  };
-
-  const removeMunicipality = (index) => {
-    setAffectedMunicipalities(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const addAuthority = () => {
-    setAuthoritiesAndOrganizations(prev => [...prev, { authority: '', organization: '' }]);
-  };
-
-  const updateAuthority = (index, key, value) => {
-    setAuthoritiesAndOrganizations(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [key]: value };
-      return updated;
-    });
-  };
-
-  const removeAuthority = (index) => {
-    setAuthoritiesAndOrganizations(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const addNeed = () => {
-    setImmediateNeeds(prev => [...prev, { need: '', qty: '' }]);
-  };
-
-  const updateNeed = (index, key, value) => {
-    setImmediateNeeds(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [key]: value };
-      return updated;
-    });
-  };
-
-  const removeNeed = (index) => {
-    setImmediateNeeds(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const addResponse = () => {
-    setInitialResponse(prev => [...prev, { group: '', assistance: '', families: '' }]);
-  };
-
-  const updateResponse = (index, key, value) => {
-    setInitialResponse(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [key]: value };
-      return updated;
-    });
-  };
-
-  const removeResponse = (index) => {
-    setInitialResponse(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async () => {
     try {
-      if (!user) throw new Error('User not authenticated');
-      if (!reportData.Site_Location_Address_Province?.trim()) throw new Error('Please enter the province');
-      if (!reportData.Site_Location_Address_City_Municipality?.trim()) throw new Error('Please enter the city/municipality');
-      if (!reportData.Site_Location_Address_Barangay?.trim()) throw new Error('Please enter the barangay');
-      if (!reportData.Type_of_Disaster?.trim()) throw new Error('Please select a disaster type');
-      if (!reportData.Date_and_Time_of_Information_Gathered?.trim()) throw new Error('Please enter the date and time of information gathered');
-      if (affectedMunicipalities.length === 0) throw new Error('Please add at least one affected municipality');
-
-      await logActivity('Started an RDANA report', null, user.id, user?.organization || 'Admin');
-      
-      navigation.navigate('RDANASummary', {
-        reportData,
-        affectedMunicipalities,
-        authoritiesAndOrganizations,
-        immediateNeeds,
-        initialResponse,
-        organizationName: user?.organization || 'Admin'
-      });
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          query
+        )}&countrycodes=PH&limit=5`,
+        {
+          headers: {
+            'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
+          },
+        }
+      );
+      const data = await response.json();
+      if (data && Array.isArray(data)) {
+        setSuggestions(data);
+      } else {
+        setSuggestions([]);
+        console.warn('Nominatim API returned no results');
+      }
     } catch (error) {
-      setErrorMessage(error.message);
-      setModalVisible(true);
+      console.error('Autocomplete Error:', error);
+      ToastAndroid.show('Failed to fetch suggestions. Please check your internet connection.', ToastAndroid.SHORT);
     }
   };
+
+  const handleSearchInput = (text) => {
+    setSearchQuery(text);
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+    searchTimeout.current = setTimeout(() => {
+      fetchSuggestions(text);
+    }, 300);
+  };
+
+  const handleRetryPermission = async () => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      setPermissionStatus(status);
+      if (status === 'granted') {
+        let loc = await Location.getCurrentPositionAsync({});
+        if (loc.coords.accuracy > 50) {
+          ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
+        }
+        setLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+        await AsyncStorage.setItem('hasShownLocationModal', 'true');
+      } else {
+        setPermissionStatus('denied');
+        navigation.navigate('Dashboard');
+        ToastAndroid.show('Location access is required to view the map.', ToastAndroid.BOTTOM);
+      }
+    } catch (error) {
+      console.error('Permission retry error:', error);
+      ToastAndroid.show('Failed to retry permission. Please try again in Dashboard.', ToastAndroid.BOTTOM);
+      navigation.navigate('Dashboard');
+    }
+  };
+
+  const toggleSearchBar = () => {
+    setSearchBarVisible(!searchBarVisible);
+    if (searchBarVisible) {
+      setSearchQuery('');
+      setSuggestions([]);
+    }
+  };
+
+  const handleSearch = async (placeId = null, query = searchQuery) => {
+    if (!query.trim() && !placeId) {
+      ToastAndroid.show('Please enter a location to search.', ToastAndroid.SHORT);
+      return;
+    }
+
+    try {
+      let location, placeName, formattedAddress;
+
+      if (placeId) {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/details?place_id=${placeId}&format=json&countrycodes=PH`,
+          {
+            headers: {
+              'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
+            },
+          }
+        );
+        const data = await response.json();
+        if (data && data.geometry) {
+          location = { lat: parseFloat(data.lat), lng: parseFloat(data.lon) };
+          placeName = data.display_name || data.name;
+          formattedAddress = data.display_name;
+        } else {
+          ToastAndroid.show('No results found for the selected location.', ToastAndroid.BOTTOM);
+          console.warn('Nominatim Details API failed');
+          return;
+        }
+      } else {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            query
+          )}&countrycodes=PH&limit=1`,
+          {
+            headers: {
+              'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
+            },
+          }
+        );
+        const data = await response.json();
+        if (data && data.length > 0) {
+          const place = data[0];
+          location = { lat: parseFloat(place.lat), lng: parseFloat(place.lon) };
+          placeName = place.display_name;
+          formattedAddress = place.display_name;
+        } else {
+          ToastAndroid.show('No results found for the search query.', ToastAndroid.BOTTOM);
+          console.warn('Nominatim Search API failed');
+          return;
+        }
+      }
+
+      const script = `
+        if (window.map) {
+          const location = L.latLng(${location.lat}, ${location.lng});
+          map.setView(location, 16);
+          if (window.clearNonActivationMarkers) {
+            clearNonActivationMarkers();
+          }
+          const marker = L.marker(location, {
+            title: "${placeName.replace(/"/g, '\\"')}",
+          }).addTo(map);
+          nonActivationMarkers.push(marker);
+          marker.bindPopup(\`<strong>${placeName.replace(/"/g, '\\"')}</strong><br>${formattedAddress.replace(/"/g, '\\"')}\`).openPopup();
+        } else {
+          console.error("Map not initialized");
+        }
+      `;
+      webViewRef.current?.injectJavaScript(script);
+      setSuggestions([]);
+    } catch (error) {
+      console.error('Search error:', error);
+      ToastAndroid.show('Failed to search for the location. Please check your internet connection and try again.', ToastAndroid.BOTTOM);
+    }
+  };
+
+  const handleSuggestionSelect = (suggestion) => {
+    setSearchQuery(suggestion.display_name);
+    handleSearch(suggestion.place_id);
+  };
+
+  const returnToUserLocation = async () => {
+    if (permissionStatus !== 'granted') {
+      ToastAndroid.show('Please enable location access in Dashboard to return to your current location.', ToastAndroid.BOTTOM);
+      navigation.navigate('Dashboard');
+      return;
+    }
+
+    try {
+      let loc = await Location.getCurrentPositionAsync({});
+      if (loc.coords.accuracy > 50) {
+        ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
+      }
+      setLocation({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+
+      const script = `
+        if (window.map) {
+          const userLocation = L.latLng(${loc.coords.latitude}, ${loc.coords.longitude});
+          map.setView(userLocation, 16);
+          if (window.clearNonActivationMarkers) {
+            clearNonActivationMarkers();
+          }
+          const userMarker = L.marker(userLocation, {
+            title: "Your Location",
+            icon: L.icon({
+              iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+              iconSize: [25, 41],
+              iconAnchor: [12, 41],
+              popupAnchor: [1, -34],
+              shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+              shadowSize: [41, 41],
+            }),
+          }).addTo(map);
+          nonActivationMarkers.push(userMarker);
+          fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.coords.latitude}&lon=${loc.coords.longitude}', {
+            headers: {
+              'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
+            },
+          })
+            .then(response => response.json())
+            .then(data => {
+              const infoContent = data.display_name || \`Lat: ${loc.coords.latitude}, Lng: ${loc.coords.longitude}\`;
+              userMarker.bindPopup(infoContent).openPopup();
+            })
+            .catch(error => {
+              console.error("Reverse geocoding error:", error);
+              userMarker.bindPopup(\`Lat: ${loc.coords.latitude}, Lng: ${loc.coords.longitude}\`).openPopup();
+            });
+        } else {
+          console.error("Map not initialized");
+        }
+      `;
+      webViewRef.current?.injectJavaScript(script);
+    } catch (error) {
+      console.error('Return to user location error:', error);
+      ToastAndroid.show('Failed to return to your location. Please try again.', ToastAndroid.BOTTOM);
+    }
+  };
+
+  const mapHtml =
+    permissionStatus === 'granted' && location?.latitude && location?.longitude
+      ? `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+      
+        <style>
+          #map { height: 100%; width: 100%; }
+          html, body { height: 100%; margin: 0; padding: 0; }
+          .leaflet-control { display: none !important; }
+          .bayanihan-infowindow {
+            font-family: 'Arial', sans-serif;
+            color: #333;
+            padding: 15px;
+            background: #FFFFFF;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            max-width: 300px;
+            border-top: 5px solid #FF69B4;
+            animation: slideIn 0.3s ease-out;
+          }
+          .bayanihan-infowindow h3 {
+            margin: 0 0 10px;
+            color: #007BFF;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .bayanihan-infowindow p {
+            margin: 5px 0;
+          }
+          @keyframes slideIn {
+            0% { transform: translateY(10px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+          }
+        </style>
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      </head>
+      <body>
+        <div id="map"></div>
+        <script>
+          const firebaseConfig = {
+            apiKey: "AIzaSyBkmXOJvnlBtzkjNyR6wyd9BgGM0BhN0L8",
+            authDomain: "bayanihan-new-472410.firebaseapp.com",
+            projectId: "bayanihan-new-472410",
+            storageBucket: "bayanihan-new-472410.firebasestorage.app",
+            messagingSenderId: "995982574131",
+            appId: "1:995982574131:web:3d45e358fad330c276d946",
+            measurementId: "G-CEVPTQZM9C",
+            databaseURL: "https://bayanihan-new-472410-default-rtdb.asia-southeast1.firebasedatabase.app/"
+          };
+
+          firebase.initializeApp(firebaseConfig);
+          const database = firebase.database();
+
+          let map;
+          let activationMarkers = [];
+          let nonActivationMarkers = [];
+          let singlePopup;
+
+          function initMap() {
+            try {
+              const userLocation = L.latLng(${location.latitude}, ${location.longitude});
+              map = L.map('map', {
+                center: userLocation,
+                zoom: 16,
+                zoomControl: false,
+                attributionControl: false,
+                doubleClickZoom: false,
+                boxZoom: false,
+                keyboard: false,
+              });
+
+              const tileLayer = "${mapType}" === "osm" ?
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }) :
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                  attribution: '&copy; <a href="https://www.esri.com/">Esri</a>'
+                });
+              tileLayer.addTo(map);
+
+              const userMarker = L.marker(userLocation, {
+                title: "Your Location",
+                icon: L.icon({
+                  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+                  iconSize: [25, 41],
+                  iconAnchor: [12, 41],
+                  popupAnchor: [1, -34],
+                  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+                  shadowSize: [41, 41],
+                }),
+              }).addTo(map);
+              nonActivationMarkers.push(userMarker);
+
+              fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.latitude}&lon=${location.longitude}', {
+                headers: {
+                  'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
+                },
+              })
+                .then(response => response.json())
+                .then(data => {
+                  const infoContent = data.display_name || \`Lat: ${location.latitude}, Lng: ${location.longitude}\`;
+                  userMarker.bindPopup(infoContent).openPopup();
+                })
+                .catch(error => {
+                  console.error("Reverse geocoding error:", error);
+                  userMarker.bindPopup(\`Lat: ${location.latitude}, Lng: ${location.longitude}\`).openPopup();
+                });
+
+              const activationsRef = database.ref("activations/currentActivations").orderByChild("status").equalTo("active");
+              activationsRef.on("value", (snapshot) => {
+                activationMarkers.forEach(marker => marker.remove());
+                activationMarkers = [];
+
+                const activations = snapshot.val();
+                if (!activations) {
+                  console.log("No active activations found in Firebase.");
+                  return;
+                }
+
+                console.log("Active activations:", activations);
+
+                Object.entries(activations).forEach(([key, activation]) => {
+                  if (!activation.latitude || !activation.longitude) {
+                    console.warn(\`Activation \${key} is missing latitude or longitude:\`, activation);
+                    return;
+                  }
+
+                  const position = L.latLng(parseFloat(activation.latitude), parseFloat(activation.longitude));
+                  console.log(\`Creating marker for \${activation.organization} at position:\`, position);
+
+                  const logoPath = "https://firebasestorage.googleapis.com/v0/b/bayanihan-5ce7e.appspot.com/o/AB_logo.png?alt=media";
+                  console.log("Attempting to load logo for Popup from:", logoPath);
+
+                  const marker = L.marker(position, {
+                    title: activation.organization,
+                    icon: L.icon({
+                      iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x-red.png",
+                      iconSize: [25, 41],
+                      iconAnchor: [12, 41],
+                      popupAnchor: [1, -34],
+                      shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+                      shadowSize: [41, 41],
+                    }),
+                  }).addTo(map);
+
+                  activationMarkers.push(marker);
+                  console.log(\`Marker created for \${activation.organization}\`);
+
+                  const img = new Image();
+                  img.src = logoPath;
+                  img.onload = () => {
+                    console.log("Logo loaded successfully for Popup:", logoPath);
+                    createPopup(marker, activation, logoPath);
+                  };
+                  img.onerror = () => {
+                    console.error("Failed to load logo for Popup:", logoPath);
+                    createPopup(marker, activation, null);
+                  };
+                });
+              }, (error) => {
+                console.error("Firebase error:", error);
+              });
+
+              map.on('click', (e) => {
+                clearNonActivationMarkers();
+                const marker = L.marker(e.latlng, {
+                  title: "Pinned Location",
+                }).addTo(map);
+                nonActivationMarkers.push(marker);
+
+                fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + e.latlng.lat + '&lon=' + e.latlng.lng, {
+                  headers: {
+                    'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
+                  },
+                })
+                  .then(response => response.json())
+                  .then(data => {
+                    const infoContent = data.display_name || \`Lat: \${e.latlng.lat}, Lng: \${e.latlng.lng}\`;
+                    marker.bindPopup(infoContent).openPopup();
+                  })
+                  .catch(error => {
+                    console.error("Reverse geocoding error:", error);
+                    marker.bindPopup(\`Lat: \${e.latlng.lat}, Lng: \${e.latlng.lng}\`).openPopup();
+                  });
+
+                map.setView(e.latlng, 16);
+              });
+            } catch (error) {
+              console.error("Map initialization error:", error);
+            }
+          }
+
+          function createPopup(marker, activation, logoUrl) {
+            const content = \`
+              <div class="bayanihan-infowindow">
+                <h3 style="color: black; font-family: 'Poppins', sans-serif;">
+                  \${logoUrl ? 
+                    \`<img src="\${logoUrl}" alt="Bayanihan Logo" style="width: 24px; height: 24px;" />\` : 
+                    \`<span style="font-size: 24px;">🌟</span>\`
+                  }
+                  \${activation.organization}
+                </h3>
+                <p>
+                  <strong style="color: black; font-weight: bold; font-family: 'Poppins', sans-serif">Area:</strong>
+                  <span style="font-family: 'Poppins', sans-serif;">\${activation.areaOfOperation}</span>
+                </p>
+                <p>
+                  <strong style="color: black; font-weight: bold; font-family: 'Poppins', sans-serif">Calamity:</strong>
+                  <span style="font-family: 'Poppins', sans-serif;">\${activation.calamityType}\${activation.typhoonName ? \` (\${activation.typhoonName})\` : ''}</span>
+                </p>
+                <p>
+                  <strong style="color: black; font-weight: bold; font-family: 'Poppins', sans-serif">Status:</strong>
+                  <span style="color: #388E3C; font-weight: bold; font-family: 'Poppins', sans-serif;">Active</span>
+                </p>
+              </div>
+            \`;
+
+            marker.on('click', () => {
+              if (singlePopup && singlePopup._source !== marker) {
+                singlePopup.remove();
+              }
+              singlePopup = L.popup().setContent(content).setLatLng(marker.getLatLng()).openOn(map);
+              console.log(\`Popup opened for \${activation.organization}\`);
+            });
+          }
+
+          function clearNonActivationMarkers() {
+            nonActivationMarkers.forEach(marker => marker.remove());
+            nonActivationMarkers = [];
+          }
+
+          window.initMap = initMap;
+          initMap();
+        </script>
+      </body>
+      </html>
+    `
+      : null;
+
+  const getUserName = () => {
+    if (!user) return 'Unknown User';
+    if (contactPerson) {
+      return contactPerson;
+    }
+    if (firstName || lastName) {
+      return `${firstName || ''} ${lastName || ''}`.trim();
+    }
+    return 'Unknown User';
+  };
+
+  useEffect(() => {
+    const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
+      setIsLoading(true);
+      let currentUser = user;
+
+      if (!currentUser?.id) {
+        try {
+          const cachedUser = await AsyncStorage.getItem('user_session');
+          if (cachedUser) {
+            console.log('fetchUserData: No user in AuthContext, using cached user:', JSON.parse(cachedUser).id);
+            currentUser = JSON.parse(cachedUser);
+          } else {
+            console.warn('fetchUserData: No user ID or cached user available');
+            setErrorModal({
+              visible: true,
+              message: 'Please log in to continue.',
+            });
+            setContactPerson(null);
+            setFirstName(null);
+            setLastName(null);
+            setIsLoading(false);
+            setTimeout(() => {
+              navigation.navigate('Login');
+            }, 3000);
+            return;
+          }
+        } catch (error) {
+          console.error('fetchUserData: Error loading cached user:', error.message);
+          setErrorModal({
+            visible: true,
+            message: 'Failed to load user data. Please log in again.',
+          });
+          setIsLoading(false);
+          setTimeout(() => {
+            navigation.navigate('Login');
+          }, 3000);
+          return;
+        }
+      }
+
+      try {
+        const db = getDatabase();
+        const userRef = ref(db, `users/${currentUser.id}`);
+        const snapshot = await get(userRef);
+
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          setContactPerson(userData.contactPerson || null);
+          setFirstName(userData.firstName || null);
+          setLastName(userData.lastName || null);
+          console.log('fetchUserData: User data fetched:', userData);
+        } else {
+          console.warn('fetchUserData: No user document found for ID:', currentUser.id);
+          setContactPerson(currentUser.contactPerson || null);
+          setFirstName(currentUser.firstName || null);
+          setLastName(currentUser.lastName || null);
+          setErrorModal({
+            visible: true,
+            message: 'No user profile found in database. Using cached data.',
+          });
+        }
+      } catch (error) {
+        console.error('fetchUserData: Error fetching user data:', error.message, error.code);
+        if (retryCount < maxRetries && error.code === 'unavailable') {
+          console.log(`fetchUserData: Retrying fetch (${retryCount + 1}/${maxRetries})...`);
+          setTimeout(() => fetchUserData(retryCount + 1, maxRetries), 1000);
+        } else {
+          setContactPerson(currentUser.contactPerson || null);
+          setFirstName(currentUser.firstName || null);
+          setLastName(currentUser.lastName || null);
+          
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user?.id || !user) {
+      fetchUserData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   return (
-    <SafeAreaView style={GlobalStyles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      <LinearGradient
-        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
-        start={{ x: 1, y: 0.5 }}
-        end={{ x: 1, y: 1 }}
-        style={GlobalStyles.gradientContainer}
-      >
-        <View style={GlobalStyles.newheaderContainer}>
-          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
-            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
-          </TouchableOpacity>
-          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>RDANA</Text>
-        </View>
-      </LinearGradient>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 80 }}
-        keyboardVerticalOffset={0}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollViewContent}
-          scrollEnabled
-          keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      {permissionStatus === 'granted' && location && mapHtml ? (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.subContainer]}
+          keyboardVerticalOffset={0}
         >
-          <View style={GlobalStyles.form}>
-            <Text style={GlobalStyles.subheader}>Rapid Disaster Assessment and Needs Analysis</Text>
-            <Text style={GlobalStyles.organizationName}>{user?.organization || 'Admin'}</Text>
-            
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>I. Profile of the Disaster</Text>
-              {[
-                { key: 'Site_Location_Address_Province', label: 'Site Location/ Address (Province)', type: 'text' },
-                { key: 'Site_Location_Address_City_Municipality', label: 'Site Location Address (City/Municipality)', type: 'text' },
-                { key: 'Site_Location_Address_Barangay', label: 'Site Location Address Barangay', type: 'text' },
-              ].map(({ key, label, type }) => (
-                <View key={key} style={styles.fieldContainer}>
-                  <Text style={styles.label}>{label}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={reportData[key]}
-                    onChangeText={(text) => handleInputChange(key, text)}
-                    placeholder={`Enter ${label}`}
-                    placeholderTextColor={Theme.colors.placeholder}
-                  />
-                </View>
-              ))}
-              
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Date and Time of Information Gathered</Text>
-                <TouchableOpacity
-                  style={styles.input}
-                  onPress={() => setShowInfoDatePicker(true)}
-                >
-                  <Text style={reportData.Date_and_Time_of_Information_Gathered ? styles.inputText : styles.placeholderText}>
-                    {reportData.Date_and_Time_of_Information_Gathered
-                      ? new Date(reportData.Date_and_Time_of_Information_Gathered).toLocaleString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                      : 'Select Date and Time'}
-                  </Text>
-                </TouchableOpacity>
-                {showInfoDatePicker && (
-                  <DateTimePicker
-                    value={reportData.Date_and_Time_of_Information_Gathered
-                      ? new Date(reportData.Date_and_Time_of_Information_Gathered)
-                      : new Date()}
-                    mode="datetime"
-                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                    onChange={(event, date) => handleDateChange('Date_and_Time_of_Information_Gathered', event, date)}
-                  />
-                )}
-              </View>
-
-              <Text style={GlobalStyles.sectionTitle}>Authorities & Organizations</Text>
-              {authoritiesAndOrganizations.map((item, index) => (
-                <View key={index} style={styles.dynamicFieldContainer}>
-                  <TextInput
-                    style={[styles.input, styles.dynamicInput]}
-                    value={item.authority}
-                    onChangeText={(text) => updateAuthority(index, 'authority', text)}
-                    placeholder="Enter Authority"
-                    placeholderTextColor={Theme.colors.placeholder}
-                  />
-                  <TextInput
-                    style={[styles.input, styles.dynamicInput]}
-                    value={item.organization}
-                    onChangeText={(text) => updateAuthority(index, 'organization', text)}
-                    placeholder="Enter Organization"
-                    placeholderTextColor={Theme.colors.placeholder}
-                  />
+          <View style={{ flex: 1 }}>
+            <WebView
+              ref={webViewRef}
+              style={styles.map}
+              source={{ html: mapHtml }}
+              originWhitelist={['*']}
+              onError={(syntheticEvent) => {
+               率先
+                const { nativeEvent } = syntheticEvent;
+                console.error('WebView error:', nativeEvent);
+                ToastAndroid.show('Failed to load the map. Please check your internet connection.', ToastAndroid.BOTTOM);
+              }}
+              onMessage={(event) => {
+                console.log('WebView message:', event.nativeEvent.data);
+              }}
+            />
+            <View blurAmount={20} tint="light" style={styles.headerContainer}>
+              <LinearGradient
+                colors={['rgba(185, 185, 185, 0.12)', 'rgba(77, 77, 77, 0.2)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.formCard}
+              >
+                <View style={styles.headerContent}>
                   <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => removeAuthority(index)}
+                    onPress={() => navigation.openDrawer()}
+                    style={styles.headerMenuIcon}
                   >
-                    <Ionicons name="trash" size={24} color={Theme.colors.red} />
+                    <Ionicons name="menu" size={32} color={Theme.colors.white} />
                   </TouchableOpacity>
-                </View>
-              ))}
-              <TouchableOpacity style={styles.addButton} onPress={addAuthority}>
-                <Text style={styles.addButtonText}>Add Authority/Organization</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>II. Modality</Text>
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Locations and Areas Affected</Text>
-                <TextInput
-                  style={[styles.input, styles.multiline]}
-                  value={reportData.Locations_and_Areas_Affected}
-                  onChangeText={(text) => handleInputChange('Locations_and_Areas_Affected', text)}
-                  placeholder="Enter Locations and Areas Affected"
-                  placeholderTextColor={Theme.colors.placeholder}
-                  multiline
-                />
-              </View>
-              
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Type of Disaster</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={reportData.Type_of_Disaster}
-                    onValueChange={(value) => handleInputChange('Type_of_Disaster', value)}
-                    style={styles.picker}
-                  >
-                    <Picker.Item label="Select Disaster Type" value="" />
-                    <Picker.Item label="Earthquake" value="Earthquake" />
-                    <Picker.Item label="Typhoon" value="Typhoon" />
-                    <Picker.Item label="Flood" value="Flood" />
-                    <Picker.Item label="Fire" value="Fire" />
-                    <Picker.Item label="Other" value="Other" />
-                  </Picker>
-                </View>
-              </View>
-
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Date and Time of Occurrence</Text>
-                <TouchableOpacity
-                  style={styles.input}
-                  onPress={() => setShowOccurrenceDatePicker(true)}
-                >
-                  <Text style={reportData.Date_and_Time_of_Occurrence ? styles.inputText : styles.placeholderText}>
-                    {reportData.Date_and_Time_of_Occurrence
-                      ? new Date(reportData.Date_and_Time_of_Occurrence).toLocaleString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                      : 'Select Date and Time'}
-                  </Text>
-                </TouchableOpacity>
-                {showOccurrenceDatePicker && (
-                  <DateTimePicker
-                    value={reportData.Date_and_Time_of_Occurrence
-                      ? new Date(reportData.Date_and_Time_of_Occurrence)
-                      : new Date()}
-                    mode="datetime"
-                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                    onChange={(event, date) => handleDateChange('Date_and_Time_of_Occurrence', event, date)}
-                  />
-                )}
-              </View>
-
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Summary</Text>
-                <TextInput
-                  style={[styles.input, styles.multiline]}
-                  value={reportData.summary}
-                  onChangeText={(text) => handleInputChange('summary', text)}
-                  placeholder="Enter Summary"
-                  placeholderTextColor={Theme.colors.placeholder}
-                  multiline
-                />
-              </View>
-            </View>
-
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>III. Initial Effects</Text>
-              <Text style={styles.sectionSubtitle}>Affected Municipalities</Text>
-              {affectedMunicipalities.map((item, index) => (
-                <View key={index} style={styles.dynamicFieldContainer}>
-                  {[
-                    { key: 'community', label: 'Municipality/Community', type: 'text' },
-                    { key: 'totalPop', label: 'Total Population', type: 'number' },
-                    { key: 'affected', label: 'Affected Population', type: 'number' },
-                    { key: 'deaths', label: 'Deaths', type: 'number' },
-                    { key: 'injured', label: 'Injured', type: 'number' },
-                    { key: 'missing', label: 'Missing', type: 'number' },
-                    { key: 'children', label: 'Children', type: 'number' },
-                    { key: 'women', label: 'Women', type: 'number' },
-                    { key: 'seniors', label: 'Senior Citizens', type: 'number' },
-                    { key: 'pwd', label: 'PWD', type: 'number' },
-                  ].map(({ key, label, type }) => (
-                    <View key={key} style={styles.fieldContainer}>
-                      <Text style={styles.label}>{label}</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={item[key]}
-                        onChangeText={(text) => updateMunicipality(index, key, text)}
-                        placeholder={`Enter ${label}`}
-                        placeholderTextColor={Theme.colors.placeholder}
-                        keyboardType={type === 'number' ? 'numeric' : 'default'}
-                      />
-                    </View>
-                  ))}
-                  <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => removeMunicipality(index)}
-                  >
-                    <Ionicons name="trash" size={24} color={Theme.colors.red} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              <TouchableOpacity style={styles.addButton} onPress={addMunicipality}>
-                <Text style={styles.addButtonText}>Add Municipality</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>IV. Status of Lifelines, Social Structure, and Critical Facilities</Text>
-              {[
-                { key: 'residentialhousesStatus', label: 'Residential Houses' },
-                { key: 'transportationandmobilityStatus', label: 'Transportation and Mobility' },
-                { key: 'electricitypowergridStatus', label: 'Electricity, Power Grid' },
-                { key: 'communicationnetworksinternetStatus', label: 'Communication Networks, Internet' },
-                { key: 'hospitalsruralhealthunitsStatus', label: 'Hospitals, Rural Health Units' },
-                { key: 'watersupplysystemStatus', label: 'Water Supply System' },
-                { key: 'marketbusinessandcommercialestablishmentsStatus', label: 'Market, Business, Commercial Establishments' },
-                { key: 'othersStatus', label: 'Others' },
-              ].map(({ key, label }) => (
-                <View key={key} style={styles.fieldContainer}>
-                  <Text style={styles.label}>{label}</Text>
-                  <TextInput
-                    style={[styles.input, styles.multiline]}
-                    value={reportData[key]}
-                    onChangeText={(text) => handleInputChange(key, text)}
-                    placeholder={`Enter ${label} Status`}
-                    placeholderTextColor={Theme.colors.placeholder}
-                    multiline
-                  />
-                </View>
-              ))}
-            </View>
-
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>V. Initial Needs Assessment Checklist</Text>
-              {[
-                { key: 'reliefPacks', label: 'Relief Packs' },
-                { key: 'hotMeals', label: 'Hot Meals' },
-                { key: 'hygieneKits', label: 'Hygiene Kits' },
-                { key: 'drinkingWater', label: 'Drinking Water' },
-                { key: 'ricePacks', label: 'Rice Packs' },
-              ].map(({ key, label }) => (
-                <View key={key} style={styles.fieldContainer}>
-                  <Text style={styles.label}>{label}</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={reportData[key]}
-                      onValueChange={(value) => handleInputChange(key, value)}
-                      style={styles.picker}
-                    >
-                      <Picker.Item label="No" value="No" />
-                      <Picker.Item label="Yes" value="Yes" />
-                    </Picker>
+                  <View style={styles.headerUserContainer}>
+                    <Text style={styles.userName}>{getUserName()}</Text>
+                    <ImageBackground
+                      source={{ uri: 'https://via.placeholder.com/35' }}
+                      style={{ width: 35, height: 35 }}
+                      imageStyle={{ borderRadius: 25 }}
+                    />
                   </View>
                 </View>
-              ))}
-              
-              <Text style={styles.sectionSubtitle}>Other Immediate Needs</Text>
-              {immediateNeeds.map((item, index) => (
-                <View key={index} style={styles.dynamicFieldContainer}>
-                  <TextInput
-                    style={[styles.input, styles.dynamicInput]}
-                    value={item.need}
-                    onChangeText={(text) => updateNeed(index, 'need', text)}
-                    placeholder="Enter Need"
-                    placeholderTextColor={Theme.colors.placeholder}
-                  />
-                  <TextInput
-                    style={[styles.input, styles.dynamicInput]}
-                    value={item.qty}
-                    onChangeText={(text) => updateNeed(index, 'qty', text)}
-                    placeholder="Enter Quantity"
-                    placeholderTextColor={Theme.colors.placeholder}
-                    keyboardType="numeric"
-                  />
-                  <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => removeNeed(index)}
-                  >
-                    <Ionicons name="trash" size={24} color={Theme.colors.red} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              <TouchableOpacity style={styles.addButton} onPress={addNeed}>
-                <Text style={styles.addButtonText}>Add Immediate Need</Text>
-              </TouchableOpacity>
+              </LinearGradient>
             </View>
-
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>VI. Initial Response Actions</Text>
-              {initialResponse.map((item, index) => (
-                <View key={index} style={styles.dynamicFieldContainer}>
-                  <TextInput
-                    style={[styles.input, styles.dynamicInput]}
-                    value={item.group}
-                    onChangeText={(text) => updateResponse(index, 'group', text)}
-                    placeholder="Enter Response Group"
-                    placeholderTextColor={Theme.colors.placeholder}
-                  />
-                  <TextInput
-                    style={[styles.input, styles.dynamicInput]}
-                    value={item.assistance}
-                    onChangeText={(text) => updateResponse(index, 'assistance', text)}
-                    placeholder="Enter Assistance Provided"
-                    placeholderTextColor={Theme.colors.placeholder}
-                  />
-                  <TextInput
-                    style={[styles.input, styles.dynamicInput]}
-                    value={item.families}
-                    onChangeText={(text) => updateResponse(index, 'families', text)}
-                    placeholder="Enter Number of Families"
-                    placeholderTextColor={Theme.colors.placeholder}
-                    keyboardType="numeric"
-                  />
+            <View style={styles.overlayContainer}>
+              <View style={styles.searchWrapper}>
+                <Animated.View
+                  style={[
+                    styles.searchContainer,
+                    {
+                      borderRadius: searchBarVisible ? 30 : '100%',
+                      width: searchBarVisible ? '100%' : 45,
+                      height: searchBarVisible ? '100%' : 45,
+                      paddingLeft: searchBarVisible ? 0 : 1,
+                    },
+                  ]}
+                >
                   <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => removeResponse(index)}
+                    onPress={toggleSearchBar}
                   >
-                    <Ionicons name="trash" size={24} color={Theme.colors.red} />
+                    <Feather
+                      name="search"
+                      size={20}
+                      style={[
+                        styles.searchIcon,
+                        {
+                          color: Theme.colors.primary,
+                          paddingLeft: searchBarVisible ? 15 : 8,
+                          paddingRight: searchBarVisible ? 5 : 0,
+                        },
+                      ]}
+                    />
                   </TouchableOpacity>
-                </View>
-              ))}
-              <TouchableOpacity style={styles.addButton} onPress={addResponse}>
-                <Text style={styles.addButtonText}>Add Response Action</Text>
-              </TouchableOpacity>
+                  <Animated.View
+                    style={{
+                      flex: searchBarVisible ? 1 : 0,
+                      opacity: searchAnim,
+                      transform: [
+                        {
+                          translateX: searchAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [20, 0],
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    {searchBarVisible && (
+                      <TextInput
+                        placeholder="Search"
+                        style={{ flex: 1, fontFamily: 'Poppins_Regular' }}
+                        placeholderTextColor="black"
+                        value={searchQuery}
+                        onChangeText={handleSearchInput}
+                        onSubmitEditing={() => handleSearch()}
+                        returnKeyType="search"
+                        autoFocus={true}
+                      />
+                    )}
+                  </Animated.View>
+                </Animated.View>
+                {searchBarVisible && suggestions.length > 0 && (
+                  <FlatList
+                    data={suggestions}
+                    keyExtractor={(item) => item.place_id}
+                    style={styles.suggestionsContainer}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.suggestionItem}
+                        onPress={() => handleSuggestionSelect(item)}
+                      >
+                        <Text style={styles.suggestionText}>{item.display_name}</Text>
+                      </TouchableOpacity>
+                    )}
+                    keyboardShouldPersistTaps="handled"
+                  />
+                )}
+                <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation}>
+                  <MaterialIcons name="my-location" size={24} color={Theme.colors.white} />
+                </TouchableOpacity>
+              </View>
             </View>
-
-            <View style={GlobalStyles.finalButtonContainer}>
-              <TouchableOpacity style={GlobalStyles.submitButton} onPress={handleSubmit}>
-                <Text style={GlobalStyles.submitButtonText}>Next</Text>
+            <View style={[styles.mapTypeButtonsContainer, { paddingBottom: insets.bottom }]}>
+              <TouchableOpacity
+                style={[styles.mapTypeButton, mapType === 'osm' && styles.mapTypeButtonActive]}
+                onPress={() => toggleMapType('osm')}
+              >
+                <MaterialIcons
+                  name="map"
+                  size={24}
+                  color={mapType === 'osm' ? Theme.colors.primary : '#FFFFFF'}
+                />
+                <Text
+                  style={[
+                    styles.mapTypeButtonText,
+                    mapType === 'osm' && styles.mapTypeButtonTextActive,
+                  ]}
+                >
+                  Map
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.mapTypeButton, mapType === 'satellite' && styles.mapTypeButtonActive]}
+                onPress={() => toggleMapType('satellite')}
+              >
+                <MaterialIcons
+                  name="satellite"
+                  size={24}
+                  color={mapType === 'satellite' ? Theme.colors.primary : '#FFFFFF'}
+                />
+                <Text
+                  style={[
+                    styles.mapTypeButtonText,
+                    mapType === 'satellite' && styles.mapTypeButtonTextActive,
+                  ]}
+                >
+                  Satellite
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      <CustomModal
-        visible={modalVisible}
-        title="Error"
-        message={errorMessage}
-        onConfirm={() => setModalVisible(false)}
-        confirmText="OK"
-      />
+        </KeyboardAvoidingView>
+      ) : (
+        <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
+          <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+          <LinearGradient
+            colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+            start={{ x: 1, y: 0.5 }}
+            end={{ x: 1, y: 1 }}
+            style={GlobalStyles.gradientContainer}
+          >
+            <View style={GlobalStyles.newheaderContainer}>
+              <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+                <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+              </TouchableOpacity>
+              <View style={styles.headerUserContainer}>
+                <Text style={[styles.userName, { color: Theme.colors.primary, marginLeft: 70 }]}>{getUserName()}</Text>
+              </View>
+            </View>
+          </LinearGradient>
+          <View style={{ paddingHorizontal: 20, marginTop: 100 }}>
+            {permissionStatus === 'denied' && (
+              <View style={styles.permissionDeniedContainer}>
+                <MaterialIcons
+                  name="location-off"
+                  size={48}
+                  style={{ color: '#EE5757', marginBottom: 10 }}
+                />
+                <Text style={styles.permissionDeniedContainerHeader}>Location Access Denied</Text>
+                <Text style={styles.permissionDeniedContainerText}>
+                  Please enable location access in Dashboard to view the map and experience our services.
+                </Text>
+                <TouchableOpacity style={styles.retryButton} onPress={handleRetryPermission}>
+                  <Text style={styles.retryButtonText}>Allow Location Access</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </SafeAreaView>
+      )}
+      <Modal
+        animationType="none"
+        transparent={true}
+        visible={errorModal.visible}
+        onRequestClose={() => setErrorModal({ visible: false, message: '' })}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <MaterialIcons name="error" size={84} style={{ color: '#EE5757' }} />
+            <Text style={styles.permissionDeniedHeader}>Error</Text>
+            <Text style={styles.permissionDeniedText}>{errorModal.message}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => {
+                setErrorModal({ visible: false, message: '' });
+                if (errorModal.message.includes('log in')) {
+                  navigation.navigate('Login');
+                }
+              }}
+            >
+              <Text style={styles.retryButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
 
-export default RDANAScreen;
+export default HomeScreen;

@@ -273,13 +273,13 @@ const RDANASummary = () => {
               barangay: loc.barangay?.trim() || ''
             })),
             disasterType: Type_of_Disaster.trim() || '',
-            occurrenceDate: formattedOccurrenceDate || '', // Store in ISO 8601 format or empty string
+            occurrenceDate: formattedOccurrenceDate || '', 
             summary: reportData.summary?.trim() || ''
           },
           disasterEffects: affectedMunicipalities.map(row => [
             row.community?.trim() || '',
             formatLargeNumber(row.totalPop || 0),
-            formatLargeNumber(row.affected || 0),
+            formatLargeNumber(row.affectedPopulation || 0),
             formatLargeNumber(row.deaths || 0),
             formatLargeNumber(row.injured || 0),
             formatLargeNumber(row.missing || 0),
@@ -400,7 +400,7 @@ const RDANASummary = () => {
       <Text style={[styles.summaryTableCell, { minWidth: 50 }]}>{index + 1}</Text>
       <Text style={[styles.summaryTableCell, { minWidth: 240 }]}>{item.community || 'N/A'}</Text>
       <Text style={[styles.summaryTableCell, { minWidth: 120 }]}>{formatLargeNumber(item.totalPop || 'N/A')}</Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 120 }]}>{formatLargeNumber(item.affected || 'N/A')}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 120 }]}>{formatLargeNumber(item.affectedPopulation || 'N/A')}</Text>
       <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.deaths || 'N/A')}</Text>
       <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.injured || 'N/A')}</Text>
       <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.missing || 'N/A')}</Text>

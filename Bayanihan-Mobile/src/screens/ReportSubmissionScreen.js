@@ -718,7 +718,7 @@ const ReportSubmissionScreen = () => {
     const fetchActivations = () => {
       if (isLoading) return () => {};
 
-      const activationsRef = databaseRef(database, 'activations');
+      const activationsRef = databaseRef(database, 'activations/currentActivations');
       const activeQuery = query(activationsRef, orderByChild('status'), equalTo('active'));
       const unsubscribe = onValue(
         activeQuery,
