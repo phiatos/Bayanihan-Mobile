@@ -25,6 +25,9 @@ const borderWidth = {
 // Calculate header top padding for iOS and Android
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
 const HEADER_HEIGHT = 60; 
+const windowHeight = Dimensions.get('window').height;
+const maxDropdownHeight = windowHeight * 0.3;
+
 
 export default StyleSheet.create({
   container:{
@@ -248,6 +251,7 @@ export default StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between', 
     padding: 10,
+    backgroundColor: 'transparent'
   },
   mapModalHeaderText:{
     fontSize: 18, 
@@ -257,30 +261,36 @@ export default StyleSheet.create({
 
   // Dropdown Styles
   dropdown: {
-      height: 40,
-      borderColor: Theme.colors.primary,
-      borderWidth: 1,
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      backgroundColor: Theme.colors.lightBg,
-      elevation: 10
-    },
-    placeholderStyle: {
-      fontFamily: 'Poppins_Regular',
-      color: Theme.colors.placeholderColor,
-      fontSize: 14,
-    },
-    selectedTextStyle: {
-      fontSize: 14,
-      color: Theme.colors.black,
-      fontFamily: 'Poppins_Regular',
-    },
-    itemTextStyle: {
-      fontSize: 14,
-      color: Theme.colors.black,
-      fontFamily: 'Poppins_Regular',
-    },
+    height: 40,
+    borderColor: Theme.colors.primary,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    backgroundColor: Theme.colors.lightBg,
+    elevation: 10,
+},
+placeholderStyle: {
+  fontFamily: 'Poppins_Regular',
+  color: Theme.colors.placeholderColor,
+  fontSize: 14,
+},
+selectedTextStyle: {
+  fontSize: 14,
+  color: Theme.colors.black,
+  fontFamily: 'Poppins_Regular',
+},
+itemTextStyle: {
+  fontSize: 14,
+  color: Theme.colors.black,
+  fontFamily: 'Poppins_Regular',
+},
+containerStyle: {
 
+},
+itemContainerStyle: {
+  maxHeight: maxDropdownHeight,
+  paddingVertical: 4,
+},
 
 
   // Summary Pages

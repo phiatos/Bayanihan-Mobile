@@ -78,9 +78,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   modalMessage: {
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center',
     color: '#333',
+    fontFamily: 'Poppins_Regular'
   },
 });
 

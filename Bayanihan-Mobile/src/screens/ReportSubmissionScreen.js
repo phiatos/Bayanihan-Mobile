@@ -321,8 +321,9 @@ const ReportSubmissionScreen = () => {
             </div>
           </div>
           <div id="suggestions" class="suggestions-container"></div>
-          <button id="returnButton" class="return-button"><ion-icon name="locate-outline"></ion-icon></button>
-        </div>
+            <button id="returnButton" class="return-button">
+              <span class="material-icons" style="font-size:28px; color:#fff;">my_location</span>
+            </button>            </div>
       </div>
       <div class="map-type-buttons-container">
         <button id="roadmapBtn" class="map-type-button active"><span class="map-type-icon active"><ion-icon name="map-outline"></ion-icon></span></button>
@@ -1665,8 +1666,8 @@ const ReportSubmissionScreen = () => {
       >
         <SafeAreaView style={{ flex: 1 }}>
           <View style={{ flex: 1 }}>
-            <View style={styles.mapModalHeader}>
-              <Text style={styles.mapModalHeaderText}>Pin Area of Operation</Text>
+            <View style={GlobalStyles.mapModalHeader}>
+              <Text style={GlobalStyles.mapModalHeaderText}>Pin Area of Operation</Text>
               <TouchableOpacity
                 style={{ padding: 10, justifyContent: 'flex-end' }}
                 onPress={() => setShowMapModal(false)}

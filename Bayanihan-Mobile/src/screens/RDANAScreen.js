@@ -16,7 +16,6 @@ import {
   ToastAndroid,
   TouchableOpacity,
   View,
-  Modal,
   ScrollView as RNScrollView,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -177,7 +176,7 @@ const RDANAScreen = ({ navigation }) => {
     const minutes = date.getMinutes().toString().padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
     hours = hours % 12 || 12;
-    hours = hours.toString().padStart(2, '0'); // Ensure 2-digit hours
+    hours = hours.toString().padStart(2, '0'); 
     return `${hours}:${minutes} ${ampm}`;
   };
 
@@ -1036,6 +1035,8 @@ const RDANAScreen = ({ navigation }) => {
 
   const windowHeight = Dimensions.get('window').height;
   const maxDropdownHeight = windowHeight * 0.3;
+  const maxHeight = windowHeight * 0.1;
+
 
   return (
     <SafeAreaView style={[GlobalStyles.container]}>
@@ -1084,7 +1085,7 @@ const RDANAScreen = ({ navigation }) => {
                   placeholderStyle={GlobalStyles.placeholderStyle}
                   selectedTextStyle={GlobalStyles.selectedTextStyle}
                   itemTextStyle={GlobalStyles.itemTextStyle}
-                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
+                  itemContainerStyle={{ maxHeight: maxHeight }}
                   data={provinceOptions} 
                   labelField="label"
                   valueField="value"
@@ -1092,7 +1093,7 @@ const RDANAScreen = ({ navigation }) => {
                   onChange={(item) =>
                     handleChange('Site_Location_Address_Province', item.value)
                   }
-                  containerStyle={{ maxHeight: maxDropdownHeight }}
+                  containerStyle={{ maxHeight: maxDropdownHeight, margin: 0 }}
                   disable={!canSubmit}
                   renderRightIcon={() => (
                     <Ionicons

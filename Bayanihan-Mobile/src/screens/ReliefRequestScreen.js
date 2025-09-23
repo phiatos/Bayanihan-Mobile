@@ -302,8 +302,9 @@ const ReliefRequestScreen = () => {
             </div>
           </div>
           <div id="suggestions" class="suggestions-container"></div>
-          <button id="returnButton" class="return-button"><ion-icon name="locate-outline"></ion-icon></button>
-        </div>
+            <button id="returnButton" class="return-button">
+              <span class="material-icons" style="font-size:28px; color:#fff;">my_location</span>
+            </button>            </div>
       </div>
       <div class="map-type-buttons-container">
         <button id="roadmapBtn" class="map-type-button active"><span class="map-type-icon active"><ion-icon name="map-outline"></ion-icon></span></button>

@@ -117,6 +117,11 @@ export const AuthProvider = ({ children }) => {
           console.log('AuthContext: No user data, no cached user, no Firebase user. Signing out.');
           await signOut(auth);
           setUser(null);
+          navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+              });   
+        return;
           await AsyncStorage.removeItem('user_session');
         }
       } catch (error) {
