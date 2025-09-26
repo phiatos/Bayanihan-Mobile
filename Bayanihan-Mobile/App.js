@@ -15,21 +15,16 @@ import { StatusBar } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
 
-function Root({ navigation }) {
+function Root() {
   const { user, loading } = useAuth();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
-    }
-  }, [user, loading, navigation]);
 
   if (loading) return null; // Wait for auth state to resolve
 
-  return user ? <AppStack /> : <AuthStack />;
+  return (
+    <NavigationContainer>
+      {user ? <AppStack /> : <AuthStack />}
+    </NavigationContainer>
+  );
 }
 
 function App() {
@@ -63,9 +58,7 @@ function App() {
     <>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <AuthProvider>
-        <NavigationContainer>
-          <Root />
-        </NavigationContainer>
+        <Root />
       </AuthProvider>
     </>
   );
