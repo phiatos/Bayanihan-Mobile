@@ -150,42 +150,6 @@ export default StyleSheet.create({
   pickerRequiredInput: {
     borderColor: Theme.colors.red, 
   },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.small,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: borderRadius.small,
-    borderWidth: borderWidth.thin,
-    borderColor: Theme.colors.primary,
-    marginRight: spacing.small,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.lightBg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  checkmark: {
-    fontSize: 24,
-    color: Theme.colors.white,
-    backgroundColor: Theme.colors.accent,
-    lineHeight: 24,
-    borderRadius: borderRadius.small,
-    borderColor: Theme.colors.accent
-  },
-  checkboxLabel: {
-    flex: 1,
-    fontSize: 14,
-    paddingLeft: 5,
-    color: Theme.colors.black,
-    fontFamily: 'Poppins_Regular',
-  },
 
 
   // RDANA Summary

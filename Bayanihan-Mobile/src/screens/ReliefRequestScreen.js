@@ -259,6 +259,7 @@ const ReliefRequestScreen = () => {
     itemName: '',
     quantity: '',
     notes: '',
+    
   });
   const [items, setItems] = useState(route.params?.addedItems || []);
   const [isItemDropdownVisible, setIsItemDropdownVisible] = useState(false);
@@ -266,6 +267,7 @@ const ReliefRequestScreen = () => {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastConfig, setToastConfig] = useState({ title: '', message: '' });
   const [mapModalVisible, setMapModalVisible] = useState(false);
+  const [urgent, setUrgent] = useState(route.params?.urgent || false);
   const [permissionStatus, setPermissionStatus] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const itemInputRef = useRef(null);
@@ -1063,7 +1065,7 @@ const ReliefRequestScreen = () => {
     }
 
     console.log('Navigating to ReliefSummary with reportData:', reportData);
-    navigation.navigate('ReliefSummary', { reportData, addedItems: items, organizationName });
+    navigation.navigate('ReliefSummary', { reportData, addedItems: items, organizationName, urgent });
   };
 
   const renderLabel = (label, isRequired) => (
@@ -1072,6 +1074,10 @@ const ReliefRequestScreen = () => {
       {isRequired && <Text style={{ color: 'red' }}> *</Text>}
     </Text>
   );
+
+  const handleUrgentToggle = () => {
+    setUrgent(!urgent);
+  };
 
   const maxDropdownHeight = height * 0.3;
 
@@ -1171,6 +1177,16 @@ const ReliefRequestScreen = () => {
               {errors['address.formattedAddress'] && (
                 <Text style={GlobalStyles.errorText}>{errors['address.formattedAddress']}</Text>
               )}
+              <TouchableOpacity
+                  style={[GlobalStyles.checkboxContainer, urgent && GlobalStyles.checkboxChecked]}
+                  onPress={handleUrgentToggle}>
+                  { <Ionicons
+                name={urgent ? 'checkbox' : 'square-outline'}
+                size={24}
+                color={urgent ? Theme.colors.accent : Theme.colors.black}
+              />}
+                <Text style={[GlobalStyles.checkboxLabel, {fontFamily: 'Poppins_SemiBold'}]}>Mark as an Urgent Request</Text>
+                </TouchableOpacity>
 
               {renderLabel('Request Category', true)}
               <View style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.category && GlobalStyles.inputError]}>

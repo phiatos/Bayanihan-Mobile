@@ -1882,7 +1882,7 @@ const handleSubmit = async () => {
               {Object.keys(checklist).map((item) => (
                 <TouchableOpacity
                   key={item}
-                  style={styles.checkboxContainer}
+                  style={GlobalStyles.checkboxContainer}
                   onPress={() => handleNeedsSelect(item)}
                   disabled={!canSubmit}
                 >
@@ -1891,7 +1891,7 @@ const handleSubmit = async () => {
                     size={24}
                     color={checklist[item] ? Theme.colors.accent : Theme.colors.primary}
                   />
-                  <Text style={styles.checkboxLabel}>
+                  <Text style={GlobalStyles.checkboxLabel}>
                     {item
                       .replace(/([A-Z])/g, ' $1')
                       .replace(/^./, (str) => str.toUpperCase())}
@@ -1901,7 +1901,7 @@ const handleSubmit = async () => {
 
               <View style={styles.section}>
                 <TouchableOpacity
-                  style={[styles.checkboxContainer, enableUrgentRelief && GlobalStyles.checkboxChecked]}
+                  style={[GlobalStyles.checkboxContainer, enableUrgentRelief && GlobalStyles.checkboxChecked]}
                   onPress={() => {
                     if (canSubmit) {
                       setEnableUrgentRelief(!enableUrgentRelief);
@@ -1930,7 +1930,7 @@ const handleSubmit = async () => {
                 size={24}
                 color={enableUrgentRelief ? Theme.colors.accent : Theme.colors.black}
               />}
-                <Text style={[styles.checkboxLabel, {fontFamily: 'Poppins_SemiBold'}]}>Submit an Urgent Relief Request</Text>
+                <Text style={[GlobalStyles.checkboxLabel, {fontFamily: 'Poppins_SemiBold'}]}>Submit an Urgent Relief Request</Text>
                 </TouchableOpacity>
 
 
