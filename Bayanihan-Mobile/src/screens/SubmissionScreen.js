@@ -12,6 +12,7 @@ import {
   Image,
   Dimensions,
   ScrollView,
+  ToastAndroid,
 } from 'react-native';
 import { database } from '../configuration/firebaseConfig';
 import { ref, onValue, query, limitToLast, orderByChild, startAfter } from 'firebase/database';
@@ -97,14 +98,14 @@ const SubmissionScreen = () => {
           console.log(`[${new Date().toISOString()}] Activity log fetched: ${activities.length} items`, activities);
         },
         (error) => {
-          Alert.alert('Error', `Failed to fetch activity log: ${error.message}`);
+          ToastAndroid.show('Failed to fetch activities.', ToastAndroid.SHORT);
           console.error(`[${new Date().toISOString()}] Error fetching activity log:`, error);
         }
       );
 
       return unsubscribe;
     } catch (error) {
-      Alert.alert('Error', `Failed to fetch history: ${error.message}`);
+      ToastAndroid.show('Failed to fetch history.', ToastAndroid.SHORT);
       console.error(`[${new Date().toISOString()}] Error in fetchHistory:`, error);
       return () => {};
     }
@@ -145,14 +146,15 @@ const SubmissionScreen = () => {
           console.log(`[${new Date().toISOString()}] More activity log fetched: ${activities.length} items`, activities);
         },
         (error) => {
-          Alert.alert('Error', `Failed to fetch more activity log: ${error.message}`);
+          ToastAndroid.show('Failed to fetch more activity log.', ToastAndroid.SHORT);
+
           console.error(`[${new Date().toISOString()}] Error fetching more activity log:`, error);
         }
       );
 
       return unsubscribe;
     } catch (error) {
-      Alert.alert('Error', `Failed to fetch more history: ${error.message}`);
+      ToastAndroid.show('Failed to fetch more history.', ToastAndroid.SHORT);
       console.error(`[${new Date().toISOString()}] Error in fetchMoreHistory:`, error);
       return () => {};
     }
@@ -186,13 +188,13 @@ const SubmissionScreen = () => {
           );
         },
         (error) => {
-          Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
+          ToastAndroid.show('Failed to fetch submission history.', ToastAndroid.SHORT);
           console.error(`[${new Date().toISOString()}] Error fetching submission history:`, error);
         }
       );
       return unsubscribe;
     } catch (error) {
-      Alert.alert('Error', `Failed to fetch submission data: ${error.message}`);
+      ToastAndroid.show('Failed to fetch submission data.', ToastAndroid.SHORT);
       console.error(`[${new Date().toISOString()}] Error in fetchSubmissionData:`, error);
       return () => {};
     }

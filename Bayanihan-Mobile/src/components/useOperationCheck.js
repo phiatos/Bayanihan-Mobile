@@ -87,7 +87,7 @@ const useOperationCheck = () => {
         } else if (userRole === 'ABVN') {
           try {
             const activationsRef = query(
-              databaseRef(database, 'activations'),
+              databaseRef(database, 'activations/currentActivations'),
               orderByChild('organization'),
               equalTo(orgName)
             );
