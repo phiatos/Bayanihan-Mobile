@@ -37,7 +37,11 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
-      "package": "com.firebase.bayanihan"
+      "package": "com.firebase.bayanihan",
+      "statusBar": {
+        "translucent": false,
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "web": {
       "favicon": "./assets/images/app_logo.png"

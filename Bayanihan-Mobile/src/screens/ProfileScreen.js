@@ -35,7 +35,7 @@ import { logActivity, logSubmission } from '../components/logSubmission';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const { user, onSignOut } = useAuth();
+  const { user, setUser } = useAuth(); // Removed onSignOut
   const [profileData, setProfileData] = useState({
     organization: '',
     hq: '',
@@ -90,14 +90,14 @@ const ProfileScreen = () => {
     const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
       setLoading(true);
       if (!auth.currentUser?.uid) {
-        console.error(`[${new Date().toISOString()}] No user logged in, auth.currentUser:`, auth.currentUser);
+        console.error(`[${new Date().toISOString()}] No user logged in, auth.currentUser:`, auth.currentUser, 'user:', user);
         setProfileData({
-          organization: '',
-          hq: ' ',
-          contactPerson: ' ',
-          email: ' ',
-          mobile: ' ',
-          role: ' ',
+          organization: user?.organization || 'Admin',
+          hq: user?.hq || 'N/A',
+          contactPerson: user?.contactPerson || 'Unknown',
+          email: user?.email || 'N/A',
+          mobile: user?.mobile || 'N/A',
+          role: user?.role || 'N/A',
         });
         setLoading(false);
         setCustomModal({
@@ -109,7 +109,10 @@ const ProfileScreen = () => {
               <Text style={styles.message}>No user logged in. Please log in again.</Text>
             </View>
           ),
-          onConfirm: closeModal,
+          onConfirm: () => {
+            closeModal();
+            navigation.navigate('Login'); // Redirect to login
+          },
           confirmText: 'OK',
           showCancel: false,
         });
@@ -158,7 +161,7 @@ const ProfileScreen = () => {
             organization: user?.organization || 'Admin',
             hq: user?.hq || 'N/A',
             contactPerson: user?.contactPerson || 'Unknown',
-            email: auth.currentUser.email || 'N/A',
+            email: auth.currentUser?.email || user?.email || 'N/A',
             mobile: user?.mobile || 'N/A',
             role: user?.role || 'N/A',
           });
@@ -169,7 +172,7 @@ const ProfileScreen = () => {
           organization: user?.organization || 'Admin',
           hq: user?.hq || 'N/A',
           contactPerson: user?.contactPerson || 'Unknown',
-          email: auth.currentUser.email || 'N/A',
+          email: auth.currentUser?.email || user?.email || 'N/A',
           mobile: user?.mobile || 'N/A',
           role: user?.role || 'N/A',
         });
@@ -191,10 +194,15 @@ const ProfileScreen = () => {
       }
     };
 
-    if (auth.currentUser?.uid) {
+    if (user?.id) {
       fetchUserData();
     } else {
-      setLoading(false);
+      console.warn(`[${new Date().toISOString()}] No user in AuthContext, checking auth.currentUser`);
+      if (auth.currentUser?.uid) {
+        fetchUserData();
+      } else {
+        setLoading(false);
+      }
     }
   }, [user, navigation]);
 
@@ -281,7 +289,10 @@ const ProfileScreen = () => {
             <Text style={styles.message}>Please log in to change your password.</Text>
           </View>
         ),
-        onConfirm: closeModal,
+        onConfirm: () => {
+          closeModal();
+          navigation.navigate('Login');
+        },
         confirmText: 'OK',
         showCancel: false,
       });
@@ -395,32 +406,34 @@ const ProfileScreen = () => {
         message: (
           <View style={{ alignItems: 'center' }}>
             <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={styles.icon} />
-            <Text style={styles.message}>Your password has been updated successfully. Click OK to sign out.</Text>
+            <Text style={styles.message}>Your password has been updated successfully. Would you like to sign out?</Text>
           </View>
         ),
         onConfirm: async () => {
           try {
             console.log(`[${new Date().toISOString()}] Auth object before sign-out:`, auth);
             await signOut(auth);
-            if (onSignOut) {
-              onSignOut();
-              console.log(`[${new Date().toISOString()}] onSignOut called`);
-            }
+            setUser(null); // Clear AuthContext user
+            console.log(`[${new Date().toISOString()}] Sign out successful`);
+            navigation.navigate('Login');
           } catch (error) {
             console.error(`[${new Date().toISOString()}] Sign out error:`, error.message);
             Alert.alert('Error', 'Failed to sign out: ' + error.message);
           }
           closeModal();
-          setCurrentPassword('');
-          setNewPassword('');
-          setConfirmPassword('');
-          setShowPasswordStrength(false);
-          setPasswordNeedsReset(false);
-          setIsNavigationBlocked(false);
         },
-        confirmText: 'OK',
-        showCancel: false,
+        confirmText: 'Sign Out',
+        showCancel: true,
+        onCancel: closeModal,
+        cancelText: 'Stay Logged In',
       });
+
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowPasswordStrength(false);
+      setPasswordNeedsReset(false);
+      setIsNavigationBlocked(false);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Password change error:`, error.message, error.code || 'N/A');
       let errorMessage = 'Failed to change password. Please ensure your current password is correct.';
@@ -436,7 +449,7 @@ const ProfileScreen = () => {
         title: 'Error',
         message: (
           <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color={Theme.colors.red} style={styles.icon} />
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
             <Text style={styles.message}>{errorMessage}</Text>
           </View>
         ),
@@ -457,7 +470,7 @@ const ProfileScreen = () => {
         title: 'Error',
         message: (
           <View style={{ alignItems: 'center' }}>
-            <Ionicons name="alert-circle" size={60} color={Theme.colors.red} style={styles.icon} />
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
             <Text style={styles.message}>You must agree to the Terms and Conditions.</Text>
           </View>
         ),
@@ -479,7 +492,10 @@ const ProfileScreen = () => {
             <Text style={styles.message}>Please log in to agree to the terms.</Text>
           </View>
         ),
-        onConfirm: closeModal,
+        onConfirm: () => {
+          closeModal();
+          navigation.navigate('Login');
+        },
         confirmText: 'OK',
         showCancel: false,
       });
@@ -866,7 +882,7 @@ const ProfileScreen = () => {
                   {submitting ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text style={GlobalStyles.buttonText}>Submit</Text>
+                    <Text style={GlobalStyles.buttonText}>Change Password</Text>
                   )}
                 </TouchableOpacity>
               </View>

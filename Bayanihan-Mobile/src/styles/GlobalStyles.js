@@ -25,6 +25,9 @@ const borderWidth = {
 // Calculate header top padding for iOS and Android
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
 const HEADER_HEIGHT = 60; 
+const windowHeight = Dimensions.get('window').height;
+const maxDropdownHeight = windowHeight * 0.3;
+
 
 export default StyleSheet.create({
   container:{
@@ -136,6 +139,17 @@ export default StyleSheet.create({
     borderColor: 'red',
     borderWidth: 1,
   },
+  pickerContainer: {
+    borderWidth: borderWidth.thin, 
+    borderColor: Theme.colors.black, 
+    borderRadius: borderRadius.large, 
+    paddingHorizontal: 0, 
+    paddingVertical:0,  
+    height: 43, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    textAlign:'left'
+  },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
@@ -164,7 +178,6 @@ export default StyleSheet.create({
     fontFamily: 'Poppins_Regular',
     borderColor: Theme.colors.primary,
     height: 50,
-    
   },  
   image: {
     width: 250,
@@ -232,31 +245,91 @@ export default StyleSheet.create({
     fontSize: 16,
   },
 
-    dropdown: {
-      height: 40,
+  // Checkbox
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.small,
+  },
+    checkbox: {
+      width: 24,
+      height: 24,
+      borderRadius: borderRadius.small,
+      borderWidth: borderWidth.thin,
       borderColor: Theme.colors.primary,
-      borderWidth: 1,
-      borderRadius: 12,
-      paddingHorizontal: 12,
+      marginRight: spacing.small,
+      alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: Theme.colors.lightBg,
-      elevation: 10
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
     },
-    placeholderStyle: {
-      fontFamily: 'Poppins_Regular',
-      color: Theme.colors.placeholderColor,
-      fontSize: 14,
+    checkmark: {
+      fontSize: 24,
+      color: Theme.colors.white,
+      backgroundColor: Theme.colors.accent,
+      lineHeight: 24,
+      borderRadius: borderRadius.small,
+      borderColor: Theme.colors.accent
     },
-    selectedTextStyle: {
+    checkboxLabel: {
+      flex: 1,
       fontSize: 14,
-      color: Theme.colors.black,
-      fontFamily: 'Poppins_Regular',
-    },
-    itemTextStyle: {
-      fontSize: 14,
+      paddingLeft: 5,
       color: Theme.colors.black,
       fontFamily: 'Poppins_Regular',
     },
 
+
+  // Map Modal
+  mapModalHeader:{
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between', 
+    padding: 10,
+    backgroundColor: 'transparent'
+  },
+  mapModalHeaderText:{
+    fontSize: 18, 
+    fontFamily: 'Poppins_SemiBold', 
+    color: Theme.colors.accent 
+  },
+
+  // Dropdown Styles
+  dropdown: {
+    height: 40,
+    borderColor: Theme.colors.primary,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    backgroundColor: Theme.colors.lightBg,
+    elevation: 10,
+},
+placeholderStyle: {
+  fontFamily: 'Poppins_Regular',
+  color: Theme.colors.placeholderColor,
+  fontSize: 14,
+},
+selectedTextStyle: {
+  fontSize: 14,
+  color: Theme.colors.black,
+  fontFamily: 'Poppins_Regular',
+},
+itemTextStyle: {
+  fontSize: 14,
+  color: Theme.colors.black,
+  fontFamily: 'Poppins_Regular',
+},
+containerStyle: {
+
+},
+itemContainerStyle: {
+  maxHeight: maxDropdownHeight,
+  paddingVertical: 4,
+},
 
 
   // Summary Pages

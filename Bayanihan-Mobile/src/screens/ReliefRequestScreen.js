@@ -247,11 +247,8 @@ const ReliefRequestScreen = () => {
   const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const [errors, setErrors] = useState({});
   const [reportData, setReportData] = useState({
-    contactPerson: 
-      route.params?.reportData?.organizationName ||
-      user?.organization ||
-      (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : '') ||
-      '',    contactNumber: route.params?.reportData?.contactNumber || user?.mobile || '',
+    contactPerson: route.params?.reportData?.contactPerson || user?.contactPerson || '',
+    contactNumber: route.params?.reportData?.contactNumber || user?.contactNumber || '',
     email: route.params?.reportData?.email || user?.email || '',
     address: {
       formattedAddress: route.params?.reportData?.address?.formattedAddress || '',
@@ -262,6 +259,7 @@ const ReliefRequestScreen = () => {
     itemName: '',
     quantity: '',
     notes: '',
+    
   });
   const [items, setItems] = useState(route.params?.addedItems || []);
   const [isItemDropdownVisible, setIsItemDropdownVisible] = useState(false);
@@ -269,6 +267,7 @@ const ReliefRequestScreen = () => {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastConfig, setToastConfig] = useState({ title: '', message: '' });
   const [mapModalVisible, setMapModalVisible] = useState(false);
+  const [urgent, setUrgent] = useState(route.params?.urgent || false);
   const [permissionStatus, setPermissionStatus] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const itemInputRef = useRef(null);
@@ -302,8 +301,9 @@ const ReliefRequestScreen = () => {
             </div>
           </div>
           <div id="suggestions" class="suggestions-container"></div>
-          <button id="returnButton" class="return-button"><ion-icon name="locate-outline"></ion-icon></button>
-        </div>
+            <button id="returnButton" class="return-button">
+              <span class="material-icons" style="font-size:28px; color:#fff;">my_location</span>
+            </button>            </div>
       </div>
       <div class="map-type-buttons-container">
         <button id="roadmapBtn" class="map-type-button active"><span class="map-type-icon active"><ion-icon name="map-outline"></ion-icon></span></button>
@@ -660,7 +660,7 @@ const ReliefRequestScreen = () => {
       setReportData((prev) => ({
         ...prev,
         contactPerson: route.params.reportData.contactPerson || user?.contactPerson || prev.contactPerson,
-        contactNumber: route.params.reportData.contactNumber || user?.mobile || prev.contactNumber,
+        contactNumber: route.params.reportData.contactNumber || user?.contactNumber || prev.contactNumber,
         email: route.params.reportData.email || user?.email || prev.email,
         address: {
           formattedAddress: route.params.reportData.address?.formattedAddress || prev.address.formattedAddress,
@@ -726,35 +726,6 @@ const ReliefRequestScreen = () => {
         delete newErrors[field];
         return newErrors;
       });
-    }
-
-    if (field === 'contactNumber') {
-      const cleanedValue = value.replace(/\D/g, '');
-      setReportData((prev) => ({ ...prev, contactNumber: cleanedValue }));
-      if (cleanedValue && !/^[0-9]{11}$/.test(cleanedValue)) {
-        setErrors((prev) => ({ ...prev, contactNumber: 'Contact number must be exactly 11 digits' }));
-      } else {
-        setErrors((prev) => {
-          const newErrors = { ...prev };
-          delete newErrors.contactNumber;
-          return newErrors;
-        });
-      }
-    } else if (field === 'email') {
-      const cleanedValue = value.replace(/\s/g, '');
-      setReportData((prev) => ({ ...prev, email: cleanedValue }));
-      if (cleanedValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedValue)) {
-        setErrors((prev) => ({ ...prev, email: 'Email is not valid' }));
-      } else {
-        setErrors((prev) => {
-          const newErrors = { ...prev };
-          delete newErrors.email;
-          return newErrors;
-        });
-      }
-    } else if (field === 'contactPerson') {
-      const cleanedValue = value.replace(/[^a-zA-Z\s]/g, '');
-      setReportData((prev) => ({ ...prev, contactPerson: capitalizeFirstLetter(cleanedValue) }));
     }
 
     if (field === 'category') {
@@ -1094,7 +1065,7 @@ const ReliefRequestScreen = () => {
     }
 
     console.log('Navigating to ReliefSummary with reportData:', reportData);
-    navigation.navigate('ReliefSummary', { reportData, addedItems: items, organizationName });
+    navigation.navigate('ReliefSummary', { reportData, addedItems: items, organizationName, urgent });
   };
 
   const renderLabel = (label, isRequired) => (
@@ -1103,6 +1074,10 @@ const ReliefRequestScreen = () => {
       {isRequired && <Text style={{ color: 'red' }}> *</Text>}
     </Text>
   );
+
+  const handleUrgentToggle = () => {
+    setUrgent(!urgent);
+  };
 
   const maxDropdownHeight = height * 0.3;
 
@@ -1202,9 +1177,19 @@ const ReliefRequestScreen = () => {
               {errors['address.formattedAddress'] && (
                 <Text style={GlobalStyles.errorText}>{errors['address.formattedAddress']}</Text>
               )}
+              <TouchableOpacity
+                  style={[GlobalStyles.checkboxContainer, urgent && GlobalStyles.checkboxChecked]}
+                  onPress={handleUrgentToggle}>
+                  { <Ionicons
+                name={urgent ? 'checkbox' : 'square-outline'}
+                size={24}
+                color={urgent ? Theme.colors.accent : Theme.colors.black}
+              />}
+                <Text style={[GlobalStyles.checkboxLabel, {fontFamily: 'Poppins_SemiBold'}]}>Mark as an Urgent Request</Text>
+                </TouchableOpacity>
 
               {renderLabel('Request Category', true)}
-              <View style={[GlobalStyles.input, styles.pickerContainer, errors.category && GlobalStyles.inputError]}>
+              <View style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.category && GlobalStyles.inputError]}>
                 <Dropdown
                   style={{ padding: 10, width: '100%' }}
                   placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
@@ -1373,8 +1358,8 @@ const ReliefRequestScreen = () => {
       >
         <SafeAreaView style={{ flex: 1 }}>
           <View style={{ flex: 1 }}>
-            <View style={styles.mapModalHeader}>
-              <Text style={styles.mapModalHeaderText}>Pin Drop-Off Address</Text>
+            <View style={GlobalStyles.mapModalHeader}>
+              <Text style={GlobalStyles.mapModalHeaderText}>Pin Drop-Off Address</Text>
               <TouchableOpacity
                 style={{ padding: 10, justifyContent: 'flex-end' }}
                 onPress={() => setMapModalVisible(false)}

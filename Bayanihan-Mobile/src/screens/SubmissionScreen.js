@@ -12,6 +12,7 @@ import {
   Image,
   Dimensions,
   ScrollView,
+  ToastAndroid,
 } from 'react-native';
 import { database } from '../configuration/firebaseConfig';
 import { ref, onValue, query, limitToLast, orderByChild, startAfter } from 'firebase/database';
@@ -21,14 +22,12 @@ import { Ionicons } from '@expo/vector-icons';
 import Theme from '../constants/theme';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import useOperationCheck from '../components/useOperationCheck';
 import styles from '../styles/SubmissionStyles';
 import OperationCustomModal from '../components/OperationCustomModal';
 
 const SubmissionScreen = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { modalVisible: opModalVisible, setModalVisible: setOpModalVisible, modalConfig: opModalConfig } = useOperationCheck();
   const [history, setHistory] = useState([]);
   const [submissionData, setSubmissionData] = useState({});
   const [imageDimensions, setImageDimensions] = useState({});
@@ -67,45 +66,73 @@ const SubmissionScreen = () => {
   const fetchHistory = useCallback(() => {
     try {
       const userId = user.id;
-      let activityQuery = query(
-        ref(database, `activity_log/${userId}`),
-        orderByChild('timestamp'),
-        limitToLast(PAGE_SIZE)
-      );
+      const logsRef = ref(database, `activity_logs/${userId}`);
+      const logRef = ref(database, `activity_log/${userId}`);
+      const logsQuery = query(logsRef, orderByChild('timestamp'), limitToLast(PAGE_SIZE));
+      const logQuery = query(logRef, orderByChild('timestamp'), limitToLast(PAGE_SIZE));
 
-      const unsubscribe = onValue(
-        activityQuery,
+      const unsubscribeLogs = onValue(
+        logsQuery,
         (snapshot) => {
           const data = snapshot.val();
-          console.log(`[${new Date().toISOString()}] Raw activity_log data:`, data);
           const activities = data
-            ? Object.entries(data)
-                .map(([id, activity]) => ({
-                  id,
-                  message: activity.message || 'No message',
-                  timestamp: activity.timestamp || 0,
-                  submissionId: activity.submissionId || null,
-                }))
-                .sort((a, b) => b.timestamp - a.timestamp)
+            ? Object.entries(data).map(([id, activity]) => ({
+                id,
+                message: activity.message || 'No message',
+                timestamp: activity.timestamp || 0,
+                submissionId: activity.submissionId || null,
+                node: 'activity_logs',
+              }))
             : [];
 
-          setHistory(activities);
-          setHasMore(activities.length === PAGE_SIZE);
-          if (activities.length > 0) {
-            setLastTimestamp(activities[activities.length - 1].timestamp);
-          }
-          console.log(`[${new Date().toISOString()}] Activity log fetched: ${activities.length} items`, activities);
+          onValue(
+            logQuery,
+            (snapshot2) => {
+              const data2 = snapshot2.val();
+              const activities2 = data2
+                ? Object.entries(data2).map(([id, activity]) => ({
+                    id,
+                    message: activity.message || 'No message',
+                    timestamp: activity.timestamp || 0,
+                    submissionId: activity.submissionId || null,
+                    node: 'activity_log',
+                  }))
+                : [];
+              console.log(`[${new Date().toISOString()}] activity_log fetched: ${activities2.length} items`, activities2);
+
+              // Combine and deduplicate
+              const combined = [...activities, ...activities2];
+              const uniqueActivities = Array.from(
+                new Map(
+                  combined.map((item) => [`${item.submissionId || item.id}-${item.timestamp}`, item])
+                ).values()
+              ).sort((a, b) => b.timestamp - a.timestamp);
+
+              setHistory(uniqueActivities);
+              setHasMore(uniqueActivities.length >= PAGE_SIZE);
+              if (uniqueActivities.length > 0) {
+                setLastTimestamp(uniqueActivities[uniqueActivities.length - 1].timestamp);
+              }
+              console.log(
+                `[${new Date().toISOString()}] Combined activity log fetched: ${uniqueActivities.length} items`,
+                uniqueActivities
+              );
+            },
+            (error) => {
+              return;
+            }
+          );
         },
         (error) => {
-          Alert.alert('Error', `Failed to fetch activity log: ${error.message}`);
-          console.error(`[${new Date().toISOString()}] Error fetching activity log:`, error);
+          return;
         }
       );
 
-      return unsubscribe;
+      return () => {
+        unsubscribeLogs();
+      };
     } catch (error) {
-      Alert.alert('Error', `Failed to fetch history: ${error.message}`);
-      console.error(`[${new Date().toISOString()}] Error in fetchHistory:`, error);
+      
       return () => {};
     }
   }, [user]);
@@ -114,46 +141,85 @@ const SubmissionScreen = () => {
     if (!hasMore || !lastTimestamp) return;
     try {
       const userId = user.id;
-      const activityQuery = query(
-        ref(database, `activity_log/${userId}`),
-        orderByChild('timestamp'),
-        startAfter(lastTimestamp),
-        limitToLast(PAGE_SIZE)
-      );
+      const logsRef = ref(database, `activity_logs/${userId}`);
+      const logRef = ref(database, `activity_log/${userId}`);
+      const logsQuery = query(logsRef, orderByChild('timestamp'), startAfter(lastTimestamp), limitToLast(PAGE_SIZE));
+      const logQuery = query(logRef, orderByChild('timestamp'), startAfter(lastTimestamp), limitToLast(PAGE_SIZE));
 
-      const unsubscribe = onValue(
-        activityQuery,
+      const unsubscribeLogs = onValue(
+        logsQuery,
         (snapshot) => {
           const data = snapshot.val();
-          console.log(`[${new Date().toISOString()}] Raw more activity_log data:`, data);
           const activities = data
-            ? Object.entries(data)
-                .map(([id, activity]) => ({
-                  id,
-                  message: activity.message || 'No message',
-                  timestamp: activity.timestamp || 0,
-                  submissionId: activity.submissionId || null,
-                }))
-                .sort((a, b) => b.timestamp - a.timestamp)
+            ? Object.entries(data).map(([id, activity]) => ({
+                id,
+                message: activity.message || 'No message',
+                timestamp: activity.timestamp || 0,
+                submissionId: activity.submissionId || null,
+                node: 'activity_logs',
+              }))
             : [];
+          console.log(`[${new Date().toISOString()}] More activity_logs fetched: ${activities.length} items`, activities);
 
-          setHistory((prev) => [...prev, ...activities]);
-          setHasMore(activities.length === PAGE_SIZE);
-          if (activities.length > 0) {
-            setLastTimestamp(activities[activities.length - 1].timestamp);
-          }
-          console.log(`[${new Date().toISOString()}] More activity log fetched: ${activities.length} items`, activities);
+          onValue(
+            logQuery,
+            (snapshot2) => {
+              const data2 = snapshot2.val();
+              const activities2 = data2
+                ? Object.entries(data2).map(([id, activity]) => ({
+                    id,
+                    message: activity.message || 'No message',
+                    timestamp: activity.timestamp || 0,
+                    submissionId: activity.submissionId || null,
+                    node: 'activity_log',
+                  }))
+                : [];
+              console.log(
+                `[${new Date().toISOString()}] More activity_log fetched: ${activities2.length} items`,
+                activities2
+              );
+
+              // Combine and deduplicate
+              const combined = [...activities, ...activities2];
+              const uniqueActivities = Array.from(
+                new Map(
+                  combined.map((item) => [`${item.submissionId || item.id}-${item.timestamp}`, item])
+                ).values()
+              ).sort((a, b) => b.timestamp - a.timestamp);
+
+              setHistory((prev) => {
+                const allActivities = [...prev, ...uniqueActivities];
+                return Array.from(
+                  new Map(
+                    allActivities.map((item) => [`${item.submissionId || item.id}-${item.timestamp}`, item])
+                  ).values()
+                ).sort((a, b) => b.timestamp - a.timestamp);
+              });
+              setHasMore(uniqueActivities.length >= PAGE_SIZE);
+              if (uniqueActivities.length > 0) {
+                setLastTimestamp(uniqueActivities[uniqueActivities.length - 1].timestamp);
+              }
+              console.log(
+                `[${new Date().toISOString()}] Combined more activity log fetched: ${uniqueActivities.length} items`,
+                uniqueActivities
+              );
+            },
+            (error) => {
+              ToastAndroid.show('Failed to fetch more activity_log.', ToastAndroid.SHORT);
+            }
+          );
         },
         (error) => {
-          Alert.alert('Error', `Failed to fetch more activity log: ${error.message}`);
-          console.error(`[${new Date().toISOString()}] Error fetching more activity log:`, error);
+          ToastAndroid.show('Failed to fetch more activity_logs.', ToastAndroid.SHORT);
         }
       );
 
-      return unsubscribe;
+      return () => {
+        unsubscribeLogs();
+      };
     } catch (error) {
-      Alert.alert('Error', `Failed to fetch more history: ${error.message}`);
-      console.error(`[${new Date().toISOString()}] Error in fetchMoreHistory:`, error);
+      ToastAndroid.show('Failed to fetch more history.', ToastAndroid.SHORT);
+    
       return () => {};
     }
   }, [user, lastTimestamp, hasMore]);
@@ -161,12 +227,13 @@ const SubmissionScreen = () => {
   const fetchSubmissionData = useCallback(() => {
     try {
       const userId = user.id;
-      const submissionRef = ref(database, `activity_log/${userId}`);
-      const unsubscribe = onValue(
-        submissionRef,
+      const logsRef = ref(database, `activity_logs/${userId}`);
+      const logRef = ref(database, `activity_log/${userId}`);
+
+      const unsubscribeLogs = onValue(
+        logsRef,
         (snapshot) => {
           const data = snapshot.val();
-          console.log(`[${new Date().toISOString()}] Raw submission_history data:`, data);
           const submissions = data
             ? Object.entries(data).reduce((acc, [id, submission]) => {
                 acc[submission.submissionId || id] = {
@@ -175,25 +242,57 @@ const SubmissionScreen = () => {
                   data: submission.data || {},
                   timestamp: submission.timestamp || 0,
                   submissionId: submission.submissionId || id,
+                  node: 'activity_logs',
                 };
                 return acc;
               }, {})
             : {};
-          setSubmissionData(submissions);
           console.log(
-            `[${new Date().toISOString()}] Submission history fetched: ${Object.keys(submissions).length} items`,
+            `[${new Date().toISOString()}] activity_logs submission data fetched: ${Object.keys(submissions).length} items`,
             submissions
+          );
+
+          onValue(
+            logRef,
+            (snapshot2) => {
+              const data2 = snapshot2.val();
+              const submissions2 = data2
+                ? Object.entries(data2).reduce((acc, [id, submission]) => {
+                    acc[submission.submissionId || id] = {
+                      id,
+                      collection: submission.collection || 'Admin',
+                      data: submission.data || {},
+                      timestamp: submission.timestamp || 0,
+                      submissionId: submission.submissionId || id,
+                      node: 'activity_log',
+                    };
+                    return acc;
+                  }, {})
+                : {};
+
+              // Merge submissions
+              setSubmissionData({ ...submissions, ...submissions2 });
+              console.log(
+                `[${new Date().toISOString()}] Combined submission data fetched: ${
+                  Object.keys({ ...submissions, ...submissions2 }).length
+                } items`,
+                { ...submissions, ...submissions2 }
+              );
+            },
+            (error) => {
+             return;
+            }
           );
         },
         (error) => {
-          Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
-          console.error(`[${new Date().toISOString()}] Error fetching submission history:`, error);
+          return
         }
       );
-      return unsubscribe;
+
+      return () => {
+        unsubscribeLogs();
+      };
     } catch (error) {
-      Alert.alert('Error', `Failed to fetch submission data: ${error.message}`);
-      console.error(`[${new Date().toISOString()}] Error in fetchSubmissionData:`, error);
       return () => {};
     }
   }, [user]);
@@ -311,11 +410,11 @@ const SubmissionScreen = () => {
           },
           (error) => {
             console.error(`[${new Date().toISOString()}] Error getting image size for ${key}:`, error);
-          setImageDimensions((prev) => ({
-            ...prev,
-            [key]: { width: 200, height: 200 },
-          }));
-        }
+            setImageDimensions((prev) => ({
+              ...prev,
+              [key]: { width: 200, height: 200 },
+            }));
+          }
         );
       });
       return detailItems;
@@ -418,7 +517,7 @@ const SubmissionScreen = () => {
             <FlatList
               data={history}
               renderItem={({ item }) => <RenderHistoryItem item={item} />}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => `${item.node}-${item.id}`}
               ListEmptyComponent={<Text style={styles.noActivity}>No activities found</Text>}
               ListFooterComponent={
                 hasMore ? (
@@ -465,15 +564,6 @@ const SubmissionScreen = () => {
               onConfirm={() => setModalVisible(false)}
               confirmText="Close"
               showCancel={false}
-            />
-            <OperationCustomModal
-              visible={opModalVisible}
-              title={opModalConfig.title}
-              message={opModalConfig.message}
-              onConfirm={opModalConfig.onConfirm}
-              onCancel={opModalConfig.onCancel}
-              confirmText={opModalConfig.confirmText}
-              showCancel={opModalConfig.showCancel}
             />
           </View>
         </ScrollView>

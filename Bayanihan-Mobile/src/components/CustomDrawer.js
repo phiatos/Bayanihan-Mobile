@@ -37,19 +37,15 @@ const CustomDrawer = (props) => {
     }
   };
 
-const getUserName = () => {
-  if (user?.firstName || user?.lastName) {
-    return `${user.firstName || ''} ${user.lastName || ''}`.trim();
-  }
-  if (user?.contactPerson) {
-    return user.contactPerson;
-  }
-  if (user?.displayName) {
-    return user.displayName;
-  }
-  return "Unknown User";
-};
-
+  const getUserName = () => {
+    if (user?.contactPerson) {
+      return user.contactPerson;
+    }
+    if (user?.firstName || user?.lastName) {
+      return `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    }
+    return 'Unknown';
+  };
 
   const getDisplayText = () => {
     if (!user) {

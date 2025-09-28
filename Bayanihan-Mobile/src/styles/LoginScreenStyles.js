@@ -24,7 +24,7 @@ export const styles = StyleSheet.create({
   },
   title: {
     fontSize: 26,
-    color: '#14AFBC',
+    color: Theme.colors.primary,
     textAlign: 'center',
     width: '100%',
     paddingTop: 20,
@@ -121,7 +121,7 @@ export const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   recoverText: {
-    color: '#FB3B9A',
+    color: Theme.colors.accent,
     fontSize: 14,
     textDecorationLine: 'underline',
     fontFamily: 'Poppins_Regular',
@@ -129,7 +129,7 @@ export const styles = StyleSheet.create({
   termsContainer: {
     width: '100%',
     position: 'absolute',
-    bottom: 50,
+    bottom: 10,
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -168,7 +168,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'Poppins_Regular',
   },
   modalButton: {
-    backgroundColor: '#14AFBC',
+    backgroundColor: Theme.colors.primary,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 10,

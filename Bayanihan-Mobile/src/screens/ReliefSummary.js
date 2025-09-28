@@ -17,7 +17,7 @@ const ReliefSummary = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
-  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = user?.organization || 'Admin' } = route.params || {};
+  const { reportData: initialReportData = {}, addedItems: initialItems = [], organizationName = user?.organization || 'Admin', urgent = false } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [addedItems, setAddedItems] = useState(initialItems);
   const [modalVisible, setModalVisible] = useState(false);
@@ -45,7 +45,7 @@ const ReliefSummary = () => {
       const identifier = `request_${reliefrequestId}_${Date.now()}`;
       const key = push(ref(database, 'notifications')).key;
       await set(ref(database, `notifications/${key}`), {
-        message,
+        message: message + (urgent ? ' [URGENT]' : ''),
         calamityType: calamityType || null,
         location: location || null,
         details: details || null,
@@ -57,6 +57,7 @@ const ReliefSummary = () => {
         timestamp: serverTimestamp(),
         read: false,
         type: 'admin',
+        priority: urgent ? 'high' : 'normal',
       });
     } catch (error) {
       console.error('Failed to notify admin:', error.message);
@@ -133,12 +134,13 @@ const ReliefSummary = () => {
         items: addedItems,
         timestamp: serverTimestamp(),
         status: 'Pending',
+        urgent,
       };
 
       const requestRef = push(ref(database, 'requestRelief/requests'));
       const reliefrequestId = requestRef.key;
       const userRequestRef = ref(database, `users/${user.id}/requests/${reliefrequestId}`);
-      const message = `New relief request submitted by ${contactPerson} from ${organizationName} for ${category}.`;
+      const message = `New relief request submitted by ${contactPerson} from ${organizationName} for ${category}${urgent ? ' (URGENT)' : ''}..`;
 
       await Promise.all([
         set(requestRef, newRequest),
@@ -198,7 +200,7 @@ const ReliefSummary = () => {
   };
 
   const handleBack = () => {
-    navigation.navigate('ReliefRequest', { reportData, addedItems, organizationName });
+    navigation.navigate('ReliefRequest', { reportData, addedItems, organizationName, urgent });
   };
 
   const renderItem = ({ item, index }) => (
@@ -265,6 +267,10 @@ const ReliefSummary = () => {
                   </Text>
                 </View>
               ))}
+              <Text style={styles.label}>Urgent:</Text>
+              <Text style={[styles.value, urgent && { color: '#FF0000', fontWeight: 'bold' }]}>
+                {urgent ? 'Yes' : 'No'}
+              </Text>
             </View>
 
             <View style={GlobalStyles.summarySection}>
@@ -327,7 +333,7 @@ const ReliefSummary = () => {
             ) : (
               <>
                 <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={GlobalStyles.modalIcon} />
-                <Text style={GlobalStyles.modalMessage}>Your relief request has been successfully submitted!</Text>
+                <Text style={GlobalStyles.modalMessage}>Your relief request has been successfully submitted{urgent ? ' as urgent' : ''}!!</Text>
               </>
             )}
           </View>

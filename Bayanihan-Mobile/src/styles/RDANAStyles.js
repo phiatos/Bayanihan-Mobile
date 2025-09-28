@@ -26,7 +26,14 @@ const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
 const HEADER_HEIGHT = 60; 
 
 export default StyleSheet.create({
-
+  section:{
+    borderWidth: 1,
+    borderColor: Theme.colors.accentBlue,
+    borderStyle: 'dashed',
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    borderRadius: 10  
+  },
   sectionTitle: {
     fontSize: 18,
     marginBottom: spacing.small,
@@ -46,35 +53,42 @@ export default StyleSheet.create({
     backgroundColor: '#fff',
     marginBottom: 10,
   },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-  },
-
   //Progress Steps
-  progressCircles:{
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 0,
-  },
-  progressNumbers:{
-    fontFamily: 'Poppins_Regular',
-    fontSize: 12,
-  },
-  progressStepsText:{
-    fontFamily: 'Poppins_Regular',
-    fontSize: 10,
-    color: Theme.colors.accent,
-    position: 'absolute',
-    top: 26,
-    width: 50,
-    left: -15,
-    textAlign: 'center',
-  },
-
+    progressContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 15,
+      marginBottom: 10,
+      backgroundColor: 'transparent',
+    },
+    progressCircles: {
+      width: 30,
+      height: 30,
+      borderRadius: 125,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    progressNumbers: {
+      fontFamily: 'Poppins_Regular',
+      fontSize: 12,
+    },
+    progressLines:{
+      flex: 1, 
+      height: 2,
+      // marginHorizontal: 5,
+    },
+    progressStepsText: {
+      fontFamily: 'Poppins_Regular',
+      fontSize: 10,
+      color: Theme.colors.accent,
+      position: 'absolute',
+      top: 30,
+      width: 50,
+      left: -10,
+      textAlign: 'center',
+    },
 
   //Table
   table: {
@@ -132,54 +146,9 @@ export default StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  pickerContainer: {
-    borderWidth: borderWidth.thin, 
-    borderColor: '#605D67', 
-    borderRadius: borderRadius.large, 
-    paddingHorizontal: 0, 
-    paddingVertical:0,  
-    height: 43, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    textAlign:'left'
-  },
+  
   pickerRequiredInput: {
     borderColor: Theme.colors.red, 
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.small,
-  },
-  checkboxBox: {
-    width: 24,
-    height: 24,
-    borderRadius: borderRadius.small,
-    borderWidth: borderWidth.thin,
-    borderColor: Theme.colors.primary,
-    marginRight: spacing.small,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.lightBg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  checkmark: {
-    fontSize: 24,
-    color: Theme.colors.white,
-    backgroundColor: Theme.colors.accent,
-    lineHeight: 24,
-    borderRadius: borderRadius.small,
-    // borderColor: Theme.colors.accent
-  },
-  checkboxLabel: {
-    flex: 1,
-    fontSize: 14,
-    color: Theme.colors.black,
-    fontFamily: 'Poppins_Regular',
   },
 
 
