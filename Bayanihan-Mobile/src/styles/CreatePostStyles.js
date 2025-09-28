@@ -159,8 +159,9 @@ export default StyleSheet.create({
     width: '100%',
     height: 200,
     marginTop: spacing.small,
-    borderRadius: borderRadius.medium,
     alignSelf: 'center',
+    backgroundColor: Theme.colors.white,
+    marginLeft: 0
   },
   mediaPreviewContainer: {
     flexDirection: 'column',

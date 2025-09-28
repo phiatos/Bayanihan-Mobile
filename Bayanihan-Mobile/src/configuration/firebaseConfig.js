@@ -60,7 +60,7 @@ try {
 
 // Initialize other Firebase services
 const database = getDatabase(app);
-const storage = getStorage(app, '');
+const storage = getStorage(app, 'bayanihan-new-472410.firebasestorage.app');
 const db = getFirestore(app);
 
 export { app, auth, database, storage, db };

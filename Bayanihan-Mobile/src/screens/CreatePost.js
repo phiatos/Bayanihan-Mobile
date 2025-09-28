@@ -21,7 +21,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { Dropdown } from 'react-native-element-dropdown';
 import { logActivity, logSubmission } from '../components/logSubmission';
 
-// Updated categories array to match the new structure
 const categories = [
   { label: 'Select Category', value: '', disabled: true },
   { label: 'Discussion', value: 'discussion' },
@@ -78,15 +77,26 @@ const CreatePost = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const playerRef = useRef(null);
 
-  const player = useVideoPlayer(
+  const [videoSource, setVideoSource] = useState(
     isShared && initialData?.originalMediaType === 'video' && initialData?.originalMediaUrl && initialData.originalMediaUrl.startsWith('https://')
       ? { uri: initialData.originalMediaUrl }
-      : (!isShared && media.length > 0 && postType === 'video' && media[0].uri && media[0].uri.startsWith('https://') ? { uri: media[0].uri } : null),
-    (player) => {
-      playerRef.current = player;
-      console.log(`[${new Date().toISOString()}] Video player initialized for:`, isShared ? initialData?.originalMediaUrl : media[0]?.uri);
-    }
+      : null
   );
+
+  const player = useVideoPlayer(videoSource, (player) => {
+    playerRef.current = player;
+    console.log(`[${new Date().toISOString()}] Video player initialized for:`, videoSource?.uri);
+  });
+
+  useEffect(() => {
+    if (!isShared && postType === 'video' && media.length > 0 && media[0].uri) {
+      setVideoSource({ uri: media[0].uri });
+      console.log(`[${new Date().toISOString()}] Updated video player source to:`, media[0].uri);
+    } else if (media.length === 0 && postType === 'video') {
+      setVideoSource(null);
+      console.log(`[${new Date().toISOString()}] Cleared video player source`);
+    }
+  }, [media, postType, isShared]);
 
   useEffect(() => {
     try {
@@ -244,14 +254,25 @@ const CreatePost = () => {
             return;
           }
 
-          const newMedia = [{ uri, name, mimeType }];
+          const newMedia = [{ uri, name, mimeType, thumbnailUri: '' }];
           try {
-            const { uri: thumbnailUri } = await VideoThumbnails.getThumbnailAsync(uri, { time: 1000 });
-            console.log(`[${new Date().toISOString()}] Thumbnail URI:`, thumbnailUri);
-            newMedia[0].thumbnailUri = thumbnailUri;
+            const { uri: thumbnailUri } = await VideoThumbnails.getThumbnailAsync(uri, {
+              time: 1000,
+              quality: 0.8,
+              compress: 0.8,
+            });
+            console.log(`[${new Date().toISOString()}] Thumbnail generated at URI:`, thumbnailUri);
+            const thumbInfo = await FileSystem.getInfoAsync(thumbnailUri);
+            console.log(`[${new Date().toISOString()}] Thumbnail file info:`, thumbInfo);
+            if (!thumbInfo.exists || !thumbInfo.size) {
+              console.error(`[${new Date().toISOString()}] Thumbnail is inaccessible or empty at URI:`, thumbnailUri);
+              Alert.alert('Warning', `Failed to generate thumbnail for "${name}". Proceeding without thumbnail.`);
+            } else {
+              newMedia[0].thumbnailUri = thumbnailUri;
+            }
           } catch (error) {
             console.error(`[${new Date().toISOString()}] Error generating thumbnail for ${name}:`, error.message);
-            Alert.alert('Error', `Failed to generate thumbnail for "${name}".`);
+            Alert.alert('Warning', `Failed to generate thumbnail for "${name}". Proceeding without thumbnail.`);
           }
           setMedia(newMedia);
           console.log(`[${new Date().toISOString()}] Updated media state:`, newMedia);
@@ -658,12 +679,12 @@ const CreatePost = () => {
         >
           <View style={[styles.formContainer, { marginBottom: 50 }]}>
             {isShared ? (
-              <>
+              <View style={{ marginLeft: 0 }}>
                 <Text style={styles.sharedInfo}>
                   Sharing post from {initialData?.originalUserName || ''} ({initialData?.originalOrganization || ''})
                 </Text>
                 <TextInput
-                  style={[GlobalStyles.textArea, { height: Math.max(40, inputHeight), marginLeft: 10, color: Theme.colors.black, fontFamily:'Poppins_Regular' }]}
+                  style={{ height: Math.max(40, inputHeight), marginLeft: 10, color: Theme.colors.black, fontFamily: 'Poppins_Regular' }}
                   value={shareCaption}
                   onChangeText={setShareCaption}
                   placeholder="Add a caption for your shared post"
@@ -674,7 +695,7 @@ const CreatePost = () => {
                     setInputHeight(event.nativeEvent.contentSize.height)
                   }
                 />
-                <View style={[styles.sharedPostContainer, { backgroundColor: Theme.colors.lightGrey, padding: 10, borderRadius: 8 }]}>
+                <View style={[styles.sharedPostContainer, { backgroundColor: Theme.colors.lightGrey, paddingTop: 10, borderRadius: 8 }]}>
                   <Text style={[styles.readOnlyLabel, { color: Theme.colors.black }]}>{initialData?.originalTitle || 'No title'}</Text>
                   <Text style={[styles.readOnlyText, { color: Theme.colors.black }]}>{initialData?.originalContent || 'No content'}</Text>
                   {initialData?.originalMediaType === 'image' && (initialData?.originalMediaUrl || (initialData?.originalMediaUrls && initialData.originalMediaUrls.length > 0)) && (
@@ -694,13 +715,17 @@ const CreatePost = () => {
                     </View>
                   )}
                   {initialData?.originalMediaType === 'video' && initialData?.originalMediaUrl && (
-                    <View style={styles.mediaPreview}>
+                    <View style={[styles.mediaPreview, { marginLeft: 0 }]}>
                       <VideoView
                         player={player}
                         style={styles.videoPreview}
                         contentFit="contain"
                         nativeControls
-                        posterSource={initialData.originalThumbnailUrl ? { uri: initialData.originalThumbnailUrl } : undefined}
+                        posterSource={
+                          initialData?.originalThumbnailUrl && initialData.originalThumbnailUrl.startsWith('https://')
+                            ? { uri: initialData.originalThumbnailUrl }
+                            : undefined
+                        }
                         onError={(error) => {
                           console.error(`[${new Date().toISOString()}] Video playback error for shared post:`, error);
                           ToastAndroid.show('Failed to play video.', ToastAndroid.SHORT);
@@ -713,26 +738,26 @@ const CreatePost = () => {
                     <Text style={[styles.readOnlyText, { color: Theme.colors.accentBlue, textDecorationLine: 'underline' }]}>{initialData.originalMediaUrl}</Text>
                   )}
                 </View>
-              </>
+              </View>
             ) : (
               <>
                 <View style={styles.container}>
-                <Dropdown
-                  style={styles.dropdown}
-                  data={categories}
-                  labelField="label"
-                  valueField="value"
-                  placeholder="Select a category"
-                  value={category}
-                  onChange={(item) => setCategory(item.value)}
-                  placeholderStyle={styles.placeholderStyle}
-                  selectedTextStyle={styles.selectedTextStyle}
-                  itemTextStyle={styles.itemTextStyle}
-                  itemContainerStyle={styles.itemContainerStyle}
-                  renderRightIcon={() => (
-                    <Ionicons name="chevron-down" size={18} color={Theme.colors.primary} />
-                  )}
-                />
+                  <Dropdown
+                    style={styles.dropdown}
+                    data={categories}
+                    labelField="label"
+                    valueField="value"
+                    placeholder="Select a category"
+                    value={category}
+                    onChange={(item) => setCategory(item.value)}
+                    placeholderStyle={styles.placeholderStyle}
+                    selectedTextStyle={styles.selectedTextStyle}
+                    itemTextStyle={styles.itemTextStyle}
+                    itemContainerStyle={styles.itemContainerStyle}
+                    renderRightIcon={() => (
+                      <Ionicons name="chevron-down" size={18} color={Theme.colors.primary} />
+                    )}
+                  />
                 </View>
                 <TextInput
                   style={[styles.input, { fontSize: 20, fontFamily: 'Poppins_Bold', color: Theme.colors.black }]}

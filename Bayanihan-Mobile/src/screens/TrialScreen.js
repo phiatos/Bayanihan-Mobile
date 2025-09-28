@@ -1,812 +1,826 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
-import { ref as databaseRef, push, serverTimestamp, set, get } from 'firebase/database';
-import React, { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
-import { database } from '../configuration/firebaseConfig';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, ScrollView, Image, SafeAreaView, ToastAndroid, StyleSheet } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, push, set, update, get, serverTimestamp } from 'firebase/database';
+import { database, storage } from '../configuration/firebaseConfig';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import GlobalStyles from '../styles/GlobalStyles';
-import styles from '../styles/RDANAStyles';
 import Theme from '../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import { logActivity, logSubmission } from '../components/logSubmission';
+import styles from '../styles/CreatePostStyles';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import CustomModal from '../components/CustomModal';
-import * as Location from 'expo-location';
+import { v4 as uuidv4 } from 'uuid';
+import { Dropdown } from 'react-native-element-dropdown';
+import { logActivity, logSubmission } from '../components/logSubmission';
 
-const RDANASummary = () => {
+// Updated categories array to match the new structure
+const categories = [
+  { label: 'Select Category', value: '', disabled: true },
+  { label: 'Discussion', value: 'discussion' },
+  { label: 'Resource', value: 'resource' },
+  { label: 'Events', value: 'events' },
+  { label: 'Announcement', value: 'announcement' },
+];
+
+const CreatePost = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { 
-    reportData: initialReportData = {}, 
-    affectedMunicipalities: initialMunicipalities = [], 
-    authoritiesAndOrganizations: initialAuthorities = [], 
-    immediateNeeds: initialNeeds = [], 
-    initialResponse: initialResponses = [], 
-    organizationName = user?.organization || 'Admin',
-    enableUrgentRelief = false 
-  } = route.params || {};
-  const [reportData, setReportData] = useState(initialReportData);
-  const [affectedMunicipalities, setAffectedMunicipalities] = useState(initialMunicipalities);
-  const [authoritiesAndOrganizations, setAuthoritiesAndOrganizations] = useState(initialAuthorities);
-  const [immediateNeeds, setImmediateNeeds] = useState(initialNeeds);
-  const [initialResponse, setInitialResponse] = useState(initialResponses);
-  const [modalVisible, setModalVisible] = useState(false);
+  const { postType: initialPostType, postId, initialData, isShared } = route.params || {};
+  const [inputHeight, setInputHeight] = useState(40);
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [content, setContent] = useState(initialData?.content || '');
+  const [category, setCategory] = useState(initialData?.category || '');
+  const [shareCaption, setShareCaption] = useState(initialData?.shareCaption || '');
+  const [media, setMedia] = useState(() => {
+    console.log(`[${new Date().toISOString()}] Initializing media state with initialData:`, initialData);
+    if (!isShared && initialData?.mediaType === 'image') {
+      const mediaItems = [];
+      if (initialData?.mediaUrls && initialData.mediaUrls.length > 0) {
+        mediaItems.push(...initialData.mediaUrls.map(url => ({
+          uri: url,
+          name: url.split('/').pop() || 'image.jpg',
+          mimeType: 'image/jpeg',
+        })));
+      } else if (initialData?.mediaUrl) {
+        mediaItems.push({
+          uri: initialData.mediaUrl,
+          name: initialData.mediaUrl.split('/').pop() || 'image.jpg',
+          mimeType: 'image/jpeg',
+        });
+      }
+      console.log(`[${new Date().toISOString()}] Image media initialized:`, mediaItems);
+      return mediaItems;
+    } else if (!isShared && initialData?.mediaType === 'video' && initialData?.mediaUrl) {
+      const videoMedia = [{
+        uri: initialData.mediaUrl,
+        name: initialData.mediaUrl.split('/').pop() || 'video.mp4',
+        mimeType: 'video/mp4',
+        thumbnailUri: initialData.thumbnailUrl || '',
+      }];
+      console.log(`[${new Date().toISOString()}] Video media initialized:`, videoMedia);
+      return videoMedia;
+    }
+    return [];
+  });
+  const [link, setLink] = useState(initialData?.mediaUrl && initialData.mediaType === 'link' ? initialData.mediaUrl : '');
+  const [postType, setPostType] = useState(initialPostType || initialData?.mediaType || 'text');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const playerRef = useRef(null);
 
-  // Utility function to format date inputs to ISO 8601 for storage
-  const formatDateForStorage = (dateStr) => {
-    try {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) {
-        throw new Error('Invalid date format');
-      }
-      return date.toISOString();
-    } catch (error) {
-      console.error(`[${new Date().toISOString()}] Date formatting error:`, error.message);
-      return null;
+  const player = useVideoPlayer(
+    isShared && initialData?.originalMediaType === 'video' && initialData?.originalMediaUrl && initialData.originalMediaUrl.startsWith('https://')
+      ? { uri: initialData.originalMediaUrl }
+      : (!isShared && media.length > 0 && postType === 'video' && media[0].uri && media[0].uri.startsWith('https://') ? { uri: media[0].uri } : null),
+    (player) => {
+      playerRef.current = player;
+      console.log(`[${new Date().toISOString()}] Video player initialized for:`, isShared ? initialData?.originalMediaUrl : media[0]?.uri);
     }
-  };
-
-  // Utility function to get coordinates
-  const getCoordinates = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.log(`[${new Date().toISOString()}] Location permission denied`);
-        return { latitude: 0, longitude: 0 };
-      }
-      const location = await Location.getCurrentPositionAsync({});
-      return {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      };
-    } catch (error) {
-      console.error(`[${new Date().toISOString()}] Error getting location:`, error.message);
-      return { latitude: 0, longitude: 0 };
-    }
-  };
-
-  // Utility function to validate string inputs
-  const isValidString = (str) => /^[a-zA-Z0-9\s,.-]+$/.test(str?.trim());
+  );
 
   useEffect(() => {
     try {
-      if (!reportData || typeof reportData !== 'object') {
-        throw new Error('Invalid report data received');
-      }
-      if (!Array.isArray(affectedMunicipalities)) {
-        throw new Error('Invalid municipalities data received');
-      }
-      if (!Array.isArray(authoritiesAndOrganizations)) {
-        throw new Error('Invalid authorities data received');
-      }
-      if (!Array.isArray(immediateNeeds)) {
-        throw new Error('Invalid immediate needs data received');
-      }
-      if (!Array.isArray(initialResponse)) {
-        throw new Error('Invalid initial response data received');
-      }
-      
-      console.log(`[${new Date().toISOString()}] Specific fields:`, {
-        category: reportData.category,
-        estQty: reportData.estQty
-      });
-    } catch (error) {
-      console.error(`[${new Date().toISOString()}] Validation error:`, error.message);
-      Alert.alert('Error', error.message);
-      setErrorMessage(error.message);
-      setModalVisible(true);
-    }
-  }, [reportData, affectedMunicipalities, authoritiesAndOrganizations, immediateNeeds, initialResponse, organizationName]);
-
-  useEffect(() => {
-    try {
-      if (!user || !user.id) {
-        throw new Error('No authenticated user found or missing user ID');
+      if (!user) {
+        throw new Error('No authenticated user found');
       }
       console.log(`[${new Date().toISOString()}] Logged-in user ID:`, user.id);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Authentication error:`, error.message);
-      setErrorMessage('User not authenticated. Please log in.');
-      setModalVisible(true);
       setTimeout(() => {
-        setModalVisible(false);
         navigation.navigate('Login');
-      }, 3000);
+      }, 1000);
     }
   }, [user, navigation]);
 
-  const sanitizeKey = (key) => {
-    return key
-      .replace(/[.#$/[\]]/g, '_')
-      .replace(/\s+/g, '_')
-      .replace(/[^a-zA-Z0-9_]/g, '')
-      .replace(/_+/g, '_');
-  };
-
-  const formatLargeNumber = (value) => {
-    if (value === null || value === undefined || value === "") return "0";
-    let num = Number(value.toString().replace(/^0+/, ""));
-    if (isNaN(num)) return "0";
-    if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-    if (num >= 1_000) return (num / 1_000).toFixed(1).replace(/\.0$/, "") + "k";
-    return num.toString();
-  };
-
-  const notifyAdmin = async (message, disasterType, location, details, rdanaId, senderName, organization) => {
-    try {
-      const identifier = `rdana_${rdanaId}_${Date.now()}`;
-      const key = push(databaseRef(database, 'notifications')).key;
-      await set(databaseRef(database, `notifications/${key}`), {
-        message,
-        calamityType: disasterType || null,
-        location: location || null,
-        details: details || null,
-        eventId: null,
-        rdanaId,
-        senderName,
-        organization,
-        identifier,
-        timestamp: serverTimestamp(),
-        read: false,
-        type: "admin"
+  useEffect(() => {
+    console.log(`[${new Date().toISOString()}] Media state updated:`, media);
+    return () => {
+      media.forEach(async (file) => {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(file.uri);
+          if (fileInfo.exists && file.uri.startsWith(FileSystem.cacheDirectory)) {
+            await FileSystem.deleteAsync(file.uri);
+            console.log(`[${new Date().toISOString()}] Cleaned up cached file:`, file.uri);
+          }
+          if (file.thumbnailUri && file.thumbnailUri.startsWith(FileSystem.cacheDirectory)) {
+            await FileSystem.deleteAsync(file.thumbnailUri);
+            console.log(`[${new Date().toISOString()}] Cleaned up cached thumbnail:`, file.thumbnailUri);
+          }
+        } catch (error) {
+          console.error(`[${new Date().toISOString()}] Error cleaning up file ${file.uri}:`, error.message);
+        }
       });
-      console.log(`[${new Date().toISOString()}] Admin notified:`, message);
-    } catch (error) {
-      console.error(`[${new Date().toISOString()}] Failed to notify admin:`, error.message);
-    }
-  };
-
-  const generateUniqueId = async () => {
-    let attempts = 0;
-    const maxAttempts = 3;
-
-    while (attempts < maxAttempts) {
-      const randomNum = Math.floor(100 + Math.random() * 900);
-      const customId = `RDANA-${randomNum}`;
-      const snapshot = await get(databaseRef(database, `rdana/submitted/${customId}`));
-      if (!snapshot.exists()) {
-        console.log(`[${new Date().toISOString()}] Generated unique RDANA ID: ${customId}`);
-        return customId;
-      }
-      console.log(`[${new Date().toISOString()}] RDANA ID ${customId} already exists, retrying...`);
-      attempts++;
-    }
-    throw new Error('Unable to generate a unique RDANA ID after maximum attempts.');
-  };
-
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    if (!user || !user.id) {
-      setErrorMessage('User not authenticated or missing ID. Please log in again.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    const { 
-      Site_Location_Address_Province, 
-      Site_Location_Address_City_Municipality, 
-      Site_Location_Address_Barangay, 
-      Type_of_Disaster, 
-      Date_and_Time_of_Information_Gathered,
-      Locations_and_Areas_Affected_Province,
-      Locations_and_Areas_Affected_City_Municipality,
-      Locations_and_Areas_Affected_Barangay
-    } = reportData;
-
-    // Validate address fields
-    if (!Site_Location_Address_Province?.trim() || !isValidString(Site_Location_Address_Province)) {
-      setErrorMessage('Please enter a valid province.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!Site_Location_Address_City_Municipality?.trim() || !isValidString(Site_Location_Address_City_Municipality)) {
-      setErrorMessage('Please enter a valid city/municipality.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!Site_Location_Address_Barangay?.trim() || !isValidString(Site_Location_Address_Barangay)) {
-      setErrorMessage('Please enter a valid barangay.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!Type_of_Disaster?.trim()) {
-      setErrorMessage('Please select a disaster type.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (!Date_and_Time_of_Information_Gathered?.trim()) {
-      setErrorMessage('Please enter the date and time of information gathered.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Validate and format date fields
-    const formattedInfoDate = formatDateForStorage(Date_and_Time_of_Information_Gathered);
-    if (!formattedInfoDate) {
-      setErrorMessage('Invalid format for Date and Time of Information Gathered. Please use a valid date format (e.g., MM/DD/YYYY HH:MM).');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    const formattedOccurrenceDate = reportData.Date_and_Time_of_Occurrence?.trim() 
-      ? formatDateForStorage(reportData.Date_and_Time_of_Occurrence)
-      : null;
-    if (reportData.Date_and_Time_of_Occurrence?.trim() && !formattedOccurrenceDate) {
-      setErrorMessage('Invalid format for Date and Time of Occurrence. Please use a valid date format (e.g., MM/DD/YYYY HH:MM).');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (affectedMunicipalities.length === 0) {
-      setErrorMessage('Please add at least one affected municipality.');
-      setModalVisible(true);
-      setIsSubmitting(false);
-      return;
-    }
-
-    try {
-      const checklistLabels = {
-        reliefPacks: "Relief Packs",
-        hotMeals: "Hot Meals",
-        hygieneKits: "Hygiene Kits",
-        drinkingWater: "Drinking Water",
-        ricePacks: "Rice Packs"
-      };
-      const checklist = Object.keys(checklistLabels)
-        .filter(id => reportData[id] === 'Yes')
-        .map(id => id);
-
-      const lifelines = [
-        { structure: 'Residential Houses', status: reportData.residentialhousesStatus || 'N/A' },
-        { structure: 'Transportation and Mobility', status: reportData.transportationandmobilityStatus || 'N/A' },
-        { structure: 'Electricity, Power Grid', status: reportData.electricitypowergridStatus || 'N/A' },
-        { structure: 'Communication Networks, Internet', status: reportData.communicationnetworksinternetStatus || 'N/A' },
-        { structure: 'Hospitals, Rural Health Units', status: reportData.hospitalsruralhealthunitsStatus || 'N/A' },
-        { structure: 'Water Supply System', status: reportData.watersupplysystemStatus || 'N/A' },
-        { structure: 'Market, Business, Commercial Establishments', status: reportData.marketbusinessandcommercialestablishmentsStatus || 'N/A' },
-        { structure: 'Others', status: reportData.othersStatus || 'N/A' },
-      ];
-
-      const rdanaId = await generateUniqueId();
-      // Construct affectedLocations from individual fields
-      const affectedLocations = [];
-      const provinces = Locations_and_Areas_Affected_Province?.split(', ') || [];
-      const cities = Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];
-      const barangays = Locations_and_Areas_Affected_Barangay?.split(', ') || [];
-
-      // Ensure arrays have the same length and create objects
-      const maxLength = Math.max(provinces.length, cities.length, barangays.length);
-      for (let i = 0; i < maxLength; i++) {
-        if (provinces[i] && cities[i] && barangays[i]) {
-          affectedLocations.push({
-            province: provinces[i].trim() || '',
-            city: cities[i].trim() || '',
-            barangay: barangays[i].trim() || ''
-          });
+      if (playerRef.current && typeof playerRef.current.pause === 'function') {
+        try {
+          playerRef.current.pause();
+          console.log(`[${new Date().toISOString()}] Video player paused during cleanup`);
+        } catch (error) {
+          console.error(`[${new Date().toISOString()}] Error pausing video player:`, error.message);
         }
       }
+    };
+  }, [media]);
 
-      const newReport = {
-        rdanaId,
-        timestamp: serverTimestamp(),
-        currentUserGroupName: organizationName,
-        userUid: user.id,
-        reportData: {
-          profile: {
-            province: Site_Location_Address_Province.trim() || '',
-            city: Site_Location_Address_City_Municipality.trim() || '',
-            barangay: Site_Location_Address_Barangay.trim() || '',
-            infoDate: formattedInfoDate,
-            authorities: authoritiesAndOrganizations.map(row => ({
-              authority: row.authority?.trim() || '',
-              organization: row.organization?.trim() || ''
-            })),
-            affectedLocations, // Use the constructed array
-            disasterType: Type_of_Disaster.trim() || '',
-            occurrenceDate: formattedOccurrenceDate || '', 
-            summary: reportData.summary?.trim() || ''
-          },
-          disasterEffects: affectedMunicipalities.map(row => [
-            row.community?.trim() || '',
-            Number(row.totalPop) || 0, // Store raw number
-            Number(row.affectedPopulation) || 0, // Store raw number
-            Number(row.deaths) || 0, // Store raw number
-            Number(row.injured) || 0, // Store raw number
-            Number(row.missing) || 0, // Store raw number
-            Number(row.children) || 0, // Store raw number
-            Number(row.women) || 0, // Store raw number
-            Number(row.seniors) || 0, // Store raw number
-            Number(row.pwd) || 0 // Store raw number
-          ]),
-          lifelines,
-          checklist,
-          immediateNeeds: immediateNeeds.map(n => ({
-            need: n.need?.trim() || '',
-            qty: Number(n.qty) || 0 // Store raw number
-          })),
-          initialResponse: initialResponse.map(r => ({
-            group: r.group?.trim() || '',
-            assistance: r.assistance?.trim() || '',
-            families: Number(r.families) || 0 // Store raw number
-          }))
-        },
-        status: 'Submitted'
-      };
+  const requestPermissions = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log(`[${new Date().toISOString()}] Media library permission status:`, status);
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please grant permission to access your media library.');
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error requesting permissions:`, error.message);
+      Alert.alert('Error', 'Failed to request media library permissions.');
+      return false;
+    }
+  };
 
-      // Handle relief request submission if enableUrgentRelief is checked
-      if (enableUrgentRelief) {
-        console.log(`[${new Date().toISOString()}] Urgent relief request validation started`);
-        
-        const validImmediateNeeds = immediateNeeds.filter(item => item.need?.trim() && Number(item.qty) > 0);
-        if (validImmediateNeeds.length === 0) {
-          setErrorMessage('At least one valid immediate need (with a name and positive quantity) is required.');
-          setModalVisible(true);
-          setIsSubmitting(false);
+  const pickMedia = async () => {
+  if (isShared) {
+    console.log(`[${new Date().toISOString()}] Media upload disabled for shared posts`);
+    ToastAndroid.show('Media uploads are not allowed for shared posts.', ToastAndroid.SHORT);
+    return;
+  }
+  try {
+    console.log(`[${new Date().toISOString()}] Picking media for postType:`, postType);
+    if (postType === 'image') {
+      // ... (existing image picking logic remains unchanged)
+    } else if (postType === 'video') {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['video/mp4', 'video/webm'],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      console.log(`[${new Date().toISOString()}] DocumentPicker result:`, result);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        let { uri, name, mimeType, size } = asset;
+
+        console.log(`[${new Date().toISOString()}] Selected video URI:`, uri);
+        console.log(`[${new Date().toISOString()}] File details:`, { uri, name, mimeType, size });
+
+        const cacheUri = `${FileSystem.cacheDirectory}${Date.now()}_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        await FileSystem.copyAsync({ from: uri, to: cacheUri });
+        uri = cacheUri;
+
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        console.log(`[${new Date().toISOString()}] Cached file info:`, fileInfo);
+        if (!fileInfo.exists || !fileInfo.size) {
+          console.error(`[${new Date().toISOString()}] File does not exist or is empty at URI:`, uri);
+          Alert.alert('Error', `Selected video "${name}" is inaccessible or empty.`);
           return;
         }
 
-        console.log(`[${new Date().toISOString()}] Immediate needs for relief request:`, validImmediateNeeds);
+        if (size > 20 * 1024 * 1024) {
+          Alert.alert('Error', `Video "${name}" exceeds 20MB limit.`);
+          return;
+        }
 
-        const validCategories = ["Drinking Water", "Relief Packs", "Hygiene Kits", "Hot Meals", "Rice Packs"];
-        const contactPerson = user.displayName || user.email || "Unknown";
-        const contactNumber =
-          route?.params?.reportData?.contactNumber ||
-          user?.mobile ||
-          prev?.contactNumber ||
-          '';
-        const email = user.email || "";
-        const volunteerOrganization = organizationName;
-        const province = Site_Location_Address_Province?.trim() || "";
-        const city = Site_Location_Address_City_Municipality?.trim() || "";
-        const barangay = Site_Location_Address_Barangay?.trim() || "";
-        const formattedAddress = [barangay, city, province].filter(Boolean).join(", ");
-        const category = reportData.category?.trim() ? reportData.category.trim() : "General";
-        const { latitude, longitude } = await getCoordinates();
-        const urgent = true;
+        const newMedia = [{ uri, name, mimeType, thumbnailUri: null }];
+        try {
+          const { uri: thumbnailUri } = await VideoThumbnails.getThumbnailAsync(uri, { time: 1000, quality: 0.8 });
+          const thumbnailInfo = await FileSystem.getInfoAsync(thumbnailUri);
+          console.log(`[${new Date().toISOString()}] Thumbnail URI:`, thumbnailUri);
+          console.log(`[${new Date().toISOString()}] Thumbnail file info:`, thumbnailInfo);
 
-        const addedItems = validImmediateNeeds.map(item => ({
-          name: item.need.trim(),
-          quantity: Number(item.qty),
-          notes: "URGENT"
-        }));
+          if (!thumbnailInfo.exists || !thumbnailInfo.size) {
+            console.error(`[${new Date().toISOString()}] Thumbnail file is inaccessible or empty at URI:`, thumbnailUri);
+            Alert.alert('Warning', `Failed to generate a valid thumbnail for "${name}". The video will be uploaded without a thumbnail.`);
+          } else {
+            newMedia[0].thumbnailUri = thumbnailUri;
+          }
+        } catch (error) {
+          console.error(`[${new Date().toISOString()}] Error generating thumbnail for ${name}:`, error.message);
+          Alert.alert('Warning', `Failed to generate thumbnail for "${name}". The video will be uploaded without a thumbnail.`);
+        }
+        setMedia(newMedia);
+        console.log(`[${new Date().toISOString()}] Updated media state:`, newMedia);
+      }
+    }
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error picking media:`, error.message);
+    Alert.alert('Error', `Failed to pick media: ${error.message}`);
+  }
+};
 
-        const newRequest = {
-          contactPerson,
-          contactNumber,
-          email,
-          category,
-          volunteerOrganization,
-          userUid: user.id,
-          address: {
-            formattedAddress,
-            latitude: Number(latitude),
-            longitude: Number(longitude)
+  const deleteFromStorage = async (file, index) => {
+  try {
+    console.log(`[${new Date().toISOString()}] Attempting to move media to deleted:`, file.uri);
+    if (!user?.id) {
+      throw new Error('User not authenticated');
+    }
+    if (!file.uri.startsWith('https://')) {
+      console.log(`[${new Date().toISOString()}] Media ${file.name} is not in Firebase Storage, skipping storage deletion`);
+      return;
+    }
+
+    const originalPath = file.uri.split('/o/')[1].split('?')[0];
+    const fileName = file.name || originalPath.split('/').pop();
+    const deletedPath = `deleted/${user.id}/${Date.now()}_${fileName}`;
+    const originalRef = storageRef(storage, decodeURIComponent(originalPath));
+    const deletedRef = storageRef(storage, deletedPath);
+
+    console.log(`[${new Date().toISOString()}] Copying ${originalPath} to ${deletedPath}`);
+    const response = await fetch(file.uri);
+    const blob = await response.blob();
+    await uploadBytesResumable(deletedRef, blob, { contentType: file.mimeType });
+    console.log(`[${new Date().toISOString()}] Media ${fileName} copied to ${deletedPath}`);
+
+    try {
+      await deleteObject(originalRef);
+      console.log(`[${new Date().toISOString()}] Media ${fileName} deleted from ${originalPath}`);
+    } catch (error) {
+      console.warn(`[${new Date().toISOString()}] Failed to delete original media ${fileName} from ${originalPath}:`, error.message);
+    }
+
+    if (postType === 'video' && file.thumbnailUri && file.thumbnailUri.startsWith('https://')) {
+      const thumbPath = file.thumbnailUri.split('/o/')[1].split('?')[0];
+      const thumbName = file.thumbnailUri.split('/').pop() || 'thumbnail.jpg';
+      const deletedThumbPath = `deleted/${user.id}/${Date.now()}_${thumbName}`;
+      const thumbRef = storageRef(storage, decodeURIComponent(thumbPath));
+      const deletedThumbRef = storageRef(storage, deletedThumbPath);
+
+      console.log(`[${new Date().toISOString()}] Copying thumbnail ${thumbPath} to ${deletedThumbPath}`);
+      const thumbResponse = await fetch(file.thumbnailUri);
+      const thumbBlob = await thumbResponse.blob();
+      await uploadBytesResumable(deletedThumbRef, thumbBlob, { contentType: 'image/jpeg' });
+      console.log(`[${new Date().toISOString()}] Thumbnail ${thumbName} copied to ${deletedThumbPath}`);
+
+      try {
+        await deleteObject(thumbRef);
+        console.log(`[${new Date().toISOString()}] Thumbnail ${thumbName} deleted from ${thumbPath}`);
+      } catch (error) {
+        console.warn(`[${new Date().toISOString()}] Failed to delete original thumbnail ${thumbName} from ${thumbPath}:`, error.message);
+      }
+    }
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error moving media ${file.name} to deleted:`, error.message);
+    throw error;
+  }
+};
+
+  const removeMedia = (index) => {
+    const file = media[index];
+    Alert.alert(
+      'Remove Media',
+      `Are you sure you want to remove the ${postType === 'video' ? 'video' : 'image'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (file.uri.startsWith('https://')) {
+                await deleteFromStorage(file, index);
+              }
+              setMedia(media.filter((_, i) => i !== index));
+              console.log(`[${new Date().toISOString()}] Media removed, new media state:`, media.filter((_, i) => i !== index));
+              ToastAndroid.show('Media removed successfully.', ToastAndroid.SHORT);
+            } catch (error) {
+              console.error(`[${new Date().toISOString()}] Error removing media:`, error.message);
+              ToastAndroid.show(`Failed to remove media: ${error.message}`, ToastAndroid.LONG);
+            }
           },
-          items: addedItems,
+        },
+      ]
+    );
+  };
+
+  const uploadMedia = async (file, path) => {
+    try {
+      console.log(`[${new Date().toISOString()}] Starting upload for:`, file.name, 'to:', path);
+      console.log(`[${new Date().toISOString()}] Current user ID:`, user?.id || 'No user');
+
+      if (!user?.id) {
+        throw new Error('User not authenticated. Please sign in.');
+      }
+
+      const { uri, name, mimeType } = file;
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      console.log(`[${new Date().toISOString()}] File info:`, fileInfo);
+      if (!fileInfo.exists || !fileInfo.size) {
+        throw new Error(`File "${name}" does not exist or is empty at URI: ${uri}`);
+      }
+      if (fileInfo.size > 20 * 1024 * 1024) {
+        throw new Error(`File "${name}" exceeds 20MB limit.`);
+      }
+
+      const response = await fetch(uri);
+      console.log(`[${new Date().toISOString()}] Fetch response:`, response.ok, response.status);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`);
+      }
+      const blob = await response.blob();
+      console.log(`[${new Date().toISOString()}] Blob size:`, blob.size, 'for:', name);
+      if (!blob.size) {
+        throw new Error(`Blob for "${name}" is empty.`);
+      }
+
+      const contentType = mimeType || (path.endsWith('.jpg') || path.endsWith('.jpeg') ? 'image/jpeg' :
+                                      path.endsWith('.png') ? 'image/png' :
+                                      path.endsWith('.mp4') ? 'video/mp4' :
+                                      path.endsWith('.webm') ? 'video/webm' : 'application/octet-stream');
+      const metadata = { contentType };
+      console.log(`[${new Date().toISOString()}] Content type:`, contentType);
+
+      const storageReference = storageRef(storage, path);
+      console.log(`[${new Date().toISOString()}] Storage reference:`, storageReference.toString());
+      const uploadTask = uploadBytesResumable(storageReference, blob, metadata);
+      return await new Promise((resolve, reject) => {
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log(`[${new Date().toISOString()}] Upload progress for "${name}": ${progress.toFixed(2)}%`);
+            setUploadProgress(progress);
+          },
+          (error) => {
+            console.error(`[${new Date().toISOString()}] Upload failed for "${name}":`, error.message, error.code || 'N/A');
+            switch (error.code) {
+              case 'storage/unauthorized':
+                reject(new Error('Unauthorized to upload to this path. Check Firebase Storage rules.'));
+                break;
+              case 'storage/quota-exceeded':
+                reject(new Error('Storage quota exceeded. Contact support or reduce file size.'));
+                break;
+              case 'storage/canceled':
+                reject(new Error('Upload was canceled.'));
+                break;
+              case 'storage/unknown':
+                reject(new Error('Unknown error occurred during upload. Check network or Firebase configuration.'));
+                break;
+              case 'storage/invalid-bucket-name':
+                reject(new Error('Invalid bucket name. Verify the bucket exists in Google Cloud Console.'));
+                break;
+              default:
+                reject(error);
+            }
+          },
+          async () => {
+            try {
+              const downloadURL = await getDownloadURL(storageReference);
+              console.log(`[${new Date().toISOString()}] Upload successful for "${name}". Download URL:`, downloadURL);
+              resolve(downloadURL);
+            } catch (error) {
+              console.error(`[${new Date().toISOString()}] Error getting download URL:`, error.message);
+              reject(new Error(`Failed to get download URL: ${error.message}`));
+            }
+          }
+        );
+      });
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error uploading media "${file.name}" to ${path}:`, error.message);
+      throw error;
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (isSubmitting) {
+      console.warn(`[${new Date().toISOString()}] Submission already in progress`);
+      return;
+    }
+
+    try {
+      console.log(`[${new Date().toISOString()}] handleSubmit called with:`, { postType, title, content, category, mediaLength: media.length, link, isShared, shareCaption, postId });
+
+      if (!user?.id) {
+        throw new Error('No authenticated user found');
+      }
+
+      if (!isShared) {
+        if (!title.trim()) {
+          throw new Error('Please provide a title');
+        }
+        if (!category) {
+          throw new Error('Please select a category');
+        }
+        if ((postType === 'image' || postType === 'video') && media.length === 0 && !initialData?.mediaUrls && !initialData?.mediaUrl) {
+          throw new Error(`Please select ${postType === 'image' ? 'image(s)' : 'a video'}`);
+        }
+        if (postType === 'link' && (!link.trim() || !/^https?:\/\//.test(link))) {
+          throw new Error('Please provide a valid URL starting with http:// or https://');
+        }
+      } else if (!shareCaption.trim()) {
+        throw new Error('Please provide a caption for the shared post');
+      }
+
+      setIsSubmitting(true);
+      setUploadProgress(0);
+
+      const userRef = ref(database, `users/${user.id}`);
+      const userSnapshot = await get(userRef);
+      if (!userSnapshot.exists()) {
+        console.warn(`[${new Date().toISOString()}] User data not found for user ID:`, user.id);
+        throw new Error('User data not found. Please ensure your account is properly set up.');
+      }
+      const userData = userSnapshot.val() || {};
+      const userName = userData.contactPerson || 
+        (userData.firstName || userData.lastName 
+          ? `${userData.firstName || ''} ${userData.lastName || ''}`.trim() 
+          : userData.displayName || 'Admin');
+      const organization = userData.organization || ' ';
+      console.log(`[${new Date().toISOString()}] User data fetched:`, { userName, organization });
+
+      let postData;
+      if (isShared) {
+        postData = {
+          userId: user.id,
+          userName,
+          organization,
           timestamp: serverTimestamp(),
-          donationDate: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          status: "Pending",
-          matchedDonations: 0,
-          matchedDonationIds: [],
-          assignedVolunteers: [],
-          urgent,
-          rdanaId
+          isShared: true,
+          shareCaption: shareCaption.trim(),
+          title: initialData?.originalTitle || '',
+          content: initialData?.originalContent || '',
+          category: initialData?.originalCategory || '',
+          mediaType: initialData?.originalMediaType || 'text',
+          mediaUrls: initialData?.originalMediaUrls && initialData.originalMediaUrls.length > 0 ? initialData.originalMediaUrls : [],
+          mediaUrl: initialData?.originalMediaUrl || '',
+          thumbnailUrl: initialData?.originalThumbnailUrl || '',
+          originalUserId: initialData?.originalUserId || '',
+          originalUserName: initialData?.originalUserName || 'Anonymous',
+          originalOrganization: initialData?.originalOrganization || '',
+          originalTimestamp: initialData?.originalTimestamp || 0,
+        };
+      } else {
+        postData = {
+          title: title.trim(),
+          content: content.trim(),
+          category,
+          userName,
+          organization,
+          timestamp: serverTimestamp(),
+          userId: user.id,
+          mediaType: postType,
         };
 
-        const requestRef = push(databaseRef(database, 'requestRelief/requests'));
-        const userRequestRef = databaseRef(database, `users/${user.id}/requests/${requestRef.key}`);
+        if (postType === 'image' && media.length === 0) {
+          postData.mediaUrls = [];
+          console.log(`[${new Date().toISOString()}] Cleared mediaUrls for image post`);
+        }
+        if (postType === 'video' && media.length === 0) {
+          postData.mediaUrl = '';
+          postData.thumbnailUrl = '';
+          console.log(`[${new Date().toISOString()}] Cleared mediaUrl and thumbnailUrl for video post`);
+        }
 
-        await Promise.all([
-          set(requestRef, newRequest).catch(error => {
-            throw new Error(`Failed to save relief request: ${error.message}`);
-          }),
-          set(userRequestRef, {
-            requestId: requestRef.key,
-            timestamp: serverTimestamp(),
-            status: "Pending",
-            rdanaId
-          }).catch(error => {
-            throw new Error(`Failed to save user request: ${error.message}`);
-          }),
-        ]);
+        console.log(`[${new Date().toISOString()}] Attempting to upload media for postType:`, postType);
+        if (postType === 'image' && media.length > 0) {
+          postData.mediaUrls = [];
+          for (const file of media) {
+            if (file.uri.startsWith('https://')) {
+              postData.mediaUrls.push(file.uri);
+              continue;
+            }
+            const imagePath = `image_posts/${user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            console.log(`[${new Date().toISOString()}] Uploading image to:`, imagePath);
+            const downloadURL = await uploadMedia(file, imagePath);
+            postData.mediaUrls.push(downloadURL);
+          }
+        }
 
-        const itemsList = addedItems.map(n => `${n.name} (${n.quantity} units)`).join(", ");
-        const message = `New urgent relief request submitted with RDANA report (${rdanaId}) by ${volunteerOrganization} for ${itemsList} in ${formattedAddress}.`;
-        await notifyAdmin(
-          message,
-          reportData.profile?.disasterType || null,
-          formattedAddress,
-          `Urgent relief request for ${category}: ${itemsList}`,
-          rdanaId,
-          contactPerson,
-          volunteerOrganization
-        );
+        if (postType === 'video' && media.length > 0) {
+          const file = media[0];
+          if (!file.uri.startsWith('https://')) {
+            const mediaPath = `video_posts/${user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            console.log(`[${new Date().toISOString()}] Uploading video to:`, mediaPath);
+            const downloadURL = await uploadMedia(file, mediaPath);
+            postData.mediaUrl = downloadURL;
+            if (file.thumbnailUri && !file.thumbnailUri.startsWith('https://')) {
+              const thumbnailPath = `video_posts/${user.id}/thumbnails/${Date.now()}_thumbnail.jpg`;
+              console.log(`[${new Date().toISOString()}] Uploading thumbnail to:`, thumbnailPath);
+              const thumbnailURL = await uploadMedia(
+                { uri: file.thumbnailUri, name: 'thumbnail.jpg', mimeType: 'image/jpeg' },
+                thumbnailPath
+              );
+              postData.thumbnailUrl = thumbnailURL;
+            } else if (file.thumbnailUri) {
+              postData.thumbnailUrl = file.thumbnailUri;
+            }
+          } else {
+            postData.mediaUrl = file.uri;
+            postData.thumbnailUrl = file.thumbnailUri || '';
+          }
+        }
+
+        if (postType === 'link') {
+          postData.mediaUrl = link.trim();
+        }
       }
 
-      // Submit RDANA report to Firebase
-      const requestRef = push(databaseRef(database, 'rdana/submitted'));
-      const userRequestRef = databaseRef(database, `users/${user.id}/rdana/${rdanaId}`);
-      const message = `New RDANA report "${Type_of_Disaster || 'N/A'}" submitted by ${reportData.Prepared_By?.trim() || 'Unknown'} from ${organizationName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
-      const location = `${Site_Location_Address_Barangay || ''}, ${Site_Location_Address_City_Municipality || ''}, ${Site_Location_Address_Province || ''}`;
-      const details = reportData.summary?.trim() || 'No summary provided';
+      if (postId) {
+        if (!postId) {
+          throw new Error('Post ID is undefined for update operation');
+        }
+        const postRef = ref(database, `posts/${postId}`);
+        await update(postRef, postData);
+        await logActivity(user.id, 'Updated a post', postId, organization);
+        await logSubmission('posts', postData, postId, organization, user.id);
+        console.log(`[${new Date().toISOString()}] Post ${postId} updated in posts with data:`, postData);
+        ToastAndroid.show('Post updated successfully.', ToastAndroid.SHORT);
+      } else {
+        const postsRef = ref(database, 'posts');
+        const newPostRef = push(postsRef);
+        const submissionId = newPostRef.key;
+        if (!submissionId) {
+          throw new Error('Failed to generate submission ID for new post');
+        }
+        await set(newPostRef, postData);
+        await logActivity(user.id, `Created a new post in ${postData.category || 'shared post'}`, submissionId, organization);
+        await logSubmission('posts', postData, submissionId, organization, user.id);
+        console.log(`[${new Date().toISOString()}] Post ${submissionId} created in posts with data:`, postData);
+        ToastAndroid.show('Post created successfully.', ToastAndroid.SHORT);
+      }
 
-      await Promise.all([
-        set(requestRef, newReport).catch(error => {
-          throw new Error(`Failed to save RDANA report: ${error.message}`);
-        }),
-        set(userRequestRef, newReport).catch(error => {
-          throw new Error(`Failed to save user RDANA report: ${error.message}`);
-        }),
-        logActivity('Submitted an RDANA report', rdanaId, user.id, organizationName).catch(error => {
-          throw new Error(`Failed to log activity: ${error.message}`);
-        }),
-        logSubmission('rdana/submitted', newReport, rdanaId, organizationName, user.id).catch(error => {
-          throw new Error(`Failed to log submission: ${error.message}`);
-        }),
-        notifyAdmin(message, Type_of_Disaster || 'N/A', location, details, rdanaId, reportData.Prepared_By?.trim() || 'Unknown', organizationName).catch(error => {
-          throw new Error(`Failed to notify admin: ${error.message}`);
-        })
-      ]);
-
-      // Reset form data
-      setReportData({});
-      setAffectedMunicipalities([]);
-      setAuthoritiesAndOrganizations([]);
-      setImmediateNeeds([]);
-      setInitialResponse([]);
-      setErrorMessage(null);
-      setModalVisible(true);
+      navigation.goBack();
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] Error saving RDANA report:`, error.message, error.code || 'N/A');
-      setErrorMessage(`Failed to submit RDANA report: ${error.message} (${error.code || 'N/A'})`);
-      setModalVisible(true);
+      console.error(`[${new Date().toISOString()}] Error creating/updating post:`, error.message, error.code || 'N/A');
+      Alert.alert('Error', `Failed to create/update post: ${error.message}`);
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
-  const handleConfirm = () => {
-    console.log(`[${new Date().toISOString()}] Confirm button pressed`);
-    setModalVisible(false);
-    if (!errorMessage) {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'Volunteer Dashboard' }],
-        })
-      );
-    } else {
-      navigation.navigate('Login');
+  const handlePostTypeChange = (newPostType) => {
+    if (isShared) {
+      console.log(`[${new Date().toISOString()}] Post type change disabled for shared posts`);
+      ToastAndroid.show('Post type cannot be changed for shared posts.', ToastAndroid.SHORT);
+      return;
     }
+    console.log(`[${new Date().toISOString()}] Changing post type to:`, newPostType);
+    setPostType(newPostType);
+    setMedia([]);
+    setLink('');
   };
 
-  const handleCancel = () => {
-    console.log(`[${new Date().toISOString()}] Cancel button pressed`);
-    setModalVisible(false);
-    if (errorMessage) {
-      navigation.navigate('Login');
-    }
-  };
-
-  const handleBack = () => {
-    console.log(`[${new Date().toISOString()}] Navigating back with data:`, reportData, affectedMunicipalities, authoritiesAndOrganizations, immediateNeeds, initialResponse);
-    // Reconstruct affectedLocations from comma-separated fields
-    const affectedLocations = [];
-    const provinces = reportData.Locations_and_Areas_Affected_Province?.split(', ') || [];
-    const cities = reportData.Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];
-    const barangays = reportData.Locations_and_Areas_Affected_Barangay?.split(', ') || [];
-
-    const maxLength = Math.max(provinces.length, cities.length, barangays.length);
-    for (let i = 0; i < maxLength; i++) {
-      if (provinces[i] && cities[i] && barangays[i]) {
-        affectedLocations.push({
-          province: provinces[i].trim() || '',
-          city: cities[i].trim() || '',
-          barangay: barangays[i].trim() || ''
-        });
-      }
-    }
-
-    navigation.navigate('RDANAScreen', { 
-      reportData, 
-      affectedMunicipalities, 
-      authoritiesAndOrganizations, 
-      immediateNeeds, 
-      initialResponse, 
-      affectedLocations, // Pass the reconstructed array
-      organizationName,
-      enableUrgentRelief
-    });
-  };
-
-  const renderMunicipalityItem = (item, index) => (
-    <View key={index.toString()} style={[styles.summaryTableRow, { minWidth: 1150 }]}>
-      <Text style={[styles.summaryTableCell, { minWidth: 50 }]}>{index + 1}</Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 240 }]}>{item.community || 'N/A'}</Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 120 }]}>{formatLargeNumber(item.totalPop || 'N/A')}</Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 120 }]}>{formatLargeNumber(item.affectedPopulation || 'N/A')}</Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.deaths || 'N/A')}</Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.injured || 'N/A')}</Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.missing || 'N/A')}</Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.children || 'N/A')}</Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.women || 'N/A')}</Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 130 }]}>{formatLargeNumber(item.seniors || 'N/A')}</Text>
-      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.pwd || 'N/A')}</Text>
-    </View>
-  );
-
-  const renderAuthorityItem = (item, index) => (
-    <View key={index.toString()} style={[styles.summaryTableRow, { minWidth: 400 }]}>
-      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{item.authority || 'N/A'}</Text>
-      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{item.organization || 'N/A'}</Text>
-    </View>
-  );
-
-  const renderNeedItem = (item, index) => (
-    <View key={index.toString()} style={[styles.summaryTableRow, { minWidth: 400 }]}>
-      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{item.need || 'N/A'}</Text>
-      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{formatLargeNumber(item.qty || 'N/A')}</Text>
-    </View>
-  );
-
-  const renderResponseItem = (item, index) => (
-    <View key={index.toString()} style={[styles.summaryTableRow, { minWidth: 600 }]}>
-      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{item.group || 'N/A'}</Text>
-      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{item.assistance || 'N/A'}</Text>
-      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{formatLargeNumber(item.families || 'N/A')}</Text>
-    </View>
-  );
-
-  // Format Locations and Areas Affected for display with '/'
-  const formatLocationsForDisplay = () => {
-    const provinces = reportData.Locations_and_Areas_Affected_Province?.split(', ') || [];
-    const cities = reportData.Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];
-    const barangays = reportData.Locations_and_Areas_Affected_Barangay?.split(', ') || [];
-    const locations = [];
-    const maxLength = Math.max(provinces.length, cities.length, barangays.length);
-    
-    for (let i = 0; i < maxLength; i++) {
-      const province = provinces[i]?.trim() || '';
-      const city = cities[i]?.trim() || '';
-      const barangay = barangays[i]?.trim() || '';
-      if (province && city && barangay) {
-        locations.push(`${barangay}/${city}/${province}`);
-      }
-    }
-    return locations.length > 0 ? locations.join(', ') : 'N/A';
-  };
+  if (!VideoView || !useVideoPlayer) {
+    console.error(`[${new Date().toISOString()}] VideoView or useVideoPlayer is undefined`);
+    return (
+      <SafeAreaView style={GlobalStyles.container}>
+        <Text>Error: Video component failed to load.</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={GlobalStyles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+    <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
         end={{ x: 1, y: 1 }}
-        style={GlobalStyles.gradientContainer}
+        style={styles.gradientContainer}
       >
         <View style={GlobalStyles.newheaderContainer}>
-          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
-            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+          <TouchableOpacity onPress={() => navigation.goBack()} style={GlobalStyles.headerMenuIcon}>
+            <Ionicons name="arrow-back" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>RDANA</Text>
+          <TouchableOpacity
+            style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+          >
+            <Text style={[styles.submitButtonText, isSubmitting && { color: Theme.colors.primary }]}>
+              {isSubmitting ? 'Submitting...' : postId ? 'Update' : 'Post'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 80 }}
-        keyboardVerticalOffset={0}
+        style={{ flex: 1, marginTop: 70 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? -50 : -30}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollViewContent}
-          scrollEnabled
-          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[styles.scrollViewContent, { paddingBottom: insets.bottom + 30 }]}
         >
-          <View style={GlobalStyles.form}>
-            <Text style={GlobalStyles.subheader}>Summary</Text>
-            <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>I. Profile of the Disaster</Text>
-              {[
-                { key: 'Site_Location_Address_Province', label: 'Site Location/ Address (Province)' },
-                { key: 'Site_Location_Address_City_Municipality', label: 'Site Location Address (City/Municipality)' },
-                { key: 'Site_Location_Address_Barangay', label: 'Site Location Address Barangay' },
-                { key: 'Date_and_Time_of_Information_Gathered', label: 'Date and Time of Information Gathered' },
-              ].map(({ key, label }) => (
-                <View key={label} style={styles.fieldContainer}>
-                  <Text style={styles.label}>{label}:</Text>
-                  <Text style={styles.value}>{reportData[key]?.trim() || 'N/A'}</Text>
-                </View>
-              ))}
-              <Text style={GlobalStyles.sectionTitle}>Authorities & Organizations</Text>
-              {authoritiesAndOrganizations.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator>
-                  <View style={styles.summaryTable}>
-                    <View style={[styles.summaryTableHeader, { minWidth: 400 }]}>
-                      <Text style={[styles.summaryTableHeaderCell, { flex: 1, borderRightWidth: 1, borderRightColor: Theme.colors.primary }]}>Authorities</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Organizations</Text>
+          <View style={[styles.formContainer, { marginBottom: 50 }]}>
+            {isShared ? (
+              <>
+                <Text style={styles.sharedInfo}>
+                  Sharing post from {initialData?.originalUserName || ''} ({initialData?.originalOrganization || ''})
+                </Text>
+                <TextInput
+                  style={ {height: Math.max(40, inputHeight), marginLeft: 10, color: Theme.colors.black, fontFamily:'Poppins_Regular',  }}
+                  value={shareCaption}
+                  onChangeText={setShareCaption}
+                  placeholder="Add a caption for your shared post"
+                  placeholderTextColor={Theme.colors.placeholder}
+                  multiline
+                  maxLength={500}
+                  onContentSizeChange={(event) =>
+                    setInputHeight(event.nativeEvent.contentSize.height)
+                  }
+                />
+                <View style={[styles.sharedPostContainer, { backgroundColor: Theme.colors.lightGrey, padding: 10, borderRadius: 8 }]}>
+                  <Text style={[styles.readOnlyLabel, { color: Theme.colors.black }]}>{initialData?.originalTitle || 'No title'}</Text>
+                  <Text style={[styles.readOnlyText, { color: Theme.colors.black }]}>{initialData?.originalContent || 'No content'}</Text>
+                  {initialData?.originalMediaType === 'image' && (initialData?.originalMediaUrl || (initialData?.originalMediaUrls && initialData.originalMediaUrls.length > 0)) && (
+                    <View style={styles.mediaPreviewContainer}>
+                      {(initialData.originalMediaUrls || [initialData.originalMediaUrl]).filter(url => url).map((url, index) => (
+                        <Image
+                          key={index}
+                          source={{ uri: url }}
+                          style={styles.thumbnailPreview}
+                          resizeMode="contain"
+                          onError={(error) => {
+                            console.error(`[${new Date().toISOString()}] Image load error for shared post, url ${url}:`, error.nativeEvent);
+                            ToastAndroid.show('Failed to load image.', ToastAndroid.SHORT);
+                          }}
+                        />
+                      ))}
                     </View>
-                    {authoritiesAndOrganizations.map((item, index) => renderAuthorityItem(item, index))}
-                  </View>
-                </ScrollView>
-              ) : (
-                <Text style={styles.value}>No authorities or organizations added.</Text>
-              )}
-            </View>
-
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>II. Modality</Text>
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Locations and Areas Affected:</Text>
-                <Text style={styles.value}>{formatLocationsForDisplay()}</Text>
-              </View>
-              <Text style={styles.sectionSubtitle}>Disaster Details</Text>
-              {[
-                { key: 'Type_of_Disaster', label: 'Type of Disaster' },
-                { key: 'Date_and_Time_of_Occurrence', label: 'Date and Time of Occurrence' },
-                { key: 'summary', label: 'Summary' },
-              ].map(({ key, label }) => (
-                <View key={label} style={styles.fieldContainer}>
-                  <Text style={styles.label}>{label}:</Text>
-                  <Text style={styles.value}>{reportData[key]?.trim() || 'N/A'}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>III. Initial Effects</Text>
-              <Text style={styles.sectionSubtitle}>Affected Municipalities</Text>
-              {affectedMunicipalities.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator>
-                  <View style={styles.summaryTable}>
-                    <View style={[styles.summaryTableHeader, { minWidth: 1150 }]}>
-                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 50 }]}>#</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 240 }]}>Affected Municipalities/Communities</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 120 }]}>Total Population</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 120 }]}>Affected Population</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Deaths</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Injured</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Missing</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Children</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Women</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 130 }]}>Senior Citizens</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>PWD</Text>
+                  )}
+                  {initialData?.originalMediaType === 'video' && initialData?.originalMediaUrl && (
+                    <View style={styles.mediaPreview}>
+                      <VideoView
+                        player={player}
+                        style={styles.videoPreview}
+                        contentFit="contain"
+                        nativeControls
+                        posterSource={initialData.originalThumbnailUrl ? { uri: initialData.originalThumbnailUrl } : undefined}
+                        onError={(error) => {
+                          console.error(`[${new Date().toISOString()}] Video playback error for shared post:`, error);
+                          ToastAndroid.show('Failed to play video.', ToastAndroid.SHORT);
+                        }}
+                        onLoad={() => console.log(`[${new Date().toISOString()}] Video preview loaded for shared post:`, initialData.originalMediaUrl)}
+                      />
                     </View>
-                    {affectedMunicipalities.map((item, index) => renderMunicipalityItem(item, index))}
-                  </View>
-                </ScrollView>
-              ) : (
-                <Text style={styles.value}>No municipalities added.</Text>
-              )}
-            </View>
-
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>IV. Status of Lifelines, Social Structure, and Critical Facilities</Text>
-              {[
-                { key: 'residentialhousesStatus', label: 'Residential Houses' },
-                { key: 'transportationandmobilityStatus', label: 'Transportation and Mobility' },
-                { key: 'electricitypowergridStatus', label: 'Electricity, Power Grid' },
-                { key: 'communicationnetworksinternetStatus', label: 'Communication Networks, Internet' },
-                { key: 'hospitalsruralhealthunitsStatus', label: 'Hospitals, Rural Health Units' },
-                { key: 'watersupplysystemStatus', label: 'Water Supply System' },
-                { key: 'marketbusinessandcommercialestablishmentsStatus', label: 'Market, Business, Commercial Establishments' },
-                { key: 'othersStatus', label: 'Others' },
-              ].map(({ key, label }) => (
-                <View key={key} style={styles.fieldContainer}>
-                  <Text style={styles.label}>{label}:</Text>
-                  <Text style={styles.value}>{reportData[key]?.trim() || 'N/A'}</Text>
+                  )}
+                  {initialData?.originalMediaType === 'link' && initialData?.originalMediaUrl && (
+                    <Text style={[styles.readOnlyText, { color: Theme.colors.accentBlue, textDecorationLine: 'underline' }]}>{initialData.originalMediaUrl}</Text>
+                  )}
                 </View>
-              ))}
-            </View>
-
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>V. Initial Needs Assessment Checklist</Text>     
-              {[
-                { key: 'reliefPacks', label: 'Relief Packs' },
-                { key: 'hotMeals', label: 'Hot Meals' },
-                { key: 'hygieneKits', label: 'Hygiene Kits' },
-                { key: 'drinkingWater', label: 'Drinking Water' },
-                { key: 'ricePacks', label: 'Rice Packs' },
-              ].map(({ key, label }) => (
-                <View key={label} style={styles.fieldContainer}>
-                  <Text style={styles.label}>{label}:</Text>
-                  <Text style={styles.value}>{reportData[key] === 'Yes' ? 'Yes' : 'No'}</Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.container}>
+                <Dropdown
+                  style={styles.dropdown}
+                  data={categories}
+                  labelField="label"
+                  valueField="value"
+                  placeholder="Select a category"
+                  value={category}
+                  onChange={(item) => setCategory(item.value)}
+                  placeholderStyle={styles.placeholderStyle}
+                  selectedTextStyle={styles.selectedTextStyle}
+                  itemTextStyle={styles.itemTextStyle}
+                  itemContainerStyle={styles.itemContainerStyle}
+                  renderRightIcon={() => (
+                    <Ionicons name="chevron-down" size={18} color={Theme.colors.primary} />
+                  )}
+                />
                 </View>
-              ))}
-              {immediateNeeds.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator>
-                  <View style={styles.summaryTable}>
-                    <View style={[styles.summaryTableHeader, { minWidth: 400 }]}>
-                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Other Immediate Needs</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Estimated Quantity</Text>
+                <TextInput
+                  style={[styles.input, { fontSize: 20, fontFamily: 'Poppins_Bold', color: Theme.colors.black }]}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="Title"
+                  placeholderTextColor={Theme.colors.placeholder}
+                />
+                <TextInput
+                  style={[styles.input, styles.textArea, { color: Theme.colors.black }]}
+                  value={content}
+                  onChangeText={setContent}
+                  placeholder="What's on your mind?"
+                  placeholderTextColor={Theme.colors.placeholder}
+                  multiline
+                  numberOfLines={4}
+                />
+                {(postType === 'image' || postType === 'video') && (
+                  <View style={styles.mediaContainer}>
+                    {postType === 'image' && media.length === 0 && (
+                      <TouchableOpacity style={styles.imageUpload} onPress={pickMedia}>
+                        <Text style={styles.imageUploadText}>Select Images</Text>
+                      </TouchableOpacity>
+                    )}
+                    {postType === 'video' && (
+                      <TouchableOpacity style={styles.imageUpload} onPress={pickMedia}>
+                        <Text style={styles.imageUploadText}>
+                          {media.length > 0 ? 'Replace Video' : 'Select Video'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {media.length > 0 && postType === 'video' && media[0].uri && (
+                    <View style={styles.mediaPreview}>
+                      <VideoView
+                        player={player}
+                        style={styles.videoPreview}
+                        contentFit="contain"
+                        nativeControls
+                        posterSource={{ uri: media[0].thumbnailUri } } 
+                        onError={(error) => {
+                          console.error(`[${new Date().toISOString()}] Video playback error:`, error);
+                          Alert.alert('Error', 'Failed to play video.');
+                        }} 
+                        
+                        onLoad={() => console.log(`[${new Date().toISOString()}] Video preview loaded for:`, media[0].uri)}
+                      />
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => removeMedia(0)}
+                      >
+                        <Ionicons name="trash-outline" size={20} color={Theme.colors.white} />
+                      </TouchableOpacity>
                     </View>
-                    {immediateNeeds.map((item, index) => renderNeedItem(item, index))}
+                  )}
+                    {media.length > 0 && postType === 'image' && (
+                      <View style={styles.mediaPreviewContainer}>
+                        {media.map((item, index) => (
+                          <View key={index} style={styles.mediaPreview}>
+                            <Image
+                              source={{ uri: item.uri }}
+                              style={styles.thumbnailPreview}
+                              resizeMode="contain"
+                              onError={(error) => {
+                                console.error(`[${new Date().toISOString()}] Image preview error for ${item.name}:`, error.nativeEvent);
+                                Alert.alert('Error', `Failed to load image: ${item.name}`);
+                              }}
+                            />
+                            <TouchableOpacity
+                              style={styles.removeButton}
+                              onPress={() => removeMedia(index)}
+                            >
+                              <Ionicons name="trash-outline" size={20} color={Theme.colors.white} />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
-                </ScrollView>
-              )}
-            </View>
-
-            <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>VI. Initial Response Actions</Text>
-              {initialResponse.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator>
-                  <View style={styles.summaryTable}>
-                    <View style={[styles.summaryTableHeader, { minWidth: 600 }]}>
-                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Response Groups Involved</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Relief Assistance Deployed</Text>
-                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Number of Families Served</Text>
-                    </View>
-                    {initialResponse.map((item, index) => renderResponseItem(item, index))}
+                )}
+                {postType === 'link' && (
+                  <View style={styles.mediaContainer}>
+                    <TextInput
+                      style={[styles.inputLink, { color: Theme.colors.black }]}
+                      value={link}
+                      onChangeText={setLink}
+                      placeholder="Enter URL (e.g., https://example.com)"
+                      placeholderTextColor={Theme.colors.placeholder}
+                      keyboardType="url"
+                    />
                   </View>
-                </ScrollView>
-              ) : (
-                <Text style={styles.value}>No response actions added.</Text>
-              )}
-            </View>
-
-            <View style={GlobalStyles.finalButtonContainer}>
-              <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack} disabled={isSubmitting}>
-                <Text style={GlobalStyles.backButtonText}>Back</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[GlobalStyles.submitButton, isSubmitting && { opacity: 0.6 }]}
-                onPress={handleSubmit}
-                disabled={isSubmitting}
-              >
-                <Text style={GlobalStyles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
-              </TouchableOpacity>
-            </View>
+                )}
+              </>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <CustomModal
-        visible={modalVisible}
-        title={errorMessage ? 'Error' : 'Report Submitted'}
-        message={
-          <View style={GlobalStyles.modalContent}>
-            {errorMessage ? (
-              <>
-                <Ionicons name="warning-outline" size={60} color={Theme.colors.red} style={GlobalStyles.modalIcon} />
-                <Text style={GlobalStyles.modalMessage}>This will be sufficient for dedications and sufficient developments</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={GlobalStyles.modalIcon} />
-                <Text style={GlobalStyles.modalMessage}>
-                  {enableUrgentRelief
-                    ? 'Your RDANA report and urgent relief request have been successfully submitted!'
-                    : 'Your RDANA report has been successfully submitted!'}
-                </Text>
-              </>
-            )}
+      {isSubmitting && (
+        <View style={[styles.progressContainer, { bottom: insets.bottom + 60 }]}>
+          <View style={styles.progressBarBackground}>
+            <View
+              style={[styles.progressBarFill, { width: `${uploadProgress}%` }]}
+            />
           </View>
-        }
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-        confirmText={errorMessage ? 'Retry' : 'Proceed'}
-        showCancel={errorMessage}
-      />
+          <Text style={styles.progressText}>{`${uploadProgress.toFixed(0)}%`}</Text>
+        </View>
+      )}
+
+      <View style={[styles.navbar, { bottom: insets.bottom, paddingBottom: 10 }]}>
+        {[
+          { type: 'text', icon: 'text-outline' },
+          { type: 'image', icon: 'image-outline' },
+          { type: 'video', icon: 'videocam-outline' },
+          { type: 'link', icon: 'link-outline' },
+        ].map((item, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[
+              styles.navButton,
+              postType === item.type && styles.navButtonActive,
+              isShared && styles.navButtonDisabled,
+            ]}
+            onPress={() => handlePostTypeChange(item.type)}
+            disabled={isShared}
+          >
+            <Ionicons
+              name={item.icon}
+              size={postType === item.type ? 30 : 24}
+              color={postType === item.type ? Theme.colors.accent : Theme.colors.primary}
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
     </SafeAreaView>
   );
 };
 
-export default RDANASummary;
+export default CreatePost;
