@@ -247,11 +247,8 @@ const ReliefRequestScreen = () => {
   const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const [errors, setErrors] = useState({});
   const [reportData, setReportData] = useState({
-    contactPerson: 
-      route.params?.reportData?.organizationName ||
-      user?.organization ||
-      (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : '') ||
-      '',    contactNumber: route.params?.reportData?.contactNumber || user?.mobile || '',
+    contactPerson: route.params?.reportData?.contactPerson || user?.contactPerson || '',
+    contactNumber: route.params?.reportData?.contactNumber || user?.contactNumber || '',
     email: route.params?.reportData?.email || user?.email || '',
     address: {
       formattedAddress: route.params?.reportData?.address?.formattedAddress || '',
@@ -661,7 +658,7 @@ const ReliefRequestScreen = () => {
       setReportData((prev) => ({
         ...prev,
         contactPerson: route.params.reportData.contactPerson || user?.contactPerson || prev.contactPerson,
-        contactNumber: route.params.reportData.contactNumber || user?.mobile || prev.contactNumber,
+        contactNumber: route.params.reportData.contactNumber || user?.contactNumber || prev.contactNumber,
         email: route.params.reportData.email || user?.email || prev.email,
         address: {
           formattedAddress: route.params.reportData.address?.formattedAddress || prev.address.formattedAddress,
@@ -727,35 +724,6 @@ const ReliefRequestScreen = () => {
         delete newErrors[field];
         return newErrors;
       });
-    }
-
-    if (field === 'contactNumber') {
-      const cleanedValue = value.replace(/\D/g, '');
-      setReportData((prev) => ({ ...prev, contactNumber: cleanedValue }));
-      if (cleanedValue && !/^[0-9]{11}$/.test(cleanedValue)) {
-        setErrors((prev) => ({ ...prev, contactNumber: 'Contact number must be exactly 11 digits' }));
-      } else {
-        setErrors((prev) => {
-          const newErrors = { ...prev };
-          delete newErrors.contactNumber;
-          return newErrors;
-        });
-      }
-    } else if (field === 'email') {
-      const cleanedValue = value.replace(/\s/g, '');
-      setReportData((prev) => ({ ...prev, email: cleanedValue }));
-      if (cleanedValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedValue)) {
-        setErrors((prev) => ({ ...prev, email: 'Email is not valid' }));
-      } else {
-        setErrors((prev) => {
-          const newErrors = { ...prev };
-          delete newErrors.email;
-          return newErrors;
-        });
-      }
-    } else if (field === 'contactPerson') {
-      const cleanedValue = value.replace(/[^a-zA-Z\s]/g, '');
-      setReportData((prev) => ({ ...prev, contactPerson: capitalizeFirstLetter(cleanedValue) }));
     }
 
     if (field === 'category') {

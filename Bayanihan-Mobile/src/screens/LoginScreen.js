@@ -1,8 +1,9 @@
-import { signInWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendEmailVerification, signOut, setPersistence, getReactNativePersistence } from 'firebase/auth';
 import React, { useContext, useState } from 'react';
 import { KeyboardAvoidingView, Platform, TouchableOpacity, SafeAreaView, Text, TextInput, ToastAndroid, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { auth, database } from '../configuration/firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthContext } from '../context/AuthContext';
 import Theme from '../constants/theme';
 import { styles } from '../styles/LoginScreenStyles';
@@ -90,6 +91,10 @@ const LoginScreen = ({ navigation }) => {
 
     setIsLoading(true);
     try {
+      // Ensure persistence is set before login
+      await setPersistence(auth, getReactNativePersistence(AsyncStorage));
+      console.log(`[${new Date().toISOString()}] Persistence set to AsyncStorage before login`);
+
       console.log(`[${new Date().toISOString()}] Attempting login with:`, email);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const updatedUser = userCredential.user;
@@ -102,9 +107,9 @@ const LoginScreen = ({ navigation }) => {
         ToastAndroid.show('User account not fully set up. Please register again.', ToastAndroid.SHORT);
         await signOut(auth);
         navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-            });   
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
         return;
       }
       const userData = userSnapshot.val();
@@ -122,9 +127,9 @@ const LoginScreen = ({ navigation }) => {
           );
           await signOut(auth);
           navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' }],
-            });
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
           return;
         }
 
@@ -157,9 +162,9 @@ const LoginScreen = ({ navigation }) => {
           }
           await signOut(auth);
           navigation.reset({
-          index: 0,
-          routes: [{ name: 'Login' }],
-        });
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
           return;
         }
       }

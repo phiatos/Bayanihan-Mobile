@@ -1010,24 +1010,8 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      {isLoading ? (
-        <LinearGradient
-          colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
-          start={{ x: 1, y: 0.5 }}
-          end={{ x: 1, y: 1 }}
-          style={[GlobalStyles.gradientContainer, { flex: 1, justifyContent: 'center', alignItems: 'center' }]}
-        >
-          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
-                      <Ionicons name="menu" size={32} color={Theme.colors.primary} />
-                    </TouchableOpacity>
-                    
-          <ActivityIndicator size={50} color={Theme.colors.primary} />
-          <Text style={{ color: Theme.colors.primary, fontSize: 18, marginTop: 10, fontFamily: 'Poppins_Regular' }}>
-            Loading Map...
-          </Text>
-        </LinearGradient>
-      ) :
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      {
       permissionStatus === 'granted' && location && mapHtml ? (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

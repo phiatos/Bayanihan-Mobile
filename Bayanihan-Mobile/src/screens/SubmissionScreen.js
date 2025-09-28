@@ -22,14 +22,12 @@ import { Ionicons } from '@expo/vector-icons';
 import Theme from '../constants/theme';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import useOperationCheck from '../components/useOperationCheck';
 import styles from '../styles/SubmissionStyles';
 import OperationCustomModal from '../components/OperationCustomModal';
 
 const SubmissionScreen = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { modalVisible: opModalVisible, setModalVisible: setOpModalVisible, modalConfig: opModalConfig } = useOperationCheck();
   const [history, setHistory] = useState([]);
   const [submissionData, setSubmissionData] = useState({});
   const [imageDimensions, setImageDimensions] = useState({});
@@ -69,7 +67,7 @@ const SubmissionScreen = () => {
     try {
       const userId = user.id;
       let activityQuery = query(
-        ref(database, `activity_log/${userId}`),
+        ref(database, `activity_logs/${userId}`),
         orderByChild('timestamp'),
         limitToLast(PAGE_SIZE)
       );
@@ -467,15 +465,6 @@ const SubmissionScreen = () => {
               onConfirm={() => setModalVisible(false)}
               confirmText="Close"
               showCancel={false}
-            />
-            <OperationCustomModal
-              visible={opModalVisible}
-              title={opModalConfig.title}
-              message={opModalConfig.message}
-              onConfirm={opModalConfig.onConfirm}
-              onCancel={opModalConfig.onCancel}
-              confirmText={opModalConfig.confirmText}
-              showCancel={opModalConfig.showCancel}
             />
           </View>
         </ScrollView>

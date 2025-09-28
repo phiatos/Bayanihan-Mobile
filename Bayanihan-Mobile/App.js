@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import 'core-js/stable/array/find-last';
 import 'react-native-get-random-values';
+import '../Bayanihan-Mobile/src/configuration/firebaseConfig'; 
 import { v4 as uuidv4 } from 'uuid';
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
@@ -18,7 +19,7 @@ SplashScreen.preventAutoHideAsync();
 function Root() {
   const { user, loading } = useAuth();
 
-  if (loading) return null; // Wait for auth state to resolve
+  if (loading) return null; 
 
   return (
     <NavigationContainer>
@@ -28,7 +29,7 @@ function Root() {
 }
 
 function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Poppins_Regular: require('./assets/fonts/Poppins/Poppins-Regular.ttf'),
     Poppins_SemiBold: require('./assets/fonts/Poppins/Poppins-SemiBold.ttf'),
     Poppins_Bold: require('./assets/fonts/Poppins/Poppins-Bold.ttf'),
@@ -39,24 +40,31 @@ function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (fontsLoaded) {
+    if (fontsLoaded || fontError) {
       setReady(true);
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, fontError]);
 
   useEffect(() => {
-    if (ready) {
-      SplashScreen.hideAsync();
-      NavigationBar.setBackgroundColorAsync('#00000000');
-      NavigationBar.setButtonStyleAsync('dark');
+    async function prepare() {
+      if (ready) {
+        await SplashScreen.hideAsync();
+        try {
+          await NavigationBar.setBackgroundColorAsync('#FFFFFF'); // Solid color
+          await NavigationBar.setButtonStyleAsync('dark');
+        } catch (error) {
+          console.warn('NavigationBar setup failed:', error.message);
+        }
+      }
     }
+    prepare();
   }, [ready]);
 
   if (!ready) return null;
 
   return (
     <>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={false} />
       <AuthProvider>
         <Root />
       </AuthProvider>

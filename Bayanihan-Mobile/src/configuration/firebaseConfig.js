@@ -5,40 +5,62 @@ import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
 import { getFirestore } from 'firebase/firestore';
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBkmXOJvnlBtzkjNyR6wyd9BgGM0BhN0L8",
+// Your Firebase configuration object
+const firebaseConfig = {
+ apiKey: "AIzaSyBkmXOJvnlBtzkjNyR6wyd9BgGM0BhN0L8",
     authDomain: "bayanihan-new-472410.firebaseapp.com",
     projectId: "bayanihan-new-472410",
     storageBucket: "bayanihan-new-472410.firebasestorage.app",
     messagingSenderId: "995982574131",
     appId: "1:995982574131:web:3d45e358fad330c276d946",
     measurementId: "G-CEVPTQZM9C",
-    databaseURL: "https://bayanihan-new-472410-default-rtdb.asia-southeast1.firebasedatabase.app/"
-  };
+    databaseURL: "https://bayanihan-new-472410-default-rtdb.asia-southeast1.firebasedatabase.app/"};
 
-let app;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApp();
+// Test AsyncStorage availability
+async function testAsyncStorage() {
+  try {
+    await AsyncStorage.setItem('test_key', 'test_value');
+    const value = await AsyncStorage.getItem('test_key');
+    console.log('Firebase: AsyncStorage test successful, value:', value);
+    await AsyncStorage.removeItem('test_key');
+  } catch (error) {
+    console.error('Firebase: AsyncStorage test failed:', error.message, error.code);
+  }
 }
+testAsyncStorage();
 
+// Initialize Firebase app
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+console.log('Firebase: App initialized:', app.name);
+
+// Initialize auth with persistence
 let auth;
 try {
-  if (!app.authInstance) {
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
-    app.authInstance = auth; 
-  } else {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+  console.log('Firebase: Auth initialized with AsyncStorage persistence');
+} catch (error) {
+  if (error.code === 'auth/already-initialized') {
+    console.warn('Firebase: Auth already initialized, retrieving existing instance');
     auth = getAuth(app);
+    // Log persistence type
+    console.log('Firebase: Auth persistence type:', auth._persistenceLayer?.persistence?.type || 'none');
+  } else {
+    console.error('Firebase: Error initializing auth:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
+    auth = getAuth(app);
+    console.warn('Firebase: Using default auth without persistence');
+    console.log('Firebase: Auth persistence type:', auth._persistenceLayer?.persistence?.type || 'none');
   }
-} catch (e) {
-  auth = getAuth(app); 
 }
 
+// Initialize other Firebase services
 const database = getDatabase(app);
-const storage = getStorage(app, 'bayanihan-new-472410.firebasestorage.app');
+const storage = getStorage(app, '');
 const db = getFirestore(app);
 
 export { app, auth, database, storage, db };
