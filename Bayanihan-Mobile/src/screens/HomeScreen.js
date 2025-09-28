@@ -14,7 +14,8 @@ import {
   Platform,
   Modal,
   ToastAndroid,
-  ImageBackground
+  ImageBackground,
+  ActivityIndicator
 } from 'react-native';
 import WebView from 'react-native-webview';
 import Theme from '../constants/theme';
@@ -48,6 +49,7 @@ const HomeScreen = ({ navigation }) => {
   const [lastName, setLastName] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  const [webViewLoaded, setWebViewLoaded] = useState(false); // Track WebView loading
 
   const mapStyles = `
     body { margin: 0; }
@@ -191,7 +193,7 @@ const HomeScreen = ({ navigation }) => {
         if (status === 'granted') {
           let loc = await Location.getCurrentPositionAsync({});
           if (loc.coords.accuracy > 50) {
-           ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.SHORT);
+            ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.SHORT);
           }
           setLocation({
             latitude: loc.coords.latitude,
@@ -206,11 +208,19 @@ const HomeScreen = ({ navigation }) => {
         console.error('Permission check error:', error);
         setPermissionStatus('denied');
         navigation.navigate('Dashboard');
-          ToastAndroid.show('Failed to check location permission. Please enable it in Dashboard.', ToastAndroid.SHORT);
+        ToastAndroid.show('Failed to check location permission. Please enable it in Dashboard.', ToastAndroid.SHORT);
+      } finally {
+        // Only stop loading if both permission check and user data fetch are complete
+        if (user?.id || !user) {
+          // Wait for user data fetch to complete
+          return;
+        }
+        setIsLoading(!webViewLoaded); // Update loading state based on WebView
       }
     };
+
     checkPermissionStatus();
-  }, [navigation]);
+  }, [navigation, user, webViewLoaded]);
 
   useEffect(() => {
     Animated.timing(searchAnim, {
@@ -893,7 +903,6 @@ const HomeScreen = ({ navigation }) => {
 
   useEffect(() => {
     const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
-      setIsLoading(true);
       let currentUser = user;
 
       if (!currentUser?.id) {
@@ -963,16 +972,17 @@ const HomeScreen = ({ navigation }) => {
           setLastName(currentUser.lastName || null);
         }
       } finally {
-        setIsLoading(false);
+        // Only stop loading if both user data and WebView are loaded
+        setIsLoading(!webViewLoaded);
       }
     };
 
     if (user?.id || !user) {
       fetchUserData();
     } else {
-      setIsLoading(false);
+      setIsLoading(!webViewLoaded);
     }
-  }, [user]);
+  }, [user, webViewLoaded]);
 
   const handleWebViewMessage = async (event) => {
     try {
@@ -992,10 +1002,33 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
+  const handleWebViewLoad = () => {
+    setWebViewLoaded(true);
+    // Update isLoading based on other conditions (location and user data)
+    setIsLoading(!(location && (contactPerson || firstName || lastName)));
+  };
+
   return (
     <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      {permissionStatus === 'granted' && location && mapHtml ? (
+      {isLoading ? (
+        <LinearGradient
+          colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+          start={{ x: 1, y: 0.5 }}
+          end={{ x: 1, y: 1 }}
+          style={[GlobalStyles.gradientContainer, { flex: 1, justifyContent: 'center', alignItems: 'center' }]}
+        >
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+                      <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+                    </TouchableOpacity>
+                    
+          <ActivityIndicator size={50} color={Theme.colors.primary} />
+          <Text style={{ color: Theme.colors.primary, fontSize: 18, marginTop: 10, fontFamily: 'Poppins_Regular' }}>
+            Loading Map...
+          </Text>
+        </LinearGradient>
+      ) :
+      permissionStatus === 'granted' && location && mapHtml ? (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={[styles.subContainer]}
