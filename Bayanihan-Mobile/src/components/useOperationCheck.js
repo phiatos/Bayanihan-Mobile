@@ -20,7 +20,7 @@ const useOperationCheck = () => {
   const [modalVisible, setModalVisible] = useState(false);
 
   const showErrorModal = (title, message, redirectScreen = null) => {
-    console.log(`showErrorModal: title=${title}, message=${message}, redirectScreen=${redirectScreen}`);
+    console.log(`showErrorModal: ${title}`);
     setModalConfig({
       title,
       message,

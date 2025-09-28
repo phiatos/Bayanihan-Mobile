@@ -54,7 +54,7 @@
       "expo-video",
       "expo-image-picker"
     ],
-    "jsEngine": "jsc",
+    "jsEngine": "hermes",
     "extra": {
       "eas": {
         "projectId": "b2922363-ee56-45ca-b956-cc0ba90e8b25"

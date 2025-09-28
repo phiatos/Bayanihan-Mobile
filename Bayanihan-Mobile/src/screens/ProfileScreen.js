@@ -158,7 +158,7 @@ const ProfileScreen = () => {
             organization: user?.organization || 'Admin',
             hq: user?.hq || 'N/A',
             contactPerson: user?.contactPerson || 'Unknown',
-            email: auth.currentUser.email || 'N/A',
+            email: user?.currentUser.email || 'N/A',
             mobile: user?.mobile || 'N/A',
             role: user?.role || 'N/A',
           });

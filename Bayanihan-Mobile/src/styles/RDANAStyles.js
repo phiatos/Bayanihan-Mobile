@@ -53,11 +53,6 @@ export default StyleSheet.create({
     backgroundColor: '#fff',
     marginBottom: 10,
   },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-  },
-
   //Progress Steps
     progressContainer: {
       flexDirection: 'row',

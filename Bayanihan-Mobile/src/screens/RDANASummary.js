@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
-import { ref as databaseRef, push, serverTimestamp, set, get, query } from 'firebase/database';
+import { ref as databaseRef, push, serverTimestamp, set, get } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { database } from '../configuration/firebaseConfig';
@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { logActivity, logSubmission } from '../components/logSubmission';
 import { useAuth } from '../context/AuthContext';
 import CustomModal from '../components/CustomModal';
+import * as Location from 'expo-location';
 
 const RDANASummary = () => {
   const navigation = useNavigation();
@@ -22,7 +23,8 @@ const RDANASummary = () => {
     authoritiesAndOrganizations: initialAuthorities = [], 
     immediateNeeds: initialNeeds = [], 
     initialResponse: initialResponses = [], 
-    organizationName = user?.organization || 'Admin' 
+    organizationName = user?.organization || 'Admin',
+    enableUrgentRelief = false 
   } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [affectedMunicipalities, setAffectedMunicipalities] = useState(initialMunicipalities);
@@ -40,12 +42,34 @@ const RDANASummary = () => {
       if (isNaN(date.getTime())) {
         throw new Error('Invalid date format');
       }
-      return date.toISOString(); // e.g., "2025-09-21T20:30:00.000Z"
+      return date.toISOString();
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Date formatting error:`, error.message);
       return null;
     }
   };
+
+  // Utility function to get coordinates
+  const getCoordinates = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log(`[${new Date().toISOString()}] Location permission denied`);
+        return { latitude: 0, longitude: 0 };
+      }
+      const location = await Location.getCurrentPositionAsync({});
+      return {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error getting location:`, error.message);
+      return { latitude: 0, longitude: 0 };
+    }
+  };
+
+  // Utility function to validate string inputs
+  const isValidString = (str) => /^[a-zA-Z0-9\s,.-]+$/.test(str?.trim());
 
   useEffect(() => {
     try {
@@ -64,18 +88,10 @@ const RDANASummary = () => {
       if (!Array.isArray(initialResponse)) {
         throw new Error('Invalid initial response data received');
       }
-      console.log(`[${new Date().toISOString()}] Received params:`, { 
-        reportData, 
-        affectedMunicipalities, 
-        authoritiesAndOrganizations, 
-        immediateNeeds, 
-        initialResponse, 
-        organizationName 
-      });
+      
       console.log(`[${new Date().toISOString()}] Specific fields:`, {
-        Date_and_Time_of_Information_Gathered: reportData.Date_and_Time_of_Information_Gathered,
-        Locations_and_Areas_Affected: reportData.Locations_and_Areas_Affected,
-        Date_and_Time_of_Occurrence: reportData.Date_and_Time_of_Occurrence
+        category: reportData.category,
+        estQty: reportData.estQty
       });
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Validation error:`, error.message);
@@ -87,8 +103,8 @@ const RDANASummary = () => {
 
   useEffect(() => {
     try {
-      if (!user) {
-        throw new Error('No authenticated user found');
+      if (!user || !user.id) {
+        throw new Error('No authenticated user found or missing user ID');
       }
       console.log(`[${new Date().toISOString()}] Logged-in user ID:`, user.id);
     } catch (error) {
@@ -101,19 +117,6 @@ const RDANASummary = () => {
       }, 3000);
     }
   }, [user, navigation]);
-
-  useEffect(() => {
-    console.log(`[${new Date().toISOString()}] Lifeline data:`, {
-      residentialHousesStatus: reportData.residentialhousesStatus,
-      transportationAndMobilityStatus: reportData.transportationandmobilityStatus,
-      electricityPowerGridStatus: reportData.electricitypowergridStatus,
-      communicationNetworksInternetStatus: reportData.communicationnetworksinternetStatus,
-      hospitalsRuralHealthUnitsStatus: reportData.hospitalsruralhealthunitsStatus,
-      waterSupplySystemStatus: reportData.watersupplysystemStatus,
-      marketBusinessAndCommercialEstablishmentsStatus: reportData.marketbusinessandcommercialestablishmentsStatus,
-      othersStatus: reportData.othersStatus,
-    });
-  }, [reportData]);
 
   const sanitizeKey = (key) => {
     return key
@@ -157,33 +160,61 @@ const RDANASummary = () => {
     }
   };
 
+  const generateUniqueId = async () => {
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
+      const randomNum = Math.floor(100 + Math.random() * 900);
+      const customId = `RDANA-${randomNum}`;
+      const snapshot = await get(databaseRef(database, `rdana/submitted/${customId}`));
+      if (!snapshot.exists()) {
+        console.log(`[${new Date().toISOString()}] Generated unique RDANA ID: ${customId}`);
+        return customId;
+      }
+      console.log(`[${new Date().toISOString()}] RDANA ID ${customId} already exists, retrying...`);
+      attempts++;
+    }
+    throw new Error('Unable to generate a unique RDANA ID after maximum attempts.');
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    if (!user) {
-      setErrorMessage('User not authenticated. Please log in again.');
+    if (!user || !user.id) {
+      setErrorMessage('User not authenticated or missing ID. Please log in again.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
 
-    const { Site_Location_Address_Province, Site_Location_Address_City_Municipality, Site_Location_Address_Barangay, Type_of_Disaster, Date_and_Time_of_Information_Gathered } = reportData;
-    
-    if (!Site_Location_Address_Province?.trim()) {
-      setErrorMessage('Please enter the province.');
+    const { 
+      Site_Location_Address_Province, 
+      Site_Location_Address_City_Municipality, 
+      Site_Location_Address_Barangay, 
+      Type_of_Disaster, 
+      Date_and_Time_of_Information_Gathered,
+      Locations_and_Areas_Affected_Province,
+      Locations_and_Areas_Affected_City_Municipality,
+      Locations_and_Areas_Affected_Barangay
+    } = reportData;
+
+    // Validate address fields
+    if (!Site_Location_Address_Province?.trim() || !isValidString(Site_Location_Address_Province)) {
+      setErrorMessage('Please enter a valid province.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
 
-    if (!Site_Location_Address_City_Municipality?.trim()) {
-      setErrorMessage('Please enter the city/municipality.');
+    if (!Site_Location_Address_City_Municipality?.trim() || !isValidString(Site_Location_Address_City_Municipality)) {
+      setErrorMessage('Please enter a valid city/municipality.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
     }
 
-    if (!Site_Location_Address_Barangay?.trim()) {
-      setErrorMessage('Please enter the barangay.');
+    if (!Site_Location_Address_Barangay?.trim() || !isValidString(Site_Location_Address_Barangay)) {
+      setErrorMessage('Please enter a valid barangay.');
       setModalVisible(true);
       setIsSubmitting(false);
       return;
@@ -252,8 +283,27 @@ const RDANASummary = () => {
         { structure: 'Others', status: reportData.othersStatus || 'N/A' },
       ];
 
+      const rdanaId = await generateUniqueId();
+      // Construct affectedLocations from individual fields
+      const affectedLocations = [];
+      const provinces = Locations_and_Areas_Affected_Province?.split(', ') || [];
+      const cities = Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];
+      const barangays = Locations_and_Areas_Affected_Barangay?.split(', ') || [];
+
+      // Ensure arrays have the same length and create objects
+      const maxLength = Math.max(provinces.length, cities.length, barangays.length);
+      for (let i = 0; i < maxLength; i++) {
+        if (provinces[i] && cities[i] && barangays[i]) {
+          affectedLocations.push({
+            province: provinces[i].trim() || '',
+            city: cities[i].trim() || '',
+            barangay: barangays[i].trim() || ''
+          });
+        }
+      }
+
       const newReport = {
-        rdanaId: null, 
+        rdanaId,
         timestamp: serverTimestamp(),
         currentUserGroupName: organizationName,
         userUid: user.id,
@@ -262,85 +312,157 @@ const RDANASummary = () => {
             province: Site_Location_Address_Province.trim() || '',
             city: Site_Location_Address_City_Municipality.trim() || '',
             barangay: Site_Location_Address_Barangay.trim() || '',
-            infoDate: formattedInfoDate, // Store in ISO 8601 format
+            infoDate: formattedInfoDate,
             authorities: authoritiesAndOrganizations.map(row => ({
               authority: row.authority?.trim() || '',
               organization: row.organization?.trim() || ''
             })),
-            affectedLocations: affectedMunicipalities.map(loc => ({
-              province: Site_Location_Address_Province.trim() || '',
-              city: loc.community?.trim() || '',
-              barangay: loc.barangay?.trim() || ''
-            })),
+            affectedLocations, // Use the constructed array
             disasterType: Type_of_Disaster.trim() || '',
             occurrenceDate: formattedOccurrenceDate || '', 
             summary: reportData.summary?.trim() || ''
           },
           disasterEffects: affectedMunicipalities.map(row => [
             row.community?.trim() || '',
-            formatLargeNumber(row.totalPop || 0),
-            formatLargeNumber(row.affectedPopulation || 0),
-            formatLargeNumber(row.deaths || 0),
-            formatLargeNumber(row.injured || 0),
-            formatLargeNumber(row.missing || 0),
-            formatLargeNumber(row.children || 0),
-            formatLargeNumber(row.women || 0),
-            formatLargeNumber(row.seniors || 0),
-            formatLargeNumber(row.pwd || 0)
+            Number(row.totalPop) || 0, // Store raw number
+            Number(row.affectedPopulation) || 0, // Store raw number
+            Number(row.deaths) || 0, // Store raw number
+            Number(row.injured) || 0, // Store raw number
+            Number(row.missing) || 0, // Store raw number
+            Number(row.children) || 0, // Store raw number
+            Number(row.women) || 0, // Store raw number
+            Number(row.seniors) || 0, // Store raw number
+            Number(row.pwd) || 0 // Store raw number
           ]),
           lifelines,
           checklist,
           immediateNeeds: immediateNeeds.map(n => ({
             need: n.need?.trim() || '',
-            qty: formatLargeNumber(n.qty || 0)
+            qty: Number(n.qty) || 0 // Store raw number
           })),
           initialResponse: initialResponse.map(r => ({
             group: r.group?.trim() || '',
             assistance: r.assistance?.trim() || '',
-            families: formatLargeNumber(r.families || 0)
+            families: Number(r.families) || 0 // Store raw number
           }))
         },
         status: 'Submitted'
       };
 
-      const generateUniqueId = async () => {
-        let attempts = 0;
-        const maxAttempts = 3;
-
-        while (attempts < maxAttempts) {
-          const randomNum = Math.floor(100 + Math.random() * 900); // Generate a random 3-digit number
-          const customId = `RDANA-${randomNum}`;
-          
-          // Check if this specific rdanaId already exists
-          const snapshot = await get(databaseRef(database, `rdana/submitted/${customId}`));
-          
-          if (!snapshot.exists()) {
-            console.log(`[${new Date().toISOString()}] Generated unique RDANA ID: ${customId}`);
-            return customId; // Return the unique ID if it doesn't exist
-          }
-          
-          console.log(`[${new Date().toISOString()}] RDANA ID ${customId} already exists, retrying...`);
-          attempts++;
-        }
+      // Handle relief request submission if enableUrgentRelief is checked
+      if (enableUrgentRelief) {
+        console.log(`[${new Date().toISOString()}] Urgent relief request validation started`);
         
-        throw new Error('Unable to generate a unique RDANA ID after maximum attempts.');
-      };
+        const validImmediateNeeds = immediateNeeds.filter(item => item.need?.trim() && Number(item.qty) > 0);
+        if (validImmediateNeeds.length === 0) {
+          setErrorMessage('At least one valid immediate need (with a name and positive quantity) is required.');
+          setModalVisible(true);
+          setIsSubmitting(false);
+          return;
+        }
 
-      // Submit to Firebase
+        console.log(`[${new Date().toISOString()}] Immediate needs for relief request:`, validImmediateNeeds);
+
+        const validCategories = ["Drinking Water", "Relief Packs", "Hygiene Kits", "Hot Meals", "Rice Packs"];
+        const contactPerson = user.displayName || user.email || "Unknown";
+        const contactNumber =
+          route?.params?.reportData?.contactNumber ||
+          user?.mobile ||
+          prev?.contactNumber ||
+          '';
+        const email = user.email || "";
+        const volunteerOrganization = organizationName;
+        const province = Site_Location_Address_Province?.trim() || "";
+        const city = Site_Location_Address_City_Municipality?.trim() || "";
+        const barangay = Site_Location_Address_Barangay?.trim() || "";
+        const formattedAddress = [barangay, city, province].filter(Boolean).join(", ");
+        const category = reportData.category?.trim() ? reportData.category.trim() : "General";
+        const { latitude, longitude } = await getCoordinates();
+        const urgent = true;
+
+        const addedItems = validImmediateNeeds.map(item => ({
+          name: item.need.trim(),
+          quantity: Number(item.qty),
+          notes: "URGENT"
+        }));
+
+        const newRequest = {
+          contactPerson,
+          contactNumber,
+          email,
+          category,
+          volunteerOrganization,
+          userUid: user.id,
+          address: {
+            formattedAddress,
+            latitude: Number(latitude),
+            longitude: Number(longitude)
+          },
+          items: addedItems,
+          timestamp: serverTimestamp(),
+          donationDate: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: "Pending",
+          matchedDonations: 0,
+          matchedDonationIds: [],
+          assignedVolunteers: [],
+          urgent,
+          rdanaId
+        };
+
+        const requestRef = push(databaseRef(database, 'requestRelief/requests'));
+        const userRequestRef = databaseRef(database, `users/${user.id}/requests/${requestRef.key}`);
+
+        await Promise.all([
+          set(requestRef, newRequest).catch(error => {
+            throw new Error(`Failed to save relief request: ${error.message}`);
+          }),
+          set(userRequestRef, {
+            requestId: requestRef.key,
+            timestamp: serverTimestamp(),
+            status: "Pending",
+            rdanaId
+          }).catch(error => {
+            throw new Error(`Failed to save user request: ${error.message}`);
+          }),
+        ]);
+
+        const itemsList = addedItems.map(n => `${n.name} (${n.quantity} units)`).join(", ");
+        const message = `New urgent relief request submitted with RDANA report (${rdanaId}) by ${volunteerOrganization} for ${itemsList} in ${formattedAddress}.`;
+        await notifyAdmin(
+          message,
+          reportData.profile?.disasterType || null,
+          formattedAddress,
+          `Urgent relief request for ${category}: ${itemsList}`,
+          rdanaId,
+          contactPerson,
+          volunteerOrganization
+        );
+      }
+
+      // Submit RDANA report to Firebase
       const requestRef = push(databaseRef(database, 'rdana/submitted'));
-      const rdanaId = await generateUniqueId();
-      newReport.rdanaId = rdanaId; 
       const userRequestRef = databaseRef(database, `users/${user.id}/rdana/${rdanaId}`);
       const message = `New RDANA report "${Type_of_Disaster || 'N/A'}" submitted by ${reportData.Prepared_By?.trim() || 'Unknown'} from ${organizationName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
       const location = `${Site_Location_Address_Barangay || ''}, ${Site_Location_Address_City_Municipality || ''}, ${Site_Location_Address_Province || ''}`;
       const details = reportData.summary?.trim() || 'No summary provided';
 
       await Promise.all([
-        set(requestRef, newReport),
-        set(userRequestRef, newReport),
-        logActivity('Submitted an RDANA report', rdanaId, user.id, organizationName),
-        logSubmission('rdana/submitted', newReport, rdanaId, organizationName, user.id),
-        notifyAdmin(message, Type_of_Disaster || 'N/A', location, details, rdanaId, reportData.Prepared_By?.trim() || 'Unknown', organizationName)
+        set(requestRef, newReport).catch(error => {
+          throw new Error(`Failed to save RDANA report: ${error.message}`);
+        }),
+        set(userRequestRef, newReport).catch(error => {
+          throw new Error(`Failed to save user RDANA report: ${error.message}`);
+        }),
+        logActivity('Submitted an RDANA report', rdanaId, user.id, organizationName).catch(error => {
+          throw new Error(`Failed to log activity: ${error.message}`);
+        }),
+        logSubmission('rdana/submitted', newReport, rdanaId, organizationName, user.id).catch(error => {
+          throw new Error(`Failed to log submission: ${error.message}`);
+        }),
+        notifyAdmin(message, Type_of_Disaster || 'N/A', location, details, rdanaId, reportData.Prepared_By?.trim() || 'Unknown', organizationName).catch(error => {
+          throw new Error(`Failed to notify admin: ${error.message}`);
+        })
       ]);
 
       // Reset form data
@@ -385,13 +507,32 @@ const RDANASummary = () => {
 
   const handleBack = () => {
     console.log(`[${new Date().toISOString()}] Navigating back with data:`, reportData, affectedMunicipalities, authoritiesAndOrganizations, immediateNeeds, initialResponse);
+    // Reconstruct affectedLocations from comma-separated fields
+    const affectedLocations = [];
+    const provinces = reportData.Locations_and_Areas_Affected_Province?.split(', ') || [];
+    const cities = reportData.Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];
+    const barangays = reportData.Locations_and_Areas_Affected_Barangay?.split(', ') || [];
+
+    const maxLength = Math.max(provinces.length, cities.length, barangays.length);
+    for (let i = 0; i < maxLength; i++) {
+      if (provinces[i] && cities[i] && barangays[i]) {
+        affectedLocations.push({
+          province: provinces[i].trim() || '',
+          city: cities[i].trim() || '',
+          barangay: barangays[i].trim() || ''
+        });
+      }
+    }
+
     navigation.navigate('RDANAScreen', { 
       reportData, 
       affectedMunicipalities, 
       authoritiesAndOrganizations, 
       immediateNeeds, 
       initialResponse, 
-      organizationName 
+      affectedLocations, // Pass the reconstructed array
+      organizationName,
+      enableUrgentRelief
     });
   };
 
@@ -432,6 +573,25 @@ const RDANASummary = () => {
       <Text style={[styles.summaryTableCell, { flex: 1 }]}>{formatLargeNumber(item.families || 'N/A')}</Text>
     </View>
   );
+
+  // Format Locations and Areas Affected for display with '/'
+  const formatLocationsForDisplay = () => {
+    const provinces = reportData.Locations_and_Areas_Affected_Province?.split(', ') || [];
+    const cities = reportData.Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];
+    const barangays = reportData.Locations_and_Areas_Affected_Barangay?.split(', ') || [];
+    const locations = [];
+    const maxLength = Math.max(provinces.length, cities.length, barangays.length);
+    
+    for (let i = 0; i < maxLength; i++) {
+      const province = provinces[i]?.trim() || '';
+      const city = cities[i]?.trim() || '';
+      const barangay = barangays[i]?.trim() || '';
+      if (province && city && barangay) {
+        locations.push(`${barangay}/${city}/${province}`);
+      }
+    }
+    return locations.length > 0 ? locations.join(', ') : 'N/A';
+  };
 
   return (
     <SafeAreaView style={GlobalStyles.container}>
@@ -496,7 +656,7 @@ const RDANASummary = () => {
               <Text style={GlobalStyles.sectionTitle}>II. Modality</Text>
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Locations and Areas Affected:</Text>
-                <Text style={styles.value}>{reportData.Locations_and_Areas_Affected?.trim() || 'N/A'}</Text>
+                <Text style={styles.value}>{formatLocationsForDisplay()}</Text>
               </View>
               <Text style={styles.sectionSubtitle}>Disaster Details</Text>
               {[
@@ -558,7 +718,7 @@ const RDANASummary = () => {
             </View>
 
             <View style={GlobalStyles.section}>
-              <Text style={GlobalStyles.sectionTitle}>V. Initial Needs Assessment Checklist</Text>
+              <Text style={GlobalStyles.sectionTitle}>V. Initial Needs Assessment Checklist</Text>     
               {[
                 { key: 'reliefPacks', label: 'Relief Packs' },
                 { key: 'hotMeals', label: 'Hot Meals' },
@@ -631,7 +791,11 @@ const RDANASummary = () => {
             ) : (
               <>
                 <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={GlobalStyles.modalIcon} />
-                <Text style={GlobalStyles.modalMessage}>Your RDANA report has been successfully submitted!</Text>
+                <Text style={GlobalStyles.modalMessage}>
+                  {enableUrgentRelief
+                    ? 'Your RDANA report and urgent relief request have been successfully submitted!'
+                    : 'Your RDANA report has been successfully submitted!'}
+                </Text>
               </>
             )}
           </View>

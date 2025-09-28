@@ -167,8 +167,7 @@ const CommunityBoard = () => {
         setPosts([]);
       }
     }, (error) => {
-      console.error('Error loading posts:', error);
-      ToastAndroid.show('Failed to load posts: ' + error.message, ToastAndroid.BOTTOM);
+      return;
     });
     return () => unsubscribe();
   }, [sortOrder, categoryFilter, user]);

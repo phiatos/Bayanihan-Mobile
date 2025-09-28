@@ -84,7 +84,6 @@
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "^0.20.0",
     "react-native-webview": "13.13.5",
-    "react-native-worklets": "^0.6.0",
     "rimraf": "^6.0.1"
   },
   "devDependencies": {
@@ -92,6 +91,9 @@
     "@react-native-community/cli": "latest",
     "@types/react": "~19.0.10",
     "typescript": "~5.8.3"
+  },
+  "overrides": {
+    "node-fetch": "2.6.7"
   },
   "expo": {
     "doctor": {

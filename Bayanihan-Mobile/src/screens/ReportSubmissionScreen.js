@@ -734,7 +734,6 @@ const ReportSubmissionScreen = () => {
             }
           });
           setActiveActivations(activeActivations);
-          console.log('Active activations fetched:', activeActivations);
         },
         (error) => {
           console.error('Error listening for active activations:', error);

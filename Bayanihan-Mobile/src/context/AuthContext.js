@@ -57,7 +57,8 @@ export const AuthProvider = ({ children }) => {
               userObject = {
                 id: currentUser.uid,
                 contactPerson: userData.contactPerson || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown',
-                email: currentUser.email || userData.email || 'N/A',
+                email: userData.email || userData.email || 'N/A',
+                contactNumber: userData.mobile || 'N/A',
                 role: userData.role || 'N/A',
                 organization: userData.organization || 'Admin',
                 organizationName: userData.organizationName || 'N/A',
@@ -154,10 +155,7 @@ export const AuthProvider = ({ children }) => {
       }
     });
 
-    return () => {
-      console.log('AuthContext: Cleaning up auth state listener');
-      unsubscribe();
-    };
+    return;
   }, []);
 
   useEffect(() => {

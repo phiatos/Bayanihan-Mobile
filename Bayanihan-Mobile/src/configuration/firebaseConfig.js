@@ -16,8 +16,6 @@ import { getFirestore } from 'firebase/firestore';
     databaseURL: "https://bayanihan-new-472410-default-rtdb.asia-southeast1.firebasedatabase.app/"
   };
 
-  console.log("Firebase config in use:", firebaseConfig); 
-
 let app;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);

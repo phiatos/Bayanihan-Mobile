@@ -1,926 +1,812 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import React, { useContext, useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Dimensions,
-  FlatList,
-  ImageBackground,
-  SafeAreaView,
-  Text,
-  TextInput,
-  ToastAndroid,
-  TouchableOpacity,
-  View,
-  StatusBar,
-  Keyboard,
-  Platform,
-  Modal
-} from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
-import WebView from 'react-native-webview';
-import Theme from '../constants/theme';
-import { AuthContext } from '../context/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
+import { ref as databaseRef, push, serverTimestamp, set, get } from 'firebase/database';
+import React, { useEffect, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { database } from '../configuration/firebaseConfig';
 import GlobalStyles from '../styles/GlobalStyles';
-import { styles } from '../styles/HomeScreenStyles';
+import styles from '../styles/RDANAStyles';
+import Theme from '../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import { KeyboardAvoidingView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getDatabase, ref, get } from 'firebase/database';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logActivity, logSubmission } from '../components/logSubmission';
+import { useAuth } from '../context/AuthContext';
+import CustomModal from '../components/CustomModal';
+import * as Location from 'expo-location';
 
-const { height, width } = Dimensions.get('window');
+const RDANASummary = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { user } = useAuth();
+  const { 
+    reportData: initialReportData = {}, 
+    affectedMunicipalities: initialMunicipalities = [], 
+    authoritiesAndOrganizations: initialAuthorities = [], 
+    immediateNeeds: initialNeeds = [], 
+    initialResponse: initialResponses = [], 
+    organizationName = user?.organization || 'Admin',
+    enableUrgentRelief = false 
+  } = route.params || {};
+  const [reportData, setReportData] = useState(initialReportData);
+  const [affectedMunicipalities, setAffectedMunicipalities] = useState(initialMunicipalities);
+  const [authoritiesAndOrganizations, setAuthoritiesAndOrganizations] = useState(initialAuthorities);
+  const [immediateNeeds, setImmediateNeeds] = useState(initialNeeds);
+  const [initialResponse, setInitialResponse] = useState(initialResponses);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
 
-const HomeScreen = ({ navigation }) => {
-  const [location, setLocation] = useState(null);
-  const [permissionStatus, setPermissionStatus] = useState(null);
-  const [searchBarVisible, setSearchBarVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
-  const [mapType, setMapType] = useState('osm'); // 'osm' or 'satellite'
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-  const searchAnim = useRef(new Animated.Value(0)).current;
-  const { user } = useContext(AuthContext);
-  const webViewRef = useRef(null);
-  const searchTimeout = useRef(null);
-  const insets = useSafeAreaInsets();
-  const [contactPerson, setContactPerson] = useState(null);
-  const [firstName, setFirstName] = useState(null);
-  const [lastName, setLastName] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  // Utility function to format date inputs to ISO 8601 for storage
+  const formatDateForStorage = (dateStr) => {
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid date format');
+      }
+      return date.toISOString();
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Date formatting error:`, error.message);
+      return null;
+    }
+  };
+
+  // Utility function to get coordinates
+  const getCoordinates = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log(`[${new Date().toISOString()}] Location permission denied`);
+        return { latitude: 0, longitude: 0 };
+      }
+      const location = await Location.getCurrentPositionAsync({});
+      return {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error getting location:`, error.message);
+      return { latitude: 0, longitude: 0 };
+    }
+  };
+
+  // Utility function to validate string inputs
+  const isValidString = (str) => /^[a-zA-Z0-9\s,.-]+$/.test(str?.trim());
 
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setKeyboardVisible(true);
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardVisible(false);
-    });
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
-
-  useEffect(() => {
-    const checkPermissionStatus = async () => {
-      try {
-        const hasShownModal = await AsyncStorage.getItem('hasShownLocationModal');
-        const { status } = await Location.getForegroundPermissionsAsync();
-        setPermissionStatus(status);
-        if (status === 'granted') {
-          let loc = await Location.getCurrentPositionAsync({});
-          if (loc.coords.accuracy > 50) {
-            ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
-          }
-          setLocation({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          });
-        } else if (hasShownModal === 'true' && status !== 'granted') {
-          setPermissionStatus('denied');
-          navigation.navigate('Dashboard');
-          ToastAndroid.show('Location access is required to view the map.', ToastAndroid.BOTTOM);
-        }
-      } catch (error) {
-        console.error('Permission check error:', error);
-        setPermissionStatus('denied');
-        navigation.navigate('Dashboard');
-        ToastAndroid.show('Failed to check location permission. Please enable it in Dashboard.', ToastAndroid.BOTTOM);
-      }
-    };
-    checkPermissionStatus();
-  }, [navigation]);
-
-  useEffect(() => {
-    Animated.timing(searchAnim, {
-      toValue: searchBarVisible ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  }, [searchBarVisible]);
-
-  const toggleMapType = (type) => {
-    setMapType(type);
-    const script = `
-      if (window.map) {
-        map.eachLayer((layer) => {
-          if (layer instanceof L.TileLayer) {
-            map.removeLayer(layer);
-          }
-        });
-        const tileLayer = "${type}" === "osm" ? 
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          }) :
-          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: '&copy; <a href="https://www.esri.com/">Esri</a>'
-          });
-        tileLayer.addTo(map);
-      } else {
-        console.error("Map not initialized");
-      }
-    `;
-    webViewRef.current?.injectJavaScript(script);
-  };
-
-  const fetchSuggestions = async (query) => {
-    if (!query.trim()) {
-      setSuggestions([]);
-      return;
-    }
-
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          query
-        )}&countrycodes=PH&limit=5`,
-        {
-          headers: {
-            'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
-          },
-        }
-      );
-      const data = await response.json();
-      if (data && Array.isArray(data)) {
-        setSuggestions(data);
-      } else {
-        setSuggestions([]);
-        console.warn('Nominatim API returned no results');
+      if (!reportData || typeof reportData !== 'object') {
+        throw new Error('Invalid report data received');
       }
-    } catch (error) {
-      console.error('Autocomplete Error:', error);
-      ToastAndroid.show('Failed to fetch suggestions. Please check your internet connection.', ToastAndroid.SHORT);
-    }
-  };
-
-  const handleSearchInput = (text) => {
-    setSearchQuery(text);
-    if (searchTimeout.current) {
-      clearTimeout(searchTimeout.current);
-    }
-    searchTimeout.current = setTimeout(() => {
-      fetchSuggestions(text);
-    }, 300);
-  };
-
-  const handleRetryPermission = async () => {
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      setPermissionStatus(status);
-      if (status === 'granted') {
-        let loc = await Location.getCurrentPositionAsync({});
-        if (loc.coords.accuracy > 50) {
-          ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
-        }
-        setLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
-        await AsyncStorage.setItem('hasShownLocationModal', 'true');
-      } else {
-        setPermissionStatus('denied');
-        navigation.navigate('Dashboard');
-        ToastAndroid.show('Location access is required to view the map.', ToastAndroid.BOTTOM);
+      if (!Array.isArray(affectedMunicipalities)) {
+        throw new Error('Invalid municipalities data received');
       }
-    } catch (error) {
-      console.error('Permission retry error:', error);
-      ToastAndroid.show('Failed to retry permission. Please try again in Dashboard.', ToastAndroid.BOTTOM);
-      navigation.navigate('Dashboard');
-    }
-  };
-
-  const toggleSearchBar = () => {
-    setSearchBarVisible(!searchBarVisible);
-    if (searchBarVisible) {
-      setSearchQuery('');
-      setSuggestions([]);
-    }
-  };
-
-  const handleSearch = async (placeId = null, query = searchQuery) => {
-    if (!query.trim() && !placeId) {
-      ToastAndroid.show('Please enter a location to search.', ToastAndroid.SHORT);
-      return;
-    }
-
-    try {
-      let location, placeName, formattedAddress;
-
-      if (placeId) {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/details?place_id=${placeId}&format=json&countrycodes=PH`,
-          {
-            headers: {
-              'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
-            },
-          }
-        );
-        const data = await response.json();
-        if (data && data.geometry) {
-          location = { lat: parseFloat(data.lat), lng: parseFloat(data.lon) };
-          placeName = data.display_name || data.name;
-          formattedAddress = data.display_name;
-        } else {
-          ToastAndroid.show('No results found for the selected location.', ToastAndroid.BOTTOM);
-          console.warn('Nominatim Details API failed');
-          return;
-        }
-      } else {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-            query
-          )}&countrycodes=PH&limit=1`,
-          {
-            headers: {
-              'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
-            },
-          }
-        );
-        const data = await response.json();
-        if (data && data.length > 0) {
-          const place = data[0];
-          location = { lat: parseFloat(place.lat), lng: parseFloat(place.lon) };
-          placeName = place.display_name;
-          formattedAddress = place.display_name;
-        } else {
-          ToastAndroid.show('No results found for the search query.', ToastAndroid.BOTTOM);
-          console.warn('Nominatim Search API failed');
-          return;
-        }
+      if (!Array.isArray(authoritiesAndOrganizations)) {
+        throw new Error('Invalid authorities data received');
       }
-
-      const script = `
-        if (window.map) {
-          const location = L.latLng(${location.lat}, ${location.lng});
-          map.setView(location, 16);
-          if (window.clearNonActivationMarkers) {
-            clearNonActivationMarkers();
-          }
-          const marker = L.marker(location, {
-            title: "${placeName.replace(/"/g, '\\"')}",
-          }).addTo(map);
-          nonActivationMarkers.push(marker);
-          marker.bindPopup(\`<strong>${placeName.replace(/"/g, '\\"')}</strong><br>${formattedAddress.replace(/"/g, '\\"')}\`).openPopup();
-        } else {
-          console.error("Map not initialized");
-        }
-      `;
-      webViewRef.current?.injectJavaScript(script);
-      setSuggestions([]);
-    } catch (error) {
-      console.error('Search error:', error);
-      ToastAndroid.show('Failed to search for the location. Please check your internet connection and try again.', ToastAndroid.BOTTOM);
-    }
-  };
-
-  const handleSuggestionSelect = (suggestion) => {
-    setSearchQuery(suggestion.display_name);
-    handleSearch(suggestion.place_id);
-  };
-
-  const returnToUserLocation = async () => {
-    if (permissionStatus !== 'granted') {
-      ToastAndroid.show('Please enable location access in Dashboard to return to your current location.', ToastAndroid.BOTTOM);
-      navigation.navigate('Dashboard');
-      return;
-    }
-
-    try {
-      let loc = await Location.getCurrentPositionAsync({});
-      if (loc.coords.accuracy > 50) {
-        ToastAndroid.show('Your location accuracy is low. The pin may not be precise.', ToastAndroid.BOTTOM);
+      if (!Array.isArray(immediateNeeds)) {
+        throw new Error('Invalid immediate needs data received');
       }
-      setLocation({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      });
-
-      const script = `
-        if (window.map) {
-          const userLocation = L.latLng(${loc.coords.latitude}, ${loc.coords.longitude});
-          map.setView(userLocation, 16);
-          if (window.clearNonActivationMarkers) {
-            clearNonActivationMarkers();
-          }
-          const userMarker = L.marker(userLocation, {
-            title: "Your Location",
-            icon: L.icon({
-              iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-              iconSize: [25, 41],
-              iconAnchor: [12, 41],
-              popupAnchor: [1, -34],
-              shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-              shadowSize: [41, 41],
-            }),
-          }).addTo(map);
-          nonActivationMarkers.push(userMarker);
-          fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.coords.latitude}&lon=${loc.coords.longitude}', {
-            headers: {
-              'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
-            },
-          })
-            .then(response => response.json())
-            .then(data => {
-              const infoContent = data.display_name || \`Lat: ${loc.coords.latitude}, Lng: ${loc.coords.longitude}\`;
-              userMarker.bindPopup(infoContent).openPopup();
-            })
-            .catch(error => {
-              console.error("Reverse geocoding error:", error);
-              userMarker.bindPopup(\`Lat: ${loc.coords.latitude}, Lng: ${loc.coords.longitude}\`).openPopup();
-            });
-        } else {
-          console.error("Map not initialized");
-        }
-      `;
-      webViewRef.current?.injectJavaScript(script);
-    } catch (error) {
-      console.error('Return to user location error:', error);
-      ToastAndroid.show('Failed to return to your location. Please try again.', ToastAndroid.BOTTOM);
-    }
-  };
-
-  const mapHtml =
-    permissionStatus === 'granted' && location?.latitude && location?.longitude
-      ? `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+      if (!Array.isArray(initialResponse)) {
+        throw new Error('Invalid initial response data received');
+      }
       
-        <style>
-          #map { height: 100%; width: 100%; }
-          html, body { height: 100%; margin: 0; padding: 0; }
-          .leaflet-control { display: none !important; }
-          .bayanihan-infowindow {
-            font-family: 'Arial', sans-serif;
-            color: #333;
-            padding: 15px;
-            background: #FFFFFF;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            max-width: 300px;
-            border-top: 5px solid #FF69B4;
-            animation: slideIn 0.3s ease-out;
-          }
-          .bayanihan-infowindow h3 {
-            margin: 0 0 10px;
-            color: #007BFF;
-            font-size: 18px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          .bayanihan-infowindow p {
-            margin: 5px 0;
-          }
-          @keyframes slideIn {
-            0% { transform: translateY(10px); opacity: 0; }
-            100% { transform: translateY(0); opacity: 1; }
-          }
-        </style>
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-      </head>
-      <body>
-        <div id="map"></div>
-        <script>
-          const firebaseConfig = {
-            apiKey: "AIzaSyBkmXOJvnlBtzkjNyR6wyd9BgGM0BhN0L8",
-            authDomain: "bayanihan-new-472410.firebaseapp.com",
-            projectId: "bayanihan-new-472410",
-            storageBucket: "bayanihan-new-472410.firebasestorage.app",
-            messagingSenderId: "995982574131",
-            appId: "1:995982574131:web:3d45e358fad330c276d946",
-            measurementId: "G-CEVPTQZM9C",
-            databaseURL: "https://bayanihan-new-472410-default-rtdb.asia-southeast1.firebasedatabase.app/"
-          };
-
-          firebase.initializeApp(firebaseConfig);
-          const database = firebase.database();
-
-          let map;
-          let activationMarkers = [];
-          let nonActivationMarkers = [];
-          let singlePopup;
-
-          function initMap() {
-            try {
-              const userLocation = L.latLng(${location.latitude}, ${location.longitude});
-              map = L.map('map', {
-                center: userLocation,
-                zoom: 16,
-                zoomControl: false,
-                attributionControl: false,
-                doubleClickZoom: false,
-                boxZoom: false,
-                keyboard: false,
-              });
-
-              const tileLayer = "${mapType}" === "osm" ?
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                }) :
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                  attribution: '&copy; <a href="https://www.esri.com/">Esri</a>'
-                });
-              tileLayer.addTo(map);
-
-              const userMarker = L.marker(userLocation, {
-                title: "Your Location",
-                icon: L.icon({
-                  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-                  iconSize: [25, 41],
-                  iconAnchor: [12, 41],
-                  popupAnchor: [1, -34],
-                  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-                  shadowSize: [41, 41],
-                }),
-              }).addTo(map);
-              nonActivationMarkers.push(userMarker);
-
-              fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.latitude}&lon=${location.longitude}', {
-                headers: {
-                  'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
-                },
-              })
-                .then(response => response.json())
-                .then(data => {
-                  const infoContent = data.display_name || \`Lat: ${location.latitude}, Lng: ${location.longitude}\`;
-                  userMarker.bindPopup(infoContent).openPopup();
-                })
-                .catch(error => {
-                  console.error("Reverse geocoding error:", error);
-                  userMarker.bindPopup(\`Lat: ${location.latitude}, Lng: ${location.longitude}\`).openPopup();
-                });
-
-              const activationsRef = database.ref("activations/currentActivations").orderByChild("status").equalTo("active");
-              activationsRef.on("value", (snapshot) => {
-                activationMarkers.forEach(marker => marker.remove());
-                activationMarkers = [];
-
-                const activations = snapshot.val();
-                if (!activations) {
-                  console.log("No active activations found in Firebase.");
-                  return;
-                }
-
-                console.log("Active activations:", activations);
-
-                Object.entries(activations).forEach(([key, activation]) => {
-                  if (!activation.latitude || !activation.longitude) {
-                    console.warn(\`Activation \${key} is missing latitude or longitude:\`, activation);
-                    return;
-                  }
-
-                  const position = L.latLng(parseFloat(activation.latitude), parseFloat(activation.longitude));
-                  console.log(\`Creating marker for \${activation.organization} at position:\`, position);
-
-                  const logoPath = "https://firebasestorage.googleapis.com/v0/b/bayanihan-5ce7e.appspot.com/o/AB_logo.png?alt=media";
-                  console.log("Attempting to load logo for Popup from:", logoPath);
-
-                  const marker = L.marker(position, {
-                    title: activation.organization,
-                    icon: L.icon({
-                      iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x-red.png",
-                      iconSize: [25, 41],
-                      iconAnchor: [12, 41],
-                      popupAnchor: [1, -34],
-                      shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-                      shadowSize: [41, 41],
-                    }),
-                  }).addTo(map);
-
-                  activationMarkers.push(marker);
-                  console.log(\`Marker created for \${activation.organization}\`);
-
-                  const img = new Image();
-                  img.src = logoPath;
-                  img.onload = () => {
-                    console.log("Logo loaded successfully for Popup:", logoPath);
-                    createPopup(marker, activation, logoPath);
-                  };
-                  img.onerror = () => {
-                    console.error("Failed to load logo for Popup:", logoPath);
-                    createPopup(marker, activation, null);
-                  };
-                });
-              }, (error) => {
-                console.error("Firebase error:", error);
-              });
-
-              map.on('click', (e) => {
-                clearNonActivationMarkers();
-                const marker = L.marker(e.latlng, {
-                  title: "Pinned Location",
-                }).addTo(map);
-                nonActivationMarkers.push(marker);
-
-                fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + e.latlng.lat + '&lon=' + e.latlng.lng, {
-                  headers: {
-                    'User-Agent': 'BayanihanApp/1.0 (your.email@example.com)',
-                  },
-                })
-                  .then(response => response.json())
-                  .then(data => {
-                    const infoContent = data.display_name || \`Lat: \${e.latlng.lat}, Lng: \${e.latlng.lng}\`;
-                    marker.bindPopup(infoContent).openPopup();
-                  })
-                  .catch(error => {
-                    console.error("Reverse geocoding error:", error);
-                    marker.bindPopup(\`Lat: \${e.latlng.lat}, Lng: \${e.latlng.lng}\`).openPopup();
-                  });
-
-                map.setView(e.latlng, 16);
-              });
-            } catch (error) {
-              console.error("Map initialization error:", error);
-            }
-          }
-
-          function createPopup(marker, activation, logoUrl) {
-            const content = \`
-              <div class="bayanihan-infowindow">
-                <h3 style="color: black; font-family: 'Poppins', sans-serif;">
-                  \${logoUrl ? 
-                    \`<img src="\${logoUrl}" alt="Bayanihan Logo" style="width: 24px; height: 24px;" />\` : 
-                    \`<span style="font-size: 24px;">🌟</span>\`
-                  }
-                  \${activation.organization}
-                </h3>
-                <p>
-                  <strong style="color: black; font-weight: bold; font-family: 'Poppins', sans-serif">Area:</strong>
-                  <span style="font-family: 'Poppins', sans-serif;">\${activation.areaOfOperation}</span>
-                </p>
-                <p>
-                  <strong style="color: black; font-weight: bold; font-family: 'Poppins', sans-serif">Calamity:</strong>
-                  <span style="font-family: 'Poppins', sans-serif;">\${activation.calamityType}\${activation.typhoonName ? \` (\${activation.typhoonName})\` : ''}</span>
-                </p>
-                <p>
-                  <strong style="color: black; font-weight: bold; font-family: 'Poppins', sans-serif">Status:</strong>
-                  <span style="color: #388E3C; font-weight: bold; font-family: 'Poppins', sans-serif;">Active</span>
-                </p>
-              </div>
-            \`;
-
-            marker.on('click', () => {
-              if (singlePopup && singlePopup._source !== marker) {
-                singlePopup.remove();
-              }
-              singlePopup = L.popup().setContent(content).setLatLng(marker.getLatLng()).openOn(map);
-              console.log(\`Popup opened for \${activation.organization}\`);
-            });
-          }
-
-          function clearNonActivationMarkers() {
-            nonActivationMarkers.forEach(marker => marker.remove());
-            nonActivationMarkers = [];
-          }
-
-          window.initMap = initMap;
-          initMap();
-        </script>
-      </body>
-      </html>
-    `
-      : null;
-
-  const getUserName = () => {
-    if (!user) return 'Unknown User';
-    if (contactPerson) {
-      return contactPerson;
+      console.log(`[${new Date().toISOString()}] Specific fields:`, {
+        category: reportData.category,
+        estQty: reportData.estQty
+      });
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Validation error:`, error.message);
+      Alert.alert('Error', error.message);
+      setErrorMessage(error.message);
+      setModalVisible(true);
     }
-    if (firstName || lastName) {
-      return `${firstName || ''} ${lastName || ''}`.trim();
-    }
-    return 'Unknown User';
-  };
+  }, [reportData, affectedMunicipalities, authoritiesAndOrganizations, immediateNeeds, initialResponse, organizationName]);
 
   useEffect(() => {
-    const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
-      setIsLoading(true);
-      let currentUser = user;
+    try {
+      if (!user || !user.id) {
+        throw new Error('No authenticated user found or missing user ID');
+      }
+      console.log(`[${new Date().toISOString()}] Logged-in user ID:`, user.id);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Authentication error:`, error.message);
+      setErrorMessage('User not authenticated. Please log in.');
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+        navigation.navigate('Login');
+      }, 3000);
+    }
+  }, [user, navigation]);
 
-      if (!currentUser?.id) {
-        try {
-          const cachedUser = await AsyncStorage.getItem('user_session');
-          if (cachedUser) {
-            console.log('fetchUserData: No user in AuthContext, using cached user:', JSON.parse(cachedUser).id);
-            currentUser = JSON.parse(cachedUser);
-          } else {
-            console.warn('fetchUserData: No user ID or cached user available');
-            setErrorModal({
-              visible: true,
-              message: 'Please log in to continue.',
-            });
-            setContactPerson(null);
-            setFirstName(null);
-            setLastName(null);
-            setIsLoading(false);
-            setTimeout(() => {
-              navigation.navigate('Login');
-            }, 3000);
-            return;
-          }
-        } catch (error) {
-          console.error('fetchUserData: Error loading cached user:', error.message);
-          setErrorModal({
-            visible: true,
-            message: 'Failed to load user data. Please log in again.',
+  const sanitizeKey = (key) => {
+    return key
+      .replace(/[.#$/[\]]/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_]/g, '')
+      .replace(/_+/g, '_');
+  };
+
+  const formatLargeNumber = (value) => {
+    if (value === null || value === undefined || value === "") return "0";
+    let num = Number(value.toString().replace(/^0+/, ""));
+    if (isNaN(num)) return "0";
+    if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
+    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (num >= 1_000) return (num / 1_000).toFixed(1).replace(/\.0$/, "") + "k";
+    return num.toString();
+  };
+
+  const notifyAdmin = async (message, disasterType, location, details, rdanaId, senderName, organization) => {
+    try {
+      const identifier = `rdana_${rdanaId}_${Date.now()}`;
+      const key = push(databaseRef(database, 'notifications')).key;
+      await set(databaseRef(database, `notifications/${key}`), {
+        message,
+        calamityType: disasterType || null,
+        location: location || null,
+        details: details || null,
+        eventId: null,
+        rdanaId,
+        senderName,
+        organization,
+        identifier,
+        timestamp: serverTimestamp(),
+        read: false,
+        type: "admin"
+      });
+      console.log(`[${new Date().toISOString()}] Admin notified:`, message);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Failed to notify admin:`, error.message);
+    }
+  };
+
+  const generateUniqueId = async () => {
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
+      const randomNum = Math.floor(100 + Math.random() * 900);
+      const customId = `RDANA-${randomNum}`;
+      const snapshot = await get(databaseRef(database, `rdana/submitted/${customId}`));
+      if (!snapshot.exists()) {
+        console.log(`[${new Date().toISOString()}] Generated unique RDANA ID: ${customId}`);
+        return customId;
+      }
+      console.log(`[${new Date().toISOString()}] RDANA ID ${customId} already exists, retrying...`);
+      attempts++;
+    }
+    throw new Error('Unable to generate a unique RDANA ID after maximum attempts.');
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    if (!user || !user.id) {
+      setErrorMessage('User not authenticated or missing ID. Please log in again.');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const { 
+      Site_Location_Address_Province, 
+      Site_Location_Address_City_Municipality, 
+      Site_Location_Address_Barangay, 
+      Type_of_Disaster, 
+      Date_and_Time_of_Information_Gathered,
+      Locations_and_Areas_Affected_Province,
+      Locations_and_Areas_Affected_City_Municipality,
+      Locations_and_Areas_Affected_Barangay
+    } = reportData;
+
+    // Validate address fields
+    if (!Site_Location_Address_Province?.trim() || !isValidString(Site_Location_Address_Province)) {
+      setErrorMessage('Please enter a valid province.');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!Site_Location_Address_City_Municipality?.trim() || !isValidString(Site_Location_Address_City_Municipality)) {
+      setErrorMessage('Please enter a valid city/municipality.');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!Site_Location_Address_Barangay?.trim() || !isValidString(Site_Location_Address_Barangay)) {
+      setErrorMessage('Please enter a valid barangay.');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!Type_of_Disaster?.trim()) {
+      setErrorMessage('Please select a disaster type.');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!Date_and_Time_of_Information_Gathered?.trim()) {
+      setErrorMessage('Please enter the date and time of information gathered.');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Validate and format date fields
+    const formattedInfoDate = formatDateForStorage(Date_and_Time_of_Information_Gathered);
+    if (!formattedInfoDate) {
+      setErrorMessage('Invalid format for Date and Time of Information Gathered. Please use a valid date format (e.g., MM/DD/YYYY HH:MM).');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const formattedOccurrenceDate = reportData.Date_and_Time_of_Occurrence?.trim() 
+      ? formatDateForStorage(reportData.Date_and_Time_of_Occurrence)
+      : null;
+    if (reportData.Date_and_Time_of_Occurrence?.trim() && !formattedOccurrenceDate) {
+      setErrorMessage('Invalid format for Date and Time of Occurrence. Please use a valid date format (e.g., MM/DD/YYYY HH:MM).');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (affectedMunicipalities.length === 0) {
+      setErrorMessage('Please add at least one affected municipality.');
+      setModalVisible(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const checklistLabels = {
+        reliefPacks: "Relief Packs",
+        hotMeals: "Hot Meals",
+        hygieneKits: "Hygiene Kits",
+        drinkingWater: "Drinking Water",
+        ricePacks: "Rice Packs"
+      };
+      const checklist = Object.keys(checklistLabels)
+        .filter(id => reportData[id] === 'Yes')
+        .map(id => id);
+
+      const lifelines = [
+        { structure: 'Residential Houses', status: reportData.residentialhousesStatus || 'N/A' },
+        { structure: 'Transportation and Mobility', status: reportData.transportationandmobilityStatus || 'N/A' },
+        { structure: 'Electricity, Power Grid', status: reportData.electricitypowergridStatus || 'N/A' },
+        { structure: 'Communication Networks, Internet', status: reportData.communicationnetworksinternetStatus || 'N/A' },
+        { structure: 'Hospitals, Rural Health Units', status: reportData.hospitalsruralhealthunitsStatus || 'N/A' },
+        { structure: 'Water Supply System', status: reportData.watersupplysystemStatus || 'N/A' },
+        { structure: 'Market, Business, Commercial Establishments', status: reportData.marketbusinessandcommercialestablishmentsStatus || 'N/A' },
+        { structure: 'Others', status: reportData.othersStatus || 'N/A' },
+      ];
+
+      const rdanaId = await generateUniqueId();
+      // Construct affectedLocations from individual fields
+      const affectedLocations = [];
+      const provinces = Locations_and_Areas_Affected_Province?.split(', ') || [];
+      const cities = Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];
+      const barangays = Locations_and_Areas_Affected_Barangay?.split(', ') || [];
+
+      // Ensure arrays have the same length and create objects
+      const maxLength = Math.max(provinces.length, cities.length, barangays.length);
+      for (let i = 0; i < maxLength; i++) {
+        if (provinces[i] && cities[i] && barangays[i]) {
+          affectedLocations.push({
+            province: provinces[i].trim() || '',
+            city: cities[i].trim() || '',
+            barangay: barangays[i].trim() || ''
           });
-          setIsLoading(false);
-          setTimeout(() => {
-            navigation.navigate('Login');
-          }, 3000);
+        }
+      }
+
+      const newReport = {
+        rdanaId,
+        timestamp: serverTimestamp(),
+        currentUserGroupName: organizationName,
+        userUid: user.id,
+        reportData: {
+          profile: {
+            province: Site_Location_Address_Province.trim() || '',
+            city: Site_Location_Address_City_Municipality.trim() || '',
+            barangay: Site_Location_Address_Barangay.trim() || '',
+            infoDate: formattedInfoDate,
+            authorities: authoritiesAndOrganizations.map(row => ({
+              authority: row.authority?.trim() || '',
+              organization: row.organization?.trim() || ''
+            })),
+            affectedLocations, // Use the constructed array
+            disasterType: Type_of_Disaster.trim() || '',
+            occurrenceDate: formattedOccurrenceDate || '', 
+            summary: reportData.summary?.trim() || ''
+          },
+          disasterEffects: affectedMunicipalities.map(row => [
+            row.community?.trim() || '',
+            Number(row.totalPop) || 0, // Store raw number
+            Number(row.affectedPopulation) || 0, // Store raw number
+            Number(row.deaths) || 0, // Store raw number
+            Number(row.injured) || 0, // Store raw number
+            Number(row.missing) || 0, // Store raw number
+            Number(row.children) || 0, // Store raw number
+            Number(row.women) || 0, // Store raw number
+            Number(row.seniors) || 0, // Store raw number
+            Number(row.pwd) || 0 // Store raw number
+          ]),
+          lifelines,
+          checklist,
+          immediateNeeds: immediateNeeds.map(n => ({
+            need: n.need?.trim() || '',
+            qty: Number(n.qty) || 0 // Store raw number
+          })),
+          initialResponse: initialResponse.map(r => ({
+            group: r.group?.trim() || '',
+            assistance: r.assistance?.trim() || '',
+            families: Number(r.families) || 0 // Store raw number
+          }))
+        },
+        status: 'Submitted'
+      };
+
+      // Handle relief request submission if enableUrgentRelief is checked
+      if (enableUrgentRelief) {
+        console.log(`[${new Date().toISOString()}] Urgent relief request validation started`);
+        
+        const validImmediateNeeds = immediateNeeds.filter(item => item.need?.trim() && Number(item.qty) > 0);
+        if (validImmediateNeeds.length === 0) {
+          setErrorMessage('At least one valid immediate need (with a name and positive quantity) is required.');
+          setModalVisible(true);
+          setIsSubmitting(false);
           return;
         }
+
+        console.log(`[${new Date().toISOString()}] Immediate needs for relief request:`, validImmediateNeeds);
+
+        const validCategories = ["Drinking Water", "Relief Packs", "Hygiene Kits", "Hot Meals", "Rice Packs"];
+        const contactPerson = user.displayName || user.email || "Unknown";
+        const contactNumber =
+          route?.params?.reportData?.contactNumber ||
+          user?.mobile ||
+          prev?.contactNumber ||
+          '';
+        const email = user.email || "";
+        const volunteerOrganization = organizationName;
+        const province = Site_Location_Address_Province?.trim() || "";
+        const city = Site_Location_Address_City_Municipality?.trim() || "";
+        const barangay = Site_Location_Address_Barangay?.trim() || "";
+        const formattedAddress = [barangay, city, province].filter(Boolean).join(", ");
+        const category = reportData.category?.trim() ? reportData.category.trim() : "General";
+        const { latitude, longitude } = await getCoordinates();
+        const urgent = true;
+
+        const addedItems = validImmediateNeeds.map(item => ({
+          name: item.need.trim(),
+          quantity: Number(item.qty),
+          notes: "URGENT"
+        }));
+
+        const newRequest = {
+          contactPerson,
+          contactNumber,
+          email,
+          category,
+          volunteerOrganization,
+          userUid: user.id,
+          address: {
+            formattedAddress,
+            latitude: Number(latitude),
+            longitude: Number(longitude)
+          },
+          items: addedItems,
+          timestamp: serverTimestamp(),
+          donationDate: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: "Pending",
+          matchedDonations: 0,
+          matchedDonationIds: [],
+          assignedVolunteers: [],
+          urgent,
+          rdanaId
+        };
+
+        const requestRef = push(databaseRef(database, 'requestRelief/requests'));
+        const userRequestRef = databaseRef(database, `users/${user.id}/requests/${requestRef.key}`);
+
+        await Promise.all([
+          set(requestRef, newRequest).catch(error => {
+            throw new Error(`Failed to save relief request: ${error.message}`);
+          }),
+          set(userRequestRef, {
+            requestId: requestRef.key,
+            timestamp: serverTimestamp(),
+            status: "Pending",
+            rdanaId
+          }).catch(error => {
+            throw new Error(`Failed to save user request: ${error.message}`);
+          }),
+        ]);
+
+        const itemsList = addedItems.map(n => `${n.name} (${n.quantity} units)`).join(", ");
+        const message = `New urgent relief request submitted with RDANA report (${rdanaId}) by ${volunteerOrganization} for ${itemsList} in ${formattedAddress}.`;
+        await notifyAdmin(
+          message,
+          reportData.profile?.disasterType || null,
+          formattedAddress,
+          `Urgent relief request for ${category}: ${itemsList}`,
+          rdanaId,
+          contactPerson,
+          volunteerOrganization
+        );
       }
 
-      try {
-        const db = getDatabase();
-        const userRef = ref(db, `users/${currentUser.id}`);
-        const snapshot = await get(userRef);
+      // Submit RDANA report to Firebase
+      const requestRef = push(databaseRef(database, 'rdana/submitted'));
+      const userRequestRef = databaseRef(database, `users/${user.id}/rdana/${rdanaId}`);
+      const message = `New RDANA report "${Type_of_Disaster || 'N/A'}" submitted by ${reportData.Prepared_By?.trim() || 'Unknown'} from ${organizationName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
+      const location = `${Site_Location_Address_Barangay || ''}, ${Site_Location_Address_City_Municipality || ''}, ${Site_Location_Address_Province || ''}`;
+      const details = reportData.summary?.trim() || 'No summary provided';
 
-        if (snapshot.exists()) {
-          const userData = snapshot.val();
-          setContactPerson(userData.contactPerson || null);
-          setFirstName(userData.firstName || null);
-          setLastName(userData.lastName || null);
-          console.log('fetchUserData: User data fetched:', userData);
-        } else {
-          console.warn('fetchUserData: No user document found for ID:', currentUser.id);
-          setContactPerson(currentUser.contactPerson || null);
-          setFirstName(currentUser.firstName || null);
-          setLastName(currentUser.lastName || null);
-          setErrorModal({
-            visible: true,
-            message: 'No user profile found in database. Using cached data.',
-          });
-        }
-      } catch (error) {
-        console.error('fetchUserData: Error fetching user data:', error.message, error.code);
-        if (retryCount < maxRetries && error.code === 'unavailable') {
-          console.log(`fetchUserData: Retrying fetch (${retryCount + 1}/${maxRetries})...`);
-          setTimeout(() => fetchUserData(retryCount + 1, maxRetries), 1000);
-        } else {
-          setContactPerson(currentUser.contactPerson || null);
-          setFirstName(currentUser.firstName || null);
-          setLastName(currentUser.lastName || null);
-          
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      await Promise.all([
+        set(requestRef, newReport).catch(error => {
+          throw new Error(`Failed to save RDANA report: ${error.message}`);
+        }),
+        set(userRequestRef, newReport).catch(error => {
+          throw new Error(`Failed to save user RDANA report: ${error.message}`);
+        }),
+        logActivity('Submitted an RDANA report', rdanaId, user.id, organizationName).catch(error => {
+          throw new Error(`Failed to log activity: ${error.message}`);
+        }),
+        logSubmission('rdana/submitted', newReport, rdanaId, organizationName, user.id).catch(error => {
+          throw new Error(`Failed to log submission: ${error.message}`);
+        }),
+        notifyAdmin(message, Type_of_Disaster || 'N/A', location, details, rdanaId, reportData.Prepared_By?.trim() || 'Unknown', organizationName).catch(error => {
+          throw new Error(`Failed to notify admin: ${error.message}`);
+        })
+      ]);
 
-    if (user?.id || !user) {
-      fetchUserData();
-    } else {
-      setIsLoading(false);
+      // Reset form data
+      setReportData({});
+      setAffectedMunicipalities([]);
+      setAuthoritiesAndOrganizations([]);
+      setImmediateNeeds([]);
+      setInitialResponse([]);
+      setErrorMessage(null);
+      setModalVisible(true);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error saving RDANA report:`, error.message, error.code || 'N/A');
+      setErrorMessage(`Failed to submit RDANA report: ${error.message} (${error.code || 'N/A'})`);
+      setModalVisible(true);
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [user]);
+  };
+
+  const handleConfirm = () => {
+    console.log(`[${new Date().toISOString()}] Confirm button pressed`);
+    setModalVisible(false);
+    if (!errorMessage) {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Volunteer Dashboard' }],
+        })
+      );
+    } else {
+      navigation.navigate('Login');
+    }
+  };
+
+  const handleCancel = () => {
+    console.log(`[${new Date().toISOString()}] Cancel button pressed`);
+    setModalVisible(false);
+    if (errorMessage) {
+      navigation.navigate('Login');
+    }
+  };
+
+  const handleBack = () => {
+    console.log(`[${new Date().toISOString()}] Navigating back with data:`, reportData, affectedMunicipalities, authoritiesAndOrganizations, immediateNeeds, initialResponse);
+    // Reconstruct affectedLocations from comma-separated fields
+    const affectedLocations = [];
+    const provinces = reportData.Locations_and_Areas_Affected_Province?.split(', ') || [];
+    const cities = reportData.Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];
+    const barangays = reportData.Locations_and_Areas_Affected_Barangay?.split(', ') || [];
+
+    const maxLength = Math.max(provinces.length, cities.length, barangays.length);
+    for (let i = 0; i < maxLength; i++) {
+      if (provinces[i] && cities[i] && barangays[i]) {
+        affectedLocations.push({
+          province: provinces[i].trim() || '',
+          city: cities[i].trim() || '',
+          barangay: barangays[i].trim() || ''
+        });
+      }
+    }
+
+    navigation.navigate('RDANAScreen', { 
+      reportData, 
+      affectedMunicipalities, 
+      authoritiesAndOrganizations, 
+      immediateNeeds, 
+      initialResponse, 
+      affectedLocations, // Pass the reconstructed array
+      organizationName,
+      enableUrgentRelief
+    });
+  };
+
+  const renderMunicipalityItem = (item, index) => (
+    <View key={index.toString()} style={[styles.summaryTableRow, { minWidth: 1150 }]}>
+      <Text style={[styles.summaryTableCell, { minWidth: 50 }]}>{index + 1}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 240 }]}>{item.community || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 120 }]}>{formatLargeNumber(item.totalPop || 'N/A')}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 120 }]}>{formatLargeNumber(item.affectedPopulation || 'N/A')}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.deaths || 'N/A')}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.injured || 'N/A')}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.missing || 'N/A')}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.children || 'N/A')}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.women || 'N/A')}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 130 }]}>{formatLargeNumber(item.seniors || 'N/A')}</Text>
+      <Text style={[styles.summaryTableCell, { minWidth: 80 }]}>{formatLargeNumber(item.pwd || 'N/A')}</Text>
+    </View>
+  );
+
+  const renderAuthorityItem = (item, index) => (
+    <View key={index.toString()} style={[styles.summaryTableRow, { minWidth: 400 }]}>
+      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{item.authority || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{item.organization || 'N/A'}</Text>
+    </View>
+  );
+
+  const renderNeedItem = (item, index) => (
+    <View key={index.toString()} style={[styles.summaryTableRow, { minWidth: 400 }]}>
+      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{item.need || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{formatLargeNumber(item.qty || 'N/A')}</Text>
+    </View>
+  );
+
+  const renderResponseItem = (item, index) => (
+    <View key={index.toString()} style={[styles.summaryTableRow, { minWidth: 600 }]}>
+      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{item.group || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{item.assistance || 'N/A'}</Text>
+      <Text style={[styles.summaryTableCell, { flex: 1 }]}>{formatLargeNumber(item.families || 'N/A')}</Text>
+    </View>
+  );
+
+  // Format Locations and Areas Affected for display with '/'
+  const formatLocationsForDisplay = () => {
+    const provinces = reportData.Locations_and_Areas_Affected_Province?.split(', ') || [];
+    const cities = reportData.Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];
+    const barangays = reportData.Locations_and_Areas_Affected_Barangay?.split(', ') || [];
+    const locations = [];
+    const maxLength = Math.max(provinces.length, cities.length, barangays.length);
+    
+    for (let i = 0; i < maxLength; i++) {
+      const province = provinces[i]?.trim() || '';
+      const city = cities[i]?.trim() || '';
+      const barangay = barangays[i]?.trim() || '';
+      if (province && city && barangay) {
+        locations.push(`${barangay}/${city}/${province}`);
+      }
+    }
+    return locations.length > 0 ? locations.join(', ') : 'N/A';
+  };
 
   return (
-    <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      {permissionStatus === 'granted' && location && mapHtml ? (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={[styles.subContainer]}
-          keyboardVerticalOffset={0}
+    <SafeAreaView style={GlobalStyles.container}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <LinearGradient
+        colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
+        start={{ x: 1, y: 0.5 }}
+        end={{ x: 1, y: 1 }}
+        style={GlobalStyles.gradientContainer}
+      >
+        <View style={GlobalStyles.newheaderContainer}>
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
+            <Ionicons name="menu" size={32} color={Theme.colors.primary} />
+          </TouchableOpacity>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>RDANA</Text>
+        </View>
+      </LinearGradient>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1, marginTop: 80 }}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollViewContent}
+          scrollEnabled
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={{ flex: 1 }}>
-            <WebView
-              ref={webViewRef}
-              style={styles.map}
-              source={{ html: mapHtml }}
-              originWhitelist={['*']}
-              onError={(syntheticEvent) => {
-               率先
-                const { nativeEvent } = syntheticEvent;
-                console.error('WebView error:', nativeEvent);
-                ToastAndroid.show('Failed to load the map. Please check your internet connection.', ToastAndroid.BOTTOM);
-              }}
-              onMessage={(event) => {
-                console.log('WebView message:', event.nativeEvent.data);
-              }}
-            />
-            <View blurAmount={20} tint="light" style={styles.headerContainer}>
-              <LinearGradient
-                colors={['rgba(185, 185, 185, 0.12)', 'rgba(77, 77, 77, 0.2)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.formCard}
-              >
-                <View style={styles.headerContent}>
-                  <TouchableOpacity
-                    onPress={() => navigation.openDrawer()}
-                    style={styles.headerMenuIcon}
-                  >
-                    <Ionicons name="menu" size={32} color={Theme.colors.white} />
-                  </TouchableOpacity>
-                  <View style={styles.headerUserContainer}>
-                    <Text style={styles.userName}>{getUserName()}</Text>
-                    <ImageBackground
-                      source={{ uri: 'https://via.placeholder.com/35' }}
-                      style={{ width: 35, height: 35 }}
-                      imageStyle={{ borderRadius: 25 }}
-                    />
-                  </View>
+          <View style={GlobalStyles.form}>
+            <Text style={GlobalStyles.subheader}>Summary</Text>
+            <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>I. Profile of the Disaster</Text>
+              {[
+                { key: 'Site_Location_Address_Province', label: 'Site Location/ Address (Province)' },
+                { key: 'Site_Location_Address_City_Municipality', label: 'Site Location Address (City/Municipality)' },
+                { key: 'Site_Location_Address_Barangay', label: 'Site Location Address Barangay' },
+                { key: 'Date_and_Time_of_Information_Gathered', label: 'Date and Time of Information Gathered' },
+              ].map(({ key, label }) => (
+                <View key={label} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{label}:</Text>
+                  <Text style={styles.value}>{reportData[key]?.trim() || 'N/A'}</Text>
                 </View>
-              </LinearGradient>
+              ))}
+              <Text style={GlobalStyles.sectionTitle}>Authorities & Organizations</Text>
+              {authoritiesAndOrganizations.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator>
+                  <View style={styles.summaryTable}>
+                    <View style={[styles.summaryTableHeader, { minWidth: 400 }]}>
+                      <Text style={[styles.summaryTableHeaderCell, { flex: 1, borderRightWidth: 1, borderRightColor: Theme.colors.primary }]}>Authorities</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Organizations</Text>
+                    </View>
+                    {authoritiesAndOrganizations.map((item, index) => renderAuthorityItem(item, index))}
+                  </View>
+                </ScrollView>
+              ) : (
+                <Text style={styles.value}>No authorities or organizations added.</Text>
+              )}
             </View>
-            <View style={styles.overlayContainer}>
-              <View style={styles.searchWrapper}>
-                <Animated.View
-                  style={[
-                    styles.searchContainer,
-                    {
-                      borderRadius: searchBarVisible ? 30 : '100%',
-                      width: searchBarVisible ? '100%' : 45,
-                      height: searchBarVisible ? '100%' : 45,
-                      paddingLeft: searchBarVisible ? 0 : 1,
-                    },
-                  ]}
-                >
-                  <TouchableOpacity
-                    onPress={toggleSearchBar}
-                  >
-                    <Feather
-                      name="search"
-                      size={20}
-                      style={[
-                        styles.searchIcon,
-                        {
-                          color: Theme.colors.primary,
-                          paddingLeft: searchBarVisible ? 15 : 8,
-                          paddingRight: searchBarVisible ? 5 : 0,
-                        },
-                      ]}
-                    />
-                  </TouchableOpacity>
-                  <Animated.View
-                    style={{
-                      flex: searchBarVisible ? 1 : 0,
-                      opacity: searchAnim,
-                      transform: [
-                        {
-                          translateX: searchAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [20, 0],
-                          }),
-                        },
-                      ],
-                    }}
-                  >
-                    {searchBarVisible && (
-                      <TextInput
-                        placeholder="Search"
-                        style={{ flex: 1, fontFamily: 'Poppins_Regular' }}
-                        placeholderTextColor="black"
-                        value={searchQuery}
-                        onChangeText={handleSearchInput}
-                        onSubmitEditing={() => handleSearch()}
-                        returnKeyType="search"
-                        autoFocus={true}
-                      />
-                    )}
-                  </Animated.View>
-                </Animated.View>
-                {searchBarVisible && suggestions.length > 0 && (
-                  <FlatList
-                    data={suggestions}
-                    keyExtractor={(item) => item.place_id}
-                    style={styles.suggestionsContainer}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.suggestionItem}
-                        onPress={() => handleSuggestionSelect(item)}
-                      >
-                        <Text style={styles.suggestionText}>{item.display_name}</Text>
-                      </TouchableOpacity>
-                    )}
-                    keyboardShouldPersistTaps="handled"
-                  />
-                )}
-                <TouchableOpacity style={styles.returnButton} onPress={returnToUserLocation}>
-                  <MaterialIcons name="my-location" size={24} color={Theme.colors.white} />
-                </TouchableOpacity>
+
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>II. Modality</Text>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Locations and Areas Affected:</Text>
+                <Text style={styles.value}>{formatLocationsForDisplay()}</Text>
               </View>
+              <Text style={styles.sectionSubtitle}>Disaster Details</Text>
+              {[
+                { key: 'Type_of_Disaster', label: 'Type of Disaster' },
+                { key: 'Date_and_Time_of_Occurrence', label: 'Date and Time of Occurrence' },
+                { key: 'summary', label: 'Summary' },
+              ].map(({ key, label }) => (
+                <View key={label} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{label}:</Text>
+                  <Text style={styles.value}>{reportData[key]?.trim() || 'N/A'}</Text>
+                </View>
+              ))}
             </View>
-            <View style={[styles.mapTypeButtonsContainer, { paddingBottom: insets.bottom }]}>
-              <TouchableOpacity
-                style={[styles.mapTypeButton, mapType === 'osm' && styles.mapTypeButtonActive]}
-                onPress={() => toggleMapType('osm')}
-              >
-                <MaterialIcons
-                  name="map"
-                  size={24}
-                  color={mapType === 'osm' ? Theme.colors.primary : '#FFFFFF'}
-                />
-                <Text
-                  style={[
-                    styles.mapTypeButtonText,
-                    mapType === 'osm' && styles.mapTypeButtonTextActive,
-                  ]}
-                >
-                  Map
-                </Text>
+
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>III. Initial Effects</Text>
+              <Text style={styles.sectionSubtitle}>Affected Municipalities</Text>
+              {affectedMunicipalities.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator>
+                  <View style={styles.summaryTable}>
+                    <View style={[styles.summaryTableHeader, { minWidth: 1150 }]}>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 50 }]}>#</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 240 }]}>Affected Municipalities/Communities</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 120 }]}>Total Population</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 120 }]}>Affected Population</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Deaths</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Injured</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Missing</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Children</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>Women</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 130 }]}>Senior Citizens</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { minWidth: 80 }]}>PWD</Text>
+                    </View>
+                    {affectedMunicipalities.map((item, index) => renderMunicipalityItem(item, index))}
+                  </View>
+                </ScrollView>
+              ) : (
+                <Text style={styles.value}>No municipalities added.</Text>
+              )}
+            </View>
+
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>IV. Status of Lifelines, Social Structure, and Critical Facilities</Text>
+              {[
+                { key: 'residentialhousesStatus', label: 'Residential Houses' },
+                { key: 'transportationandmobilityStatus', label: 'Transportation and Mobility' },
+                { key: 'electricitypowergridStatus', label: 'Electricity, Power Grid' },
+                { key: 'communicationnetworksinternetStatus', label: 'Communication Networks, Internet' },
+                { key: 'hospitalsruralhealthunitsStatus', label: 'Hospitals, Rural Health Units' },
+                { key: 'watersupplysystemStatus', label: 'Water Supply System' },
+                { key: 'marketbusinessandcommercialestablishmentsStatus', label: 'Market, Business, Commercial Establishments' },
+                { key: 'othersStatus', label: 'Others' },
+              ].map(({ key, label }) => (
+                <View key={key} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{label}:</Text>
+                  <Text style={styles.value}>{reportData[key]?.trim() || 'N/A'}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>V. Initial Needs Assessment Checklist</Text>     
+              {[
+                { key: 'reliefPacks', label: 'Relief Packs' },
+                { key: 'hotMeals', label: 'Hot Meals' },
+                { key: 'hygieneKits', label: 'Hygiene Kits' },
+                { key: 'drinkingWater', label: 'Drinking Water' },
+                { key: 'ricePacks', label: 'Rice Packs' },
+              ].map(({ key, label }) => (
+                <View key={label} style={styles.fieldContainer}>
+                  <Text style={styles.label}>{label}:</Text>
+                  <Text style={styles.value}>{reportData[key] === 'Yes' ? 'Yes' : 'No'}</Text>
+                </View>
+              ))}
+              {immediateNeeds.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator>
+                  <View style={styles.summaryTable}>
+                    <View style={[styles.summaryTableHeader, { minWidth: 400 }]}>
+                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Other Immediate Needs</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Estimated Quantity</Text>
+                    </View>
+                    {immediateNeeds.map((item, index) => renderNeedItem(item, index))}
+                  </View>
+                </ScrollView>
+              )}
+            </View>
+
+            <View style={GlobalStyles.section}>
+              <Text style={GlobalStyles.sectionTitle}>VI. Initial Response Actions</Text>
+              {initialResponse.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator>
+                  <View style={styles.summaryTable}>
+                    <View style={[styles.summaryTableHeader, { minWidth: 600 }]}>
+                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Response Groups Involved</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Relief Assistance Deployed</Text>
+                      <Text style={[styles.summaryTableHeaderCell, { flex: 1 }]}>Number of Families Served</Text>
+                    </View>
+                    {initialResponse.map((item, index) => renderResponseItem(item, index))}
+                  </View>
+                </ScrollView>
+              ) : (
+                <Text style={styles.value}>No response actions added.</Text>
+              )}
+            </View>
+
+            <View style={GlobalStyles.finalButtonContainer}>
+              <TouchableOpacity style={GlobalStyles.backButton} onPress={handleBack} disabled={isSubmitting}>
+                <Text style={GlobalStyles.backButtonText}>Back</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.mapTypeButton, mapType === 'satellite' && styles.mapTypeButtonActive]}
-                onPress={() => toggleMapType('satellite')}
+                style={[GlobalStyles.submitButton, isSubmitting && { opacity: 0.6 }]}
+                onPress={handleSubmit}
+                disabled={isSubmitting}
               >
-                <MaterialIcons
-                  name="satellite"
-                  size={24}
-                  color={mapType === 'satellite' ? Theme.colors.primary : '#FFFFFF'}
-                />
-                <Text
-                  style={[
-                    styles.mapTypeButtonText,
-                    mapType === 'satellite' && styles.mapTypeButtonTextActive,
-                  ]}
-                >
-                  Satellite
-                </Text>
+                <Text style={GlobalStyles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      ) : (
-        <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
-          <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-          <LinearGradient
-            colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
-            start={{ x: 1, y: 0.5 }}
-            end={{ x: 1, y: 1 }}
-            style={GlobalStyles.gradientContainer}
-          >
-            <View style={GlobalStyles.newheaderContainer}>
-              <TouchableOpacity onPress={() => navigation.openDrawer()} style={GlobalStyles.headerMenuIcon}>
-                <Ionicons name="menu" size={32} color={Theme.colors.primary} />
-              </TouchableOpacity>
-              <View style={styles.headerUserContainer}>
-                <Text style={[styles.userName, { color: Theme.colors.primary, marginLeft: 70 }]}>{getUserName()}</Text>
-              </View>
-            </View>
-          </LinearGradient>
-          <View style={{ paddingHorizontal: 20, marginTop: 100 }}>
-            {permissionStatus === 'denied' && (
-              <View style={styles.permissionDeniedContainer}>
-                <MaterialIcons
-                  name="location-off"
-                  size={48}
-                  style={{ color: '#EE5757', marginBottom: 10 }}
-                />
-                <Text style={styles.permissionDeniedContainerHeader}>Location Access Denied</Text>
-                <Text style={styles.permissionDeniedContainerText}>
-                  Please enable location access in Dashboard to view the map and experience our services.
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <CustomModal
+        visible={modalVisible}
+        title={errorMessage ? 'Error' : 'Report Submitted'}
+        message={
+          <View style={GlobalStyles.modalContent}>
+            {errorMessage ? (
+              <>
+                <Ionicons name="warning-outline" size={60} color={Theme.colors.red} style={GlobalStyles.modalIcon} />
+                <Text style={GlobalStyles.modalMessage}>This will be sufficient for dedications and sufficient developments</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={GlobalStyles.modalIcon} />
+                <Text style={GlobalStyles.modalMessage}>
+                  {enableUrgentRelief
+                    ? 'Your RDANA report and urgent relief request have been successfully submitted!'
+                    : 'Your RDANA report has been successfully submitted!'}
                 </Text>
-                <TouchableOpacity style={styles.retryButton} onPress={handleRetryPermission}>
-                  <Text style={styles.retryButtonText}>Allow Location Access</Text>
-                </TouchableOpacity>
-              </View>
+              </>
             )}
           </View>
-        </SafeAreaView>
-      )}
-      <Modal
-        animationType="none"
-        transparent={true}
-        visible={errorModal.visible}
-        onRequestClose={() => setErrorModal({ visible: false, message: '' })}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <MaterialIcons name="error" size={84} style={{ color: '#EE5757' }} />
-            <Text style={styles.permissionDeniedHeader}>Error</Text>
-            <Text style={styles.permissionDeniedText}>{errorModal.message}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => {
-                setErrorModal({ visible: false, message: '' });
-                if (errorModal.message.includes('log in')) {
-                  navigation.navigate('Login');
-                }
-              }}
-            >
-              <Text style={styles.retryButtonText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        }
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        confirmText={errorMessage ? 'Retry' : 'Proceed'}
+        showCancel={errorMessage}
+      />
     </SafeAreaView>
   );
 };
 
-export default HomeScreen;
+export default RDANASummary;
