@@ -49,7 +49,7 @@ const HomeScreen = ({ navigation }) => {
   const [lastName, setLastName] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
-  const [webViewLoaded, setWebViewLoaded] = useState(false); // Track WebView loading
+  const [webViewLoaded, setWebViewLoaded] = useState(false);
 
   const mapStyles = `
     body { margin: 0; }
@@ -210,12 +210,10 @@ const HomeScreen = ({ navigation }) => {
         navigation.navigate('Dashboard');
         ToastAndroid.show('Failed to check location permission. Please enable it in Dashboard.', ToastAndroid.SHORT);
       } finally {
-        // Only stop loading if both permission check and user data fetch are complete
         if (user?.id || !user) {
-          // Wait for user data fetch to complete
           return;
         }
-        setIsLoading(!webViewLoaded); // Update loading state based on WebView
+        setIsLoading(!webViewLoaded);
       }
     };
 
@@ -972,7 +970,6 @@ const HomeScreen = ({ navigation }) => {
           setLastName(currentUser.lastName || null);
         }
       } finally {
-        // Only stop loading if both user data and WebView are loaded
         setIsLoading(!webViewLoaded);
       }
     };
@@ -1004,7 +1001,6 @@ const HomeScreen = ({ navigation }) => {
 
   const handleWebViewLoad = () => {
     setWebViewLoaded(true);
-    // Update isLoading based on other conditions (location and user data)
     setIsLoading(!(location && (contactPerson || firstName || lastName)));
   };
 

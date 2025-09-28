@@ -75,18 +75,6 @@ const OnboardingScreen = ({ navigation }) => {
           Let's Begin
         </Text>
       </TouchableOpacity>
-       <Text
-          style={{
-            fontSize: 12,
-            color: Theme.colors.placeholderColor,
-            textAlign: 'center',
-            fontFamily: 'Poppins_Regular',
-            position: 'absolute',
-            bottom: 10
-          }}
-        >
-         4.44
-        </Text>
     </SafeAreaView>
   );
 };

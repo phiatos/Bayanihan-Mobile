@@ -585,14 +585,7 @@ const ReportSubmissionScreen = () => {
             }
           } catch (error) {
             console.error('Reverse geocoding error:', error);
-            setModalConfig({
-              title: 'Location Error',
-              message: 'Failed to retrieve address. Please pin the location manually.',
-              onConfirm: () => setModalVisible(false),
-              confirmText: 'OK',
-              showCancel: false,
-            });
-            setModalVisible(true);
+            ToastAndroid.show('Failed to retrieve address. Please pin the location manually.', ToastAndroid.SHORT);
           }
         } else if (hasShownModal !== 'true') {
           setModalConfig({
@@ -644,14 +637,7 @@ const ReportSubmissionScreen = () => {
                 }
               } catch (error) {
                 console.error('Permission retry error:', error);
-                setModalConfig({
-                  title: 'Location Error',
-                  message: 'Failed to retry permission. Please enable location access in your device settings.',
-                  onConfirm: () => setModalVisible(false),
-                  confirmText: 'OK',
-                  showCancel: false,
-                });
-                setModalVisible(true);
+                ToastAndroid.show('Please enable location access.', ToastAndroid.SHORT);
               }
             },
             confirmText: 'Allow Location Access',
@@ -666,14 +652,8 @@ const ReportSubmissionScreen = () => {
       } catch (error) {
         console.error('Permission check error:', error);
         setPermissionStatus('denied');
-        setModalConfig({
-          title: 'Location Error',
-          message: 'Failed to check location permission. Please enable it in your device settings.',
-          onConfirm: () => setModalVisible(false),
-          confirmText: 'OK',
-          showCancel: false,
-        });
-        setModalVisible(true);
+        ToastAndroid.show('Failed to check location permission. Please enable it.', ToastAndroid.SHORT);
+
       }
     };
     checkPermissionStatus();
@@ -682,16 +662,7 @@ const ReportSubmissionScreen = () => {
     const timeoutId = setTimeout(() => {
       setLoadingError('Operation timed out while fetching user data.');
       setIsLoading(false);
-      setModalConfig({
-        title: 'Loading Error',
-        message: 'Failed to load user data due to timeout. Please try again.',
-        onConfirm: () => {
-          setModalVisible(false);
-          navigation.navigate('Volunteer Dashboard');
-        },
-        confirmText: 'OK',
-      });
-      setModalVisible(true);
+      ToastAndroid.show('Failed to load user data due to timeout. Please try again.', ToastAndroid.SHORT);
     }, 10000);
 
     if (!user) {
@@ -749,7 +720,6 @@ const ReportSubmissionScreen = () => {
 
     return () => {
       unsubscribe();
-      console.log(`[${new Date().toISOString()}] Cleaned up Firebase listener`);
     };
   }, [user, organizationName, isLoading]);
 

@@ -50,8 +50,7 @@ function App() {
       if (ready) {
         await SplashScreen.hideAsync();
         try {
-          await NavigationBar.setBackgroundColorAsync('#FFFFFF'); // Solid color
-          await NavigationBar.setButtonStyleAsync('dark');
+          return;
         } catch (error) {
           console.warn('NavigationBar setup failed:', error.message);
         }

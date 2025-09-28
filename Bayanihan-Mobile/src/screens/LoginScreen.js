@@ -10,7 +10,6 @@ import { styles } from '../styles/LoginScreenStyles';
 import GlobalStyles from '../styles/GlobalStyles';
 import { ref, get, set } from 'firebase/database';
 
-// Validation functions adapted from the first code
 const clearError = (setErrorFunction) => {
   setErrorFunction('');
 };
@@ -91,7 +90,6 @@ const LoginScreen = ({ navigation }) => {
 
     setIsLoading(true);
     try {
-      // Ensure persistence is set before login
       await setPersistence(auth, getReactNativePersistence(AsyncStorage));
       console.log(`[${new Date().toISOString()}] Persistence set to AsyncStorage before login`);
 
