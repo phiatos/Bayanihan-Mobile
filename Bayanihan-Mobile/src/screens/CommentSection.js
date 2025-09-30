@@ -121,7 +121,6 @@ const CommentSection = () => {
           setUserData(data);
         }
       } catch (error) {
-        console.error(`[${new Date().toISOString()}] Error fetching user data:`, error.message, error.code || 'N/A');
         ToastAndroid.show('Failed to load user data.', ToastAndroid.BOTTOM);
         const isAdmin = user.role === 'AB ADMIN' || user.isAdmin || false;
         setUserData({ 
@@ -563,7 +562,7 @@ const renderComment = ({ item }) => {
           end={{ x: 1, y: 1 }}
           style={GlobalStyles.gradientContainer}
         >
-          <View style={[GlobalStyles.newheaderContainer, { paddingTop: insets.top }]}>
+          <View style={GlobalStyles.newheaderContainer}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={GlobalStyles.headerMenuIcon}>
               <Ionicons name="arrow-back" size={32} color={Theme.colors.primary} />
             </TouchableOpacity>
@@ -587,7 +586,7 @@ const renderComment = ({ item }) => {
             contentContainerStyle={[styles.commentList, { paddingBottom: insets.bottom + 60 }]}
           />
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + HEADER_HEIGHT : insets.bottom + 10}
             style={{
               position: 'absolute',

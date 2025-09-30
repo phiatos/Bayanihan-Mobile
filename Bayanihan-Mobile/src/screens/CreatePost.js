@@ -72,6 +72,7 @@ const CreatePost = () => {
   const [postType, setPostType] = useState(initialPostType || initialData?.mediaType || 'text');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const flatListRef = useRef(null);
   const playerRef = useRef(null);
 
   const [videoSource, setVideoSource] = useState(
@@ -83,6 +84,8 @@ const CreatePost = () => {
   const player = useVideoPlayer(videoSource, (player) => {
     playerRef.current = player;
   });
+
+  const activeIndex = categories.findIndex(item => item.value === category);
 
   useEffect(() => {
     if (!isShared && postType === 'video' && media.length > 0 && media[0].uri) {
@@ -167,7 +170,6 @@ const CreatePost = () => {
           const newMedia = [];
           for (const asset of result.assets) {
             let { uri, fileName: name = 'image.jpg', mimeType = 'image/jpeg', fileSize: size } = asset;
-
 
             const fileInfo = await FileSystem.getInfoAsync(uri);
             if (!fileInfo.exists || !fileInfo.size) {
@@ -332,7 +334,6 @@ const CreatePost = () => {
 
   const uploadMedia = async (file, path) => {
     try {
-    
       if (!user?.id) {
         throw new Error('User not authenticated. Please sign in.');
       }
@@ -416,7 +417,6 @@ const CreatePost = () => {
     }
 
     try {
-
       if (!user?.id) {
         throw new Error('No authenticated user found');
       }
@@ -586,6 +586,7 @@ const CreatePost = () => {
     );
   }
 
+  const ITEM_HEIGHT = 50; 
   return (
     <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
       <LinearGradient
@@ -611,14 +612,14 @@ const CreatePost = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 70 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1}}
         keyboardVerticalOffset={Platform.OS === 'ios' ? -50 : -30}
       >
         <ScrollView
           contentContainerStyle={[styles.scrollViewContent, { paddingBottom: insets.bottom + 30 }]}
         >
-          <View style={[styles.formContainer, { marginBottom: 50 }]}>
+          <View style={[styles.formContainer, { marginBottom: 50, marginTop: 100 }]}>
             {isShared ? (
               <View style={{ marginLeft: 0 }}>
                 <Text style={styles.sharedInfo}>
@@ -629,7 +630,10 @@ const CreatePost = () => {
                   value={shareCaption}
                   onChangeText={setShareCaption}
                   placeholder="Add a caption for your shared post"
-                  placeholderTextColor={Theme.colors.placeholder}
+                  placeholderTextColor={Platform.select({
+                    ios: Theme.colors.placeholder || '#777777ff',
+                    android: Theme.colors.placeholder || '#777777ff',
+                  })}
                   multiline
                   maxLength={500}
                   onContentSizeChange={(event) =>
@@ -684,19 +688,53 @@ const CreatePost = () => {
                 <View style={styles.container}>
                   <Dropdown
                     style={styles.dropdown}
+                    placeholder="Select a category"
+                    placeholderStyle={GlobalStyles.placeholderStyle}
+                    selectedTextStyle={GlobalStyles.selectedTextStyle}
+                    placeholderTextColor={Platform.select({
+                    ios: Theme.colors.placeholder || '#777777ff',
+                    android: Theme.colors.placeholder || '#777777ff',
+                  })}
+                    itemTextStyle={GlobalStyles.itemTextStyle}
+                    itemContainerStyle={GlobalStyles.itemContainerStyle}
+                    containerStyle={GlobalStyles.containerStyle}
                     data={categories}
                     labelField="label"
                     valueField="value"
-                    placeholder="Select a category"
                     value={category}
-                    onChange={(item) => setCategory(item.value)}
-                    placeholderStyle={styles.placeholderStyle}
-                    selectedTextStyle={styles.selectedTextStyle}
-                    itemTextStyle={styles.itemTextStyle}
-                    itemContainerStyle={styles.itemContainerStyle}
+                    onChange={(item) => {
+                      setCategory(item.value);
+                    }}
+                    disable={isSubmitting}
                     renderRightIcon={() => (
-                      <Ionicons name="chevron-down" size={18} color={Theme.colors.primary} />
+                      <Ionicons
+                        name="chevron-down"
+                        size={18}
+                        color={Theme.colors.placeholder || '#777777ff'}
+                      />
                     )}
+                    autoScroll={false}
+                    flatListProps={{
+                      keyExtractor: (item) => item.value.toString(),
+                      ref: flatListRef,
+                      getItemLayout: (_, index) => ({
+                        length: ITEM_HEIGHT,
+                        offset: ITEM_HEIGHT * index,
+                        index,
+                      }),
+                    }}
+                    renderItem={(item) => (
+                      <Text style={GlobalStyles.itemTextStyle}>
+                        {item.label}
+                      </Text>
+                    )}
+                    onFocus={() => {
+                      if (category && activeIndex >= 0) {
+                        setTimeout(() => {
+                          flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                        }, 100);
+                      }
+                    }}
                   />
                 </View>
                 <TextInput
@@ -704,14 +742,20 @@ const CreatePost = () => {
                   value={title}
                   onChangeText={setTitle}
                   placeholder="Title"
-                  placeholderTextColor={Theme.colors.placeholder}
+                  placeholderTextColor={Platform.select({
+                    ios: Theme.colors.placeholder || '#777777ff',
+                    android: Theme.colors.placeholder || '#777777ff',
+                  })}
                 />
                 <TextInput
                   style={[styles.input, styles.textArea, { color: Theme.colors.black }]}
                   value={content}
                   onChangeText={setContent}
                   placeholder="What's on your mind?"
-                  placeholderTextColor={Theme.colors.placeholder}
+                  placeholderTextColor={Platform.select({
+                    ios: Theme.colors.placeholder || '#777777ff',
+                    android: Theme.colors.placeholder || '#777777ff',
+                  })}
                   multiline
                   numberOfLines={4}
                 />
@@ -782,7 +826,10 @@ const CreatePost = () => {
                       value={link}
                       onChangeText={setLink}
                       placeholder="Enter URL (e.g., https://example.com)"
-                      placeholderTextColor={Theme.colors.placeholder}
+                      placeholderTextColor={Platform.select({
+                        ios: Theme.colors.placeholder || '#777777ff',
+                        android: Theme.colors.placeholder || '#777777ff',
+                      })}
                       keyboardType="url"
                     />
                   </View>

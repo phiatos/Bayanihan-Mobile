@@ -26,8 +26,6 @@ const ReliefSummary = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  console.log(`[${new Date().toISOString()}]  ${initialReportData}`);
-
   useEffect(() => {
     if (!user) {
       setErrorMessage('User not authenticated. Please log in.');
@@ -119,22 +117,54 @@ const ReliefSummary = () => {
     }
 
     try {
+      // Calculate expiration date based on category and urgency
+      const today = new Date();
+      let expirationDays;
+
+      const expirationRules = {
+        "rice": { urgent: 3, nonUrgent: 7 },
+        "canned goods": { urgent: 4, nonUrgent: 10 },
+        "water bottles": { urgent: 2, nonUrgent: 5 },
+        "blankets": { urgent: 5, nonUrgent: 14 },
+        "medicine kits": { urgent: 2, nonUrgent: 5 },
+        "hygiene packs": { urgent: 3, nonUrgent: 7 },
+        "others": { urgent: 4, nonUrgent: 10 }
+      };
+
+      const rule = expirationRules[category.toLowerCase()] || expirationRules["others"];
+      expirationDays = urgent ? rule.urgent : rule.nonUrgent;
+
+      const expirationDate = new Date();
+      expirationDate.setDate(today.getDate() + expirationDays);
+
       const newRequest = {
         contactPerson: contactPerson.trim(),
         contactNumber: contactNumber.trim(),
         email: email.trim(),
-        address: {
-          formattedAddress: formattedAddress.trim(),
-          latitude: latitude || null,
-          longitude: longitude || null,
-        },
         category,
         volunteerOrganization: organizationName,
         userUid: user.id,
-        items: addedItems,
+        address: {
+          formattedAddress: formattedAddress.trim(),
+          latitude: Number(latitude) || null,
+          longitude: Number(longitude) || null
+        },
+        assistance: addedItems.map(item => ({
+          ...item,
+          quantity: Number(item.quantity)
+        })),
+        remaining: addedItems.map(item => ({
+          ...item,
+          quantity: Number(item.quantity)
+        })),
         timestamp: serverTimestamp(),
-        status: 'Pending',
+        donationDate: new Date().toISOString(),
+        status: "Pending",
+        matchedDonations: 0,
+        matchedDonationIds: [],
+        assignedVolunteers: [],
         urgent,
+        expirationDate: expirationDate.toISOString() // Store expiration date
       };
 
       const requestRef = push(ref(database, 'requestRelief/requests'));
@@ -245,8 +275,8 @@ const ReliefSummary = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 80 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1}}
         keyboardVerticalOffset={0}
       >
         <ScrollView

@@ -10,7 +10,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Theme from '../constants/theme';
 import { AnimatePresence, MotiView } from 'moti';
 import { useNavigation } from '@react-navigation/native';
-import { Picker } from '@react-native-picker/picker';
 import { Menu, MenuOptions, MenuOption, MenuProvider, MenuTrigger } from 'react-native-popup-menu';
 import styles from '../styles/CommunityBoardStyles';
 import useOperationCheck from '../components/useOperationCheck';
@@ -99,8 +98,9 @@ const CommunityBoard = () => {
   const [sortOrder, setSortOrder] = useState('newest');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [expanded, setExpanded] = useState(false);
-  const [userRole, setUserRole] = useState(null); // New state for user role
+  const [userRole, setUserRole] = useState(null);
   const videoRefs = useRef({});
+  const flatListRef = useRef(null);
 
   const categories = [
     { label: 'All', value: 'all' },
@@ -109,6 +109,9 @@ const CommunityBoard = () => {
     { label: 'Events', value: 'events' },
     { label: 'Announcement', value: 'announcement' },
   ];
+
+  const ITEM_HEIGHT = 50; // Adjust based on your item height
+  const activeIndex = categories.findIndex(item => item.value === categoryFilter);
 
   const toSentenceCase = (str) => {
     if (!str) return '';
@@ -497,7 +500,7 @@ const CommunityBoard = () => {
         </LinearGradient>
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1, marginTop: 50 }}
           keyboardVerticalOffset={0}
         >
@@ -506,25 +509,52 @@ const CommunityBoard = () => {
               <Text style={styles.filterText}>{sortOrder === 'newest' ? 'Sort: Newest' : 'Sort: Oldest'}</Text>
             </TouchableOpacity>
             <View style={styles.categoryPicker}>
-              <Picker
-                selectedValue={categoryFilter}
-                onValueChange={(itemValue) => setCategoryFilter(itemValue)}
-                style={styles.picker}
-              >
-                {categories.map((category) => (
-                  <Picker.Item
-                    key={category.value}
-                    label={category.label}
-                    value={category.value}
-                    style={{
-                      fontFamily: 'Poppins_Regular',
-                      fontSize: 13,
-                      color: Theme.colors.black,
-                      textAlign: 'center',
-                    }}
+              <Dropdown
+                style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                placeholder="Select a category"
+                placeholderStyle={GlobalStyles.placeholderStyle}
+                selectedTextStyle={GlobalStyles.selectedTextStyle}
+                itemTextStyle={GlobalStyles.itemTextStyle}
+                itemContainerStyle={GlobalStyles.itemContainerStyle}
+                containerStyle={GlobalStyles.containerStyle}
+                data={categories}
+                labelField="label"
+                valueField="value"
+                value={categoryFilter}
+                onChange={(item) => {
+                  setCategoryFilter(item.value);
+                }}
+                disable={!canSubmit}
+                renderRightIcon={() => (
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color={Theme.colors.placeholder || '#999999'}
                   />
-                ))}
-              </Picker>
+                )}
+                autoScroll={false}
+                flatListProps={{
+                  keyExtractor: (item) => item.value.toString(),
+                  ref: flatListRef,
+                  getItemLayout: (_, index) => ({
+                    length: ITEM_HEIGHT,
+                    offset: ITEM_HEIGHT * index,
+                    index,
+                  }),
+                }}
+                renderItem={(item) => (
+                  <Text style={GlobalStyles.itemTextStyle}>
+                    {item.label}
+                  </Text>
+                )}
+                onFocus={() => {
+                  if (categoryFilter && activeIndex >= 0) {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                    }, 100);
+                  }
+                }}
+              />
             </View>
           </View>
           <FlatList

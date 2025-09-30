@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { ref as databaseRef, push, serverTimestamp, set, get } from 'firebase/database';
 import React, { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import { database } from '../configuration/firebaseConfig';
 import GlobalStyles from '../styles/GlobalStyles';
 import styles from '../styles/RDANAStyles';
@@ -54,7 +54,6 @@ const RDANASummary = () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        console.log(`[${new Date().toISOString()}] Location permission denied`);
         return { latitude: 0, longitude: 0 };
       }
       const location = await Location.getCurrentPositionAsync({});
@@ -106,7 +105,6 @@ const RDANASummary = () => {
       if (!user || !user.id) {
         throw new Error('No authenticated user found or missing user ID');
       }
-      console.log(`[${new Date().toISOString()}] Logged-in user ID:`, user.id);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Authentication error:`, error.message);
       setErrorMessage('User not authenticated. Please log in.');
@@ -154,7 +152,6 @@ const RDANASummary = () => {
         read: false,
         type: "admin"
       });
-      console.log(`[${new Date().toISOString()}] Admin notified:`, message);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Failed to notify admin:`, error.message);
     }
@@ -169,10 +166,8 @@ const RDANASummary = () => {
       const customId = `RDANA-${randomNum}`;
       const snapshot = await get(databaseRef(database, `rdana/submitted/${customId}`));
       if (!snapshot.exists()) {
-        console.log(`[${new Date().toISOString()}] Generated unique RDANA ID: ${customId}`);
         return customId;
       }
-      console.log(`[${new Date().toISOString()}] RDANA ID ${customId} already exists, retrying...`);
       attempts++;
     }
     throw new Error('Unable to generate a unique RDANA ID after maximum attempts.');
@@ -198,31 +193,26 @@ const RDANASummary = () => {
       Locations_and_Areas_Affected_Barangay
     } = reportData;
 
-    // Validate address fields
     if (!Site_Location_Address_Province?.trim() || !isValidString(Site_Location_Address_Province)) {
-      setErrorMessage('Please enter a valid province.');
-      setModalVisible(true);
+      ToastAndroid.show('Please enter a valid province.', ToastAndroid.SHORT);
       setIsSubmitting(false);
       return;
     }
 
     if (!Site_Location_Address_City_Municipality?.trim() || !isValidString(Site_Location_Address_City_Municipality)) {
-      setErrorMessage('Please enter a valid city/municipality.');
-      setModalVisible(true);
+      ToastAndroid.show('Please enter a valid city/municipality.', ToastAndroid.SHORT);
       setIsSubmitting(false);
       return;
     }
 
     if (!Site_Location_Address_Barangay?.trim() || !isValidString(Site_Location_Address_Barangay)) {
-      setErrorMessage('Please enter a valid barangay.');
-      setModalVisible(true);
+      ToastAndroid.show('Please enter a valid barangay.', ToastAndroid.SHORT);
       setIsSubmitting(false);
       return;
     }
 
     if (!Type_of_Disaster?.trim()) {
-      setErrorMessage('Please select a disaster type.');
-      setModalVisible(true);
+      ToastAndroid.show('Please select a disaster type.', ToastAndroid.SHORT);
       setIsSubmitting(false);
       return;
     }
@@ -234,7 +224,6 @@ const RDANASummary = () => {
       return;
     }
 
-    // Validate and format date fields
     const formattedInfoDate = formatDateForStorage(Date_and_Time_of_Information_Gathered);
     if (!formattedInfoDate) {
       setErrorMessage('Invalid format for Date and Time of Information Gathered. Please use a valid date format (e.g., MM/DD/YYYY HH:MM).');
@@ -349,10 +338,7 @@ const RDANASummary = () => {
         status: 'Submitted'
       };
 
-      // Handle relief request submission if enableUrgentRelief is checked
-      if (enableUrgentRelief) {
-        console.log(`[${new Date().toISOString()}] Urgent relief request validation started`);
-        
+      if (enableUrgentRelief) {        
         const validImmediateNeeds = immediateNeeds.filter(item => item.need?.trim() && Number(item.qty) > 0);
         if (validImmediateNeeds.length === 0) {
           setErrorMessage('At least one valid immediate need (with a name and positive quantity) is required.');
@@ -361,14 +347,10 @@ const RDANASummary = () => {
           return;
         }
 
-        console.log(`[${new Date().toISOString()}] Immediate needs for relief request:`, validImmediateNeeds);
-
-        const validCategories = ["Drinking Water", "Relief Packs", "Hygiene Kits", "Hot Meals", "Rice Packs"];
-        const contactPerson = user.displayName || user.email || "Unknown";
+        const contactPerson = user.displayName || user.contactPerson || "Unknown";
         const contactNumber =
           route?.params?.reportData?.contactNumber ||
-          user?.mobile ||
-          prev?.contactNumber ||
+          user?.mobile || user?.contactNumber ||
           '';
         const email = user.email || "";
         const volunteerOrganization = organizationName;
@@ -465,7 +447,6 @@ const RDANASummary = () => {
         })
       ]);
 
-      // Reset form data
       setReportData({});
       setAffectedMunicipalities([]);
       setAuthoritiesAndOrganizations([]);
@@ -483,7 +464,6 @@ const RDANASummary = () => {
   };
 
   const handleConfirm = () => {
-    console.log(`[${new Date().toISOString()}] Confirm button pressed`);
     setModalVisible(false);
     if (!errorMessage) {
       navigation.dispatch(
@@ -498,10 +478,9 @@ const RDANASummary = () => {
   };
 
   const handleCancel = () => {
-    console.log(`[${new Date().toISOString()}] Cancel button pressed`);
     setModalVisible(false);
     if (errorMessage) {
-      navigation.navigate('Login');
+      navigation.navigate('RDANAScreen');
     }
   };
 
@@ -611,8 +590,8 @@ const RDANASummary = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 80 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1}}
         keyboardVerticalOffset={0}
       >
         <ScrollView

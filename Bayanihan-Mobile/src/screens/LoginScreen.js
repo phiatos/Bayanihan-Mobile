@@ -194,7 +194,7 @@ const LoginScreen = ({ navigation }) => {
     <SafeAreaView style={[styles.container, { backgroundColor: Theme.colors.lightBg }]}>
       <KeyboardAvoidingView
         style={styles.subContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <TouchableOpacity
           onPress={() => navigation.navigate('Onboarding')}
@@ -211,6 +211,10 @@ const LoginScreen = ({ navigation }) => {
               <TextInput
                 style={[styles.input, emailError && GlobalStyles.inputError]}
                 placeholder="Enter Email"
+                 placeholderTextColor={Platform.select({
+                    ios: Theme.colors.placeholder || '#777777ff',
+                    android: Theme.colors.placeholder || '#777777ff',
+                  })}
                 keyboardType="email-address"
                 value={email}
                 onChangeText={(text) => {
@@ -228,6 +232,10 @@ const LoginScreen = ({ navigation }) => {
                 <TextInput
                   style={[styles.input, styles.passwordInput, passwordError && GlobalStyles.inputError]}
                   placeholder="Enter Password"
+                  placeholderTextColor={Platform.select({
+                    ios: Theme.colors.placeholder || '#777777ff',
+                    android: Theme.colors.placeholder || '#777777ff',
+                  })}
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={(text) => {

@@ -120,7 +120,6 @@ const ProfileScreen = () => {
       }
 
       try {
-        console.log(`[${new Date().toISOString()}] Fetching user data for UID:`, auth.currentUser.uid, 'user.id:', user?.id);
         const db = getDatabase();
         const userRef = ref(db, `users/${auth.currentUser.uid}`);
         const snapshot = await get(userRef);
@@ -595,7 +594,7 @@ const ProfileScreen = () => {
       <View style={GlobalStyles.container}>
         <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
         <ActivityIndicator size="large" color={Theme.colors.primary} />
-        <Text style={styles.sectionTitle}>Loading Profile...</Text>
+        <Text style={GlobalStyles.sectionTitle}>Loading Profile...</Text>
       </View>
     );
   }
@@ -721,8 +720,8 @@ const ProfileScreen = () => {
       )}
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 50 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1}}
         keyboardVerticalOffset={0}
       >
         <ScrollView
@@ -735,8 +734,8 @@ const ProfileScreen = () => {
               {profileData.role.includes('AB ADMIN') ? 'Admin Account' : 'Volunteer Group: ' + profileData.organization}
             </Text>
             {!termsModalVisible && !passwordNeedsReset && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Basic Information</Text>
+              <View style={GlobalStyles.section}>
+                <Text style={GlobalStyles.sectionTitle}>Basic Information</Text>
                 {[
                   ['Role', profileData.role],
                   ['Organization Name', profileData.organization, profileData.role.includes('ABVN')],
@@ -768,8 +767,8 @@ const ProfileScreen = () => {
             />
 
             {(!termsModalVisible || passwordNeedsReset) && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Change Password</Text>
+              <View style={GlobalStyles.section}>
+                <Text style={GlobalStyles.sectionTitle}>Change Password</Text>
                 <View style={styles.passwordInputField}>
                   <TextInput
                     style={styles.input}

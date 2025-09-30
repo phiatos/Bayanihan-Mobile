@@ -66,17 +66,14 @@ const SubmissionDetailsScreen = () => {
               }, {})
             : {};
           setSubmissionData(submissions);
-          console.log(`[${new Date().toISOString()}] Submission history fetched: ${Object.keys(submissions).length} items`);
         },
         (error) => {
           Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
-          console.error(`[${new Date().toISOString()}] Error fetching submission history:`, error);
         }
       );
       return unsubscribe;
     } catch (error) {
       Alert.alert('Error', `Failed to fetch submission data: ${error.message}`);
-      console.error(`[${new Date().toISOString()}] Error in fetchSubmissionData:`, error);
       return () => {};
     }
   };
