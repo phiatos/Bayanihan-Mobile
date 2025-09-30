@@ -60,7 +60,7 @@ export default StyleSheet.create({
       justifyContent: 'center',
       paddingVertical: 10,
       paddingHorizontal: 15,
-      marginTop: 100,
+      marginTop: 130,
       marginBottom: 10,
       backgroundColor: 'transparent',
     },

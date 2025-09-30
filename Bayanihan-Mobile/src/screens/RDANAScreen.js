@@ -380,7 +380,6 @@ const RDANAScreen = ({ navigation }) => {
     setReportData((prev) => ({ ...prev, [field]: sanitizedValue }));
 
     if (field === 'requestCategory') {
-      console.log('requestCategory updated:', value);
       setRequestCategory(value);
       setReportData((prev) => ({ ...prev, [field]: sanitizedValue }));
       
@@ -1187,12 +1186,11 @@ useEffect(() => {
         </View>
       </LinearGradient>
 
-      {/* <KeyboardAvoidingView
+      <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'position'}
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
-      > */}
-          <View style={{ flex: 1, paddingBottom: Platform.OS === 'ios' ? keyboardSpace : 0 }}>
+      > 
         <ProgressSteps
           sections={sections}
           currentSection={currentSection}
@@ -1219,7 +1217,7 @@ useEffect(() => {
                   selectedTextStyle={GlobalStyles.selectedTextStyle}
                   itemTextStyle={GlobalStyles.itemTextStyle}
                   itemContainerStyle={GlobalStyles.itemContainerStyle}
-                  containerStyle={GlobalStyles.containerStyle                                        }
+                  containerStyle={GlobalStyles.containerStyle }
                   data={provinceOptions}
                   labelField="label"
                   valueField="value"
@@ -2417,8 +2415,7 @@ useEffect(() => {
           onCancel={cancelDelete}
           cancelText="Cancel"
         />
-        </View>
-      {/* </KeyboardAvoidingView> */}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

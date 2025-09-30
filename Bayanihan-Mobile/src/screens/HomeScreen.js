@@ -450,7 +450,6 @@ const HomeScreen = ({ navigation }) => {
 
           firebase.initializeApp(firebaseConfig);
           const database = firebase.database();
-          const OPEN_WEATHER_API_KEY = 'YOUR_OPEN_WEATHER_API_KEY'; // Replace with your actual OpenWeatherMap API key
 
           let map, userMarker, weatherMarker, currentLayer;
           let activationMarkers = [];

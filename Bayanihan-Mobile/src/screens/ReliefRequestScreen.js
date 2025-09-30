@@ -284,10 +284,9 @@ const ReliefRequestScreen = () => {
     { label: 'Rice Packs', value: 'Rice Packs' },
     { label: 'Other Essentials', value: 'Other Essentials' },
   ];
-  const ITEM_HEIGHT = 50; // Adjust based on your item height
+  const ITEM_HEIGHT = 50;
   const activeIndex = categories.findIndex(item => item.value === reportData.category);
 
-  // Animation for arrow rotation
   useEffect(() => {
     Animated.timing(arrowRotation, {
       toValue: isDropdownFocused ? 1 : 0,
@@ -1084,8 +1083,6 @@ const ReliefRequestScreen = () => {
       setModalVisible(true);
       return;
     }
-
-    console.log('Navigating to ReliefSummary with reportData:', reportData);
     navigation.navigate('ReliefSummary', { reportData, addedItems: items, organizationName, urgent });
   };
 
@@ -1120,7 +1117,7 @@ const ReliefRequestScreen = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'position'} 
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >
@@ -1132,7 +1129,7 @@ const ReliefRequestScreen = () => {
           <View style={GlobalStyles.form}>
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Contact Information</Text>
-{             renderLabel('Contact Person', true)}
+              {renderLabel('Contact Person', true)}
               <View>
                 <TextInput
                   style={[GlobalStyles.input, errors.contactPerson && GlobalStyles.inputError]}

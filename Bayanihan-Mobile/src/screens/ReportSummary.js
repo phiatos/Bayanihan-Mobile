@@ -29,7 +29,6 @@ const ReportSummary = () => {
       if (!user) {
         throw new Error('No authenticated user found');
       }
-      console.log(`[${new Date().toISOString()}] Logged-in user ID:`, user.id);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Authentication error:`, error.message);
       setErrorMessage('User not authenticated. Please log in.');
@@ -58,7 +57,6 @@ const ReportSummary = () => {
 
         if (userData?.organization) {
           setOrganizationName(userData.organization);
-          console.log(`[${new Date().toISOString()}] Organization name fetched:`, userData.organization);
         } else {
           throw new Error('No organization found in user profile');
         }
@@ -74,7 +72,6 @@ const ReportSummary = () => {
 
   useEffect(() => {
     if (isSubmitted) {
-      console.log(`[${new Date().toISOString()}] Skipping validation after successful submission`);
       return;
     }
 
@@ -82,7 +79,6 @@ const ReportSummary = () => {
       if (!reportData || Object.keys(reportData).length === 0) {
         throw new Error('Invalid or empty report data');
       }
-      console.log(`[${new Date().toISOString()}] Report data validated:`, reportData);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Validation error:`, error.message);
       setErrorMessage(error.message);
@@ -131,7 +127,6 @@ const ReportSummary = () => {
         volunteerOrganization,
         timestamp: serverTimestamp(),
       });
-      console.log(`[${new Date().toISOString()}] Admin notified:`, message);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Failed to notify admin:`, error.message);
     }
@@ -157,8 +152,6 @@ const ReportSummary = () => {
       }
 
       setIsLoading(true);
-      console.log(`[${new Date().toISOString()}] Submitting report:`, reportData);
-
       const CalamityName = reportData.CalamityName || 'Unknown Calamity';
       const CalamityType = reportData.CalamityType || 'Unknown Type';
       const calamityArea = `${CalamityType} - ${CalamityName} (by ${organizationName})`;
@@ -199,8 +192,6 @@ const ReportSummary = () => {
       await logActivity('Submitted a report', submissionId, user.id, organizationName);
       await logSubmission('reports', newReport, submissionId, organizationName, user.id);
 
-      console.log(`[${new Date().toISOString()}] Report submitted successfully:`, submissionId);
-
       setIsSubmitted(true);
       setReportData({});
       setErrorMessage(null);
@@ -215,7 +206,6 @@ const ReportSummary = () => {
   };
 
   const handleConfirm = () => {
-    console.log(`[${new Date().toISOString()}] Confirm button pressed`);
     setModalVisible(false);
     if (!errorMessage) {
       navigation.dispatch(
@@ -230,13 +220,11 @@ const ReportSummary = () => {
   };
 
   const handleCancel = () => {
-    console.log(`[${new Date().toISOString()}] Cancel button pressed`);
     setModalVisible(false);
     navigation.navigate('ReportSubmission', { reportData });
   };
 
   const handleBack = () => {
-    console.log(`[${new Date().toISOString()}] Navigating back with report data:`, reportData);
     navigation.navigate('ReportSubmission', { reportData });
   };
 

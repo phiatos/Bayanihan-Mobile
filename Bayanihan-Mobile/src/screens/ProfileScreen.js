@@ -35,7 +35,7 @@ import { logActivity, logSubmission } from '../components/logSubmission';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const { user, setUser } = useAuth(); // Removed onSignOut
+  const { user, setUser } = useAuth();
   const [profileData, setProfileData] = useState({
     organization: '',
     hq: '',
@@ -90,7 +90,6 @@ const ProfileScreen = () => {
     const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
       setLoading(true);
       if (!auth.currentUser?.uid) {
-        console.error(`[${new Date().toISOString()}] No user logged in, auth.currentUser:`, auth.currentUser, 'user:', user);
         setProfileData({
           organization: user?.organization || 'Admin',
           hq: user?.hq || 'N/A',
@@ -100,22 +99,6 @@ const ProfileScreen = () => {
           role: user?.role || 'N/A',
         });
         setLoading(false);
-        setCustomModal({
-          visible: true,
-          title: 'Error',
-          message: (
-            <View style={{ alignItems: 'center' }}>
-              <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
-              <Text style={styles.message}>No user logged in. Please log in again.</Text>
-            </View>
-          ),
-          onConfirm: () => {
-            closeModal();
-            navigation.navigate('Login'); // Redirect to login
-          },
-          confirmText: 'OK',
-          showCancel: false,
-        });
         return;
       }
 
@@ -278,7 +261,6 @@ const ProfileScreen = () => {
     }
 
     if (!auth.currentUser?.uid) {
-      console.error(`[${new Date().toISOString()}] No user logged in for password change`);
       setCustomModal({
         visible: true,
         title: 'Not Logged In',
@@ -363,20 +345,16 @@ const ProfileScreen = () => {
         throw new Error('No email associated with this user for re-authentication.');
       }
 
-      console.log(`[${new Date().toISOString()}] Attempting to re-authenticate user:`, auth.currentUser.uid);
       const credential = EmailAuthProvider.credential(userEmail, currentPassword);
       await reauthenticateWithCredential(auth.currentUser, credential);
-      console.log(`[${new Date().toISOString()}] Re-authentication successful`);
 
       await updatePassword(auth.currentUser, newPassword);
-      console.log(`[${new Date().toISOString()}] Password updated`);
 
       const db = getDatabase();
       await update(ref(db, `users/${auth.currentUser.uid}`), {
         lastPasswordChange: new Date().toISOString(),
         password_needs_reset: false,
       });
-      console.log(`[${new Date().toISOString()}] Database updated`);
 
       let submissionId;
       try {
@@ -388,16 +366,9 @@ const ProfileScreen = () => {
 
       const organization = profileData.organization || 'Admin';
       const submissionData = { action: 'password_change', newPasswordLength: newPassword.length };
-      console.log(`[${new Date().toISOString()}] Preparing to log password change:`, {
-        collection: 'profile',
-        submissionData,
-        submissionId,
-        organization,
-      });
 
       await logActivity(auth.currentUser.uid, 'User changed their password', submissionId, organization);
       await logSubmission('profile', submissionData, submissionId, organization, auth.currentUser.uid);
-      console.log(`[${new Date().toISOString()}] Activity and submission logged`);
 
       setCustomModal({
         visible: true,
@@ -409,17 +380,9 @@ const ProfileScreen = () => {
           </View>
         ),
         onConfirm: async () => {
-          try {
-            console.log(`[${new Date().toISOString()}] Auth object before sign-out:`, auth);
-            await signOut(auth);
-            setUser(null); // Clear AuthContext user
-            console.log(`[${new Date().toISOString()}] Sign out successful`);
-            navigation.navigate('Login');
-          } catch (error) {
-            console.error(`[${new Date().toISOString()}] Sign out error:`, error.message);
-            Alert.alert('Error', 'Failed to sign out: ' + error.message);
-          }
           closeModal();
+          signOut(auth);
+
         },
         confirmText: 'Sign Out',
         showCancel: true,
@@ -492,9 +455,9 @@ const ProfileScreen = () => {
           </View>
         ),
         onConfirm: () => {
-          closeModal();
-          navigation.navigate('Login');
-        },
+        closeModal();
+        signOut(auth);
+      },
         confirmText: 'OK',
         showCancel: false,
       });
@@ -519,18 +482,11 @@ const ProfileScreen = () => {
       }
 
       const organization = profileData.organization || 'Admin';
-      console.log(`[${new Date().toISOString()}] Preparing to log terms agreement:`, {
-        collection: 'profile',
-        submissionData,
-        submissionId,
-        organization,
-      });
 
       await update(ref(db, `users/${auth.currentUser.uid}`), submissionData);
       await logActivity(auth.currentUser.uid, 'User agreed to terms and conditions', submissionId, organization);
       await logSubmission('profile', submissionData, submissionId, organization, auth.currentUser.uid);
 
-      console.log(`[${new Date().toISOString()}] Terms agreed successfully for user:`, auth.currentUser.uid);
       setTermsModalVisible(false);
       setIsNavigationBlocked(false);
 

@@ -536,7 +536,7 @@ const CallForDonations = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'position'} 
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >

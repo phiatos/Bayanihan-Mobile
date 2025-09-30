@@ -48,7 +48,6 @@ const SubmissionScreen = () => {
     }
     if (!user) {
       Alert.alert('Error', 'Please log in to view your activity history');
-      navigation.navigate('Login');
       return;
     }
 

@@ -110,7 +110,7 @@ const CommunityBoard = () => {
     { label: 'Announcement', value: 'announcement' },
   ];
 
-  const ITEM_HEIGHT = 50; // Adjust based on your item height
+  const ITEM_HEIGHT = 50;
   const activeIndex = categories.findIndex(item => item.value === categoryFilter);
 
   const toSentenceCase = (str) => {
@@ -139,7 +139,6 @@ const CommunityBoard = () => {
         setUserRole(userData?.role || null);
       } catch (error) {
         console.error('Error checking user data:', error);
-        ToastAndroid.show('Failed to load user data.', ToastAndroid.BOTTOM);
       }
     };
 

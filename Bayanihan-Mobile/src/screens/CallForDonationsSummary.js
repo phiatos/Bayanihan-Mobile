@@ -161,7 +161,6 @@ const CallForDonationsSummary = () => {
       const message = `New donation request submitted by ${formDataState.contactPerson || 'Admin'} from ${organizationName} for ${formDataState.donationDrive || 'Donation Drive'} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
       await notifyAdmin(message, submissionId, formDataState.contactPerson, organizationName);
 
-      // Updated calls with correct parameters
       await logActivity('Submitted a donation', submissionId, user.id, organizationName);
       await logSubmission('callfordonation', newDonation, submissionId, organizationName, user.id);
 

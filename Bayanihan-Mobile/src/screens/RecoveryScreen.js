@@ -72,7 +72,7 @@ const RecoveryScreen = ({ navigation }) => {
             }
 
             const actionCodeSettings = {
-                url: "https://bayanihan-5ce7e.firebaseapp.com/pages/login.html", // Adjust if you have a mobile-specific URL
+                url: "https://bayanihan-5ce7e.firebaseapp.com/pages/login.html",
                 handleCodeInApp: false,
             };
             await auth.sendPasswordResetEmail(email, actionCodeSettings);
@@ -85,7 +85,6 @@ const RecoveryScreen = ({ navigation }) => {
 
             setPasswordRecoveryStage(2);
         } catch (error) {
-            console.error('Error in email recovery:', error);
             let errorMessage = "Failed to send reset email. Please try again.";
             if (error.code === 'auth/user-not-found') {
                 errorMessage = "No account is associated with this email address.";
@@ -143,7 +142,6 @@ const RecoveryScreen = ({ navigation }) => {
 
             setPasswordRecoveryStage(2);
         } catch (error) {
-            console.error('Error in mobile recovery:', error);
             Alert.alert("Error", "Failed to process mobile recovery. Please try again.");
         }
     };
@@ -189,7 +187,6 @@ const RecoveryScreen = ({ navigation }) => {
 
             setMobileRecoveryStage(2);
         } catch (error) {
-            console.error('Error in mobile number recovery:', error);
             Alert.alert("Error", "Failed to process mobile number recovery. Please try again.");
         }
     };

@@ -35,7 +35,6 @@ const RDANASummary = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  // Utility function to format date inputs to ISO 8601 for storage
   const formatDateForStorage = (dateStr) => {
     try {
       const date = new Date(dateStr);
@@ -49,7 +48,6 @@ const RDANASummary = () => {
     }
   };
 
-  // Utility function to get coordinates
   const getCoordinates = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -67,7 +65,6 @@ const RDANASummary = () => {
     }
   };
 
-  // Utility function to validate string inputs
   const isValidString = (str) => /^[a-zA-Z0-9\s,.-]+$/.test(str?.trim());
 
   useEffect(() => {
@@ -273,13 +270,11 @@ const RDANASummary = () => {
       ];
 
       const rdanaId = await generateUniqueId();
-      // Construct affectedLocations from individual fields
       const affectedLocations = [];
       const provinces = Locations_and_Areas_Affected_Province?.split(', ') || [];
       const cities = Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];
       const barangays = Locations_and_Areas_Affected_Barangay?.split(', ') || [];
 
-      // Ensure arrays have the same length and create objects
       const maxLength = Math.max(provinces.length, cities.length, barangays.length);
       for (let i = 0; i < maxLength; i++) {
         if (provinces[i] && cities[i] && barangays[i]) {
@@ -306,33 +301,33 @@ const RDANASummary = () => {
               authority: row.authority?.trim() || '',
               organization: row.organization?.trim() || ''
             })),
-            affectedLocations, // Use the constructed array
+            affectedLocations, 
             disasterType: Type_of_Disaster.trim() || '',
             occurrenceDate: formattedOccurrenceDate || '', 
             summary: reportData.summary?.trim() || ''
           },
           disasterEffects: affectedMunicipalities.map(row => [
             row.community?.trim() || '',
-            Number(row.totalPop) || 0, // Store raw number
-            Number(row.affectedPopulation) || 0, // Store raw number
-            Number(row.deaths) || 0, // Store raw number
-            Number(row.injured) || 0, // Store raw number
-            Number(row.missing) || 0, // Store raw number
-            Number(row.children) || 0, // Store raw number
-            Number(row.women) || 0, // Store raw number
-            Number(row.seniors) || 0, // Store raw number
-            Number(row.pwd) || 0 // Store raw number
+            Number(row.totalPop) || 0, 
+            Number(row.affectedPopulation) || 0, 
+            Number(row.deaths) || 0, 
+            Number(row.injured) || 0, 
+            Number(row.missing) || 0, 
+            Number(row.children) || 0, 
+            Number(row.women) || 0, 
+            Number(row.seniors) || 0, 
+            Number(row.pwd) || 0
           ]),
           lifelines,
           checklist,
           immediateNeeds: immediateNeeds.map(n => ({
             need: n.need?.trim() || '',
-            qty: Number(n.qty) || 0 // Store raw number
+            qty: Number(n.qty) || 0  
           })),
           initialResponse: initialResponse.map(r => ({
             group: r.group?.trim() || '',
             assistance: r.assistance?.trim() || '',
-            families: Number(r.families) || 0 // Store raw number
+            families: Number(r.families) || 0
           }))
         },
         status: 'Submitted'
@@ -422,7 +417,6 @@ const RDANASummary = () => {
         );
       }
 
-      // Submit RDANA report to Firebase
       const requestRef = push(databaseRef(database, 'rdana/submitted'));
       const userRequestRef = databaseRef(database, `users/${user.id}/rdana/${rdanaId}`);
       const message = `New RDANA report "${Type_of_Disaster || 'N/A'}" submitted by ${reportData.Prepared_By?.trim() || 'Unknown'} from ${organizationName} on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST.`;
@@ -485,8 +479,6 @@ const RDANASummary = () => {
   };
 
   const handleBack = () => {
-    console.log(`[${new Date().toISOString()}] Navigating back with data:`, reportData, affectedMunicipalities, authoritiesAndOrganizations, immediateNeeds, initialResponse);
-    // Reconstruct affectedLocations from comma-separated fields
     const affectedLocations = [];
     const provinces = reportData.Locations_and_Areas_Affected_Province?.split(', ') || [];
     const cities = reportData.Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];
@@ -509,7 +501,7 @@ const RDANASummary = () => {
       authoritiesAndOrganizations, 
       immediateNeeds, 
       initialResponse, 
-      affectedLocations, // Pass the reconstructed array
+      affectedLocations,
       organizationName,
       enableUrgentRelief
     });
@@ -553,7 +545,6 @@ const RDANASummary = () => {
     </View>
   );
 
-  // Format Locations and Areas Affected for display with '/'
   const formatLocationsForDisplay = () => {
     const provinces = reportData.Locations_and_Areas_Affected_Province?.split(', ') || [];
     const cities = reportData.Locations_and_Areas_Affected_City_Municipality?.split(', ') || [];

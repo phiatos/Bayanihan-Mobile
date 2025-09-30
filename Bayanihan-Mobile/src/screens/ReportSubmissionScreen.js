@@ -209,9 +209,9 @@ const ReportSubmissionScreen = () => {
   const [locationName, setLocationName] = useState('');
   const [activeActivations, setActiveActivations] = useState([]);
   const [mapType, setMapType] = useState('roadmap');
-  const flatListRef = useRef(null); // Added for Dropdown scrolling
-  const [isDropdownFocused, setIsDropdownFocused] = useState(false); // Added for animation
-  const arrowRotation = useRef(new Animated.Value(0)).current; // Added for animation
+  const flatListRef = useRef(null); 
+  const [isDropdownFocused, setIsDropdownFocused] = useState(false); 
+  const arrowRotation = useRef(new Animated.Value(0)).current;
 
   const formatDate = (date) => {
     if (!date) return '';
@@ -297,7 +297,6 @@ const ReportSubmissionScreen = () => {
     'TotalMonetaryDonations',
   ];
 
-  // Animation for arrow rotation
   useEffect(() => {
     Animated.timing(arrowRotation, {
       toValue: isDropdownFocused ? 1 : 0,
@@ -1303,7 +1302,7 @@ const ReportSubmissionScreen = () => {
     </Text>
   );
 
-  const ITEM_HEIGHT = 50; // Adjust based on your item height
+  const ITEM_HEIGHT = 50;
   const activeIndex = activeActivations.findIndex((activation) => {
     const displayCalamity = `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`;
     return displayCalamity === reportData.calamityArea;
@@ -1453,7 +1452,7 @@ const ReportSubmissionScreen = () => {
                   itemContainerStyle={GlobalStyles.itemContainerStyle}
                   containerStyle={GlobalStyles.containerStyle}
                   data={[
-                    { label: 'Select an Active Operation', value: '' }, // placeholder option
+                    { label: 'Select an Active Operation', value: '' }, 
                     ...activeActivations.map((activation) => ({
                       label: `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`,
                       value: `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`,

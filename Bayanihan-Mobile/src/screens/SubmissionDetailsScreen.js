@@ -32,8 +32,6 @@ const SubmissionDetailsScreen = () => {
     }
     if (!user) {
       Alert.alert('Error', 'Please log in to view transaction details');
-      console.log(`[${new Date().toISOString()}] No user logged in, redirecting to Login`);
-      navigation.navigate('Login');
       return;
     }
 
@@ -41,7 +39,6 @@ const SubmissionDetailsScreen = () => {
 
     return () => {
       if (unsubscribe) unsubscribe();
-      console.log(`[${new Date().toISOString()}] Cleaned up Firebase listener`);
     };
   }, [user]);
 

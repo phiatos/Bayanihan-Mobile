@@ -139,7 +139,7 @@ export const AuthProvider = ({ children }) => {
                       setUser(null);
                     }
                   }
-                }, 10000);
+                }, 0);
               } else {
                 console.warn('AuthContext: Invalid cached user data:', parsedUser);
                 await AsyncStorage.removeItem('user_session');
