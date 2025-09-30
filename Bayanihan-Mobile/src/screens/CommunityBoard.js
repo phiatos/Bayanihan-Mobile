@@ -37,7 +37,6 @@ const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
         try {
           playerRef.current.pause();
           playerRef.current.seek(0);
-          console.log(`Cleaned up video player for post ${postId}`);
         } catch (error) {
           return;
         }
@@ -48,7 +47,6 @@ const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
   const handleRetry = () => {
     if (retryCount < maxRetries) {
       setRetryCount(retryCount + 1);
-      console.log(`Retrying video load for post ${postId} (attempt ${retryCount + 1}/${maxRetries})`);
       if (playerRef.current) {
         playerRef.current.seek(0);
         playerRef.current.play();
@@ -89,7 +87,6 @@ const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
           handleRetry();
         }
       }}
-      onLoad={() => console.log(`Video loaded for post ${postId}`)}
     />
   );
 };
@@ -120,7 +117,6 @@ const CommunityBoard = () => {
 
   useEffect(() => {
     if (!user) {
-      console.log('No user logged in, redirecting to Login');
       ToastAndroid.show('Please log in to view posts.', ToastAndroid.BOTTOM);
       navigation.navigate('Login');
       return;
@@ -138,7 +134,6 @@ const CommunityBoard = () => {
           navigation.navigate('Profile');
         }
         setUserRole(userData?.role || null);
-        console.log(`[${new Date().toISOString()}] Fetched user role:`, userData?.role);
       } catch (error) {
         console.error('Error checking user data:', error);
         ToastAndroid.show('Failed to load user data.', ToastAndroid.BOTTOM);
@@ -150,7 +145,6 @@ const CommunityBoard = () => {
 
   useEffect(() => {
     if (!user) {
-      console.log('No user, skipping posts fetch');
       return;
     }
     const postsRef = query(ref(database, 'posts'), orderByChild('timestamp'));
@@ -297,7 +291,7 @@ const CommunityBoard = () => {
       return (
         <View style={styles.postContainer}>
           {item.userId === user?.id && isEditable(item) && (
-            <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
+            <Menu>
               <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
                 <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
               </MenuTrigger>
@@ -377,7 +371,7 @@ const CommunityBoard = () => {
             {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
           </View>
           {item.userId === user?.id && isEditable(item) && (
-            <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
+            <Menu>
               <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
                 <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
               </MenuTrigger>

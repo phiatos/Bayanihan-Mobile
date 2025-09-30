@@ -45,12 +45,9 @@ const CommentSection = () => {
       }
 
       try {
-        console.log(`[${new Date().toISOString()}] Fetching user data for ID:`, user.id);
-        console.log(`[${new Date().toISOString()}] User from useAuth:`, user);
         const cachedData = await AsyncStorage.getItem(`userData:${user.id}`);
         if (cachedData) {
           const data = JSON.parse(cachedData);
-          console.log(`[${new Date().toISOString()}] User data from cache:`, data);
           setUserData(data);
           return;
         }
@@ -70,7 +67,6 @@ const CommentSection = () => {
           if (!user.contactPerson && !user.firstName && !user.lastName) {
             console.warn(`[${new Date().toISOString()}] AuthContext missing contactPerson, firstName, and lastName for user ${user.id}${isAdmin ? ' (Admin user)' : ''}`);
           }
-          console.log(`[${new Date().toISOString()}] Using user data from AuthContext:`, data);
           await AsyncStorage.setItem(`userData:${user.id}`, JSON.stringify(data));
           setUserData(data);
           return;
@@ -92,7 +88,6 @@ const CommentSection = () => {
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
           const userDataRaw = snapshot.val() || {};
-          console.log(`[${new Date().toISOString()}] Raw user data from Firebase:`, userDataRaw);
           const isAdmin = userDataRaw.role === 'AB ADMIN' || userDataRaw.isAdmin || false;
           const contactPerson = userDataRaw.contactPerson && userDataRaw.contactPerson !== 'Anonymous' && userDataRaw.contactPerson !== 'Admin' 
             ? userDataRaw.contactPerson 
@@ -108,7 +103,6 @@ const CommentSection = () => {
             console.warn(`[${new Date().toISOString()}] Firebase user data missing contactPerson, firstName, lastName, and displayName for ID: ${user.id}${isAdmin ? ' (Admin user)' : ''}`);
           }
           await AsyncStorage.setItem(`userData:${user.id}`, JSON.stringify(data));
-          console.log(`[${new Date().toISOString()}] User data cached:`, data);
           setUserData(data);
         } else {
           console.warn(`[${new Date().toISOString()}] No user document found for ID:`, user.id);
@@ -163,12 +157,9 @@ const CommentSection = () => {
     if (typeof onValue === 'function') {
       unsubscribe = onValue(commentsRef, (snapshot) => {
         const commentsData = snapshot.val();
-        console.log(`[${new Date().toISOString()}] Comments snapshot for post ${postId}:`, commentsData ? Object.keys(commentsData).length + ' comments' : 'no comments');
         if (commentsData) {
           const commentArray = Object.entries(commentsData).map(([id, comment]) => ({ id, ...comment }));
-          console.log(`[${new Date().toISOString()}] Raw comment array:`, commentArray);
           const commentTree = buildCommentTree(commentArray);
-          console.log(`[${new Date().toISOString()}] Comment tree:`, commentTree);
           setComments(commentTree);
         } else {
           setComments([]);
@@ -183,7 +174,6 @@ const CommentSection = () => {
         try {
           const snapshot = await get(commentsRef);
           const commentsData = snapshot.val();
-          console.log(`[${new Date().toISOString()}] Comments snapshot (via get) for post ${postId}:`, commentsData ? Object.keys(commentsData).length + ' comments' : 'no comments');
           if (commentsData) {
             const commentArray = Object.entries(commentsData).map(([id, comment]) => ({ id, ...comment }));
             const commentTree = buildCommentTree(commentArray);
@@ -219,7 +209,6 @@ const CommentSection = () => {
   }, [comments]);
 
   const buildCommentTree = (comments) => {
-    console.log(`[${new Date().toISOString()}] Building comment tree with comments:`, comments);
     const tree = [];
     const lookup = {};
 
@@ -228,19 +217,15 @@ const CommentSection = () => {
     });
 
     comments.forEach((comment, index) => {
-      console.log(`[${new Date().toISOString()}] Processing comment ${index + 1}:`, comment);
       if (comment.parentCommentId && lookup[comment.parentCommentId]) {
         let parent = lookup[comment.parentCommentId];
         while (parent.parentCommentId && lookup[parent.parentCommentId]) {
           parent = lookup[parent.parentCommentId];
         }
         parent.replies.push(lookup[comment.id]);
-        console.log(`[${new Date().toISOString()}] Added comment ${comment.id} as reply to top-level parent ${parent.id}`);
       } else if (!comment.parentCommentId) {
         tree.push(lookup[comment.id]);
-        console.log(`[${new Date().toISOString()}] Added comment ${comment.id} to top-level tree`);
       } else {
-        console.log(`[${new Date().toISOString()}] Comment ${comment.id} has invalid parentCommentId ${comment.parentCommentId}, treating as top-level`);
         tree.push(lookup[comment.id]);
       }
     });
@@ -252,7 +237,6 @@ const CommentSection = () => {
       }
     });
 
-    console.log(`[${new Date().toISOString()}] Final comment tree:`, tree);
     return tree;
   };
 
@@ -327,18 +311,10 @@ const CommentSection = () => {
         parentCommentId: replyToCommentId || null,
       };
 
-      console.log(`[${new Date().toISOString()}] Preparing to log comment:`, {
-        collection: 'comments',
-        commentData,
-        submissionId,
-        organization,
-      });
-
       await set(newCommentRef, commentData);
       await logActivity(user.id, `Added a comment to post `, submissionId, organization);
       await logSubmission('comments', commentData, submissionId, organization);
 
-      console.log(`[${new Date().toISOString()}] Comment added to post :`, commentData);
       setNewComment('');
       setReplyToCommentId(null);
       setReplyToUsername(null);
@@ -416,17 +392,9 @@ const CommentSection = () => {
                   timestamp: serverTimestamp(),
                 };
 
-                console.log(`[${new Date().toISOString()}] Preparing to log comment deletion:`, {
-                  collection: 'comments',
-                  deletionData,
-                  submissionId,
-                  organization,
-                });
-
                 if (subComments.length > 0) {
                   for (const subCommentId of subComments) {
                     await remove(ref(database, `posts/${postId}/comments/${subCommentId}`));
-                    console.log(`[${new Date().toISOString()}] Sub-comment ${subCommentId} deleted`);
                   }
                 }
 
@@ -434,7 +402,6 @@ const CommentSection = () => {
                 await logActivity(user.id, `Deleted a comment from post`, submissionId, organization);
                 await logSubmission('comments', deletionData, submissionId, organization);
 
-                console.log(`[${new Date().toISOString()}] Comment deleted from post`);
                 ToastAndroid.show('Comment deleted.', ToastAndroid.BOTTOM);
               } catch (error) {
                 console.error(`[${new Date().toISOString()}] Error deleting comment from post:`, error.message, error.code || 'N/A');
@@ -468,7 +435,6 @@ const renderComment = ({ item }) => {
     return null;
   }
 
-  console.log(`[${new Date().toISOString()}] Rendering comment:`, item);
   const canDelete = user && (item.userId === user.id || postData?.userId === user.id);
 
   return (
@@ -502,7 +468,6 @@ const renderComment = ({ item }) => {
             <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
               <MenuOption
                 onSelect={() => {
-                  console.log(`[${new Date().toISOString()}] Delete comment clicked for:`, item.id);
                   handleDeleteComment(item.id);
                 }}
                 text="Delete Comment"
@@ -560,7 +525,6 @@ const renderComment = ({ item }) => {
                     <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
                       <MenuOption
                         onSelect={() => {
-                          console.log(`[${new Date().toISOString()}] Delete comment clicked for:`, reply.id);
                           handleDeleteComment(reply.id);
                         }}
                         text="Delete Comment"

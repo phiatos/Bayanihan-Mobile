@@ -27,7 +27,6 @@ export const logActivity = async (message, submissionId, userId, organizationNam
       timestamp: serverTimestamp(),
     };
     await set(newActivityRef, activityData);
-    console.log(`[${new Date().toISOString()}] Activity logged:`, activityData);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error logging activity:`, error.message, error.code || 'N/A');
     throw error;
@@ -62,7 +61,6 @@ export const logSubmission = async (collection, data, submissionId, organization
       timestamp: serverTimestamp(),
     };
     await set(submissionRef, submissionData);
-    console.log(`[${new Date().toISOString()}] Submission logged for ${collection}:`, submissionData);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error logging submission for ${collection}:`, error.message, error.code || 'N/A');
     throw error;

@@ -13,7 +13,6 @@ const AuthErrorModal = ({
 }) => {
   useEffect(() => {
     const handleAuthError = () => {
-      console.warn('No user is logged in');
       setLoadingError('No authenticated user found');
 
       setModalConfig({
@@ -27,7 +26,6 @@ const AuthErrorModal = ({
             onSignOut();
             navigation.navigate('Login');
           } catch (error) {
-            console.error('Sign out error:', error.message);
             Alert.alert('Error', 'Failed to sign out: ' + error.message);
           }
         },

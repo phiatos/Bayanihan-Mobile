@@ -20,7 +20,6 @@ const useOperationCheck = () => {
   const [modalVisible, setModalVisible] = useState(false);
 
   const showErrorModal = (title, message, redirectScreen = null) => {
-    console.log(`useOperationCheck: showErrorModal: ${title} - ${message}`);
     setModalConfig({
       title,
       message,
@@ -47,10 +46,8 @@ const useOperationCheck = () => {
         if (!currentUser) {
           const cachedUser = await AsyncStorage.getItem('user_session');
           if (cachedUser) {
-            console.log('useOperationCheck: No user in AuthContext, using cached user:', JSON.parse(cachedUser).id);
             currentUser = JSON.parse(cachedUser);
           } else {
-            console.log('useOperationCheck: No authenticated user or cached user found');
             showErrorModal('Authentication Error', 'Please log in to continue.', 'Login');
             return;
           }
@@ -60,7 +57,6 @@ const useOperationCheck = () => {
         // Normalize organization name for comparison
         const orgName = (currentUser.organization || currentUser.group || 'Admin').trim().toLowerCase();
         setOrganizationName(currentUser.organization || currentUser.group || 'Admin');
-        console.log('useOperationCheck: userRole=', userRole, 'orgName=', orgName);
 
         const userRef = databaseRef(database, `users/${currentUser.id}`);
         let userData = null;
@@ -84,7 +80,6 @@ const useOperationCheck = () => {
 
         if (userRole === 'AB ADMIN') {
           setCanSubmit(true);
-          console.log('useOperationCheck: AB ADMIN role, canSubmit=true');
         } else if (userRole === 'ABVN') {
           try {
             const activationsRef = query(
@@ -93,8 +88,6 @@ const useOperationCheck = () => {
               equalTo(currentUser.organization || currentUser.group || 'Admin')
             );
             const activationsSnapshot = await get(activationsRef);
-            console.log('useOperationCheck: Query executed for organization:', currentUser.organization || currentUser.group || 'Admin');
-            console.log('useOperationCheck: Activations snapshot exists:', activationsSnapshot.exists());
 
             let hasActiveActivations = false;
             if (activationsSnapshot.exists()) {
@@ -102,23 +95,15 @@ const useOperationCheck = () => {
               activationsSnapshot.forEach((childSnapshot) => {
                 const activation = childSnapshot.val();
                 activations.push({ id: childSnapshot.key, ...activation });
-                console.log('useOperationCheck: Activation found:', {
-                  id: childSnapshot.key,
-                  organization: activation.organization,
-                  status: activation.status,
-                });
                 if (activation.status === 'active') {
                   hasActiveActivations = true;
                 }
               });
-              console.log('useOperationCheck: All activations:', activations);
             } else {
-              console.log('useOperationCheck: No activations found for organization:', currentUser.organization || currentUser.group || 'Admin');
             }
 
             if (hasActiveActivations) {
               setCanSubmit(true);
-              console.log('useOperationCheck: Active operations found, canSubmit=true');
             } else {
               // Try partial match for organization name
               const allActivationsRef = databaseRef(database, 'activations/currentActivations');
@@ -129,11 +114,6 @@ const useOperationCheck = () => {
                   const activation = childSnapshot.val();
                   const activationOrg = (activation.organization || '').trim().toLowerCase();
                   if (activationOrg.includes(orgName) && activation.status === 'active') {
-                    console.log('useOperationCheck: Fallback match found:', {
-                      id: childSnapshot.key,
-                      organization: activation.organization,
-                      status: activation.status,
-                    });
                     fallbackActive = true;
                   }
                 });
@@ -141,7 +121,6 @@ const useOperationCheck = () => {
 
               if (fallbackActive) {
                 setCanSubmit(true);
-                console.log('useOperationCheck: Fallback active operations found, canSubmit=true');
               } else {
                 showErrorModal(
                   'No Active Operations',

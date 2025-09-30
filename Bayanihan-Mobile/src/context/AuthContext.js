@@ -21,23 +21,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    console.log('AuthContext: Setting up auth state listener');
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log('AuthContext: onAuthStateChanged triggered, user:', currentUser ? currentUser.uid : 'null');
       let userObject = null;
 
       try {
         if (currentUser) {
-          // Refresh token to ensure valid session
           try {
             const idTokenResult = await currentUser.getIdTokenResult(true);
-            console.log('AuthContext: Token refreshed, expires at:', new Date(idTokenResult.expirationTime));
           } catch (tokenError) {
             console.warn('AuthContext: Token refresh failed:', tokenError.message);
           }
 
-          // Fetch user data from Realtime Database
           try {
             const userSnapshot = await get(ref(database, `users/${currentUser.uid}`));
             const userData = userSnapshot.val();
@@ -55,7 +50,6 @@ export const AuthProvider = ({ children }) => {
                 adminPosition: userData.adminPosition || 'N/A',
                 
               };
-              console.log('AuthContext: User data fetched from database:', userObject.id);
             } else {
               console.warn('AuthContext: No user data in database for:', currentUser.uid);
               userObject = {
@@ -94,23 +88,19 @@ export const AuthProvider = ({ children }) => {
 
           await AsyncStorage.setItem('user_session', JSON.stringify(userObject));
           setUser(userObject);
-          console.log('AuthContext: User set and session saved:', userObject.id);
         } else {
           const cachedUser = await AsyncStorage.getItem('user_session');
           if (cachedUser) {
             try {
               const parsedUser = JSON.parse(cachedUser);
               if (validateUserObject(parsedUser)) {
-                console.log('AuthContext: Using cached user temporarily:', parsedUser.id);
                 setUser(parsedUser);
                 setTimeout(async () => {
                   if (!auth.currentUser) {
-                    console.log('AuthContext: No Firebase user after delay, clearing session');
                     await AsyncStorage.removeItem('user_session');
                     await signOut(auth);
                     setUser(null);
                   } else {
-                    console.log('AuthContext: Firebase user restored after delay:', auth.currentUser.uid);
                     try {
                       const userSnapshot = await get(ref(database, `users/${auth.currentUser.uid}`));
                       const userData = userSnapshot.val();
@@ -142,7 +132,6 @@ export const AuthProvider = ({ children }) => {
                           };
                       await AsyncStorage.setItem('user_session', JSON.stringify(restoredUser));
                       setUser(restoredUser);
-                      console.log('AuthContext: Restored user data:', restoredUser.id);
                     } catch (dbError) {
                       console.error('AuthContext: Failed to fetch restored user data:', dbError.message, dbError.code);
                       await AsyncStorage.removeItem('user_session');
@@ -150,7 +139,7 @@ export const AuthProvider = ({ children }) => {
                       setUser(null);
                     }
                   }
-                }, 10000); // 10-second delay for Android
+                }, 10000);
               } else {
                 console.warn('AuthContext: Invalid cached user data:', parsedUser);
                 await AsyncStorage.removeItem('user_session');
@@ -162,7 +151,6 @@ export const AuthProvider = ({ children }) => {
               setUser(null);
             }
           } else {
-            console.log('AuthContext: No Firebase user or cached user');
             setUser(null);
             await AsyncStorage.removeItem('user_session');
           }
@@ -182,8 +170,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     if (!loading && user) {
-      console.log('AuthContext: Auth state changed, final user:', user.id);
-      console.log('AuthContext: Auth state changed, final user contact:', user.contactPerson || 'undefined');
+      return;
     }
   }, [user, loading]);
 
@@ -194,7 +181,6 @@ export const AuthProvider = ({ children }) => {
         if (userData && validateUserObject(userData)) {
           setUser(userData);
           await AsyncStorage.setItem('user_session', JSON.stringify(userData));
-          console.log('AuthContext: User session saved:', userData.id);
         } else {
           console.warn('AuthContext: Invalid user data, clearing session:', userData);
           setUser(null);

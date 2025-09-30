@@ -41,7 +41,6 @@ const CreatePost = () => {
   const [category, setCategory] = useState(initialData?.category || '');
   const [shareCaption, setShareCaption] = useState(initialData?.shareCaption || '');
   const [media, setMedia] = useState(() => {
-    console.log(`[${new Date().toISOString()}] Initializing media state with initialData:`, initialData);
     if (!isShared && initialData?.mediaType === 'image') {
       const mediaItems = [];
       if (initialData?.mediaUrls && initialData.mediaUrls.length > 0) {
@@ -57,7 +56,6 @@ const CreatePost = () => {
           mimeType: 'image/jpeg',
         });
       }
-      console.log(`[${new Date().toISOString()}] Image media initialized:`, mediaItems);
       return mediaItems;
     } else if (!isShared && initialData?.mediaType === 'video' && initialData?.mediaUrl) {
       const videoMedia = [{
@@ -66,7 +64,6 @@ const CreatePost = () => {
         mimeType: 'video/mp4',
         thumbnailUri: initialData.thumbnailUrl || '',
       }];
-      console.log(`[${new Date().toISOString()}] Video media initialized:`, videoMedia);
       return videoMedia;
     }
     return [];
@@ -85,16 +82,13 @@ const CreatePost = () => {
 
   const player = useVideoPlayer(videoSource, (player) => {
     playerRef.current = player;
-    console.log(`[${new Date().toISOString()}] Video player initialized for:`, videoSource?.uri);
   });
 
   useEffect(() => {
     if (!isShared && postType === 'video' && media.length > 0 && media[0].uri) {
       setVideoSource({ uri: media[0].uri });
-      console.log(`[${new Date().toISOString()}] Updated video player source to:`, media[0].uri);
     } else if (media.length === 0 && postType === 'video') {
       setVideoSource(null);
-      console.log(`[${new Date().toISOString()}] Cleared video player source`);
     }
   }, [media, postType, isShared]);
 
@@ -103,7 +97,6 @@ const CreatePost = () => {
       if (!user) {
         throw new Error('No authenticated user found');
       }
-      console.log(`[${new Date().toISOString()}] Logged-in user ID:`, user.id);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Authentication error:`, error.message);
       setTimeout(() => {
@@ -113,18 +106,15 @@ const CreatePost = () => {
   }, [user, navigation]);
 
   useEffect(() => {
-    console.log(`[${new Date().toISOString()}] Media state updated:`, media);
     return () => {
       media.forEach(async (file) => {
         try {
           const fileInfo = await FileSystem.getInfoAsync(file.uri);
           if (fileInfo.exists && file.uri.startsWith(FileSystem.cacheDirectory)) {
             await FileSystem.deleteAsync(file.uri);
-            console.log(`[${new Date().toISOString()}] Cleaned up cached file:`, file.uri);
           }
           if (file.thumbnailUri && file.thumbnailUri.startsWith(FileSystem.cacheDirectory)) {
             await FileSystem.deleteAsync(file.thumbnailUri);
-            console.log(`[${new Date().toISOString()}] Cleaned up cached thumbnail:`, file.thumbnailUri);
           }
         } catch (error) {
           console.error(`[${new Date().toISOString()}] Error cleaning up file ${file.uri}:`, error.message);
@@ -133,7 +123,6 @@ const CreatePost = () => {
       if (playerRef.current && typeof playerRef.current.pause === 'function') {
         try {
           playerRef.current.pause();
-          console.log(`[${new Date().toISOString()}] Video player paused during cleanup`);
         } catch (error) {
           console.error(`[${new Date().toISOString()}] Error pausing video player:`, error.message);
         }
@@ -144,7 +133,6 @@ const CreatePost = () => {
   const requestPermissions = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      console.log(`[${new Date().toISOString()}] Media library permission status:`, status);
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Please grant permission to access your media library.');
         return false;
@@ -159,12 +147,10 @@ const CreatePost = () => {
 
   const pickMedia = async () => {
     if (isShared) {
-      console.log(`[${new Date().toISOString()}] Media upload disabled for shared posts`);
       ToastAndroid.show('Media uploads are not allowed for shared posts.', ToastAndroid.SHORT);
       return;
     }
     try {
-      console.log(`[${new Date().toISOString()}] Picking media for postType:`, postType);
       if (postType === 'image') {
         const hasPermission = await requestPermissions();
         if (!hasPermission) return;
@@ -176,18 +162,14 @@ const CreatePost = () => {
           quality: 0.8,
           exif: false,
         });
-        console.log(`[${new Date().toISOString()}] ImagePicker result:`, result);
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
           const newMedia = [];
           for (const asset of result.assets) {
             let { uri, fileName: name = 'image.jpg', mimeType = 'image/jpeg', fileSize: size } = asset;
 
-            console.log(`[${new Date().toISOString()}] Selected image URI:`, uri);
-            console.log(`[${new Date().toISOString()}] File details:`, { uri, name, mimeType, size });
 
             const fileInfo = await FileSystem.getInfoAsync(uri);
-            console.log(`[${new Date().toISOString()}] Original file info:`, fileInfo);
             if (!fileInfo.exists || !fileInfo.size) {
               console.error(`[${new Date().toISOString()}] Original file does not exist or is empty at URI:`, uri);
               Alert.alert('Error', `Selected image "${name}" is inaccessible or empty.`);
@@ -204,9 +186,7 @@ const CreatePost = () => {
               [],
               { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
             );
-            console.log(`[${new Date().toISOString()}] Manipulated image URI:`, manipResult.uri);
             const manipFileInfo = await FileSystem.getInfoAsync(manipResult.uri);
-            console.log(`[${new Date().toISOString()}] Manipulated file info:`, manipFileInfo);
             if (!manipFileInfo.exists || !manipFileInfo.size) {
               console.error(`[${new Date().toISOString()}] Manipulated image is inaccessible or empty at URI:`, manipResult.uri);
               Alert.alert('Error', `Failed to process image "${name}". Please try another image.`);
@@ -220,7 +200,6 @@ const CreatePost = () => {
             });
           }
           setMedia(newMedia);
-          console.log(`[${new Date().toISOString()}] Updated media state:`, newMedia);
         }
       } else if (postType === 'video') {
         const result = await DocumentPicker.getDocumentAsync({
@@ -228,21 +207,16 @@ const CreatePost = () => {
           copyToCacheDirectory: true,
           multiple: false,
         });
-        console.log(`[${new Date().toISOString()}] DocumentPicker result:`, result);
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
           const asset = result.assets[0];
           let { uri, name, mimeType, size } = asset;
-
-          console.log(`[${new Date().toISOString()}] Selected video URI:`, uri);
-          console.log(`[${new Date().toISOString()}] File details:`, { uri, name, mimeType, size });
 
           const cacheUri = `${FileSystem.cacheDirectory}${Date.now()}_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
           await FileSystem.copyAsync({ from: uri, to: cacheUri });
           uri = cacheUri;
 
           const fileInfo = await FileSystem.getInfoAsync(uri);
-          console.log(`[${new Date().toISOString()}] Cached file info:`, fileInfo);
           if (!fileInfo.exists || !fileInfo.size) {
             console.error(`[${new Date().toISOString()}] File does not exist or is empty at URI:`, uri);
             Alert.alert('Error', `Selected video "${name}" is inaccessible or empty.`);
@@ -261,9 +235,7 @@ const CreatePost = () => {
               quality: 0.8,
               compress: 0.8,
             });
-            console.log(`[${new Date().toISOString()}] Thumbnail generated at URI:`, thumbnailUri);
             const thumbInfo = await FileSystem.getInfoAsync(thumbnailUri);
-            console.log(`[${new Date().toISOString()}] Thumbnail file info:`, thumbInfo);
             if (!thumbInfo.exists || !thumbInfo.size) {
               console.error(`[${new Date().toISOString()}] Thumbnail is inaccessible or empty at URI:`, thumbnailUri);
               Alert.alert('Warning', `Failed to generate thumbnail for "${name}". Proceeding without thumbnail.`);
@@ -275,7 +247,6 @@ const CreatePost = () => {
             Alert.alert('Warning', `Failed to generate thumbnail for "${name}". Proceeding without thumbnail.`);
           }
           setMedia(newMedia);
-          console.log(`[${new Date().toISOString()}] Updated media state:`, newMedia);
         }
       }
     } catch (error) {
@@ -286,12 +257,10 @@ const CreatePost = () => {
 
   const deleteFromStorage = async (file, index) => {
     try {
-      console.log(`[${new Date().toISOString()}] Attempting to move media to deleted:`, file.uri);
       if (!user?.id) {
         throw new Error('User not authenticated');
       }
       if (!file.uri.startsWith('https://')) {
-        console.log(`[${new Date().toISOString()}] Media ${file.name} is not in Firebase Storage, skipping storage deletion`);
         return;
       }
 
@@ -301,15 +270,12 @@ const CreatePost = () => {
       const originalRef = storageRef(storage, decodeURIComponent(originalPath));
       const deletedRef = storageRef(storage, deletedPath);
 
-      console.log(`[${new Date().toISOString()}] Copying ${originalPath} to ${deletedPath}`);
       const response = await fetch(file.uri);
       const blob = await response.blob();
       await uploadBytesResumable(deletedRef, blob, { contentType: file.mimeType });
-      console.log(`[${new Date().toISOString()}] Media ${fileName} copied to ${deletedPath}`);
 
       try {
         await deleteObject(originalRef);
-        console.log(`[${new Date().toISOString()}] Media ${fileName} deleted from ${originalPath}`);
       } catch (error) {
         console.warn(`[${new Date().toISOString()}] Failed to delete original media ${fileName} from ${originalPath}:`, error.message);
       }
@@ -321,15 +287,12 @@ const CreatePost = () => {
         const thumbRef = storageRef(storage, decodeURIComponent(thumbPath));
         const deletedThumbRef = storageRef(storage, deletedThumbPath);
 
-        console.log(`[${new Date().toISOString()}] Copying thumbnail ${thumbPath} to ${deletedThumbPath}`);
         const thumbResponse = await fetch(file.thumbnailUri);
         const thumbBlob = await thumbResponse.blob();
         await uploadBytesResumable(deletedThumbRef, thumbBlob, { contentType: 'image/jpeg' });
-        console.log(`[${new Date().toISOString()}] Thumbnail ${thumbName} copied to ${deletedThumbPath}`);
 
         try {
           await deleteObject(thumbRef);
-          console.log(`[${new Date().toISOString()}] Thumbnail ${thumbName} deleted from ${thumbPath}`);
         } catch (error) {
           console.warn(`[${new Date().toISOString()}] Failed to delete original thumbnail ${thumbName} from ${thumbPath}:`, error.message);
         }
@@ -356,7 +319,6 @@ const CreatePost = () => {
                 await deleteFromStorage(file, index);
               }
               setMedia(media.filter((_, i) => i !== index));
-              console.log(`[${new Date().toISOString()}] Media removed, new media state:`, media.filter((_, i) => i !== index));
               ToastAndroid.show('Media removed successfully.', ToastAndroid.SHORT);
             } catch (error) {
               console.error(`[${new Date().toISOString()}] Error removing media:`, error.message);
@@ -370,16 +332,13 @@ const CreatePost = () => {
 
   const uploadMedia = async (file, path) => {
     try {
-      console.log(`[${new Date().toISOString()}] Starting upload for:`, file.name, 'to:', path);
-      console.log(`[${new Date().toISOString()}] Current user ID:`, user?.id || 'No user');
-
+    
       if (!user?.id) {
         throw new Error('User not authenticated. Please sign in.');
       }
 
       const { uri, name, mimeType } = file;
       const fileInfo = await FileSystem.getInfoAsync(uri);
-      console.log(`[${new Date().toISOString()}] File info:`, fileInfo);
       if (!fileInfo.exists || !fileInfo.size) {
         throw new Error(`File "${name}" does not exist or is empty at URI: ${uri}`);
       }
@@ -388,12 +347,10 @@ const CreatePost = () => {
       }
 
       const response = await fetch(uri);
-      console.log(`[${new Date().toISOString()}] Fetch response:`, response.ok, response.status);
       if (!response.ok) {
         throw new Error(`Failed to fetch file: ${response.statusText}`);
       }
       const blob = await response.blob();
-      console.log(`[${new Date().toISOString()}] Blob size:`, blob.size, 'for:', name);
       if (!blob.size) {
         throw new Error(`Blob for "${name}" is empty.`);
       }
@@ -403,17 +360,14 @@ const CreatePost = () => {
                                       path.endsWith('.mp4') ? 'video/mp4' :
                                       path.endsWith('.webm') ? 'video/webm' : 'application/octet-stream');
       const metadata = { contentType };
-      console.log(`[${new Date().toISOString()}] Content type:`, contentType);
 
       const storageReference = storageRef(storage, path);
-      console.log(`[${new Date().toISOString()}] Storage reference:`, storageReference.toString());
       const uploadTask = uploadBytesResumable(storageReference, blob, metadata);
       return await new Promise((resolve, reject) => {
         uploadTask.on(
           'state_changed',
           (snapshot) => {
             const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            console.log(`[${new Date().toISOString()}] Upload progress for "${name}": ${progress.toFixed(2)}%`);
             setUploadProgress(progress);
           },
           (error) => {
@@ -441,7 +395,6 @@ const CreatePost = () => {
           async () => {
             try {
               const downloadURL = await getDownloadURL(storageReference);
-              console.log(`[${new Date().toISOString()}] Upload successful for "${name}". Download URL:`, downloadURL);
               resolve(downloadURL);
             } catch (error) {
               console.error(`[${new Date().toISOString()}] Error getting download URL:`, error.message);
@@ -463,7 +416,6 @@ const CreatePost = () => {
     }
 
     try {
-      console.log(`[${new Date().toISOString()}] handleSubmit called with:`, { postType, title, content, category, mediaLength: media.length, link, isShared, shareCaption, postId });
 
       if (!user?.id) {
         throw new Error('No authenticated user found');
@@ -501,7 +453,6 @@ const CreatePost = () => {
           ? `${userData.firstName || ''} ${userData.lastName || ''}`.trim() 
           : userData.displayName || 'Admin');
       const organization = userData.organization || ' ';
-      console.log(`[${new Date().toISOString()}] User data fetched:`, { userName, organization });
 
       let postData;
       if (isShared) {
@@ -538,15 +489,12 @@ const CreatePost = () => {
 
         if (postType === 'image' && media.length === 0) {
           postData.mediaUrls = [];
-          console.log(`[${new Date().toISOString()}] Cleared mediaUrls for image post`);
         }
         if (postType === 'video' && media.length === 0) {
           postData.mediaUrl = '';
           postData.thumbnailUrl = '';
-          console.log(`[${new Date().toISOString()}] Cleared mediaUrl and thumbnailUrl for video post`);
         }
 
-        console.log(`[${new Date().toISOString()}] Attempting to upload media for postType:`, postType);
         if (postType === 'image' && media.length > 0) {
           postData.mediaUrls = [];
           for (const file of media) {
@@ -555,7 +503,6 @@ const CreatePost = () => {
               continue;
             }
             const imagePath = `image_posts/${user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-            console.log(`[${new Date().toISOString()}] Uploading image to:`, imagePath);
             const downloadURL = await uploadMedia(file, imagePath);
             postData.mediaUrls.push(downloadURL);
           }
@@ -565,12 +512,10 @@ const CreatePost = () => {
           const file = media[0];
           if (!file.uri.startsWith('https://')) {
             const mediaPath = `video_posts/${user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-            console.log(`[${new Date().toISOString()}] Uploading video to:`, mediaPath);
             const downloadURL = await uploadMedia(file, mediaPath);
             postData.mediaUrl = downloadURL;
             if (file.thumbnailUri && !file.thumbnailUri.startsWith('https://')) {
               const thumbnailPath = `video_posts/${user.id}/thumbnails/${Date.now()}_thumbnail.jpg`;
-              console.log(`[${new Date().toISOString()}] Uploading thumbnail to:`, thumbnailPath);
               const thumbnailURL = await uploadMedia(
                 { uri: file.thumbnailUri, name: 'thumbnail.jpg', mimeType: 'image/jpeg' },
                 thumbnailPath
@@ -598,7 +543,6 @@ const CreatePost = () => {
         await update(postRef, postData);
         await logActivity(user.id, 'Updated a post', postId, organization);
         await logSubmission('posts', postData, postId, organization, user.id);
-        console.log(`[${new Date().toISOString()}] Post ${postId} updated in posts with data:`, postData);
         ToastAndroid.show('Post updated successfully.', ToastAndroid.SHORT);
       } else {
         const postsRef = ref(database, 'posts');
@@ -610,7 +554,6 @@ const CreatePost = () => {
         await set(newPostRef, postData);
         await logActivity(user.id, `Created a new post in ${postData.category || 'shared post'}`, submissionId, organization);
         await logSubmission('posts', postData, submissionId, organization, user.id);
-        console.log(`[${new Date().toISOString()}] Post ${submissionId} created in posts with data:`, postData);
         ToastAndroid.show('Post created successfully.', ToastAndroid.SHORT);
       }
 
@@ -626,11 +569,9 @@ const CreatePost = () => {
 
   const handlePostTypeChange = (newPostType) => {
     if (isShared) {
-      console.log(`[${new Date().toISOString()}] Post type change disabled for shared posts`);
       ToastAndroid.show('Post type cannot be changed for shared posts.', ToastAndroid.SHORT);
       return;
     }
-    console.log(`[${new Date().toISOString()}] Changing post type to:`, newPostType);
     setPostType(newPostType);
     setMedia([]);
     setLink('');
@@ -730,7 +671,6 @@ const CreatePost = () => {
                           console.error(`[${new Date().toISOString()}] Video playback error for shared post:`, error);
                           ToastAndroid.show('Failed to play video.', ToastAndroid.SHORT);
                         }}
-                        onLoad={() => console.log(`[${new Date().toISOString()}] Video preview loaded for shared post:`, initialData.originalMediaUrl)}
                       />
                     </View>
                   )}
@@ -801,7 +741,6 @@ const CreatePost = () => {
                             console.error(`[${new Date().toISOString()}] Video playback error:`, error);
                             Alert.alert('Error', 'Failed to play video.');
                           }}
-                          onLoad={() => console.log(`[${new Date().toISOString()}] Video preview loaded for:`, media[0].uri)}
                         />
                         <TouchableOpacity
                           style={styles.removeButton}

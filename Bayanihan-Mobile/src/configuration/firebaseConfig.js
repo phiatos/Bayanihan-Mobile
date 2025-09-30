@@ -5,7 +5,6 @@ import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
 import { getFirestore } from 'firebase/firestore';
 
-// Your Firebase configuration object
 const firebaseConfig = {
  apiKey: "AIzaSyBkmXOJvnlBtzkjNyR6wyd9BgGM0BhN0L8",
     authDomain: "bayanihan-new-472410.firebaseapp.com",
@@ -16,12 +15,10 @@ const firebaseConfig = {
     measurementId: "G-CEVPTQZM9C",
     databaseURL: "https://bayanihan-new-472410-default-rtdb.asia-southeast1.firebasedatabase.app/"};
 
-// Test AsyncStorage availability
 async function testAsyncStorage() {
   try {
     await AsyncStorage.setItem('test_key', 'test_value');
     const value = await AsyncStorage.getItem('test_key');
-    console.log('Firebase: AsyncStorage test successful, value:', value);
     await AsyncStorage.removeItem('test_key');
   } catch (error) {
     console.error('Firebase: AsyncStorage test failed:', error.message, error.code);
@@ -29,23 +26,16 @@ async function testAsyncStorage() {
 }
 testAsyncStorage();
 
-// Initialize Firebase app
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-console.log('Firebase: App initialized:', app.name);
 
-// Initialize auth with persistence
 let auth;
 try {
   auth = initializeAuth(app, {
     persistence: getReactNativePersistence(AsyncStorage),
   });
-  console.log('Firebase: Auth initialized with AsyncStorage persistence');
 } catch (error) {
   if (error.code === 'auth/already-initialized') {
-    console.warn('Firebase: Auth already initialized, retrieving existing instance');
     auth = getAuth(app);
-    // Log persistence type
-    console.log('Firebase: Auth persistence type:', auth._persistenceLayer?.persistence?.type || 'none');
   } else {
     console.error('Firebase: Error initializing auth:', {
       message: error.message,
@@ -54,11 +44,9 @@ try {
     });
     auth = getAuth(app);
     console.warn('Firebase: Using default auth without persistence');
-    console.log('Firebase: Auth persistence type:', auth._persistenceLayer?.persistence?.type || 'none');
   }
 }
 
-// Initialize other Firebase services
 const database = getDatabase(app);
 const storage = getStorage(app, 'bayanihan-new-472410.firebasestorage.app');
 const db = getFirestore(app);
