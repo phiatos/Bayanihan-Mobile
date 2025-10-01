@@ -1,7 +1,8 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, Alert } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { getDatabase, ref, get } from 'firebase/database';
 import styles from '../styles/CustomDrawerStyles';
 import Theme from '../constants/theme';
 import { signOut } from 'firebase/auth';
@@ -14,13 +15,43 @@ const CustomDrawer = (props) => {
   const { user } = useContext(AuthContext);
   const [modalVisible, setModalVisible] = useState(false);
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  const [profileData, setProfileData] = useState({ profilePicture: '' });
 
   const organizationName = user?.organization || null;
   const role = user?.role || 'N/A';
   const adminPosition = user?.adminPosition || 'N/A';
-  const contactPerson = user?.contactPerson || null;
-  const firstName = user?.firstName || null;
-  const lastName = user?.lastName || null;
+
+  useEffect(() => {
+    const fetchProfilePicture = async () => {
+      if (!user?.id || !auth.currentUser?.uid) {
+        console.warn(`[${new Date().toISOString()}] No user ID available for fetching profile picture`);
+        setProfileData({ profilePicture: '' });
+        return;
+      }
+
+      try {
+        const db = getDatabase();
+        const userRef = ref(db, `users/${auth.currentUser.uid}`);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          setProfileData({ profilePicture: data.profilePicture || '' });
+        } else {
+          console.warn(`[${new Date().toISOString()}] No user document found for UID: ${auth.currentUser.uid}`);
+          setProfileData({ profilePicture: '' });
+        }
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error fetching profile picture:`, error.message, error.code || 'N/A');
+        setErrorModal({
+          visible: true,
+          message: `Failed to load profile picture: ${error.message}`,
+        });
+        setProfileData({ profilePicture: '' });
+      }
+    };
+
+    fetchProfilePicture();
+  }, [user]);
 
   const handleShowLogoutModal = () => {
     setModalVisible(true);
@@ -33,7 +64,10 @@ const CustomDrawer = (props) => {
       onSignOut();
     } catch (error) {
       console.error('Sign out error:', error.message);
-      Alert.alert('Error', 'Failed to sign out: ' + error.message);
+      setErrorModal({
+        visible: true,
+        message: `Failed to sign out: ${error.message}`,
+      });
     }
   };
 
@@ -77,10 +111,17 @@ const CustomDrawer = (props) => {
           onPress={() => navigation.navigate("Profile")} 
           style={styles.userHeader}
         >
-          <Image
+          {profileData.profilePicture ? (
+            <Image
+              source={{ uri: profileData.profilePicture }}
+              style={styles.profileImage}
+            />
+          ) : (
+           <Image
             source={require('../../assets/images/user_logo.png')}
             style={styles.profileImage}
           />
+          )}
           <View style={styles.header}>
             <View style={styles.organization}>
               {getDisplayText()}
@@ -123,7 +164,12 @@ const CustomDrawer = (props) => {
       <CustomModal
         visible={errorModal.visible}
         title="Error"
-        message={errorModal.message}
+        message={
+          <View style={styles.modalContent}>
+            <Ionicons name="alert-circle" size={60} color="red" style={styles.icon} />
+            <Text style={styles.modalMessage}>{errorModal.message}</Text>
+          </View>
+        }
         onConfirm={() => setErrorModal({ visible: false, message: '' })}
         confirmText="OK"
         showCancel={false}

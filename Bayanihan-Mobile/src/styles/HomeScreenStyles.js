@@ -161,6 +161,7 @@ export const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   mapTypeButtonsContainer: {
+    flex: 1,
     position: 'absolute',
     left: 20,
     right: 20,

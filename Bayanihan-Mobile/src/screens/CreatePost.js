@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, ScrollView, Image, SafeAreaView, ToastAndroid, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, ScrollView, Image, SafeAreaView, ToastAndroid, StyleSheet, Animated } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -74,6 +74,8 @@ const CreatePost = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const flatListRef = useRef(null);
   const playerRef = useRef(null);
+  const [isDropdownFocused, setIsDropdownFocused] = useState(false); 
+  const arrowRotation = useRef(new Animated.Value(0)).current; 
 
   const [videoSource, setVideoSource] = useState(
     isShared && initialData?.originalMediaType === 'video' && initialData?.originalMediaUrl && initialData.originalMediaUrl.startsWith('https://')
@@ -86,6 +88,15 @@ const CreatePost = () => {
   });
 
   const activeIndex = categories.findIndex(item => item.value === category);
+
+  // Animation for arrow rotation
+  useEffect(() => {
+    Animated.timing(arrowRotation, {
+      toValue: isDropdownFocused ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isDropdownFocused, arrowRotation]);
 
   useEffect(() => {
     if (!isShared && postType === 'video' && media.length > 0 && media[0].uri) {
@@ -612,7 +623,7 @@ const CreatePost = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1}}
         keyboardVerticalOffset={Platform.OS === 'ios' ? -50 : -30}
       >
@@ -707,11 +718,22 @@ const CreatePost = () => {
                     }}
                     disable={isSubmitting}
                     renderRightIcon={() => (
-                      <Ionicons
-                        name="chevron-down"
-                        size={18}
-                        color={Theme.colors.placeholder || '#777777ff'}
-                      />
+                      <Animated.View
+                        style={{
+                          transform: [{
+                            rotate: arrowRotation.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: ['0deg', '180deg'],
+                            }),
+                          }],
+                        }}
+                      >
+                        <Ionicons
+                          name="chevron-down"
+                          size={18}
+                          color={Theme.colors.placeholder || '#777777ff'}
+                        />
+                      </Animated.View>
                     )}
                     autoScroll={false}
                     flatListProps={{
@@ -729,11 +751,15 @@ const CreatePost = () => {
                       </Text>
                     )}
                     onFocus={() => {
+                      setIsDropdownFocused(true);
                       if (category && activeIndex >= 0) {
                         setTimeout(() => {
                           flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
                         }, 100);
                       }
+                    }}
+                    onBlur={() => {
+                      setIsDropdownFocused(false);
                     }}
                   />
                 </View>

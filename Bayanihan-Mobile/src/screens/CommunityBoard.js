@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, ToastAndroid, Linking } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, ToastAndroid, Linking, Animated } from 'react-native';
 import { ref, onValue, query, orderByChild, remove, set, serverTimestamp } from 'firebase/database';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useAuth } from '../context/AuthContext';
@@ -101,6 +101,8 @@ const CommunityBoard = () => {
   const [userRole, setUserRole] = useState(null);
   const videoRefs = useRef({});
   const flatListRef = useRef(null);
+  const [isDropdownFocused, setIsDropdownFocused] = useState(false); 
+  const arrowRotation = useRef(new Animated.Value(0)).current;
 
   const categories = [
     { label: 'All', value: 'all' },
@@ -112,6 +114,14 @@ const CommunityBoard = () => {
 
   const ITEM_HEIGHT = 50;
   const activeIndex = categories.findIndex(item => item.value === categoryFilter);
+
+  useEffect(() => {
+    Animated.timing(arrowRotation, {
+      toValue: isDropdownFocused ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isDropdownFocused, arrowRotation]);
 
   const toSentenceCase = (str) => {
     if (!str) return '';
@@ -499,7 +509,7 @@ const CommunityBoard = () => {
         </LinearGradient>
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1, marginTop: 50 }}
           keyboardVerticalOffset={0}
         >
@@ -525,11 +535,22 @@ const CommunityBoard = () => {
                 }}
                 disable={!canSubmit}
                 renderRightIcon={() => (
-                  <Ionicons
-                    name="chevron-down"
-                    size={18}
-                    color={Theme.colors.placeholder || '#999999'}
-                  />
+                  <Animated.View
+                    style={{
+                      transform: [{
+                        rotate: arrowRotation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0deg', '180deg'],
+                        }),
+                      }],
+                    }}
+                  >
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholder || '#999999'}
+                    />
+                  </Animated.View>
                 )}
                 autoScroll={false}
                 flatListProps={{
@@ -547,11 +568,15 @@ const CommunityBoard = () => {
                   </Text>
                 )}
                 onFocus={() => {
+                  setIsDropdownFocused(true);
                   if (categoryFilter && activeIndex >= 0) {
                     setTimeout(() => {
                       flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
                     }, 100);
                   }
+                }}
+                onBlur={() => {
+                  setIsDropdownFocused(false);
                 }}
               />
             </View>

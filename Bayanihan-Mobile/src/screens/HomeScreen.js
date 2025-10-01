@@ -992,11 +992,7 @@ const HomeScreen = ({ navigation }) => {
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       {
       permissionStatus === 'granted' && location && mapHtml ? (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={[styles.subContainer]}
-          keyboardVerticalOffset={0}
-        >
+      
           <View style={{ flex: 1 }}>
             <WebView
               ref={webViewRef}
@@ -1036,7 +1032,12 @@ const HomeScreen = ({ navigation }) => {
                 </View>
               </LinearGradient>
             </View>
-            <View style={[styles.mapTypeButtonsContainer, { paddingBottom: insets.bottom }]}>
+              {/* <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{flex: 1}}
+              keyboardVerticalOffset={0}
+            > */}
+            <View style={[styles.mapTypeButtonsContainer, ]}>
                           <TouchableOpacity
                             style={[styles.mapTypeButton, mapType === 'roadmap' && styles.mapTypeButtonActive]}
                             onPress={() => toggleMapType('roadmap')}
@@ -1074,8 +1075,8 @@ const HomeScreen = ({ navigation }) => {
                             </Text>
                           </TouchableOpacity>
                         </View>
+               {/* </KeyboardAvoidingView> */}
           </View>
-        </KeyboardAvoidingView>
       ) : (
         <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
           <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />

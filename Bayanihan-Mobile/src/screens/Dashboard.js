@@ -99,7 +99,9 @@ const DashboardScreen = ({ navigation }) => {
     const role = user.role;
     const orgName = user.organization || '';
 
-    setOrganizationName(orgName);
+    if (role !== 'AB ADMIN') {
+      setOrganizationName(orgName);
+    }
     setHeaderTitle(role === 'AB ADMIN' ? 'Admin Dashboard' : 'Volunteer Dashboard');
 
     const reportsRef = ref(database, 'reports/approved');
@@ -220,7 +222,7 @@ const DashboardScreen = ({ navigation }) => {
         </View>
 
         <ScrollView style={styles.scrollViewContent}>
-          {organizationName ? (
+          {organizationName && user.role !== 'AB ADMIN' ? (
             <Text style={styles.sectionTitle}>{organizationName}</Text>
           ) : (
             <View style={styles.noSectionTitle} />

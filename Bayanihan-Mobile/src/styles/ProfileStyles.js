@@ -41,6 +41,31 @@ export default StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: spacing.small,
   },
+
+  // Profile Picture
+  profilePictureContainer: {
+  alignItems: 'center',
+  marginBottom: 20,
+},
+profilePicture: {
+  width: 100,
+  height: 100,
+  borderRadius: 50,
+  marginBottom: 10,
+  elevation: 5
+},
+profilePicturePlaceholder: {
+  backgroundColor: '#e0e0e0',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+uploadButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginTop: -30,
+  marginLeft: 70
+},
+
   label: {
     width: '40%',
     color: Theme.colors.primary,
@@ -173,7 +198,7 @@ export default StyleSheet.create({
     color: Theme.colors.black,
     fontSize: 14,
     paddingHorizontal: 15,
-    paddingRight: 45, // Space for eye icon
+    paddingRight: 45, 
     fontFamily: 'Poppins_Regular',
   },
   passwordEyeIcon: {

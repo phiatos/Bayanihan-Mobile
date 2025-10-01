@@ -117,7 +117,6 @@ const ReliefSummary = () => {
     }
 
     try {
-      // Calculate expiration date based on category and urgency
       const today = new Date();
       let expirationDays;
 
@@ -164,7 +163,7 @@ const ReliefSummary = () => {
         matchedDonationIds: [],
         assignedVolunteers: [],
         urgent,
-        expirationDate: expirationDate.toISOString() // Store expiration date
+        expirationDate: expirationDate.toISOString() 
       };
 
       const requestRef = push(ref(database, 'requestRelief/requests'));
@@ -275,7 +274,7 @@ const ReliefSummary = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1}}
         keyboardVerticalOffset={0}
       >

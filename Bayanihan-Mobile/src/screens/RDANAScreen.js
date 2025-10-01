@@ -140,7 +140,6 @@ const RDANAScreen = ({ navigation }) => {
   const [deleteType, setDeleteType] = useState('');
   const { canSubmit, organizationName, modalVisible, setModalVisible, modalConfig, setModalConfig } = useOperationCheck();
   const insets = useSafeAreaInsets();
-  const [keyboardSpace, setKeyboardSpace] = useState(0);
   const [currentSection, setCurrentSection] = useState(0);
   const scrollViewRef = useRef(null);
   const [enableUrgentRelief, setEnableUrgentRelief] = useState(false);
@@ -1150,20 +1149,6 @@ useEffect(() => {
 }, [reportData?.Site_Location_Address_Province]);
 
 
-useEffect(() => {
-    const showSub = Keyboard.addListener("keyboardDidShow", e => {
-      setKeyboardSpace(e.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
-      setKeyboardSpace(0);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
   const activeIndex = provinceOptions.findIndex(opt => opt.value === province);
   const windowHeight = Dimensions.get('window').height;
   const maxDropdownHeight = windowHeight * 0.3;
@@ -1187,7 +1172,7 @@ useEffect(() => {
       </LinearGradient>
 
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'position'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       > 
@@ -1270,13 +1255,13 @@ useEffect(() => {
                 itemTextStyle={GlobalStyles.itemTextStyle}
                 itemContainerStyle={GlobalStyles.itemContainerStyle}
                 containerStyle={GlobalStyles.containerStyle}
-                data={getCityOptions(reportData.Site_Location_Address_Province)} 
+                data={getCityOptions(reportData.Site_Location_Address_Province)}
                 labelField="label"
                 valueField="value"
                 value={reportData.Site_Location_Address_City_Municipality || null}
-                onChange={(item) => {
-                  handleChange('Site_Location_Address_City_Municipality', item.value);
-                }}
+                onChange={(item) => 
+                  handleChange('Site_Location_Address_City_Municipality', item.value)
+                }
                 disable={!canSubmit || !reportData.Site_Location_Address_Province}
                 renderRightIcon={() => (
                   <Ionicons
@@ -1296,21 +1281,17 @@ useEffect(() => {
                   }),
                 }}
                 renderItem={(item) => (
-                  <Text style={GlobalStyles.itemTextStyle}>
-                    {item.label}
-                  </Text>
+                  <Text style={GlobalStyles.itemTextStyle}>{item.label}</Text>
                 )}
                 onFocus={() => {
-                  if (
-                    reportData.Site_Location_Address_City_Municipality && 
-                    activeIndex >= 0
-                  ) {
+                  if (reportData.Site_Location_Address_City_Municipality && activeIndex >= 0) {
                     setTimeout(() => {
                       flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
                     }, 100);
                   }
                 }}
               />
+
               </View>
               {errors.Site_Location_Address_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_City_Municipality}</Text>}
 

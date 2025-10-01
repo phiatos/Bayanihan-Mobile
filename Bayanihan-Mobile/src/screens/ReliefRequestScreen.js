@@ -1117,7 +1117,7 @@ const ReliefRequestScreen = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'position'} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >

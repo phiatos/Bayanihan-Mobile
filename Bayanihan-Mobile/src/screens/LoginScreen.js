@@ -194,7 +194,7 @@ const LoginScreen = ({ navigation }) => {
     <SafeAreaView style={[styles.container, { backgroundColor: Theme.colors.lightBg }]}>
       <KeyboardAvoidingView
         style={styles.subContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableOpacity
           onPress={() => navigation.navigate('Onboarding')}

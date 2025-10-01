@@ -242,6 +242,8 @@ const ReportSubmissionScreen = () => {
   };
 
   const currentDate = new Date();
+  const twoWeeksAgo = new Date(currentDate);
+  twoWeeksAgo.setDate(currentDate.getDate() - 14);
 
   const [reportData, setReportData] = useState({
     reportID: '',
@@ -251,7 +253,7 @@ const ReportSubmissionScreen = () => {
     CalamityType: '',
     CalamityName: '',
     completionTimeOfIntervention: '',
-    StartDate: '',
+    StartDate: formatDate(twoWeeksAgo),
     EndDate: '',
     NoOfIndividualsOrFamilies: '',
     NoOfFoodPacks: '',
@@ -272,7 +274,7 @@ const ReportSubmissionScreen = () => {
     completionTimeOfIntervention: false,
   });
   const [tempDate, setTempDate] = useState({
-    StartDate: new Date(),
+    StartDate: twoWeeksAgo,
     EndDate: new Date(),
     completionTimeOfIntervention: new Date(),
   });
@@ -812,7 +814,9 @@ const ReportSubmissionScreen = () => {
           calamityArea: route.params.reportData.calamityArea,
           CalamityType: savedActivation.calamityType,
           CalamityName: savedActivation.calamityName,
+          AreaOfOperation: savedActivation.areaOfOperation || prev.AreaOfOperation,
         }));
+        setLocationName(savedActivation.areaOfOperation || route.params.reportData.AreaOfOperation);
       }
     }
   }, [route.params, activeActivations]);
@@ -1187,7 +1191,9 @@ const ReportSubmissionScreen = () => {
         calamityArea: '',
         CalamityType: '',
         CalamityName: '',
+        AreaOfOperation: '',
       }));
+      setLocationName('');
     } else {
       const selectedActivation = activeActivations.find((activation) => {
         const displayCalamity = `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`;
@@ -1199,7 +1205,15 @@ const ReportSubmissionScreen = () => {
           calamityArea: value,
           CalamityType: selectedActivation.calamityType,
           CalamityName: selectedActivation.calamityName,
+          AreaOfOperation: selectedActivation.areaOfOperation || prev.AreaOfOperation,
         }));
+        setLocationName(selectedActivation.areaOfOperation || '');
+        if (selectedActivation.areaOfOperation && selectedActivation.areaOfOperation.includes(',')) {
+          const [lat, lng] = selectedActivation.areaOfOperation.split(',').map(Number);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            setSelectedLocation({ latitude: lat, longitude: lng });
+          }
+        }
       }
     }
   };
@@ -1389,7 +1403,7 @@ const ReportSubmissionScreen = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >
@@ -1548,6 +1562,8 @@ const ReportSubmissionScreen = () => {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   textColor={Theme.colors.black}
+                  minimumDate={twoWeeksAgo}
+                  maximumDate={currentDate}
                   onChange={(event, date) => handleDateChange('StartDate', event, date)}
                 />
               )}
@@ -1568,7 +1584,8 @@ const ReportSubmissionScreen = () => {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   textColor={Theme.colors.black}
-                  onChange={(event, val) => handleDateChange('EndDate', event, val)}
+                  maximumDate={currentDate}
+                  onChange={(event, date) => handleDateChange('EndDate', event, date)}
                 />
               )}
               {errors.EndDate && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.EndDate}</Text>}

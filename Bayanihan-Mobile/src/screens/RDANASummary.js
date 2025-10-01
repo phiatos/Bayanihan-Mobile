@@ -65,7 +65,7 @@ const RDANASummary = () => {
     }
   };
 
-  const isValidString = (str) => /^[a-zA-Z0-9\s,.-]+$/.test(str?.trim());
+const isValidString = (str) => /^[a-zA-ZñÑ0-9\s,.-]+$/.test(str?.trim());
 
   useEffect(() => {
     try {
@@ -357,11 +357,30 @@ const RDANASummary = () => {
         const { latitude, longitude } = await getCoordinates();
         const urgent = true;
 
-        const addedItems = validImmediateNeeds.map(item => ({
+        const assistance = validImmediateNeeds.map(item => ({
           name: item.need.trim(),
           quantity: Number(item.qty),
           notes: "URGENT"
         }));
+
+         const today = new Date();
+      let expirationDays;
+
+      const expirationRules = {
+        "rice": { urgent: 3, nonUrgent: 7 },
+        "canned goods": { urgent: 4, nonUrgent: 10 },
+        "water bottles": { urgent: 2, nonUrgent: 5 },
+        "blankets": { urgent: 5, nonUrgent: 14 },
+        "medicine kits": { urgent: 2, nonUrgent: 5 },
+        "hygiene packs": { urgent: 3, nonUrgent: 7 },
+        "others": { urgent: 4, nonUrgent: 10 }
+      };
+
+      const rule = expirationRules[category.toLowerCase()] || expirationRules["others"];
+      expirationDays = urgent ? rule.urgent : rule.nonUrgent;
+
+      const expirationDate = new Date();
+      expirationDate.setDate(today.getDate() + expirationDays);
 
         const newRequest = {
           contactPerson,
@@ -375,7 +394,8 @@ const RDANASummary = () => {
             latitude: Number(latitude),
             longitude: Number(longitude)
           },
-          items: addedItems,
+          assistance: assistance,
+          remaining: assistance,
           timestamp: serverTimestamp(),
           donationDate: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -384,7 +404,9 @@ const RDANASummary = () => {
           matchedDonationIds: [],
           assignedVolunteers: [],
           urgent,
-          rdanaId
+          rdanaId,
+          expirationDate: expirationDate.toISOString() 
+
         };
 
         const requestRef = push(databaseRef(database, 'requestRelief/requests'));
@@ -404,7 +426,7 @@ const RDANASummary = () => {
           }),
         ]);
 
-        const itemsList = addedItems.map(n => `${n.name} (${n.quantity} units)`).join(", ");
+        const itemsList = assistance.map(n => `${n.name} (${n.quantity} units)`).join(", ");
         const message = `New urgent relief request submitted with RDANA report (${rdanaId}) by ${volunteerOrganization} for ${itemsList} in ${formattedAddress}.`;
         await notifyAdmin(
           message,
@@ -581,7 +603,7 @@ const RDANASummary = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1}}
         keyboardVerticalOffset={0}
       >
