@@ -83,11 +83,7 @@ const isValidString = (str) => /^[a-zA-ZñÑ0-9\s,.-]+$/.test(str?.trim());
       if (!Array.isArray(initialResponse)) {
         throw new Error('Invalid initial response data received');
       }
-      
-      console.log(`[${new Date().toISOString()}] Specific fields:`, {
-        category: reportData.category,
-        estQty: reportData.estQty
-      });
+  
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Validation error:`, error.message);
       Alert.alert('Error', error.message);
