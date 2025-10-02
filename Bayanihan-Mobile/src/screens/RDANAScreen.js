@@ -2350,7 +2350,7 @@ useEffect(() => {
           </View>
 
           {/* Navigation Buttons */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 15, marginTop: -30, marginBottom: 40}}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 15, marginBottom: 20}}>
             {currentSection > 0 && (
               <TouchableOpacity
                 style={[GlobalStyles.backButton, { flex: 1, marginVertical: 10}]}

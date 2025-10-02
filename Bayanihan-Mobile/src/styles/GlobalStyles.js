@@ -22,7 +22,6 @@ const borderWidth = {
   thick: 3,
 };
 
-// Calculate header top padding for iOS and Android
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
 const HEADER_HEIGHT = 60; 
 const windowHeight = Dimensions.get('window').height;
@@ -66,6 +65,7 @@ export default StyleSheet.create({
       shadowOffset: { width: 0, height: 5 },
       shadowOpacity: 0.3,
       shadowRadius: 5,
+      elevation: 5,
   },
   headerMenuIcon: {
     position: 'absolute',
@@ -84,9 +84,10 @@ export default StyleSheet.create({
     flexGrow: 1,
   },
   form: {
+    flex:1,
     marginHorizontal: 10,
-    marginTop: 100,
-    marginBottom: 40,
+    marginTop: HEADER_HEIGHT + 40,
+    // marginBottom: 2,
   },
   formTitle: {
     fontSize: 13,

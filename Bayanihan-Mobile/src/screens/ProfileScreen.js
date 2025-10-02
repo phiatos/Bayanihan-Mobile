@@ -807,7 +807,7 @@ const ProfileScreen = () => {
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={[GlobalStyles.form, {marginTop: 80}]}>
+          <View style={[GlobalStyles.form, {marginTop: 60}]}>
             <Text style={[GlobalStyles.subheader, { color: Theme.colors.accent, fontSize: profileData.role.includes('AB ADMIN') ? 22 : 20 }]}>
               {profileData.role.includes('AB ADMIN') ? 'Admin Account' : 'Volunteer Group: ' + profileData.organization}
             </Text>

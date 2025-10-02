@@ -29,7 +29,6 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "softwareKeyboardLayoutMode": "pan" ,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -41,7 +40,7 @@
       "package": "com.firebase.bayanihan",
       "statusBar": {
         "translucent": false,
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "transparent"
       }
     },
     "web": {
@@ -71,11 +70,11 @@
     "updates": {},
     "androidStatusBar": {
       "translucent": true,
-      "backgroundColor": "#00000000"
+      "backgroundColor": "transparent"
     },
     "androidNavigationBar": {
       "visible": "immersive",
-      "backgroundColor": "#00000000"
+      "backgroundColor": "transparent"
     },
     "owner": "louihv"
   }
