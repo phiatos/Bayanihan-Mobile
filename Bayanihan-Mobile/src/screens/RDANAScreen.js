@@ -348,8 +348,7 @@ const RDANAScreen = ({ navigation }) => {
       field.includes('Province') ||
       field.includes('Relief') ||
       field.includes('responseGroup') ||
-      field.includes('otherNeeds') ||
-      field.includes('requestCategory')
+      field.includes('otherNeeds') 
     ) {
       sanitized = sanitized.replace(/[^a-zA-Z\sñÑ,-]/g, '');
     }
@@ -625,16 +624,13 @@ const RDANAScreen = ({ navigation }) => {
     return { isValid: messages.length === 0, newErrors };
 };
 
-const validateImmediateNeedsInputs = () => {
-  const { otherNeeds, estQty, requestCategory } = reportData;
-  const newErrors = {};
-  if (enableUrgentRelief && requestCategory && otherNeeds && estQty) {
-    if (!requestCategory.trim()) newErrors.requestCategory = 'Please select a request category.';
-    if (!otherNeeds.trim()) newErrors.otherNeeds = 'Please enter the need.';
-    if (!estQty.trim()) newErrors.estQty = 'Please enter the estimated quantity.';
-  }
-  return { isValid: Object.keys(newErrors).length === 0, newErrors };
-};
+  const validateImmediateNeedsInputs = () => {
+    const { otherNeeds, estQty } = reportData;
+    const newErrors = {};
+    if (!otherNeeds || !otherNeeds.trim()) newErrors.otherNeeds = 'Please enter the need.';
+    if (!estQty || !estQty.trim()) newErrors.estQty = 'Please enter the estimated quantity.';
+    return { isValid: Object.keys(newErrors).length === 0, newErrors };
+  };
 
   const validateInitialResponseInputs = () => {
     const { responseGroup, reliefDeployed, familiesServed } = reportData;
@@ -2131,104 +2127,19 @@ useEffect(() => {
                 </TouchableOpacity>
               ))}
 
-              <View style={styles.section}>
-                <TouchableOpacity
-                  style={[GlobalStyles.checkboxContainer, enableUrgentRelief && GlobalStyles.checkboxChecked]}
-                  onPress={() => {
-                    if (canSubmit) {
-                      setEnableUrgentRelief(!enableUrgentRelief);
-                      if (!enableUrgentRelief) {
-                        setReportData((prev) => ({
-                          ...prev,
-                          requestCategory: '',
-                          otherNeeds: '',
-                          estQty: '',
-                        }));
-                        setRequestCategory('');
-                        setErrors((prev) => {
-                          const newErrors = { ...prev };
-                          delete newErrors.requestCategory;
-                          delete newErrors.otherNeeds;
-                          delete newErrors.estQty;
-                          return newErrors;
-                        });
-                      }
-                    }
-                  }}
-                  disabled={!canSubmit}
-                >
-                  { <Ionicons
-                name={enableUrgentRelief ? 'checkbox' : 'square-outline'}
-                size={24}
-                color={enableUrgentRelief ? Theme.colors.accent : Theme.colors.black}
-              />}
-                <Text style={[GlobalStyles.checkboxLabel, {fontFamily: 'Poppins_SemiBold'}]}>Submit an Urgent Relief Request</Text>
-                </TouchableOpacity>
-
-
-              {renderLabel('Request Category', enableUrgentRelief)}
-              <View ref={(ref) => (inputContainerRefs.requestCategory = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.requestCategory && GlobalStyles.inputError]}>
-                <Dropdown
-                style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                placeholder="Select Request Category"
-                placeholderStyle={GlobalStyles.placeholderStyle}
-                selectedTextStyle={GlobalStyles.selectedTextStyle}
-                itemTextStyle={GlobalStyles.itemTextStyle}
-                itemContainerStyle={GlobalStyles.itemContainerStyle}
-                containerStyle={GlobalStyles.containerStyle}
-                data={requestCategoryOptions}
-                labelField="label"
-                valueField="value"
-                value={reportData.requestCategory || null}
-                onChange={(item) => handleChange('requestCategory', item.value)}
-                disable={!canSubmit || !enableUrgentRelief}
-                renderRightIcon={() => (
-                  <Ionicons
-                    name="chevron-down"
-                    size={18}
-                    color={Theme.colors.placeholderColor}
-                  />
-                )}
-                autoScroll={false}
-                flatListProps={{
-                  keyExtractor: (item) => item.value.toString(),
-                  ref: flatListRef,
-                  getItemLayout: (_, index) => ({
-                    length: ITEM_HEIGHT,
-                    offset: ITEM_HEIGHT * index,
-                    index,
-                  }),
-                }}
-                renderItem={(item) => (
-                  <Text style={GlobalStyles.itemTextStyle}>
-                    {item.label}
-                  </Text>
-                )}
-                onFocus={() => {
-                  if (reportData.requestCategory && activeIndex >= 0) {
-                    setTimeout(() => {
-                      flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
-                    }, 100);
-                  }
-                }}
-              />
-
-              </View>
-              {errors.requestCategory && <Text style={GlobalStyles.errorText}>{errors.requestCategory}</Text>}
-
-             {renderLabel('Other Immediate Needs', enableUrgentRelief)}
+             {renderLabel('Other Immediate Needs', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.otherNeeds && GlobalStyles.inputError]}
                 placeholder="Enter Other Needs"
                 placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('otherNeeds', val)}
                 value={reportData.otherNeeds}
-                editable={canSubmit && enableUrgentRelief}
+                editable={canSubmit}
                />
                {errors.otherNeeds && <Text style={GlobalStyles.errorText}>{errors.otherNeeds}</Text>}
                 
 
-              {renderLabel('Estimated Quantity', enableUrgentRelief)}
+              {renderLabel('Estimated Quantity', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.estQty && GlobalStyles.inputError]}
                 placeholder="Enter Estimated Quantity"
@@ -2236,17 +2147,18 @@ useEffect(() => {
                 keyboardType="numeric"
                 onChangeText={(val) => handleChange('estQty', val)}
                 value={reportData.estQty}
-                editable={canSubmit && enableUrgentRelief}
+                editable={canSubmit}
               />
               {errors.estQty && <Text style={GlobalStyles.errorText}>{errors.estQty}</Text>}
 
-              <TouchableOpacity
-                style={[GlobalStyles.supplementaryButton, { marginTop: 10 }, (!enableUrgentRelief || !reportData.requestCategory ||  !reportData.otherNeeds || !reportData.estQty) && { opacity: 0.6 }]}
+                <TouchableOpacity
+                style={[GlobalStyles.supplementaryButton, { marginTop: 10 }]}
                 onPress={handleAddImmediateNeed}
-                disabled={!canSubmit || !enableUrgentRelief || !reportData.requestCategory || !reportData.otherNeeds || !reportData.estQty}
+                disabled={!canSubmit || !reportData.otherNeeds || !reportData.estQty}
               >
                 <Text style={GlobalStyles.supplementaryButtonText}>Add Need</Text>
               </TouchableOpacity>
+
 
               {immediateNeeds.length > 0 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={true}>
@@ -2272,7 +2184,6 @@ useEffect(() => {
                   </View>
                 </ScrollView>
               )}
-              </View>
               </View>
               
                <View style={GlobalStyles.section}>

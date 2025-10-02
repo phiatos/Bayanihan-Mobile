@@ -24,7 +24,6 @@ const RDANASummary = () => {
     immediateNeeds: initialNeeds = [], 
     initialResponse: initialResponses = [], 
     organizationName = user?.organization || 'Admin',
-    enableUrgentRelief = false 
   } = route.params || {};
   const [reportData, setReportData] = useState(initialReportData);
   const [affectedMunicipalities, setAffectedMunicipalities] = useState(initialMunicipalities);
@@ -333,111 +332,6 @@ const isValidString = (str) => /^[a-zA-ZñÑ0-9\s,.-]+$/.test(str?.trim());
         status: 'Submitted'
       };
 
-      if (enableUrgentRelief) {        
-        const validImmediateNeeds = immediateNeeds.filter(item => item.need?.trim() && Number(item.qty) > 0);
-        if (validImmediateNeeds.length === 0) {
-          setErrorMessage('At least one valid immediate need (with a name and positive quantity) is required.');
-          setModalVisible(true);
-          setIsSubmitting(false);
-          return;
-        }
-
-        const contactPerson = user.displayName || user.contactPerson || "Unknown";
-        const contactNumber =
-          route?.params?.reportData?.contactNumber ||
-          user?.mobile || user?.contactNumber ||
-          '';
-        const email = user.email || "";
-        const volunteerOrganization = organizationName;
-        const province = Site_Location_Address_Province?.trim() || "";
-        const city = Site_Location_Address_City_Municipality?.trim() || "";
-        const barangay = Site_Location_Address_Barangay?.trim() || "";
-        const formattedAddress = [barangay, city, province].filter(Boolean).join(", ");
-        const category = reportData.category?.trim() ? reportData.category.trim() : "General";
-        const { latitude, longitude } = await getCoordinates();
-        const urgent = true;
-
-        const assistance = validImmediateNeeds.map(item => ({
-          name: item.need.trim(),
-          quantity: Number(item.qty),
-          notes: "URGENT"
-        }));
-
-         const today = new Date();
-      let expirationDays;
-
-      const expirationRules = {
-        "rice": { urgent: 3, nonUrgent: 7 },
-        "canned goods": { urgent: 4, nonUrgent: 10 },
-        "water bottles": { urgent: 2, nonUrgent: 5 },
-        "blankets": { urgent: 5, nonUrgent: 14 },
-        "medicine kits": { urgent: 2, nonUrgent: 5 },
-        "hygiene packs": { urgent: 3, nonUrgent: 7 },
-        "others": { urgent: 4, nonUrgent: 10 }
-      };
-
-      const rule = expirationRules[category.toLowerCase()] || expirationRules["others"];
-      expirationDays = urgent ? rule.urgent : rule.nonUrgent;
-
-      const expirationDate = new Date();
-      expirationDate.setDate(today.getDate() + expirationDays);
-
-        const newRequest = {
-          contactPerson,
-          contactNumber,
-          email,
-          category,
-          volunteerOrganization,
-          userUid: user.id,
-          address: {
-            formattedAddress,
-            latitude: Number(latitude),
-            longitude: Number(longitude)
-          },
-          assistance: assistance,
-          remaining: assistance,
-          timestamp: serverTimestamp(),
-          donationDate: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          status: "Pending",
-          matchedDonations: 0,
-          matchedDonationIds: [],
-          assignedVolunteers: [],
-          urgent,
-          rdanaId,
-          expirationDate: expirationDate.toISOString() 
-
-        };
-
-        const requestRef = push(databaseRef(database, 'requestRelief/requests'));
-        const userRequestRef = databaseRef(database, `users/${user.id}/requests/${requestRef.key}`);
-
-        await Promise.all([
-          set(requestRef, newRequest).catch(error => {
-            throw new Error(`Failed to save relief request: ${error.message}`);
-          }),
-          set(userRequestRef, {
-            requestId: requestRef.key,
-            timestamp: serverTimestamp(),
-            status: "Pending",
-            rdanaId
-          }).catch(error => {
-            throw new Error(`Failed to save user request: ${error.message}`);
-          }),
-        ]);
-
-        const itemsList = assistance.map(n => `${n.name} (${n.quantity} units)`).join(", ");
-        const message = `New urgent relief request submitted with RDANA report (${rdanaId}) by ${volunteerOrganization} for ${itemsList} in ${formattedAddress}.`;
-        await notifyAdmin(
-          message,
-          reportData.profile?.disasterType || null,
-          formattedAddress,
-          `Urgent relief request for ${category}: ${itemsList}`,
-          rdanaId,
-          contactPerson,
-          volunteerOrganization
-        );
-      }
 
       const requestRef = push(databaseRef(database, 'rdana/submitted'));
       const userRequestRef = databaseRef(database, `users/${user.id}/rdana/${rdanaId}`);
@@ -525,7 +419,6 @@ const isValidString = (str) => /^[a-zA-ZñÑ0-9\s,.-]+$/.test(str?.trim());
       initialResponse, 
       affectedLocations,
       organizationName,
-      enableUrgentRelief
     });
   };
 
@@ -784,9 +677,7 @@ const isValidString = (str) => /^[a-zA-ZñÑ0-9\s,.-]+$/.test(str?.trim());
               <>
                 <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={GlobalStyles.modalIcon} />
                 <Text style={GlobalStyles.modalMessage}>
-                  {enableUrgentRelief
-                    ? 'Your RDANA report and urgent relief request have been successfully submitted!'
-                    : 'Your RDANA report has been successfully submitted!'}
+                    Your RDANA report has been successfully submitted!
                 </Text>
               </>
             )}
