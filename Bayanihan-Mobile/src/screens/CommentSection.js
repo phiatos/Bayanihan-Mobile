@@ -604,6 +604,10 @@ const renderComment = ({ item }) => {
                   ref={commentInputRef}
                   style={[styles.commentInput, { paddingRight: 40 }]}
                   placeholder={replyToUsername ? `Reply to ${replyToUsername}...` : 'Add a comment...'}
+                  placeholderTextColor={Platform.select({
+                    ios: Theme.colors.placeholder || '#777777ff',
+                    android: Theme.colors.placeholder || '#777777ff',
+                  })}
                   value={newComment}
                   onChangeText={setNewComment}
                   multiline

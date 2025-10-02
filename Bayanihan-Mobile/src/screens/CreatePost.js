@@ -634,7 +634,8 @@ const CreatePost = () => {
             {isShared ? (
               <View style={{ marginLeft: 0 }}>
                 <Text style={styles.sharedInfo}>
-                  Sharing post from {initialData?.originalUserName || ''} ({initialData?.originalOrganization || ''})
+                  Sharing post from {initialData?.originalUserName || ''}{' '}
+                  {initialData?.originalOrganization && user?.role !== 'Admin' ? `(${initialData.originalOrganization})` : ''}
                 </Text>
                 <TextInput
                   style={{ height: Math.max(40, inputHeight), marginLeft: 10, color: Theme.colors.black, fontFamily: 'Poppins_Regular' }}

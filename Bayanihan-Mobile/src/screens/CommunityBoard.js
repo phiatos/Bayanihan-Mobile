@@ -333,9 +333,9 @@ const CommunityBoard = () => {
             <View>
               <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
               <Text style={styles.postMeta}>
-                {userRole === 'ABVN' && item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
+                {item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
               </Text>
-              {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
+              {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}{item.originalOrganization ? `, ${item.originalOrganization}` : ''}'s post</Text>}
               {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
             </View>
           </View>
@@ -377,9 +377,9 @@ const CommunityBoard = () => {
           <View style={{ flex: 1 }}>
             <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
             <Text style={styles.postMeta}>
-              {userRole === 'ABVN' && item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
+              {item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
             </Text>
-            {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
+            {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}{item.originalOrganization ? `, ${item.originalOrganization}` : ''}'s post</Text>}
             {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
           </View>
           {item.userId === user?.id && isEditable(item) && (
