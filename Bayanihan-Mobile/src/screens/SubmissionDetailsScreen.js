@@ -31,7 +31,7 @@ const SubmissionDetailsScreen = () => {
       return;
     }
     if (!user) {
-      Alert.alert('Error', 'Please log in to view transaction details');
+      Alert.alert('Error', 'Please log in to view submission details');
       return;
     }
 
@@ -329,7 +329,7 @@ const SubmissionDetailsScreen = () => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={GlobalStyles.headerMenuIcon}>
             <Ionicons name="arrow-back" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Transaction Details</Text>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Submissions Details</Text>
         </View>
       </LinearGradient>
 

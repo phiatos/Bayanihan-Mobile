@@ -83,12 +83,16 @@ export default StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
   },
-  form: {
+  summaryView: {
+    flex:1,
+    marginHorizontal: 10,
+    marginTop: 30,
+  },
+    form: {
     flex:1,
     marginHorizontal: 10,
     marginTop: HEADER_HEIGHT + 40,
-    // marginBottom: 2,
-  },
+    },
   formTitle: {
     fontSize: 13,
     color: Theme.colors.primary,
@@ -379,8 +383,8 @@ itemContainerStyle: {
   finalButtonContainer:{
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginHorizontal: 10,
     marginTop: 20,
+    marginBottom: 30,
     height: 45,
   },
     backButton: {

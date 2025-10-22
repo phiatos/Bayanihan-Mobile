@@ -196,7 +196,7 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={authContextValue}>
       {loading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.colors.lightBg }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor:' #FFF9F0' }}>
           <ActivityIndicator size={80} color={Theme.colors.primary} />
         </View>
       ) : (

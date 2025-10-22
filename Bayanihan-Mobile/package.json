@@ -114,7 +114,8 @@
           "react-datepicker",
           "react-native-fontawesome",
           "react-native-vector-icons",
-          "rimraf"
+          "rimraf",
+          "react-native-modal-selector"
         ],
         "listUnknownPackages": false
       }

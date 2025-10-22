@@ -1401,7 +1401,7 @@ const ReliefRequestScreen = () => {
                 </View>
               )}
             </View>    
-             <View style={{ marginHorizontal: 15 }}>
+             <View style={{ marginHorizontal: 15, marginBottom: 40 }}>
              <TouchableOpacity
                 style={[GlobalStyles.button, !canSubmit && { opacity: 0.6 }]}
                 onPress={handleSubmit}

@@ -407,9 +407,9 @@ const SubmissionScreen = () => {
         style={styles.viewButton}
         onPress={() => {
           if (isModalAction(item.message)) {
-            navigation.navigate('TransactionDetailsScreen', { item });
+            navigation.navigate('SubmissionDetailsScreen', { item });
           } else {
-            navigation.navigate('TransactionDetailsScreen', { item });
+            navigation.navigate('SubmissionDetailsScreen', { item });
           }
         }}
       >
@@ -460,7 +460,7 @@ const SubmissionScreen = () => {
             <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
           <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>
-            Transaction History
+            Submissions History
           </Text>
         </View>
       </LinearGradient>

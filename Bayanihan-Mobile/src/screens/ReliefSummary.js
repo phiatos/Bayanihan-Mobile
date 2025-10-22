@@ -283,7 +283,7 @@ const ReliefSummary = () => {
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={GlobalStyles.form}>
+          <View style={GlobalStyles.summaryView}>
             <Text style={GlobalStyles.subheader}>Summary</Text>
             <Text style={GlobalStyles.organizationName}>{organizationName}</Text>
             <View style={GlobalStyles.summarySection}>
