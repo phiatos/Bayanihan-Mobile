@@ -79,29 +79,22 @@ const LoginScreen = ({ navigation }) => {
     const isPasswordValid = validatePassword(password, setPasswordError);
 
     if (!isEmailValid || !isPasswordValid) {
-      console.log(`[${new Date().toISOString()}] Validation failed:`, { emailError, passwordError });
       return;
     }
 
     if (isLoading) {
-      console.log(`[${new Date().toISOString()}] Login is already in progress`);
       return;
     }
 
     setIsLoading(true);
     try {
       await setPersistence(auth, getReactNativePersistence(AsyncStorage));
-      console.log(`[${new Date().toISOString()}] Persistence set to AsyncStorage before login`);
-
-      console.log(`[${new Date().toISOString()}] Attempting login with:`, email);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const updatedUser = userCredential.user;
-      console.log(`[${new Date().toISOString()}] Login successful, user:`, updatedUser.uid);
 
       const userRef = ref(database, `users/${updatedUser.uid}`);
       const userSnapshot = await get(userRef);
       if (!userSnapshot.exists()) {
-        console.log(`[${new Date().toISOString()}] No DB record for user:`, updatedUser.uid);
         ToastAndroid.show('User account not fully set up. Please register again.', ToastAndroid.SHORT);
         await signOut(auth);
         navigation.reset({
@@ -111,7 +104,6 @@ const LoginScreen = ({ navigation }) => {
         return;
       }
       const userData = userSnapshot.val();
-      console.log(`[${new Date().toISOString()}] User data fetched:`, userData);
 
       const isAdmin = userData?.role === 'AB ADMIN';
       if (!isAdmin && !updatedUser.emailVerified) {
@@ -195,7 +187,6 @@ const LoginScreen = ({ navigation }) => {
       }
     } finally {
       setIsLoading(false);
-      console.log(`[${new Date().toISOString()}] Login attempt completed, isLoading set to false`);
     }
   };
 
@@ -220,6 +211,10 @@ const LoginScreen = ({ navigation }) => {
               <TextInput
                 style={[styles.input, emailError && GlobalStyles.inputError]}
                 placeholder="Enter Email"
+                 placeholderTextColor={Platform.select({
+                    ios: Theme.colors.placeholder || '#777777ff',
+                    android: Theme.colors.placeholder || '#777777ff',
+                  })}
                 keyboardType="email-address"
                 value={email}
                 onChangeText={(text) => {
@@ -237,6 +232,10 @@ const LoginScreen = ({ navigation }) => {
                 <TextInput
                   style={[styles.input, styles.passwordInput, passwordError && GlobalStyles.inputError]}
                   placeholder="Enter Password"
+                  placeholderTextColor={Platform.select({
+                    ios: Theme.colors.placeholder || '#777777ff',
+                    android: Theme.colors.placeholder || '#777777ff',
+                  })}
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={(text) => {

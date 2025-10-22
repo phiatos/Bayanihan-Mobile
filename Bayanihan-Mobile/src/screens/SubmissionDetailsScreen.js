@@ -31,9 +31,7 @@ const SubmissionDetailsScreen = () => {
       return;
     }
     if (!user) {
-      Alert.alert('Error', 'Please log in to view transaction details');
-      console.log(`[${new Date().toISOString()}] No user logged in, redirecting to Login`);
-      navigation.navigate('Login');
+      Alert.alert('Error', 'Please log in to view submission details');
       return;
     }
 
@@ -41,7 +39,6 @@ const SubmissionDetailsScreen = () => {
 
     return () => {
       if (unsubscribe) unsubscribe();
-      console.log(`[${new Date().toISOString()}] Cleaned up Firebase listener`);
     };
   }, [user]);
 
@@ -66,17 +63,14 @@ const SubmissionDetailsScreen = () => {
               }, {})
             : {};
           setSubmissionData(submissions);
-          console.log(`[${new Date().toISOString()}] Submission history fetched: ${Object.keys(submissions).length} items`);
         },
         (error) => {
           Alert.alert('Error', `Failed to fetch submission history: ${error.message}`);
-          console.error(`[${new Date().toISOString()}] Error fetching submission history:`, error);
         }
       );
       return unsubscribe;
     } catch (error) {
       Alert.alert('Error', `Failed to fetch submission data: ${error.message}`);
-      console.error(`[${new Date().toISOString()}] Error in fetchSubmissionData:`, error);
       return () => {};
     }
   };
@@ -113,8 +107,6 @@ const SubmissionDetailsScreen = () => {
     'posts.userId': 'User ID',
     'posts.timestamp': 'Submission Time',
 
-    'rdana.rdanaId': 'RDANA ID',
-    'rdana.rdanaGroup': 'Organization Name',
     'rdana.siteLocation': 'Site Location',
     'rdana.disasterType': 'Disaster Type',
     'rdana.dateTime': 'Date & Time',
@@ -140,15 +132,17 @@ const SubmissionDetailsScreen = () => {
     'rdana.modality.Type_of_Disaster': 'Disaster Type',
     'rdana.modality.Date_and_Time_of_Occurrence': 'Date and Time of Occurrence',
     'rdana.modality.Date_and_Time_of_Occurrence': 'Date & Time of Occurence',
-    'rdana.summary': 'Summary',
+    'rdana/reportData/profile.summary': 'Summary',
     'rdana.affectedCommunities': 'Affected Communities',
     'rdana.structureStatus': 'Structure Status',
     'rdana.otherNeeds': 'Other Needs',
     'rdana.responseGroup': 'Response Group',
     'rdana.reliefDeployed': 'Relief Deployed',
-    'rdana.userUid': 'User ID',
-    'rdana.status': 'Status',
-    'rdana.timestamp': 'Submission Time',
+    'rdana/submitted.userUid': 'User ID',
+    'rdana/submitted.status': 'Status',
+    'rdana/submitted.timestamp': 'Submission Time',
+    'rdana/submitted.currentUserGroupName': 'Group Name',
+    'rdana/submitted.rdanaId': 'RDANA ID',
 
     'requestRelief/requests.contactPerson': 'Contact Person',
     'requestRelief/requests.contactNumber': 'Contact Number',
@@ -164,6 +158,12 @@ const SubmissionDetailsScreen = () => {
     'requestRelief/requests.status': 'Status',
     'requestRelief/requests.timestamp': 'Submission Time',
     'requestRelief/requests.organizationName': 'Organization Name',
+    'requestRelief/requests.urgent': 'Urgent',
+    'requestRelief/requests.remaining': 'Remaining',
+    'requestRelief/requests.assistance': 'Assistance',
+    'requestRelief/requests.donationDate': 'Donation Date',
+    'requestRelief/requests.expirationDate': 'Expiration Date',
+    'requestRelief/requests.matchedDonations': 'Matched Donations',
 
     'reports.reportID': 'Report ID',
     'reports.VolunteerGroupName': 'Volunteer Group Name',
@@ -329,7 +329,7 @@ const SubmissionDetailsScreen = () => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={GlobalStyles.headerMenuIcon}>
             <Ionicons name="arrow-back" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Transaction Details</Text>
+          <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>Submissions Details</Text>
         </View>
       </LinearGradient>
 

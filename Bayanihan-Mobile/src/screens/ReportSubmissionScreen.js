@@ -209,6 +209,9 @@ const ReportSubmissionScreen = () => {
   const [locationName, setLocationName] = useState('');
   const [activeActivations, setActiveActivations] = useState([]);
   const [mapType, setMapType] = useState('roadmap');
+  const flatListRef = useRef(null); 
+  const [isDropdownFocused, setIsDropdownFocused] = useState(false); 
+  const arrowRotation = useRef(new Animated.Value(0)).current;
 
   const formatDate = (date) => {
     if (!date) return '';
@@ -239,6 +242,8 @@ const ReportSubmissionScreen = () => {
   };
 
   const currentDate = new Date();
+  const twoWeeksAgo = new Date(currentDate);
+  twoWeeksAgo.setDate(currentDate.getDate() - 14);
 
   const [reportData, setReportData] = useState({
     reportID: '',
@@ -248,7 +253,7 @@ const ReportSubmissionScreen = () => {
     CalamityType: '',
     CalamityName: '',
     completionTimeOfIntervention: '',
-    StartDate: '',
+    StartDate: formatDate(twoWeeksAgo),
     EndDate: '',
     NoOfIndividualsOrFamilies: '',
     NoOfFoodPacks: '',
@@ -269,7 +274,7 @@ const ReportSubmissionScreen = () => {
     completionTimeOfIntervention: false,
   });
   const [tempDate, setTempDate] = useState({
-    StartDate: new Date(),
+    StartDate: twoWeeksAgo,
     EndDate: new Date(),
     completionTimeOfIntervention: new Date(),
   });
@@ -293,6 +298,14 @@ const ReportSubmissionScreen = () => {
     'TotalValueOfInKindDonations',
     'TotalMonetaryDonations',
   ];
+
+  useEffect(() => {
+    Animated.timing(arrowRotation, {
+      toValue: isDropdownFocused ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isDropdownFocused, arrowRotation]);
 
   const leafletHtml = `
     <!DOCTYPE html>
@@ -653,7 +666,6 @@ const ReportSubmissionScreen = () => {
         console.error('Permission check error:', error);
         setPermissionStatus('denied');
         ToastAndroid.show('Failed to check location permission. Please enable it.', ToastAndroid.SHORT);
-
       }
     };
     checkPermissionStatus();
@@ -802,7 +814,9 @@ const ReportSubmissionScreen = () => {
           calamityArea: route.params.reportData.calamityArea,
           CalamityType: savedActivation.calamityType,
           CalamityName: savedActivation.calamityName,
+          AreaOfOperation: savedActivation.areaOfOperation || prev.AreaOfOperation,
         }));
+        setLocationName(savedActivation.areaOfOperation || route.params.reportData.AreaOfOperation);
       }
     }
   }, [route.params, activeActivations]);
@@ -1177,7 +1191,9 @@ const ReportSubmissionScreen = () => {
         calamityArea: '',
         CalamityType: '',
         CalamityName: '',
+        AreaOfOperation: '',
       }));
+      setLocationName('');
     } else {
       const selectedActivation = activeActivations.find((activation) => {
         const displayCalamity = `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`;
@@ -1189,7 +1205,15 @@ const ReportSubmissionScreen = () => {
           calamityArea: value,
           CalamityType: selectedActivation.calamityType,
           CalamityName: selectedActivation.calamityName,
+          AreaOfOperation: selectedActivation.areaOfOperation || prev.AreaOfOperation,
         }));
+        setLocationName(selectedActivation.areaOfOperation || '');
+        if (selectedActivation.areaOfOperation && selectedActivation.areaOfOperation.includes(',')) {
+          const [lat, lng] = selectedActivation.areaOfOperation.split(',').map(Number);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            setSelectedLocation({ latitude: lat, longitude: lng });
+          }
+        }
       }
     }
   };
@@ -1292,6 +1316,12 @@ const ReportSubmissionScreen = () => {
     </Text>
   );
 
+  const ITEM_HEIGHT = 50;
+  const activeIndex = activeActivations.findIndex((activation) => {
+    const displayCalamity = `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`;
+    return displayCalamity === reportData.calamityArea;
+  });
+
   if (isLoading) {
     return (
       <SafeAreaView style={GlobalStyles.container}>
@@ -1374,7 +1404,7 @@ const ReportSubmissionScreen = () => {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 80 }}
+        style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >
         <ScrollView
@@ -1429,25 +1459,70 @@ const ReportSubmissionScreen = () => {
               {renderLabel('Select Calamity', true)}
               <View style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.calamityArea && GlobalStyles.inputError]}>
                 <Dropdown
-                style={{ padding: 10, width: '100%' }}
-                placeholderStyle={GlobalStyles.placeholderStyle}
-                selectedTextStyle={GlobalStyles.selectedTextStyle}
-                itemTextStyle={GlobalStyles.itemTextStyle}
-                data={[
-                  { label: 'Select an Active Operation', value: null }, // placeholder option
-                  ...activeActivations.map((activation) => ({
-                    label: `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`,
-                    value: `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`,
-                  }))
-                ]}
-                labelField="label"
-                valueField="value"
-                placeholder="Select an Active Operation"
-                value={reportData.calamityArea || null} // <-- must match the null placeholder
-                onChange={(item) => handleCalamityChange(item.value)}
-                disable={!canSubmit}
-              />
-
+                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                  placeholderStyle={GlobalStyles.placeholderStyle}
+                  selectedTextStyle={GlobalStyles.selectedTextStyle}
+                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  itemContainerStyle={GlobalStyles.itemContainerStyle}
+                  containerStyle={GlobalStyles.containerStyle}
+                  data={[
+                    { label: 'Select an Active Operation', value: '' }, 
+                    ...activeActivations.map((activation) => ({
+                      label: `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`,
+                      value: `${activation.calamityType} - ${activation.calamityName} (by ${activation.organization})`,
+                    }))
+                  ]}
+                  labelField="label"
+                  valueField="value"
+                  placeholder="Select an Active Operation"
+                  value={reportData.calamityArea || ''}
+                  onChange={(item) => handleCalamityChange(item.value)}
+                  disable={!canSubmit}
+                  renderRightIcon={() => (
+                    <Animated.View
+                      style={{
+                        transform: [{
+                          rotate: arrowRotation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['0deg', '180deg'],
+                          }),
+                        }],
+                      }}
+                    >
+                      <Ionicons
+                        name="chevron-down"
+                        size={18}
+                        color={Theme.colors.placeholder || '#999999'}
+                      />
+                    </Animated.View>
+                  )}
+                  autoScroll={false}
+                  flatListProps={{
+                    keyExtractor: (item) => item.value.toString(),
+                    ref: flatListRef,
+                    getItemLayout: (_, index) => ({
+                      length: ITEM_HEIGHT,
+                      offset: ITEM_HEIGHT * index,
+                      index,
+                    }),
+                  }}
+                  renderItem={(item) => (
+                    <Text style={GlobalStyles.itemTextStyle}>
+                      {item.label}
+                    </Text>
+                  )}
+                  onFocus={() => {
+                    setIsDropdownFocused(true);
+                    if (reportData.calamityArea && activeIndex >= 0) {
+                      setTimeout(() => {
+                        flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                      }, 100);
+                    }
+                  }}
+                  onBlur={() => {
+                    setIsDropdownFocused(false);
+                  }}
+                />
               </View>
               {errors.calamityArea && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.calamityArea}</Text>}
               {renderLabel('Completion Time of Intervention', true)}
@@ -1458,7 +1533,7 @@ const ReportSubmissionScreen = () => {
                 <Text style={{ flex: 1, color: reportData.completionTimeOfIntervention ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular' }}>
                   {reportData.completionTimeOfIntervention || '--:-- --'}
                 </Text>
-                <Ionicons name="time" size={24} style={{ color: "#00BCD4" }} />
+                <Ionicons name="time-outline" size={24} color={Theme.colors.placeholderColor} />
               </TouchableOpacity>
               {showTimePicker.completionTimeOfIntervention && canSubmit && (
                 <DateTimePicker
@@ -1479,7 +1554,7 @@ const ReportSubmissionScreen = () => {
                 <Text style={{ flex: 1, color: reportData.StartDate ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular' }}>
                   {reportData.StartDate ? displayDate(new Date(reportData.StartDate)) : 'dd/mm/yyyy'}
                 </Text>
-                <Ionicons name="calendar" size={24} style={{ color: "#00BCD4" }} />
+                <Ionicons name="calendar-outline" size={24} color={Theme.colors.placeholderColor} />
               </TouchableOpacity>
               {showDatePicker.StartDate && canSubmit && (
                 <DateTimePicker
@@ -1487,6 +1562,8 @@ const ReportSubmissionScreen = () => {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   textColor={Theme.colors.black}
+                  minimumDate={twoWeeksAgo}
+                  maximumDate={currentDate}
                   onChange={(event, date) => handleDateChange('StartDate', event, date)}
                 />
               )}
@@ -1499,7 +1576,7 @@ const ReportSubmissionScreen = () => {
                 <Text style={{ flex: 1, color: reportData.EndDate ? Theme.colors.black : Theme.colors.placeholderColor, fontFamily: 'Poppins_Regular' }}>
                   {reportData.EndDate ? displayDate(new Date(reportData.EndDate)) : 'dd/mm/yyyy'}
                 </Text>
-                <Ionicons name="calendar" size={24} color="#00BCD4" />
+                <Ionicons name="calendar-outline" size={24} color={Theme.colors.placeholderColor} />
               </TouchableOpacity>
               {showDatePicker.EndDate && canSubmit && (
                 <DateTimePicker
@@ -1507,7 +1584,8 @@ const ReportSubmissionScreen = () => {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   textColor={Theme.colors.black}
-                  onChange={(event, val) => handleDateChange('EndDate', event, val)}
+                  maximumDate={currentDate}
+                  onChange={(event, date) => handleDateChange('EndDate', event, date)}
                 />
               )}
               {errors.EndDate && <Text style={[GlobalStyles.errorText, { marginTop: 2 }]}>{errors.EndDate}</Text>}

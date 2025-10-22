@@ -12,7 +12,8 @@ import { useFonts } from 'expo-font';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
 import * as NavigationBar from 'expo-navigation-bar';
-import { StatusBar } from 'react-native';
+import { StatusBar, View } from 'react-native';
+import Theme from './src/constants/theme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -22,9 +23,11 @@ function Root() {
   if (loading) return null; 
 
   return (
+     <View style={{ flex: 1, backgroundColor: Theme.colors.lightBg}}>
     <NavigationContainer>
       {user ? <AppStack /> : <AuthStack />}
     </NavigationContainer>
+    </View>
   );
 }
 
@@ -63,10 +66,12 @@ function App() {
 
   return (
     <>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={false} />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
+      <View style={{ flex: 1, backgroundColor: Theme.colors.lightBg }}>
       <AuthProvider>
         <Root />
       </AuthProvider>
+      </View>
     </>
   );
 }

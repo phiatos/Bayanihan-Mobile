@@ -22,7 +22,6 @@ const borderWidth = {
   thick: 3,
 };
 
-// Calculate header top padding for iOS and Android
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
 const HEADER_HEIGHT = 60; 
 const windowHeight = Dimensions.get('window').height;
@@ -42,6 +41,7 @@ export default StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1,
+    backgroundColor: Theme.colors.lightBg
   },
   headerContainer: {
     flexDirection: 'row',
@@ -65,6 +65,7 @@ export default StyleSheet.create({
       shadowOffset: { width: 0, height: 5 },
       shadowOpacity: 0.3,
       shadowRadius: 5,
+      elevation: 5,
   },
   headerMenuIcon: {
     position: 'absolute',
@@ -82,11 +83,17 @@ export default StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
   },
-  form: {
+  summaryView: {
+    flex:1,
     marginHorizontal: 10,
-    marginTop: 20,
-    marginBottom: 40 
+    marginTop: 30,
   },
+    form: {
+    flex:1,
+    marginHorizontal: 10,
+    marginTop: HEADER_HEIGHT + 40,
+    marginBottom: 30
+    },
   formTitle: {
     fontSize: 13,
     color: Theme.colors.primary,
@@ -322,13 +329,19 @@ itemTextStyle: {
   fontSize: 14,
   color: Theme.colors.black,
   fontFamily: 'Poppins_Regular',
+  paddingVertical: 10,
+  borderBottomWidth: 1,
+  borderBottomColor: '#e8e8e8ff',
+  paddingHorizontal: 8
 },
 containerStyle: {
-
+  paddingVertical: 0,
+  marginVertical: 0
 },
 itemContainerStyle: {
   maxHeight: maxDropdownHeight,
-  paddingVertical: 4,
+  paddingVertical: 0,
+  marginVertical: 0
 },
 
 
@@ -371,8 +384,8 @@ itemContainerStyle: {
   finalButtonContainer:{
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginHorizontal: 10,
     marginTop: 20,
+    marginBottom: 30,
     height: 45,
   },
     backButton: {

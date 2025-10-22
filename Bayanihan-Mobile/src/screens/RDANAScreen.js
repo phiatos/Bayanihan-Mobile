@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
   ScrollView as RNScrollView,
+  Keyboard,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -143,6 +144,10 @@ const RDANAScreen = ({ navigation }) => {
   const scrollViewRef = useRef(null);
   const [enableUrgentRelief, setEnableUrgentRelief] = useState(false);
   const [requestCategory, setRequestCategory] = useState('');
+  const flatListRef = useRef(null);
+  const [province, setProvince] = useState(null);
+  const [provinceActiveIndex, setProvinceActiveIndex] = useState(-1);
+
 
   const sections = ['Step 1', 'Step 2', 'Step 3', 'Step 4'];
 
@@ -343,8 +348,7 @@ const RDANAScreen = ({ navigation }) => {
       field.includes('Province') ||
       field.includes('Relief') ||
       field.includes('responseGroup') ||
-      field.includes('otherNeeds') ||
-      field.includes('requestCategory')
+      field.includes('otherNeeds') 
     ) {
       sanitized = sanitized.replace(/[^a-zA-Z\sñÑ,-]/g, '');
     }
@@ -374,7 +378,6 @@ const RDANAScreen = ({ navigation }) => {
     setReportData((prev) => ({ ...prev, [field]: sanitizedValue }));
 
     if (field === 'requestCategory') {
-      console.log('requestCategory updated:', value);
       setRequestCategory(value);
       setReportData((prev) => ({ ...prev, [field]: sanitizedValue }));
       
@@ -621,16 +624,13 @@ const RDANAScreen = ({ navigation }) => {
     return { isValid: messages.length === 0, newErrors };
 };
 
-const validateImmediateNeedsInputs = () => {
-  const { otherNeeds, estQty, requestCategory } = reportData;
-  const newErrors = {};
-  if (enableUrgentRelief && requestCategory && otherNeeds && estQty) {
-    if (!requestCategory.trim()) newErrors.requestCategory = 'Please select a request category.';
-    if (!otherNeeds.trim()) newErrors.otherNeeds = 'Please enter the need.';
-    if (!estQty.trim()) newErrors.estQty = 'Please enter the estimated quantity.';
-  }
-  return { isValid: Object.keys(newErrors).length === 0, newErrors };
-};
+  const validateImmediateNeedsInputs = () => {
+    const { otherNeeds, estQty } = reportData;
+    const newErrors = {};
+    if (!otherNeeds || !otherNeeds.trim()) newErrors.otherNeeds = 'Please enter the need.';
+    if (!estQty || !estQty.trim()) newErrors.estQty = 'Please enter the estimated quantity.';
+    return { isValid: Object.keys(newErrors).length === 0, newErrors };
+  };
 
   const validateInitialResponseInputs = () => {
     const { responseGroup, reliefDeployed, familiesServed } = reportData;
@@ -717,7 +717,6 @@ const validateImmediateNeedsInputs = () => {
     },
   ]);
 
-  // Clear the fields after adding
   setReportData((prev) => ({
     ...prev,
     Locations_and_Areas_Affected_Province: '',
@@ -947,10 +946,10 @@ const validateImmediateNeedsInputs = () => {
     if (route.params) {
       const { affectedLocations, reportData } = route.params;
       if (affectedLocations) {
-        setAffectedLocations(affectedLocations); // Restore the affectedLocations array
+        setAffectedLocations(affectedLocations);
       }
       if (reportData) {
-        setReportData(reportData); // Restore other form data
+        setReportData(reportData); 
       }
     }
   }, [route.params]);
@@ -1141,9 +1140,15 @@ const handleSubmit = async () => {
   });
 };
 
+useEffect(() => {
+  setProvince(reportData?.Site_Location_Address_Province || null);
+}, [reportData?.Site_Location_Address_Province]);
+
+
+  const activeIndex = provinceOptions.findIndex(opt => opt.value === province);
   const windowHeight = Dimensions.get('window').height;
   const maxDropdownHeight = windowHeight * 0.3;
-  const maxHeight = windowHeight * 0.1;
+  const ITEM_HEIGHT  = windowHeight * 0.1;
 
   return (
     <SafeAreaView style={[GlobalStyles.container]}>
@@ -1162,11 +1167,11 @@ const handleSubmit = async () => {
         </View>
       </LinearGradient>
 
-      <KeyboardAvoidingView
+      <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 100 }}
+        style={{ flex: 1 }}
         keyboardVerticalOffset={0}
-      >
+      > 
         <ProgressSteps
           sections={sections}
           currentSection={currentSection}
@@ -1192,15 +1197,16 @@ const handleSubmit = async () => {
                   placeholderStyle={GlobalStyles.placeholderStyle}
                   selectedTextStyle={GlobalStyles.selectedTextStyle}
                   itemTextStyle={GlobalStyles.itemTextStyle}
-                  itemContainerStyle={{ maxHeight: maxHeight }}
-                  data={provinceOptions} 
+                  itemContainerStyle={GlobalStyles.itemContainerStyle}
+                  containerStyle={GlobalStyles.containerStyle }
+                  data={provinceOptions}
                   labelField="label"
                   valueField="value"
-                  value={reportData.Site_Location_Address_Province || null} 
-                  onChange={(item) =>
-                    handleChange('Site_Location_Address_Province', item.value)
-                  }
-                  containerStyle={{ maxHeight: maxDropdownHeight, margin: 0 }}
+                  value={province}
+                  onChange={(item) => {
+                    setProvince(item.value);
+                    handleChange('Site_Location_Address_Province', item.value);
+                  }}
                   disable={!canSubmit}
                   renderRightIcon={() => (
                     <Ionicons
@@ -1209,6 +1215,28 @@ const handleSubmit = async () => {
                       color={Theme.colors.placeholderColor}
                     />
                   )}
+                  autoScroll={false}
+                  flatListProps={{
+                    keyExtractor: (item) => item.value.toString(),
+                  ref: flatListRef,
+                  getItemLayout: (_, index) => ({
+                    length: ITEM_HEIGHT,
+                    offset: ITEM_HEIGHT * index,
+                    index,
+                  }),
+                }}
+                 renderItem={(item) => (
+                  <Text style={GlobalStyles.itemTextStyle}>
+                    {item.label}
+                  </Text>
+                )}
+                onFocus={() => {
+                  if (province && activeIndex >= 0) {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                    }, 100);
+                  }
+                }}
                 />
               </View>
               {errors.Site_Location_Address_Province && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Province}</Text>}
@@ -1221,15 +1249,15 @@ const handleSubmit = async () => {
                 placeholderStyle={GlobalStyles.placeholderStyle}
                 selectedTextStyle={GlobalStyles.selectedTextStyle}
                 itemTextStyle={GlobalStyles.itemTextStyle}
-                itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                data={getCityOptions(reportData.Site_Location_Address_Province)} 
+                itemContainerStyle={GlobalStyles.itemContainerStyle}
+                containerStyle={GlobalStyles.containerStyle}
+                data={getCityOptions(reportData.Site_Location_Address_Province)}
                 labelField="label"
                 valueField="value"
                 value={reportData.Site_Location_Address_City_Municipality || null}
-                onChange={(item) =>
+                onChange={(item) => 
                   handleChange('Site_Location_Address_City_Municipality', item.value)
                 }
-                containerStyle={{ maxHeight: maxDropdownHeight }}
                 disable={!canSubmit || !reportData.Site_Location_Address_Province}
                 renderRightIcon={() => (
                   <Ionicons
@@ -1238,40 +1266,84 @@ const handleSubmit = async () => {
                     color={Theme.colors.placeholderColor}
                   />
                 )}
+                autoScroll={false}
+                flatListProps={{
+                  keyExtractor: (item) => item.value.toString(),
+                  ref: flatListRef,
+                  getItemLayout: (_, index) => ({
+                    length: ITEM_HEIGHT,
+                    offset: ITEM_HEIGHT * index,
+                    index,
+                  }),
+                }}
+                renderItem={(item) => (
+                  <Text style={GlobalStyles.itemTextStyle}>{item.label}</Text>
+                )}
+                onFocus={() => {
+                  if (reportData.Site_Location_Address_City_Municipality && activeIndex >= 0) {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                    }, 100);
+                  }
+                }}
               />
+
               </View>
               {errors.Site_Location_Address_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_City_Municipality}</Text>}
 
               {renderLabel('Site Location/Address (Barangay)', true)}
               <View ref={(ref) => (inputContainerRefs.Site_Location_Address_Barangay = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.Site_Location_Address_Barangay && GlobalStyles.inputError]}>
-                <Dropdown
-                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholder="Select Barangay"
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
-                  itemTextStyle={{
-                    fontFamily: 'Poppins_Regular',
-                    fontSize: 14,
-                    color: Theme.colors.black,
-                  }}
-                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={getBarangayOptions(reportData.Site_Location_Address_City_Municipality)} 
-                  labelField="label"
-                  valueField="value"
-                  value={reportData.Site_Location_Address_Barangay || null} 
-                  onChange={(item) =>
-                    handleChange('Site_Location_Address_Barangay', item.value)
-                  }
-                  containerStyle={{ maxHeight: maxDropdownHeight }}
-                  disable={!canSubmit || !reportData.Site_Location_Address_City_Municipality}
-                  renderRightIcon={() => (
-                    <Ionicons
-                      name="chevron-down"
-                      size={18}
-                      color={Theme.colors.placeholderColor}
-                    />
-                  )}
+               <Dropdown
+              style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+              placeholder="Select Barangay"
+              placeholderStyle={GlobalStyles.placeholderStyle}
+              selectedTextStyle={GlobalStyles.selectedTextStyle}
+              itemTextStyle={{
+                fontFamily: 'Poppins_Regular',
+                fontSize: 14,
+                color: Theme.colors.black,
+              }}
+              itemContainerStyle={GlobalStyles.itemContainerStyle}
+              containerStyle={GlobalStyles.containerStyle}
+              data={getBarangayOptions(reportData.Site_Location_Address_City_Municipality)}
+              labelField="label"
+              valueField="value"
+              value={reportData.Site_Location_Address_Barangay || null}
+              onChange={(item) =>
+                handleChange('Site_Location_Address_Barangay', item.value)
+              }
+              disable={!canSubmit || !reportData.Site_Location_Address_City_Municipality}
+              renderRightIcon={() => (
+                <Ionicons
+                  name="chevron-down"
+                  size={18}
+                  color={Theme.colors.placeholderColor}
                 />
+              )}
+              autoScroll={false}
+              flatListProps={{
+                keyExtractor: (item) => item.value.toString(),
+                ref: flatListRef,
+                getItemLayout: (_, index) => ({
+                  length: ITEM_HEIGHT,
+                  offset: ITEM_HEIGHT * index,
+                  index,
+                }),
+              }}
+              renderItem={(item) => (
+                <Text style={GlobalStyles.itemTextStyle}>
+                  {item.label}
+                </Text>
+              )}
+              onFocus={() => {
+                if (reportData.Site_Location_Address_Barangay && activeIndex >= 0) {
+                  setTimeout(() => {
+                    flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                  }, 100);
+                }
+              }}
+            />
+
               </View>
               {errors.Site_Location_Address_Barangay && <Text style={GlobalStyles.errorText}>{errors.Site_Location_Address_Barangay}</Text>}
 
@@ -1396,30 +1468,59 @@ const handleSubmit = async () => {
               <View style={[styles.section, {marginBottom: 20}]}>
               {renderLabel('Locations and Areas Affected (Province)', true)}
               <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Province = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.Locations_and_Areas_Affected_Province && GlobalStyles.inputError]}>
-                <Dropdown
-                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
-                  itemTextStyle={GlobalStyles.itemTextStyle}
-                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={[{ label: 'Select Province', value: '' }, ...provinceOptions]}
-                  labelField="label"
-                  valueField="value"
-                  placeholder="Select Province"
-                  value={reportData.Locations_and_Areas_Affected_Province}
-                  onChange={(item) => handleChange('Locations_and_Areas_Affected_Province', item.value)}
-                  containerStyle={{ maxHeight: maxDropdownHeight }}
-                  disable={!canSubmit}
-                  renderRightIcon={() => (
-                    <Ionicons name="chevron-down" size={18} color={Theme.colors.placeholderColor} />
-                  )}
-                />
+              <Dropdown
+                style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                placeholder="Select Province"
+                placeholderStyle={GlobalStyles.placeholderStyle}
+                selectedTextStyle={GlobalStyles.selectedTextStyle}
+                itemTextStyle={GlobalStyles.itemTextStyle}
+                itemContainerStyle={GlobalStyles.itemContainerStyle}
+                containerStyle={GlobalStyles.containerStyle}
+                data={[{ label: 'Select Province', value: '' }, ...provinceOptions]}
+                labelField="label"
+                valueField="value"
+                value={reportData.Locations_and_Areas_Affected_Province || null}
+                onChange={(item) =>
+                  handleChange('Locations_and_Areas_Affected_Province', item.value)
+                }
+                disable={!canSubmit}
+                renderRightIcon={() => (
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color={Theme.colors.placeholderColor}
+                  />
+                )}
+                autoScroll={false}
+                flatListProps={{
+                  keyExtractor: (item) => item.value.toString(),
+                  ref: flatListRef,
+                  getItemLayout: (_, index) => ({
+                    length: ITEM_HEIGHT,
+                    offset: ITEM_HEIGHT * index,
+                    index,
+                  }),
+                }}
+                renderItem={(item) => (
+                  <Text style={GlobalStyles.itemTextStyle}>
+                    {item.label}
+                  </Text>
+                )}
+                onFocus={() => {
+                  if (reportData.Locations_and_Areas_Affected_Province && activeIndex >= 0) {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                    }, 100);
+                  }
+                }}
+              />
+
               </View>
               {errors.Locations_and_Areas_Affected_Province && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Province}</Text>}
 
               {renderLabel('Locations and Areas Affected (City/Municipality)', true)}
               <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_City_Municipality = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.Locations_and_Areas_Affected_City_Municipality && GlobalStyles.inputError]}>
-                <Dropdown
+               <Dropdown
                 style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
                 placeholder="Select City/Municipality"
                 placeholderStyle={GlobalStyles.placeholderStyle}
@@ -1429,15 +1530,15 @@ const handleSubmit = async () => {
                   fontSize: 14,
                   color: Theme.colors.black,
                 }}
-                itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                data={getCityOptions(reportData.Locations_and_Areas_Affected_Province)} 
+                itemContainerStyle={GlobalStyles.itemContainerStyle}
+                containerStyle={GlobalStyles.containerStyle}
+                data={getCityOptions(reportData.Locations_and_Areas_Affected_Province)}
                 labelField="label"
                 valueField="value"
                 value={reportData.Locations_and_Areas_Affected_City_Municipality || null}
                 onChange={(item) =>
                   handleChange('Locations_and_Areas_Affected_City_Municipality', item.value)
                 }
-                containerStyle={{ maxHeight: maxDropdownHeight }}
                 disable={!canSubmit || !reportData.Locations_and_Areas_Affected_Province}
                 renderRightIcon={() => (
                   <Ionicons
@@ -1446,41 +1547,86 @@ const handleSubmit = async () => {
                     color={Theme.colors.placeholderColor}
                   />
                 )}
+                autoScroll={false}
+                flatListProps={{
+                  keyExtractor: (item) => item.value.toString(),
+                  ref: flatListRef,
+                  getItemLayout: (_, index) => ({
+                    length: ITEM_HEIGHT,
+                    offset: ITEM_HEIGHT * index,
+                    index,
+                  }),
+                }}
+                renderItem={(item) => (
+                  <Text style={GlobalStyles.itemTextStyle}>
+                    {item.label}
+                  </Text>
+                )}
+                onFocus={() => {
+                  if (reportData.Locations_and_Areas_Affected_City_Municipality && activeIndex >= 0) {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                    }, 100);
+                  }
+                }}
               />
               </View>
               {errors.Locations_and_Areas_Affected_City_Municipality && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_City_Municipality}</Text>}
 
               {renderLabel('Locations and Areas Affected (Barangay)', true)}
               <View ref={(ref) => (inputContainerRefs.Locations_and_Areas_Affected_Barangay = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.Locations_and_Areas_Affected_Barangay && GlobalStyles.inputError]}>
-                <Dropdown
-                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
-                  itemTextStyle={GlobalStyles.itemTextStyle}
-                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={[
-                    { label: 'Select Barangay', value: '' },
-                    ...getBarangayOptions(reportData.Locations_and_Areas_Affected_City_Municipality),
-                  ]}
-                  labelField="label"
-                  valueField="value"
-                  placeholder="Select Barangay"
-                  value={reportData.Locations_and_Areas_Affected_Barangay}
-                  onChange={(item) =>
-                    handleChange('Locations_and_Areas_Affected_Barangay', item.value)
+               <Dropdown
+                style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                placeholder="Select Barangay"
+                placeholderStyle={GlobalStyles.placeholderStyle}
+                selectedTextStyle={GlobalStyles.selectedTextStyle}
+                itemTextStyle={GlobalStyles.itemTextStyle}
+                itemContainerStyle={GlobalStyles.itemContainerStyle}
+                containerStyle={GlobalStyles.containerStyle}
+                data={[
+                  { label: 'Select Barangay', value: '' },
+                  ...getBarangayOptions(reportData.Locations_and_Areas_Affected_City_Municipality),
+                ]}
+                labelField="label"
+                valueField="value"
+                value={reportData.Locations_and_Areas_Affected_Barangay || null}
+                onChange={(item) =>
+                  handleChange('Locations_and_Areas_Affected_Barangay', item.value)
+                }
+                disable={
+                  !canSubmit || !reportData.Locations_and_Areas_Affected_City_Municipality
+                }
+                renderRightIcon={() => (
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color={Theme.colors.placeholderColor}
+                  />
+                )}
+                autoScroll={false}
+                flatListProps={{
+                  keyExtractor: (item) => item.value.toString(),
+                  ref: flatListRef,
+                  getItemLayout: (_, index) => ({
+                    length: ITEM_HEIGHT,
+                    offset: ITEM_HEIGHT * index,
+                    index,
+                  }),
+                }}
+                renderItem={(item) => (
+                  <Text style={GlobalStyles.itemTextStyle}>
+                    {item.label}
+                  </Text>
+                )}
+                onFocus={() => {
+                  if (reportData.Locations_and_Areas_Affected_Barangay && activeIndex >= 0) {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                    }, 100);
                   }
-                  containerStyle={{ maxHeight: maxDropdownHeight }}
-                  disable={
-                    !canSubmit || !reportData.Locations_and_Areas_Affected_City_Municipality
-                  } 
-                  renderRightIcon={() => (
-                    <Ionicons
-                      name="chevron-down"
-                      size={18}
-                      color={Theme.colors.placeholderColor}
-                    />
-                  )}
-                />
+                }}
+              />
+
               </View>
               {errors.Locations_and_Areas_Affected_Barangay && <Text style={GlobalStyles.errorText}>{errors.Locations_and_Areas_Affected_Barangay}</Text>}
 
@@ -1542,27 +1688,50 @@ const handleSubmit = async () => {
                 ref={(ref) => (inputContainerRefs.Type_of_Disaster = ref)}
               >
                 <Dropdown
-                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholder="Select Type of Disaster"
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
-                  itemTextStyle={GlobalStyles.itemTextStyle}
-                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={disasterTypes} 
-                  labelField="label"
-                  valueField="value"
-                  value={reportData.Type_of_Disaster || null} 
-                  onChange={(item) => handleChange('Type_of_Disaster', item.value)}
-                  containerStyle={{ maxHeight: maxDropdownHeight }}
-                  disable={!canSubmit}
-                  renderRightIcon={() => (
-                    <Ionicons
-                      name="chevron-down"
-                      size={18}
-                      color={Theme.colors.placeholderColor}
-                    />
-                  )}
-                />
+                style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                placeholder="Select Type of Disaster"
+                placeholderStyle={GlobalStyles.placeholderStyle}
+                selectedTextStyle={GlobalStyles.selectedTextStyle}
+                itemTextStyle={GlobalStyles.itemTextStyle}
+                itemContainerStyle={GlobalStyles.itemContainerStyle}
+                containerStyle={GlobalStyles.containerStyle}
+                data={disasterTypes}
+                labelField="label"
+                valueField="value"
+                value={reportData.Type_of_Disaster || null}
+                onChange={(item) => handleChange('Type_of_Disaster', item.value)}
+                disable={!canSubmit}
+                renderRightIcon={() => (
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color={Theme.colors.placeholderColor}
+                  />
+                )}
+                autoScroll={false}
+                flatListProps={{
+                  keyExtractor: (item) => item.value.toString(),
+                  ref: flatListRef,
+                  getItemLayout: (_, index) => ({
+                    length: ITEM_HEIGHT,
+                    offset: ITEM_HEIGHT * index,
+                    index,
+                  }),
+                }}
+                renderItem={(item) => (
+                  <Text style={GlobalStyles.itemTextStyle}>
+                    {item.label}
+                  </Text>
+                )}
+                onFocus={() => {
+                  if (reportData.Type_of_Disaster && activeIndex >= 0) {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                    }, 100);
+                  }
+                }}
+              />
+
               </View>
               {errors.Type_of_Disaster && <Text style={GlobalStyles.errorText}>{errors.Type_of_Disaster}</Text>}
 
@@ -1624,33 +1793,56 @@ const handleSubmit = async () => {
           </View>
 
           {/* Step 2 */}
-          <View style={[GlobalStyles.form, { display: currentSection === 1 ? 'flex' : 'none' }]}>
+          <View style={[GlobalStyles.form, { display: currentSection === 1 ? 'flex' : 'none', marginTop: 10 }]}>
             <View style={GlobalStyles.section}>
               <Text style={styles.sectionTitle}>Initial Effects</Text>
               {renderLabel('Affected Municipalities/Communities', true)}
               <View ref={(ref) => (inputContainerRefs.community = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.community && GlobalStyles.inputError]}>
                 <Dropdown
-                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholder="Select City"
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
-                  itemTextStyle={GlobalStyles.itemTextStyle}
-                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={getCityOptions(reportData.Site_Location_Address_Province)}
-                  labelField="label"
-                  valueField="value"
-                  value={reportData.community || null} 
-                  onChange={(item) => handleChange('community', item.value)}
-                  containerStyle={{ maxHeight: maxDropdownHeight }}
-                  disable={!canSubmit || !reportData.Site_Location_Address_Province}
-                  renderRightIcon={() => (
-                    <Ionicons
-                      name="chevron-down"
-                      size={18}
-                      color={Theme.colors.placeholderColor}
-                    />
-                  )}
-                />
+                style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                placeholder="Select City"
+                placeholderStyle={GlobalStyles.placeholderStyle}
+                selectedTextStyle={GlobalStyles.selectedTextStyle}
+                itemTextStyle={GlobalStyles.itemTextStyle}
+                itemContainerStyle={GlobalStyles.itemContainerStyle}
+                containerStyle={GlobalStyles.containerStyle}
+                data={getCityOptions(reportData.Site_Location_Address_Province)}
+                labelField="label"
+                valueField="value"
+                value={reportData.community || null}
+                onChange={(item) => handleChange('community', item.value)}
+                disable={!canSubmit || !reportData.Site_Location_Address_Province}
+                renderRightIcon={() => (
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color={Theme.colors.placeholderColor}
+                  />
+                )}
+                autoScroll={false}
+                flatListProps={{
+                  keyExtractor: (item) => item.value.toString(),
+                  ref: flatListRef,
+                  getItemLayout: (_, index) => ({
+                    length: ITEM_HEIGHT,
+                    offset: ITEM_HEIGHT * index,
+                    index,
+                  }),
+                }}
+                renderItem={(item) => (
+                  <Text style={GlobalStyles.itemTextStyle}>
+                    {item.label}
+                  </Text>
+                )}
+                onFocus={() => {
+                  if (reportData.community && activeIndex >= 0) {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                    }, 100);
+                  }
+                }}
+              />
+
               </View>
               {errors.community && <Text style={GlobalStyles.errorText}>{errors.community}</Text>}
 
@@ -1825,35 +2017,71 @@ const handleSubmit = async () => {
           </View>
 
           {/* Step 3 */}
-          <View style={[GlobalStyles.form, { display: currentSection === 2 ? 'flex' : 'none' }]}>
+          <View style={[GlobalStyles.form, { display: currentSection === 2 ? 'flex' : 'none', marginTop: 10 }]}>
             <View style={GlobalStyles.section}>
-              <Text style={styles.sectionTitle}>Status of Lifelines</Text>
+              <Text style={styles.sectionTitle}>Status of Lifelines, Social Structure, and Critical Facilities (optional)</Text>
               {Object.keys(LIFELINE_STATUS_OPTIONS).map((lifeline, index) => (
                 <View key={index}>
                   {renderLabel(lifeline, false)}
                   <View style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`] && GlobalStyles.inputError]}>
                     <Dropdown
-                      style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                      placeholder={`Select ${lifeline} Status`}
-                      placeholderStyle={GlobalStyles.placeholderStyle}
-                      selectedTextStyle={GlobalStyles.selectedTextStyle}
-                      itemTextStyle={GlobalStyles.itemTextStyle}
-                      itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                      data={LIFELINE_STATUS_OPTIONS[lifeline]}
-                      labelField="label"
-                      valueField="value"
-                      value={reportData[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`] || null}
-                      onChange={(item) => handleChange(`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`, item.value)}
-                      containerStyle={{ maxHeight: maxDropdownHeight }}
-                      disable={!canSubmit}
-                      renderRightIcon={() => (
-                        <Ionicons
-                          name="chevron-down"
-                          size={18}
-                          color={Theme.colors.placeholderColor}
-                        />
-                      )}
-                    />
+                    style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                    placeholder={`Select ${lifeline} Status`}
+                    placeholderStyle={GlobalStyles.placeholderStyle}
+                    selectedTextStyle={GlobalStyles.selectedTextStyle}
+                    itemTextStyle={GlobalStyles.itemTextStyle}
+                    itemContainerStyle={GlobalStyles.itemContainerStyle}
+                    containerStyle={GlobalStyles.containerStyle}
+                    data={LIFELINE_STATUS_OPTIONS[lifeline]}
+                    labelField="label"
+                    valueField="value"
+                    value={
+                      reportData[
+                        `${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`
+                      ] || null
+                    }
+                    onChange={(item) =>
+                      handleChange(
+                        `${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`,
+                        item.value
+                      )
+                    }
+                    disable={!canSubmit}
+                    renderRightIcon={() => (
+                      <Ionicons
+                        name="chevron-down"
+                        size={18}
+                        color={Theme.colors.placeholderColor}
+                      />
+                    )}
+                    autoScroll={false}
+                    flatListProps={{
+                      keyExtractor: (item) => item.value.toString(),
+                      ref: flatListRef,
+                      getItemLayout: (_, index) => ({
+                        length: ITEM_HEIGHT,
+                        offset: ITEM_HEIGHT * index,
+                        index,
+                      }),
+                    }}
+                    renderItem={(item) => (
+                      <Text style={GlobalStyles.itemTextStyle}>
+                        {item.label}
+                      </Text>
+                    )}
+                    onFocus={() => {
+                      const selectedValue =
+                        reportData[
+                          `${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`
+                        ];
+                      if (selectedValue && activeIndex >= 0) {
+                        setTimeout(() => {
+                          flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                        }, 100);
+                      }
+                    }}
+                  />
+
                   </View>
                   {errors[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`] && (
                     <Text style={GlobalStyles.errorText}>{errors[`${lifeline.toLowerCase().replace(/, /g, '').replace(/\s/g, '')}Status`]}</Text>
@@ -1862,11 +2090,11 @@ const handleSubmit = async () => {
               ))}
               {renderLabel('Others', false)}
               <TextInput
-                style={[GlobalStyles.textArea, errors.othersStatus && GlobalStyles.inputError]}
-                placeholder="Enter Other Status Information"
+                style={[GlobalStyles.input, errors.othersStatus && GlobalStyles.inputError, {height: 60}]}
+                placeholder="Input Here (Optional)"
                 placeholderTextColor={Theme.colors.placeholderColor}
                 multiline
-                numberOfLines={4}
+                numberOfLines={6}
                 onChangeText={(val) => handleChange('othersStatus', val)}
                 value={reportData.othersStatus}
                 editable={canSubmit}
@@ -1876,7 +2104,7 @@ const handleSubmit = async () => {
           </View>
 
           {/* Step 4 */}
-          <View style={[GlobalStyles.form, { display: currentSection === 3 ? 'flex' : 'none' }]}>
+          <View style={[GlobalStyles.form, { display: currentSection === 3 ? 'flex' : 'none', marginTop: 10 }]}>
             <View style={GlobalStyles.section}>
               <Text style={styles.sectionTitle}>Initial Needs Assessment Checklist (optional)</Text>
               {Object.keys(checklist).map((item) => (
@@ -1899,81 +2127,19 @@ const handleSubmit = async () => {
                 </TouchableOpacity>
               ))}
 
-              <View style={styles.section}>
-                <TouchableOpacity
-                  style={[GlobalStyles.checkboxContainer, enableUrgentRelief && GlobalStyles.checkboxChecked]}
-                  onPress={() => {
-                    if (canSubmit) {
-                      setEnableUrgentRelief(!enableUrgentRelief);
-                      if (!enableUrgentRelief) {
-                        setReportData((prev) => ({
-                          ...prev,
-                          requestCategory: '',
-                          otherNeeds: '',
-                          estQty: '',
-                        }));
-                        setRequestCategory('');
-                        setErrors((prev) => {
-                          const newErrors = { ...prev };
-                          delete newErrors.requestCategory;
-                          delete newErrors.otherNeeds;
-                          delete newErrors.estQty;
-                          return newErrors;
-                        });
-                      }
-                    }
-                  }}
-                  disabled={!canSubmit}
-                >
-                  { <Ionicons
-                name={enableUrgentRelief ? 'checkbox' : 'square-outline'}
-                size={24}
-                color={enableUrgentRelief ? Theme.colors.accent : Theme.colors.black}
-              />}
-                <Text style={[GlobalStyles.checkboxLabel, {fontFamily: 'Poppins_SemiBold'}]}>Submit an Urgent Relief Request</Text>
-                </TouchableOpacity>
-
-
-              {renderLabel('Request Category', enableUrgentRelief)}
-              <View ref={(ref) => (inputContainerRefs.requestCategory = ref)} style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.requestCategory && GlobalStyles.inputError]}>
-                <Dropdown
-                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
-                  placeholder="Select Request Category"
-                  placeholderStyle={GlobalStyles.placeholderStyle}
-                  selectedTextStyle={GlobalStyles.selectedTextStyle}
-                  itemTextStyle={GlobalStyles.itemTextStyle}
-                  itemContainerStyle={{ maxHeight: maxDropdownHeight }}
-                  data={requestCategoryOptions}
-                  labelField="label"
-                  valueField="value"
-                  value={reportData.requestCategory || null}
-                  onChange={(item) => handleChange('requestCategory', item.value)}
-                  containerStyle={{ maxHeight: maxDropdownHeight }}
-                  disable={!canSubmit || !enableUrgentRelief}
-                  renderRightIcon={() => (
-                    <Ionicons
-                      name="chevron-down"
-                      size={18}
-                      color={Theme.colors.placeholderColor}
-                    />
-                  )}
-                />
-              </View>
-              {errors.requestCategory && <Text style={GlobalStyles.errorText}>{errors.requestCategory}</Text>}
-
-             {renderLabel('Other Immediate Needs', enableUrgentRelief)}
+             {renderLabel('Other Immediate Needs', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.otherNeeds && GlobalStyles.inputError]}
                 placeholder="Enter Other Needs"
                 placeholderTextColor={Theme.colors.placeholderColor}
                 onChangeText={(val) => handleChange('otherNeeds', val)}
                 value={reportData.otherNeeds}
-                editable={canSubmit && enableUrgentRelief}
+                editable={canSubmit}
                />
                {errors.otherNeeds && <Text style={GlobalStyles.errorText}>{errors.otherNeeds}</Text>}
                 
 
-              {renderLabel('Estimated Quantity', enableUrgentRelief)}
+              {renderLabel('Estimated Quantity', true)}
               <TextInput
                 style={[GlobalStyles.input, errors.estQty && GlobalStyles.inputError]}
                 placeholder="Enter Estimated Quantity"
@@ -1981,17 +2147,18 @@ const handleSubmit = async () => {
                 keyboardType="numeric"
                 onChangeText={(val) => handleChange('estQty', val)}
                 value={reportData.estQty}
-                editable={canSubmit && enableUrgentRelief}
+                editable={canSubmit}
               />
               {errors.estQty && <Text style={GlobalStyles.errorText}>{errors.estQty}</Text>}
 
-              <TouchableOpacity
-                style={[GlobalStyles.supplementaryButton, { marginTop: 10 }, (!enableUrgentRelief || !reportData.requestCategory ||  !reportData.otherNeeds || !reportData.estQty) && { opacity: 0.6 }]}
+                <TouchableOpacity
+                style={[GlobalStyles.supplementaryButton, { marginTop: 10 }]}
                 onPress={handleAddImmediateNeed}
-                disabled={!canSubmit || !enableUrgentRelief || !reportData.requestCategory || !reportData.otherNeeds || !reportData.estQty}
+                disabled={!canSubmit || !reportData.otherNeeds || !reportData.estQty}
               >
                 <Text style={GlobalStyles.supplementaryButtonText}>Add Need</Text>
               </TouchableOpacity>
+
 
               {immediateNeeds.length > 0 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={true}>
@@ -2017,7 +2184,6 @@ const handleSubmit = async () => {
                   </View>
                 </ScrollView>
               )}
-              </View>
               </View>
               
                <View style={GlobalStyles.section}>
@@ -2095,7 +2261,7 @@ const handleSubmit = async () => {
           </View>
 
           {/* Navigation Buttons */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 15, marginTop: -30, marginBottom: 40}}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 15, marginBottom: 20}}>
             {currentSection > 0 && (
               <TouchableOpacity
                 style={[GlobalStyles.backButton, { flex: 1, marginVertical: 10}]}

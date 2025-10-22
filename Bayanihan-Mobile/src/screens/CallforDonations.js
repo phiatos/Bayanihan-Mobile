@@ -536,14 +536,15 @@ const CallForDonations = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 80 }}
+        behavior={'padding'} 
+        style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >
         <ScrollView
           contentContainerStyle={[GlobalStyles.scrollViewContent]}
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
         >
           <View style={GlobalStyles.form}>
             <View style={GlobalStyles.section}>

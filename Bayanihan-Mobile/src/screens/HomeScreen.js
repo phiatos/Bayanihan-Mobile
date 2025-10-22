@@ -450,7 +450,6 @@ const HomeScreen = ({ navigation }) => {
 
           firebase.initializeApp(firebaseConfig);
           const database = firebase.database();
-          const OPEN_WEATHER_API_KEY = 'YOUR_OPEN_WEATHER_API_KEY'; // Replace with your actual OpenWeatherMap API key
 
           let map, userMarker, weatherMarker, currentLayer;
           let activationMarkers = [];
@@ -643,7 +642,6 @@ const HomeScreen = ({ navigation }) => {
             try {
               const activationsRef = database.ref("activations/currentActivations").orderByChild("status").equalTo("active");
               activationsRef.on("value", (snapshot) => {
-                console.log("Fetching activations...");
                 activationMarkers.forEach(marker => {
                   try {
                     marker.remove();
@@ -655,12 +653,9 @@ const HomeScreen = ({ navigation }) => {
 
                 const activations = snapshot.val();
                 if (!activations) {
-                  console.log("No active activations found in Firebase.");
                   window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'info', message: 'No active activations found.' }));
                   return;
                 }
-
-                console.log("Active activations:", JSON.stringify(activations));
 
                 Object.entries(activations).forEach(([key, activation]) => {
                   if (!activation.address?.latitude || !activation.address?.longitude) {
@@ -676,10 +671,8 @@ const HomeScreen = ({ navigation }) => {
                   }
 
                   const position = L.latLng(lat, lng);
-                  console.log(\`Creating marker for \${activation.organization} at position: \${lat}, \${lng}\`);
 
                   const logoPath = "https://firebasestorage.googleapis.com/v0/b/bayanihan-new-472410.appspot.com/o/AB_logo.png?alt=media";
-                  console.log("Attempting to load logo for marker from:", logoPath);
 
                   const marker = L.marker(position, {
                     title: activation.organization || "Unknown Organization",
@@ -693,13 +686,11 @@ const HomeScreen = ({ navigation }) => {
                   }).addTo(map);
 
                   activationMarkers.push(marker);
-                  console.log(\`Marker created for \${activation.organization} at (\${lat}, \${lng}), ID: \${key}\`);
 
                   createPopup(marker, activation, logoPath);
                 });
 
                 if (activationMarkers.length === 0) {
-                  console.log("No valid activation markers were created.");
                   window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'info', message: 'No valid activation markers created.' }));
                 }
               }, (error) => {
@@ -716,7 +707,6 @@ const HomeScreen = ({ navigation }) => {
             try {
               const cacheKey = \`\${lat}_\${lng}\`;
               if (weatherCache.has(cacheKey)) {
-                console.log("Using cached weather data for:", cacheKey);
                 createWeatherPopup(lat, lng, weatherCache.get(cacheKey), isUserLocation);
                 return;
               }
@@ -726,7 +716,6 @@ const HomeScreen = ({ navigation }) => {
                 throw new Error(\`Weather API error: \${response.status}\`);
               }
               const weatherData = await response.json();
-              console.log("Weather data fetched:", JSON.stringify(weatherData));
               weatherCache.set(cacheKey, weatherData);
               createWeatherPopup(lat, lng, weatherData, isUserLocation);
             } catch (error) {
@@ -777,12 +766,10 @@ const HomeScreen = ({ navigation }) => {
                 singlePopup.remove();
               }
               singlePopup = L.popup().setContent(popupContent).setLatLng([lat, lng]).openOn(map);
-              console.log("Weather popup opened at:", lat, lng);
             });
 
             if (${showWeather}) {
               weatherMarker.addTo(map);
-              console.log("Weather marker added at:", lat, lng);
             }
           }
 
@@ -825,7 +812,6 @@ const HomeScreen = ({ navigation }) => {
                     singlePopup.remove();
                   }
                   singlePopup = L.popup().setContent(content).setLatLng(marker.getLatLng()).openOn(map);
-                  console.log(\`Popup opened for \${activation.organization || 'Unknown Organization'}\`);
                 });
               });
           }
@@ -907,7 +893,6 @@ const HomeScreen = ({ navigation }) => {
         try {
           const cachedUser = await AsyncStorage.getItem('user_session');
           if (cachedUser) {
-            console.log('fetchUserData: No user in AuthContext, using cached user:', JSON.parse(cachedUser).id);
             currentUser = JSON.parse(cachedUser);
           } else {
             console.warn('fetchUserData: No user ID or cached user available');
@@ -948,7 +933,6 @@ const HomeScreen = ({ navigation }) => {
           setContactPerson(userData.contactPerson || null);
           setFirstName(userData.firstName || null);
           setLastName(userData.lastName || null);
-          console.log('fetchUserData: User data fetched:', userData);
         } else {
           console.warn('fetchUserData: No user document found for ID:', currentUser.id);
           setContactPerson(currentUser.contactPerson || null);
@@ -962,7 +946,6 @@ const HomeScreen = ({ navigation }) => {
       } catch (error) {
         console.error('fetchUserData: Error fetching user data:', error.message, error.code);
         if (retryCount < maxRetries && error.code === 'unavailable') {
-          console.log(`fetchUserData: Retrying fetch (${retryCount + 1}/${maxRetries})...`);
           setTimeout(() => fetchUserData(retryCount + 1, maxRetries), 1000);
         } else {
           setContactPerson(currentUser.contactPerson || null);
@@ -1009,11 +992,7 @@ const HomeScreen = ({ navigation }) => {
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       {
       permissionStatus === 'granted' && location && mapHtml ? (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={[styles.subContainer]}
-          keyboardVerticalOffset={0}
-        >
+      
           <View style={{ flex: 1 }}>
             <WebView
               ref={webViewRef}
@@ -1053,7 +1032,12 @@ const HomeScreen = ({ navigation }) => {
                 </View>
               </LinearGradient>
             </View>
-            <View style={[styles.mapTypeButtonsContainer, { paddingBottom: insets.bottom }]}>
+              {/* <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{flex: 1}}
+              keyboardVerticalOffset={0}
+            > */}
+            <View style={[styles.mapTypeButtonsContainer, ]}>
                           <TouchableOpacity
                             style={[styles.mapTypeButton, mapType === 'roadmap' && styles.mapTypeButtonActive]}
                             onPress={() => toggleMapType('roadmap')}
@@ -1091,8 +1075,8 @@ const HomeScreen = ({ navigation }) => {
                             </Text>
                           </TouchableOpacity>
                         </View>
+               {/* </KeyboardAvoidingView> */}
           </View>
-        </KeyboardAvoidingView>
       ) : (
         <SafeAreaView style={[GlobalStyles.container, { paddingBottom: insets.bottom }]}>
           <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />

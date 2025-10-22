@@ -34,34 +34,38 @@ export default StyleSheet.create({
     minHeight: Dimensions.get('window').height - (STATUS_BAR_HEIGHT),
   },
   form: {
-    marginTop: 20,
-  },
-  section: {
-    marginVertical: spacing.small,
-    marginHorizontal: spacing.medium,
-    borderWidth: borderWidth.thick,
-    borderColor: Theme.colors.primary,
-    borderRadius: borderRadius.medium,
-    padding: spacing.small,
-    backgroundColor: Theme.colors.lightBg,
-    shadowColor: Theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    marginBottom: spacing.small,
-    color: Theme.colors.primary,
-    textAlign: 'center',
-    fontFamily: 'Poppins_SemiBold',
+    marginTop: 80,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: spacing.small,
   },
+
+  // Profile Picture
+  profilePictureContainer: {
+  alignItems: 'center',
+  marginBottom: 20,
+},
+profilePicture: {
+  width: 100,
+  height: 100,
+  borderRadius: 50,
+  marginBottom: 10,
+  elevation: 5
+},
+profilePicturePlaceholder: {
+  backgroundColor: '#e0e0e0',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+uploadButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginTop: -30,
+  marginLeft: 70
+},
+
   label: {
     width: '40%',
     color: Theme.colors.primary,
@@ -194,7 +198,7 @@ export default StyleSheet.create({
     color: Theme.colors.black,
     fontSize: 14,
     paddingHorizontal: 15,
-    paddingRight: 45, // Space for eye icon
+    paddingRight: 45, 
     fontFamily: 'Poppins_Regular',
   },
   passwordEyeIcon: {

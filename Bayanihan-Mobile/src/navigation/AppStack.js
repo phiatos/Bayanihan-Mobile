@@ -76,8 +76,8 @@ const CommunityBoardStack = () => (
 // Transaction Stack
 const SubmissionStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="TransactionScreen" component={TransactionScreen} />
-    <Stack.Screen name="TransactionDetailsScreen" component={TransactionDetailsScreen} />
+    <Stack.Screen name="SubmissionsScreen" component={TransactionScreen} />
+    <Stack.Screen name="SubmissionDetailsScreen" component={TransactionDetailsScreen} />
   </Stack.Navigator>
 );
 

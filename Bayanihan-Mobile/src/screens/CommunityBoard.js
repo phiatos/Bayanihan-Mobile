@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, ToastAndroid, Linking } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, Alert, Platform, SafeAreaView, KeyboardAvoidingView, ToastAndroid, Linking, Animated } from 'react-native';
 import { ref, onValue, query, orderByChild, remove, set, serverTimestamp } from 'firebase/database';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +10,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Theme from '../constants/theme';
 import { AnimatePresence, MotiView } from 'moti';
 import { useNavigation } from '@react-navigation/native';
-import { Picker } from '@react-native-picker/picker';
 import { Menu, MenuOptions, MenuOption, MenuProvider, MenuTrigger } from 'react-native-popup-menu';
 import styles from '../styles/CommunityBoardStyles';
 import useOperationCheck from '../components/useOperationCheck';
@@ -37,7 +36,6 @@ const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
         try {
           playerRef.current.pause();
           playerRef.current.seek(0);
-          console.log(`Cleaned up video player for post ${postId}`);
         } catch (error) {
           return;
         }
@@ -48,7 +46,6 @@ const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
   const handleRetry = () => {
     if (retryCount < maxRetries) {
       setRetryCount(retryCount + 1);
-      console.log(`Retrying video load for post ${postId} (attempt ${retryCount + 1}/${maxRetries})`);
       if (playerRef.current) {
         playerRef.current.seek(0);
         playerRef.current.play();
@@ -89,7 +86,6 @@ const PostVideo = ({ mediaUrl, thumbnailUrl, postId, videoRefs }) => {
           handleRetry();
         }
       }}
-      onLoad={() => console.log(`Video loaded for post ${postId}`)}
     />
   );
 };
@@ -102,8 +98,11 @@ const CommunityBoard = () => {
   const [sortOrder, setSortOrder] = useState('newest');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [expanded, setExpanded] = useState(false);
-  const [userRole, setUserRole] = useState(null); // New state for user role
+  const [userRole, setUserRole] = useState(null);
   const videoRefs = useRef({});
+  const flatListRef = useRef(null);
+  const [isDropdownFocused, setIsDropdownFocused] = useState(false); 
+  const arrowRotation = useRef(new Animated.Value(0)).current;
 
   const categories = [
     { label: 'All', value: 'all' },
@@ -113,6 +112,17 @@ const CommunityBoard = () => {
     { label: 'Announcement', value: 'announcement' },
   ];
 
+  const ITEM_HEIGHT = 50;
+  const activeIndex = categories.findIndex(item => item.value === categoryFilter);
+
+  useEffect(() => {
+    Animated.timing(arrowRotation, {
+      toValue: isDropdownFocused ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isDropdownFocused, arrowRotation]);
+
   const toSentenceCase = (str) => {
     if (!str) return '';
     return str.charAt(0).toUpperCase() + str.slice(1);
@@ -120,7 +130,6 @@ const CommunityBoard = () => {
 
   useEffect(() => {
     if (!user) {
-      console.log('No user logged in, redirecting to Login');
       ToastAndroid.show('Please log in to view posts.', ToastAndroid.BOTTOM);
       navigation.navigate('Login');
       return;
@@ -138,10 +147,8 @@ const CommunityBoard = () => {
           navigation.navigate('Profile');
         }
         setUserRole(userData?.role || null);
-        console.log(`[${new Date().toISOString()}] Fetched user role:`, userData?.role);
       } catch (error) {
         console.error('Error checking user data:', error);
-        ToastAndroid.show('Failed to load user data.', ToastAndroid.BOTTOM);
       }
     };
 
@@ -150,10 +157,9 @@ const CommunityBoard = () => {
 
   useEffect(() => {
     if (!user) {
-      console.log('No user, skipping posts fetch');
       return;
     }
-    const postsRef = query(ref(database, 'posts'), orderByChild('timestamp'));
+    const postsRef = query(ref(database, 'communityboard/posts'), orderByChild('timestamp'));
     const unsubscribe = onValue(postsRef, (snapshot) => {
       const postsData = snapshot.val();
       if (postsData) {
@@ -197,9 +203,9 @@ const CommunityBoard = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const deletedPostRef = ref(database, `posts/deleted/${user.id}/${postId}`);
+              const deletedPostRef = ref(database, `communityboard/posts/deleted/${user.id}/${postId}`);
               await set(deletedPostRef, { ...postData, deletedAt: serverTimestamp() });
-              await remove(ref(database, `posts/${postId}`));
+              await remove(ref(database, `communityboard/posts/${postId}`));
               ToastAndroid.show('Post deleted', ToastAndroid.BOTTOM);
             } catch (error) {
               console.error(`Error moving post ${postId} to deleted:`, error);
@@ -297,7 +303,7 @@ const CommunityBoard = () => {
       return (
         <View style={styles.postContainer}>
           {item.userId === user?.id && isEditable(item) && (
-            <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
+            <Menu>
               <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
                 <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
               </MenuTrigger>
@@ -327,9 +333,9 @@ const CommunityBoard = () => {
             <View>
               <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
               <Text style={styles.postMeta}>
-                {userRole === 'ABVN' && item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
+                {item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
               </Text>
-              {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
+              {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}{item.originalOrganization ? `, ${item.originalOrganization}` : ''}'s post</Text>}
               {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
             </View>
           </View>
@@ -371,13 +377,13 @@ const CommunityBoard = () => {
           <View style={{ flex: 1 }}>
             <Text style={styles.postUser}>{item.userName || 'Anonymous'}</Text>
             <Text style={styles.postMeta}>
-              {userRole === 'ABVN' && item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
+              {item.organization ? `${item.organization} • ` : ''}{new Date(item.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} • <Text style={{ color: Theme.colors.primary }}>{toSentenceCase(item.category)}</Text>
             </Text>
-            {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}'s post</Text>}
+            {item.isShared && <Text style={styles.sharedInfo}>Shared from {item.originalUserName || 'Anonymous'}{item.originalOrganization ? `, ${item.originalOrganization}` : ''}'s post</Text>}
             {item.isShared && item.shareCaption && <Text style={styles.shareCaption}>{item.shareCaption}</Text>}
           </View>
           {item.userId === user?.id && isEditable(item) && (
-            <Menu onOpen={() => console.log(`Menu opened for post ${item.id}`)}>
+            <Menu>
               <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
                 <Ionicons name="ellipsis-vertical" size={20} color={Theme.colors.black} />
               </MenuTrigger>
@@ -512,25 +518,67 @@ const CommunityBoard = () => {
               <Text style={styles.filterText}>{sortOrder === 'newest' ? 'Sort: Newest' : 'Sort: Oldest'}</Text>
             </TouchableOpacity>
             <View style={styles.categoryPicker}>
-              <Picker
-                selectedValue={categoryFilter}
-                onValueChange={(itemValue) => setCategoryFilter(itemValue)}
-                style={styles.picker}
-              >
-                {categories.map((category) => (
-                  <Picker.Item
-                    key={category.value}
-                    label={category.label}
-                    value={category.value}
+              <Dropdown
+                style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                placeholder="Select a category"
+                placeholderStyle={GlobalStyles.placeholderStyle}
+                selectedTextStyle={GlobalStyles.selectedTextStyle}
+                itemTextStyle={GlobalStyles.itemTextStyle}
+                itemContainerStyle={GlobalStyles.itemContainerStyle}
+                containerStyle={GlobalStyles.containerStyle}
+                data={categories}
+                labelField="label"
+                valueField="value"
+                value={categoryFilter}
+                onChange={(item) => {
+                  setCategoryFilter(item.value);
+                }}
+                disable={!canSubmit}
+                renderRightIcon={() => (
+                  <Animated.View
                     style={{
-                      fontFamily: 'Poppins_Regular',
-                      fontSize: 13,
-                      color: Theme.colors.black,
-                      textAlign: 'center',
+                      transform: [{
+                        rotate: arrowRotation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0deg', '180deg'],
+                        }),
+                      }],
                     }}
-                  />
-                ))}
-              </Picker>
+                  >
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={Theme.colors.placeholder || '#999999'}
+                    />
+                  </Animated.View>
+                )}
+                autoScroll={false}
+                flatListProps={{
+                  keyExtractor: (item) => item.value.toString(),
+                  ref: flatListRef,
+                  getItemLayout: (_, index) => ({
+                    length: ITEM_HEIGHT,
+                    offset: ITEM_HEIGHT * index,
+                    index,
+                  }),
+                }}
+                renderItem={(item) => (
+                  <Text style={GlobalStyles.itemTextStyle}>
+                    {item.label}
+                  </Text>
+                )}
+                onFocus={() => {
+                  setIsDropdownFocused(true);
+                  if (categoryFilter && activeIndex >= 0) {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                    }, 100);
+                  }
+                }}
+                onBlur={() => {
+                  setIsDropdownFocused(false);
+                }}
+              />
             </View>
           </View>
           <FlatList

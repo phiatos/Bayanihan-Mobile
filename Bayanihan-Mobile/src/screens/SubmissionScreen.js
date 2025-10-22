@@ -48,8 +48,6 @@ const SubmissionScreen = () => {
     }
     if (!user) {
       Alert.alert('Error', 'Please log in to view your activity history');
-      console.log(`[${new Date().toISOString()}] No user logged in, redirecting to Login`);
-      navigation.navigate('Login');
       return;
     }
 
@@ -59,7 +57,6 @@ const SubmissionScreen = () => {
     return () => {
       if (activityUnsubscribe) activityUnsubscribe();
       if (submissionUnsubscribe) submissionUnsubscribe();
-      console.log(`[${new Date().toISOString()}] Cleaned up Firebase listeners`);
     };
   }, [user]);
 
@@ -98,9 +95,7 @@ const SubmissionScreen = () => {
                     node: 'activity_log',
                   }))
                 : [];
-              console.log(`[${new Date().toISOString()}] activity_log fetched: ${activities2.length} items`, activities2);
 
-              // Combine and deduplicate
               const combined = [...activities, ...activities2];
               const uniqueActivities = Array.from(
                 new Map(
@@ -113,10 +108,6 @@ const SubmissionScreen = () => {
               if (uniqueActivities.length > 0) {
                 setLastTimestamp(uniqueActivities[uniqueActivities.length - 1].timestamp);
               }
-              console.log(
-                `[${new Date().toISOString()}] Combined activity log fetched: ${uniqueActivities.length} items`,
-                uniqueActivities
-              );
             },
             (error) => {
               return;
@@ -159,8 +150,7 @@ const SubmissionScreen = () => {
                 node: 'activity_logs',
               }))
             : [];
-          console.log(`[${new Date().toISOString()}] More activity_logs fetched: ${activities.length} items`, activities);
-
+                      
           onValue(
             logQuery,
             (snapshot2) => {
@@ -174,12 +164,7 @@ const SubmissionScreen = () => {
                     node: 'activity_log',
                   }))
                 : [];
-              console.log(
-                `[${new Date().toISOString()}] More activity_log fetched: ${activities2.length} items`,
-                activities2
-              );
 
-              // Combine and deduplicate
               const combined = [...activities, ...activities2];
               const uniqueActivities = Array.from(
                 new Map(
@@ -199,10 +184,6 @@ const SubmissionScreen = () => {
               if (uniqueActivities.length > 0) {
                 setLastTimestamp(uniqueActivities[uniqueActivities.length - 1].timestamp);
               }
-              console.log(
-                `[${new Date().toISOString()}] Combined more activity log fetched: ${uniqueActivities.length} items`,
-                uniqueActivities
-              );
             },
             (error) => {
               ToastAndroid.show('Failed to fetch more activity_log.', ToastAndroid.SHORT);
@@ -247,10 +228,6 @@ const SubmissionScreen = () => {
                 return acc;
               }, {})
             : {};
-          console.log(
-            `[${new Date().toISOString()}] activity_logs submission data fetched: ${Object.keys(submissions).length} items`,
-            submissions
-          );
 
           onValue(
             logRef,
@@ -270,14 +247,7 @@ const SubmissionScreen = () => {
                   }, {})
                 : {};
 
-              // Merge submissions
               setSubmissionData({ ...submissions, ...submissions2 });
-              console.log(
-                `[${new Date().toISOString()}] Combined submission data fetched: ${
-                  Object.keys({ ...submissions, ...submissions2 }).length
-                } items`,
-                { ...submissions, ...submissions2 }
-              );
             },
             (error) => {
              return;
@@ -349,18 +319,10 @@ const SubmissionScreen = () => {
   const findSubmissionData = useCallback(
     (item) => {
       if (!item.submissionId) {
-        console.warn(
-          `[${new Date().toISOString()}] No submissionId for activity`,
-          item
-        );
         return null;
       }
       const submission = submissionData[item.submissionId];
       if (!submission) {
-        console.warn(
-          `[${new Date().toISOString()}] No submission found for submissionId: ${item.submissionId}`,
-          { availableSubmissionIds: Object.keys(submissionData) }
-        );
       }
       return submission;
     },
@@ -445,9 +407,9 @@ const SubmissionScreen = () => {
         style={styles.viewButton}
         onPress={() => {
           if (isModalAction(item.message)) {
-            navigation.navigate('TransactionDetailsScreen', { item });
+            navigation.navigate('SubmissionDetailsScreen', { item });
           } else {
-            navigation.navigate('TransactionDetailsScreen', { item });
+            navigation.navigate('SubmissionDetailsScreen', { item });
           }
         }}
       >
@@ -498,14 +460,14 @@ const SubmissionScreen = () => {
             <Ionicons name="menu" size={32} color={Theme.colors.primary} />
           </TouchableOpacity>
           <Text style={[GlobalStyles.headerTitle, { color: Theme.colors.primary }]}>
-            Transaction History
+            Submissions History
           </Text>
         </View>
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 80 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1}}
         keyboardVerticalOffset={0}
       >
         <ScrollView
@@ -513,7 +475,7 @@ const SubmissionScreen = () => {
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={GlobalStyles.form}>
+          <View style={[GlobalStyles.form, {marginTop: 120}]}>
             <FlatList
               data={history}
               renderItem={({ item }) => <RenderHistoryItem item={item} />}

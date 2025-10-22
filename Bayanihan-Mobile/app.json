@@ -3,10 +3,6 @@
     "name": "Bayanihan",
     "slug": "bayanihan-mobile",
     "version": "1.0.0",
-    "platforms": [
-      "android",
-      "ios"
-    ],
     "orientation": "portrait",
     "icon": "./assets/images/app_logo.png",
     "userInterfaceStyle": "light",
@@ -14,11 +10,7 @@
     "splash": {
       "image": "./assets/images/ab_logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFF9F0",
-      "permissions": [
-        "location",
-        "CAMERA_ROLL"
-      ]
+      "backgroundColor": "#FFF9F0"
     },
     "ios": {
       "supportsTablet": true
@@ -34,14 +26,9 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.READ_EXTERNAL_STORAGE"
       ],
-      "package": "com.firebase.bayanihan",
-      "statusBar": {
-        "translucent": false,
-        "backgroundColor": "#FFFFFF"
-      }
+      "package": "com.firebase.bayanihan" 
     },
     "web": {
       "favicon": "./assets/images/app_logo.png"
@@ -68,14 +55,14 @@
       "policy": "appVersion"
     },
     "updates": {},
-    "androidStatusBar": {
-      "translucent": true,
-      "backgroundColor": "#00000000"
-    },
     "androidNavigationBar": {
       "visible": "immersive",
-      "backgroundColor": "#00000000"
+      "backgroundColor": "#00000088"
     },
+    "androidStatusBar": {
+    "translucent": true,
+    "backgroundColor": "#00000088"
+  },
     "owner": "louihv"
   }
 }

@@ -6,6 +6,7 @@ import {
   updatePassword,
 } from 'firebase/auth';
 import { get, getDatabase, ref, update } from 'firebase/database';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,9 +20,11 @@ import {
   Dimensions,
   StatusBar,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { auth } from '../configuration/firebaseConfig';
 import Theme from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
@@ -33,9 +36,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { v4 as uuidv4 } from 'uuid';
 import { logActivity, logSubmission } from '../components/logSubmission';
 
+const { height, width } = Dimensions.get('window');
+
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const { user, setUser } = useAuth(); // Removed onSignOut
+  const { user, setUser } = useAuth();
   const [profileData, setProfileData] = useState({
     organization: '',
     hq: '',
@@ -43,6 +48,7 @@ const ProfileScreen = () => {
     email: '',
     mobile: '',
     role: '',
+    profilePicture: '',
   });
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -69,7 +75,7 @@ const ProfileScreen = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { height, width } = Dimensions.get('window');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const currentTermsVersion = 1;
 
@@ -90,7 +96,6 @@ const ProfileScreen = () => {
     const fetchUserData = async (retryCount = 0, maxRetries = 2) => {
       setLoading(true);
       if (!auth.currentUser?.uid) {
-        console.error(`[${new Date().toISOString()}] No user logged in, auth.currentUser:`, auth.currentUser, 'user:', user);
         setProfileData({
           organization: user?.organization || 'Admin',
           hq: user?.hq || 'N/A',
@@ -98,29 +103,13 @@ const ProfileScreen = () => {
           email: user?.email || 'N/A',
           mobile: user?.mobile || 'N/A',
           role: user?.role || 'N/A',
+          profilePicture: '',
         });
         setLoading(false);
-        setCustomModal({
-          visible: true,
-          title: 'Error',
-          message: (
-            <View style={{ alignItems: 'center' }}>
-              <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
-              <Text style={styles.message}>No user logged in. Please log in again.</Text>
-            </View>
-          ),
-          onConfirm: () => {
-            closeModal();
-            navigation.navigate('Login'); // Redirect to login
-          },
-          confirmText: 'OK',
-          showCancel: false,
-        });
         return;
       }
 
       try {
-        console.log(`[${new Date().toISOString()}] Fetching user data for UID:`, auth.currentUser.uid, 'user.id:', user?.id);
         const db = getDatabase();
         const userRef = ref(db, `users/${auth.currentUser.uid}`);
         const snapshot = await get(userRef);
@@ -154,6 +143,7 @@ const ProfileScreen = () => {
             email: data.email || auth.currentUser.email || 'N/A',
             mobile: data.mobile || 'N/A',
             role,
+            profilePicture: data.profilePicture || '',
           });
         } else {
           console.warn(`[${new Date().toISOString()}] No user document found for UID:`, auth.currentUser.uid);
@@ -164,6 +154,7 @@ const ProfileScreen = () => {
             email: auth.currentUser?.email || user?.email || 'N/A',
             mobile: user?.mobile || 'N/A',
             role: user?.role || 'N/A',
+            profilePicture: '',
           });
         }
       } catch (error) {
@@ -175,6 +166,7 @@ const ProfileScreen = () => {
           email: auth.currentUser?.email || user?.email || 'N/A',
           mobile: user?.mobile || 'N/A',
           role: user?.role || 'N/A',
+          profilePicture: '',
         });
         setCustomModal({
           visible: true,
@@ -279,7 +271,6 @@ const ProfileScreen = () => {
     }
 
     if (!auth.currentUser?.uid) {
-      console.error(`[${new Date().toISOString()}] No user logged in for password change`);
       setCustomModal({
         visible: true,
         title: 'Not Logged In',
@@ -364,20 +355,16 @@ const ProfileScreen = () => {
         throw new Error('No email associated with this user for re-authentication.');
       }
 
-      console.log(`[${new Date().toISOString()}] Attempting to re-authenticate user:`, auth.currentUser.uid);
       const credential = EmailAuthProvider.credential(userEmail, currentPassword);
       await reauthenticateWithCredential(auth.currentUser, credential);
-      console.log(`[${new Date().toISOString()}] Re-authentication successful`);
 
       await updatePassword(auth.currentUser, newPassword);
-      console.log(`[${new Date().toISOString()}] Password updated`);
 
       const db = getDatabase();
       await update(ref(db, `users/${auth.currentUser.uid}`), {
         lastPasswordChange: new Date().toISOString(),
         password_needs_reset: false,
       });
-      console.log(`[${new Date().toISOString()}] Database updated`);
 
       let submissionId;
       try {
@@ -389,16 +376,9 @@ const ProfileScreen = () => {
 
       const organization = profileData.organization || 'Admin';
       const submissionData = { action: 'password_change', newPasswordLength: newPassword.length };
-      console.log(`[${new Date().toISOString()}] Preparing to log password change:`, {
-        collection: 'profile',
-        submissionData,
-        submissionId,
-        organization,
-      });
 
       await logActivity(auth.currentUser.uid, 'User changed their password', submissionId, organization);
       await logSubmission('profile', submissionData, submissionId, organization, auth.currentUser.uid);
-      console.log(`[${new Date().toISOString()}] Activity and submission logged`);
 
       setCustomModal({
         visible: true,
@@ -410,17 +390,8 @@ const ProfileScreen = () => {
           </View>
         ),
         onConfirm: async () => {
-          try {
-            console.log(`[${new Date().toISOString()}] Auth object before sign-out:`, auth);
-            await signOut(auth);
-            setUser(null); // Clear AuthContext user
-            console.log(`[${new Date().toISOString()}] Sign out successful`);
-            navigation.navigate('Login');
-          } catch (error) {
-            console.error(`[${new Date().toISOString()}] Sign out error:`, error.message);
-            Alert.alert('Error', 'Failed to sign out: ' + error.message);
-          }
           closeModal();
+          signOut(auth);
         },
         confirmText: 'Sign Out',
         showCancel: true,
@@ -494,7 +465,7 @@ const ProfileScreen = () => {
         ),
         onConfirm: () => {
           closeModal();
-          navigation.navigate('Login');
+          signOut(auth);
         },
         confirmText: 'OK',
         showCancel: false,
@@ -520,18 +491,11 @@ const ProfileScreen = () => {
       }
 
       const organization = profileData.organization || 'Admin';
-      console.log(`[${new Date().toISOString()}] Preparing to log terms agreement:`, {
-        collection: 'profile',
-        submissionData,
-        submissionId,
-        organization,
-      });
 
       await update(ref(db, `users/${auth.currentUser.uid}`), submissionData);
       await logActivity(auth.currentUser.uid, 'User agreed to terms and conditions', submissionId, organization);
       await logSubmission('profile', submissionData, submissionId, organization, auth.currentUser.uid);
 
-      console.log(`[${new Date().toISOString()}] Terms agreed successfully for user:`, auth.currentUser.uid);
       setTermsModalVisible(false);
       setIsNavigationBlocked(false);
 
@@ -590,12 +554,125 @@ const ProfileScreen = () => {
     }
   };
 
+  const handleImagePick = async () => {
+    if (!auth.currentUser?.uid) {
+      setCustomModal({
+        visible: true,
+        title: 'Not Logged In',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="alert-circle" size={60} color={Theme.colors.red} style={styles.icon} />
+            <Text style={styles.message}>Please log in to upload a profile picture.</Text>
+          </View>
+        ),
+        onConfirm: () => {
+          closeModal();
+          signOut(auth);
+        },
+        confirmText: 'OK',
+        showCancel: false,
+      });
+      return;
+    }
+
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        setCustomModal({
+          visible: true,
+          title: 'Permission Denied',
+          message: (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name="alert-circle" size={60} color={Theme.colors.red} style={styles.icon} />
+              <Text style={styles.message}>Permission to access camera roll is required to upload a profile picture.</Text>
+            </View>
+          ),
+          onConfirm: closeModal,
+          confirmText: 'OK',
+          showCancel: false,
+        });
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setUploadingImage(true);
+        const asset = result.assets[0];
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+
+        const storage = getStorage();
+        const imageRef = storageRef(storage, `profile_pictures/${auth.currentUser.uid}/${uuidv4()}.jpg`);
+        
+        await uploadBytes(imageRef, blob);
+        const downloadURL = await getDownloadURL(imageRef);
+
+        const db = getDatabase();
+        await update(ref(db, `users/${auth.currentUser.uid}`), {
+          profilePicture: downloadURL,
+          lastProfilePictureUpdate: new Date().toISOString(),
+        });
+
+        setProfileData(prev => ({ ...prev, profilePicture: downloadURL }));
+
+        let submissionId;
+        try {
+          submissionId = uuidv4();
+        } catch (uuidError) {
+          console.error(`[${new Date().toISOString()}] UUID generation error:`, uuidError.message);
+          submissionId = `fallback-${Date.now()}`;
+        }
+
+        const organization = profileData.organization || 'Admin';
+        await logActivity(auth.currentUser.uid, 'User uploaded profile picture', submissionId, organization);
+        await logSubmission('profile', { action: 'profile_picture_upload' }, submissionId, organization, auth.currentUser.uid);
+
+        setCustomModal({
+          visible: true,
+          title: 'Success',
+          message: (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name="checkmark-circle" size={60} color={Theme.colors.primary} style={styles.icon} />
+              <Text style={styles.message}>Profile picture uploaded successfully!</Text>
+            </View>
+          ),
+          onConfirm: closeModal,
+          confirmText: 'OK',
+          showCancel: false,
+        });
+      }
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Profile picture upload error:`, error.message, error.code || 'N/A');
+      setCustomModal({
+        visible: true,
+        title: 'Error',
+        message: (
+          <View style={{ alignItems: 'center' }}>
+            <Ionicons name="alert-circle" size={60} color="#FF4D4D" style={styles.icon} />
+            <Text style={styles.message}>Failed to upload profile picture. Please try again.</Text>
+          </View>
+        ),
+        onConfirm: closeModal,
+        confirmText: 'OK',
+        showCancel: false,
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={GlobalStyles.container}>
         <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
         <ActivityIndicator size="large" color={Theme.colors.primary} />
-        <Text style={styles.sectionTitle}>Loading Profile...</Text>
+        <Text style={GlobalStyles.sectionTitle}>Loading Profile...</Text>
       </View>
     );
   }
@@ -722,7 +799,7 @@ const ProfileScreen = () => {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 50 }}
+        style={{ flex: 1}}
         keyboardVerticalOffset={0}
       >
         <ScrollView
@@ -730,13 +807,39 @@ const ProfileScreen = () => {
           scrollEnabled={true}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.form}>
+          <View style={[GlobalStyles.form, {marginTop: 60}]}>
             <Text style={[GlobalStyles.subheader, { color: Theme.colors.accent, fontSize: profileData.role.includes('AB ADMIN') ? 22 : 20 }]}>
               {profileData.role.includes('AB ADMIN') ? 'Admin Account' : 'Volunteer Group: ' + profileData.organization}
             </Text>
             {!termsModalVisible && !passwordNeedsReset && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Basic Information</Text>
+              <View style={GlobalStyles.section}>
+                <View style={styles.profilePictureContainer}>
+                  {profileData.profilePicture ? (
+                    <Image
+                      source={{ uri: profileData.profilePicture }}
+                      style={styles.profilePicture}
+                    />
+                  ) : (
+                    <View style={[styles.profilePicture, styles.profilePicturePlaceholder]}>
+                      <Ionicons name="person" size={50} color={Theme.colors.placeholderColor} />
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={ styles.uploadButton}
+                    onPress={handleImagePick}
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? (
+                      <ActivityIndicator size="small" color={Theme.colors.primary} />
+                    ) : (
+                      <>
+                        <Ionicons name="cloud-upload-outline" size={28} color={Theme.colors.accentBlue} />
+                        
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+                <Text style={GlobalStyles.sectionTitle}>Basic Information</Text>
                 {[
                   ['Role', profileData.role],
                   ['Organization Name', profileData.organization, profileData.role.includes('ABVN')],
@@ -768,8 +871,8 @@ const ProfileScreen = () => {
             />
 
             {(!termsModalVisible || passwordNeedsReset) && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Change Password</Text>
+              <View style={GlobalStyles.section}>
+                <Text style={GlobalStyles.sectionTitle}>Change Password</Text>
                 <View style={styles.passwordInputField}>
                   <TextInput
                     style={styles.input}

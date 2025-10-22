@@ -259,7 +259,6 @@ const ReliefRequestScreen = () => {
     itemName: '',
     quantity: '',
     notes: '',
-    
   });
   const [items, setItems] = useState(route.params?.addedItems || []);
   const [isItemDropdownVisible, setIsItemDropdownVisible] = useState(false);
@@ -272,7 +271,29 @@ const ReliefRequestScreen = () => {
   const [userLocation, setUserLocation] = useState(null);
   const itemInputRef = useRef(null);
   const webViewRef = useRef(null);
+  const flatListRef = useRef(null);
   const insets = useSafeAreaInsets();
+  const [isDropdownFocused, setIsDropdownFocused] = useState(false);
+  const arrowRotation = useRef(new Animated.Value(0)).current;
+
+  const categories = [
+    { label: 'Relief Packs', value: 'Relief Packs' },
+    { label: 'Hot Meals', value: 'Hot Meals' },
+    { label: 'Hygiene Kits', value: 'Hygiene Kits' },
+    { label: 'Drinking Water', value: 'Drinking Water' },
+    { label: 'Rice Packs', value: 'Rice Packs' },
+    { label: 'Other Essentials', value: 'Other Essentials' },
+  ];
+  const ITEM_HEIGHT = 50;
+  const activeIndex = categories.findIndex(item => item.value === reportData.category);
+
+  useEffect(() => {
+    Animated.timing(arrowRotation, {
+      toValue: isDropdownFocused ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isDropdownFocused, arrowRotation]);
 
   const leafletHtml = `
     <!DOCTYPE html>
@@ -694,7 +715,6 @@ const ReliefRequestScreen = () => {
   const requiredFields = ['contactPerson', 'contactNumber', 'email', 'address.formattedAddress', 'category'];
   const itemInputRequiredFields = ['category', 'itemName', 'quantity'];
 
-  const categories = ['Relief Packs', 'Hot Meals', 'Hygiene Kits', 'Drinking Water', 'Rice Packs', 'Other Essentials'];
   const itemSuggestions = {
     'Relief Packs': ['Rice', 'Canned Goods', 'Noodles', 'Biscuits', 'Dried Fruits'],
     'Hot Meals': ['Rice', 'Canned Goods', 'Vegetables', 'Meat', 'Spices'],
@@ -1063,8 +1083,6 @@ const ReliefRequestScreen = () => {
       setModalVisible(true);
       return;
     }
-
-    console.log('Navigating to ReliefSummary with reportData:', reportData);
     navigation.navigate('ReliefSummary', { reportData, addedItems: items, organizationName, urgent });
   };
 
@@ -1075,7 +1093,7 @@ const ReliefRequestScreen = () => {
     </Text>
   );
 
-  const handleUrgentToggle = () => {
+ const handleUrgentToggle = () => {
     setUrgent(!urgent);
   };
 
@@ -1083,7 +1101,7 @@ const ReliefRequestScreen = () => {
 
   return (
     <SafeAreaView style={GlobalStyles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+    <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <LinearGradient
         colors={['rgba(20, 174, 187, 0.4)', '#FFF9F0']}
         start={{ x: 1, y: 0.5 }}
@@ -1099,8 +1117,8 @@ const ReliefRequestScreen = () => {
       </LinearGradient>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, marginTop: 80 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >
         <ScrollView
@@ -1111,7 +1129,6 @@ const ReliefRequestScreen = () => {
           <View style={GlobalStyles.form}>
             <View style={GlobalStyles.section}>
               <Text style={GlobalStyles.sectionTitle}>Contact Information</Text>
-
               {renderLabel('Contact Person', true)}
               <View>
                 <TextInput
@@ -1177,36 +1194,82 @@ const ReliefRequestScreen = () => {
               {errors['address.formattedAddress'] && (
                 <Text style={GlobalStyles.errorText}>{errors['address.formattedAddress']}</Text>
               )}
-              <TouchableOpacity
-                  style={[GlobalStyles.checkboxContainer, urgent && GlobalStyles.checkboxChecked]}
-                  onPress={handleUrgentToggle}>
-                  { <Ionicons
-                name={urgent ? 'checkbox' : 'square-outline'}
-                size={24}
-                color={urgent ? Theme.colors.accent : Theme.colors.black}
-              />}
-                <Text style={[GlobalStyles.checkboxLabel, {fontFamily: 'Poppins_SemiBold'}]}>Mark as an Urgent Request</Text>
-                </TouchableOpacity>
-
               {renderLabel('Request Category', true)}
               <View style={[GlobalStyles.input, GlobalStyles.pickerContainer, errors.category && GlobalStyles.inputError]}>
                 <Dropdown
-                  style={{ padding: 10, width: '100%' }}
-                  placeholderStyle={{ fontFamily: 'Poppins_Regular', color: Theme.colors.placeholderColor, fontSize: 14 }}
-                  selectedTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14 }}
-                  itemTextStyle={{ fontFamily: 'Poppins_Regular', fontSize: 14, color: Theme.colors.black }}
-                  data={categories.map((c) => ({ label: c, value: c }))}
+                  style={{ padding: 10, width: '100%', fontFamily: 'Poppins_Regular' }}
+                  placeholder="Select a category"
+                  placeholderStyle={GlobalStyles.placeholderStyle}
+                  selectedTextStyle={GlobalStyles.selectedTextStyle}
+                  itemTextStyle={GlobalStyles.itemTextStyle}
+                  itemContainerStyle={GlobalStyles.itemContainerStyle}
+                  containerStyle={GlobalStyles.containerStyle}
+                  data={categories}
                   labelField="label"
                   valueField="value"
-                  placeholder="Select Category"
                   value={reportData.category}
                   onChange={(item) => handleChange('category', item.value)}
+                  disable={!canSubmit}
+                  renderRightIcon={() => (
+                    <Animated.View
+                      style={{
+                        transform: [{
+                          rotate: arrowRotation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['0deg', '180deg'],
+                          }),
+                        }],
+                      }}
+                    >
+                      <Ionicons
+                        name="chevron-down"
+                        size={18}
+                        color={Theme.colors.placeholder || '#999999'}
+                      />
+                    </Animated.View>
+                  )}
+                  autoScroll={false}
+                  flatListProps={{
+                    keyExtractor: (item) => item.value.toString(),
+                    ref: flatListRef,
+                    getItemLayout: (_, index) => ({
+                      length: ITEM_HEIGHT,
+                      offset: ITEM_HEIGHT * index,
+                      index,
+                    }),
+                  }}
+                  renderItem={(item) => (
+                    <Text style={GlobalStyles.itemTextStyle}>
+                      {item.label}
+                    </Text>
+                  )}
+                  onFocus={() => {
+                    setIsDropdownFocused(true);
+                    if (reportData.category && activeIndex >= 0) {
+                      setTimeout(() => {
+                        flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
+                      }, 100);
+                    }
+                  }}
+                  onBlur={() => {
+                    setIsDropdownFocused(false);
+                  }}
                 />
               </View>
               {errors.category && <Text style={GlobalStyles.errorText}>{errors.category}</Text>}
+              <TouchableOpacity
+                style={[GlobalStyles.checkboxContainer, urgent && GlobalStyles.checkboxChecked]}
+                onPress={handleUrgentToggle}
+              >
+                <Ionicons
+                  name={urgent ? 'checkbox' : 'square-outline'}
+                  size={20}
+                  color={urgent ? Theme.colors.accent : Theme.colors.black}
+                />
+                <Text style={[GlobalStyles.checkboxLabel, { fontFamily: 'Poppins_SemiBold', fontSize: 12 }]}>Mark as an Urgent Request</Text>
+              </TouchableOpacity>
             </View>
-
-            <View style={[GlobalStyles.section, { zIndex: 1000 }]}>
+<View style={[GlobalStyles.section, { zIndex: 1000 }]}>
               <Text style={GlobalStyles.sectionTitle}>Requested Items</Text>
 
               {renderLabel('Item Name', true)}
@@ -1337,21 +1400,20 @@ const ReliefRequestScreen = () => {
                   </ScrollView>
                 </View>
               )}
-            </View>
-            <View style={{ marginHorizontal: 15 }}>
-              <TouchableOpacity
+            </View>    
+             <View style={{ marginHorizontal: 15, marginBottom: 40 }}>
+             <TouchableOpacity
                 style={[GlobalStyles.button, !canSubmit && { opacity: 0.6 }]}
                 onPress={handleSubmit}
                 disabled={!canSubmit}
-              >
+               >
                 <Text style={GlobalStyles.buttonText}>Proceed</Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
+                </View>      
             </View>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <Modal
+<Modal
         visible={mapModalVisible}
         animationType="slide"
         onRequestClose={() => setMapModalVisible(false)}
@@ -1403,8 +1465,7 @@ const ReliefRequestScreen = () => {
         title={toastConfig.title}
         message={toastConfig.message}
         onDismiss={() => setToastVisible(false)}
-      />
-    </SafeAreaView>
+      />    </SafeAreaView>
   );
 };
 
