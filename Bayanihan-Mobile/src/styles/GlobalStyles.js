@@ -92,6 +92,7 @@ export default StyleSheet.create({
     flex:1,
     marginHorizontal: 10,
     marginTop: HEADER_HEIGHT + 40,
+    marginBottom: 30
     },
   formTitle: {
     fontSize: 13,

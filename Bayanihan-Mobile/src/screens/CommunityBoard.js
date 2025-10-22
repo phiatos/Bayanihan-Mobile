@@ -159,7 +159,7 @@ const CommunityBoard = () => {
     if (!user) {
       return;
     }
-    const postsRef = query(ref(database, 'posts'), orderByChild('timestamp'));
+    const postsRef = query(ref(database, 'communityboard/posts'), orderByChild('timestamp'));
     const unsubscribe = onValue(postsRef, (snapshot) => {
       const postsData = snapshot.val();
       if (postsData) {
@@ -203,9 +203,9 @@ const CommunityBoard = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const deletedPostRef = ref(database, `posts/deleted/${user.id}/${postId}`);
+              const deletedPostRef = ref(database, `communityboard/posts/deleted/${user.id}/${postId}`);
               await set(deletedPostRef, { ...postData, deletedAt: serverTimestamp() });
-              await remove(ref(database, `posts/${postId}`));
+              await remove(ref(database, `communityboard/posts/${postId}`));
               ToastAndroid.show('Post deleted', ToastAndroid.BOTTOM);
             } catch (error) {
               console.error(`Error moving post ${postId} to deleted:`, error);

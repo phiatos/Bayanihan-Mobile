@@ -57,11 +57,11 @@
     "updates": {},
     "androidNavigationBar": {
       "visible": "immersive",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#00000088"
     },
     "androidStatusBar": {
     "translucent": true,
-    "backgroundColor": "#000000"
+    "backgroundColor": "#00000088"
   },
     "owner": "louihv"
   }

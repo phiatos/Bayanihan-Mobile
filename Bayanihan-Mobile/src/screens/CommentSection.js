@@ -12,8 +12,6 @@ import GlobalStyles from '../styles/GlobalStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { v4 as uuidv4 } from 'uuid';
-import { logActivity, logSubmission } from '../components/logSubmission';
 
 const CommentSection = () => {
   const navigation = useNavigation();
@@ -28,12 +26,30 @@ const CommentSection = () => {
   const commentInputRef = useRef(null);
   const flatListRef = useRef(null);
   const insets = useSafeAreaInsets();
-  const HEADER_HEIGHT = 60
+  const HEADER_HEIGHT = 60;
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const toSentenceCase = (str) => {
     if (!str) return 'post';
     return str.charAt(0).toUpperCase() + str.slice(1);
   };
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+      if (flatListRef.current && comments.length > 0) {
+        flatListRef.current.scrollToEnd({ animated: true });
+      }
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, [comments]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -57,30 +73,15 @@ const CommentSection = () => {
           const contactPerson = user.contactPerson && user.contactPerson !== 'Anonymous' && user.contactPerson !== 'Admin' 
             ? user.contactPerson 
             : `${user.firstName || ''} ${user.lastName || ''}`.trim() || (isAdmin ? 'Admin' : '');
-          const organization = isAdmin ? 'Admin' : (user.organization || '');
+          const organization = isAdmin ? '' : (user.organization || '');
           const data = {
             contactPerson,
             organization,
             firstName: user.firstName || '',
             lastName: user.lastName || '',
           };
-          if (!user.contactPerson && !user.firstName && !user.lastName) {
-            console.warn(`[${new Date().toISOString()}] AuthContext missing contactPerson, firstName, and lastName for user ${user.id}${isAdmin ? ' (Admin user)' : ''}`);
-          }
           await AsyncStorage.setItem(`userData:${user.id}`, JSON.stringify(data));
           setUserData(data);
-          return;
-        }
-
-        if (!database) {
-          console.error(`[${new Date().toISOString()}] Database not initialized in fetchUserData`);
-          ToastAndroid.show('Database configuration error.', ToastAndroid.BOTTOM);
-          setUserData({ 
-            contactPerson: isAdmin ? 'Admin' : '', 
-            organization: isAdmin ? ' ' : '',
-            firstName: '',
-            lastName: '',
-          });
           return;
         }
 
@@ -88,29 +89,23 @@ const CommentSection = () => {
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
           const userDataRaw = snapshot.val() || {};
-          const isAdmin = userDataRaw.role === 'AB ADMIN' || userDataRaw.isAdmin || false;
           const contactPerson = userDataRaw.contactPerson && userDataRaw.contactPerson !== 'Anonymous' && userDataRaw.contactPerson !== 'Admin' 
             ? userDataRaw.contactPerson 
             : `${userDataRaw.firstName || ''} ${userDataRaw.lastName || ''}`.trim() || (isAdmin ? 'Admin' : '');
-          const organization = isAdmin ? ' ' : (userDataRaw.organization || userDataRaw.organisation || '');
+          const organization = isAdmin ? '' : (userDataRaw.organization || userDataRaw.organisation || '');
           const data = { 
             contactPerson, 
             organization,
             firstName: userDataRaw.firstName || '',
             lastName: userDataRaw.lastName || '',
           };
-          if (!userDataRaw.contactPerson && !userDataRaw.firstName && !userDataRaw.lastName && !userDataRaw.displayName) {
-            console.warn(`[${new Date().toISOString()}] Firebase user data missing contactPerson, firstName, lastName, and displayName for ID: ${user.id}${isAdmin ? ' (Admin user)' : ''}`);
-          }
           await AsyncStorage.setItem(`userData:${user.id}`, JSON.stringify(data));
           setUserData(data);
         } else {
-          console.warn(`[${new Date().toISOString()}] No user document found for ID:`, user.id);
-          const isAdmin = user.role === 'AB ADMIN' || user.isAdmin || false;
           const contactPerson = user.contactPerson && user.contactPerson !== 'Anonymous' && user.contactPerson !== 'Admin' 
             ? user.contactPerson 
             : `${user.firstName || ''} ${user.lastName || ''}`.trim() || (isAdmin ? 'Admin' : '');
-          const organization = isAdmin ? ' ' : (user.organization || '');
+          const organization = isAdmin ? '' : (user.organization || '');
           const data = { 
             contactPerson,
             organization,
@@ -150,7 +145,7 @@ const CommentSection = () => {
       return;
     }
 
-    const commentsRef = ref(database, `posts/${postId}/comments`);
+    const commentsRef = ref(database, `communityboard/posts/${postId}/comments`);
     let unsubscribe;
 
     if (typeof onValue === 'function') {
@@ -195,18 +190,6 @@ const CommentSection = () => {
     };
   }, [postId, navigation]);
 
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      if (flatListRef.current && comments.length > 0) {
-        flatListRef.current.scrollToEnd({ animated: true });
-      }
-    });
-
-    return () => {
-      keyboardDidShowListener.remove();
-    };
-  }, [comments]);
-
   const buildCommentTree = (comments) => {
     const tree = [];
     const lookup = {};
@@ -215,24 +198,22 @@ const CommentSection = () => {
       lookup[comment.id] = { ...comment, replies: [] };
     });
 
-    comments.forEach((comment, index) => {
+    comments.forEach((comment) => {
       if (comment.parentCommentId && lookup[comment.parentCommentId]) {
         let parent = lookup[comment.parentCommentId];
         while (parent.parentCommentId && lookup[parent.parentCommentId]) {
           parent = lookup[parent.parentCommentId];
         }
         parent.replies.push(lookup[comment.id]);
-      } else if (!comment.parentCommentId) {
-        tree.push(lookup[comment.id]);
       } else {
         tree.push(lookup[comment.id]);
       }
     });
 
-    tree.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    tree.sort((a, b) => (b.timestamp || Date.now()) - (a.timestamp || Date.now()));
     Object.values(lookup).forEach((comment) => {
       if (comment.replies) {
-        comment.replies.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        comment.replies.sort((a, b) => (b.timestamp || Date.now()) - (a.timestamp || Date.now()));
       }
     });
 
@@ -257,6 +238,13 @@ const CommentSection = () => {
       return;
     }
 
+    const commentText = newComment.trim();
+    if (!commentText) {
+      console.warn(`[${new Date().toISOString()}] Comment cannot be empty`);
+      ToastAndroid.show('Comment cannot be empty.', ToastAndroid.BOTTOM);
+      return;
+    }
+
     if (!database) {
       console.error(`[${new Date().toISOString()}] Database not initialized in handleAddComment`);
       ToastAndroid.show('Database configuration error.', ToastAndroid.BOTTOM);
@@ -264,20 +252,15 @@ const CommentSection = () => {
       return;
     }
 
-    const commentText = newComment.trim();
-    if (!commentText) {
-      console.warn(`[${new Date().toISOString()}] Comment cannot be empty`);
-      ToastAndroid.show('Comment cannot be empty.', ToastAndroid.BOTTOM);
-      return;
-    }
     if (!postId) {
       console.error(`[${new Date().toISOString()}] Invalid postId for adding comment`);
       ToastAndroid.show('Invalid post.', ToastAndroid.BOTTOM);
+      navigation.goBack();
       return;
     }
 
     try {
-      const commentsRef = ref(database, `posts/${postId}/comments`);
+      const commentsRef = ref(database, `communityboard/posts/${postId}/comments`);
       const newCommentRef = push(commentsRef);
       const submissionId = newCommentRef.key;
       if (!submissionId) {
@@ -297,9 +280,6 @@ const CommentSection = () => {
             ? `${userData.firstName || ''} ${userData.lastName || ''}`.trim() 
             : (isAdmin ? 'Admin' : ''));
       const organization = isAdmin ? '' : (userData.organization || '');
-      if (isAdmin && !userData.contactPerson && !userData.firstName && !userData.lastName) {
-        console.warn(`[${new Date().toISOString()}] Admin user ${user.id} has no valid contactPerson, firstName, or lastName; falling back to 'Admin'`);
-      }
       const commentData = {
         userId: user.id,
         userName,
@@ -311,13 +291,12 @@ const CommentSection = () => {
       };
 
       await set(newCommentRef, commentData);
-      await logActivity(user.id, `Added a comment to post `, submissionId, organization);
-      await logSubmission('comments', commentData, submissionId, organization);
 
       setNewComment('');
       setReplyToCommentId(null);
       setReplyToUsername(null);
       commentInputRef.current?.clear();
+      commentInputRef.current?.blur();
       ToastAndroid.show('Comment posted.', ToastAndroid.BOTTOM);
       if (flatListRef.current) {
         setTimeout(() => {
@@ -326,7 +305,12 @@ const CommentSection = () => {
       }
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Error adding comment to post ${postId}:`, error.message, error.code || 'N/A');
-      ToastAndroid.show(`Failed to post comment: ${error.message}`, ToastAndroid.BOTTOM);
+      ToastAndroid.show(
+        error.code === 'PERMISSION_DENIED'
+          ? 'You do not have permission to post comments.'
+          : `Failed to post comment: ${error.message}`,
+        ToastAndroid.BOTTOM
+      );
     }
   };
 
@@ -348,7 +332,7 @@ const CommentSection = () => {
     }
 
     try {
-      const commentRef = ref(database, `posts/${postId}/comments/${commentId}`);
+      const commentRef = ref(database, `communityboard/posts/${postId}/comments/${commentId}`);
       const snapshot = await get(commentRef);
       const comment = snapshot.val();
       if (!comment || (user.id !== comment.userId && user.id !== postData?.userId)) {
@@ -367,40 +351,19 @@ const CommentSection = () => {
             style: 'destructive',
             onPress: async () => {
               try {
-                let submissionId;
-                try {
-                  submissionId = uuidv4();
-                } catch (uuidError) {
-                  console.error(`[${new Date().toISOString()}] UUID generation error:`, uuidError.message);
-                  submissionId = `fallback-${Date.now()}`;
-                }
-
-                const subCommentsSnapshot = await get(ref(database, `posts/${postId}/comments`));
+                const subCommentsSnapshot = await get(ref(database, `communityboard/posts/${postId}/comments`));
                 const commentsData = subCommentsSnapshot.val();
                 const subComments = commentsData
                   ? Object.keys(commentsData).filter(key => commentsData[key].parentCommentId === commentId)
                   : [];
 
-                const isAdmin = user.role === 'AB ADMIN' || user.isAdmin || false;
-                const organization = isAdmin ? ' ' : (userData.organization || '');
-                const deletionData = {
-                  deletedCommentId: commentId,
-                  deletedContent: comment.content,
-                  userId: user.id,
-                  postId,
-                  timestamp: serverTimestamp(),
-                };
-
                 if (subComments.length > 0) {
                   for (const subCommentId of subComments) {
-                    await remove(ref(database, `posts/${postId}/comments/${subCommentId}`));
+                    await remove(ref(database, `communityboard/posts/${postId}/comments/${subCommentId}`));
                   }
                 }
 
                 await remove(commentRef);
-                await logActivity(user.id, `Deleted a comment from post`, submissionId, organization);
-                await logSubmission('comments', deletionData, submissionId, organization);
-
                 ToastAndroid.show('Comment deleted.', ToastAndroid.BOTTOM);
               } catch (error) {
                 console.error(`[${new Date().toISOString()}] Error deleting comment from post:`, error.message, error.code || 'N/A');
@@ -428,130 +391,130 @@ const CommentSection = () => {
     return <Text style={styles.commentContent}>{content}</Text>;
   };
 
-const renderComment = ({ item }) => {
-  if (!item) {
-    console.error(`[${new Date().toISOString()}] Invalid comment item`);
-    return null;
-  }
+  const renderComment = ({ item }) => {
+    if (!item) {
+      console.error(`[${new Date().toISOString()}] Invalid comment item`);
+      return null;
+    }
 
-  const canDelete = user && (item.userId === user.id || postData?.userId === user.id);
+    const canDelete = user && (item.userId === user.id || postData?.userId === user.id);
 
-  return (
-    <View style={styles.commentContainer}>
-      <View style={styles.commentHeader}>
-        <View>
-          <Text style={styles.commentUser}>{item.userName || ''}</Text>
-          <View style={{ flexDirection: 'row' }}>
-            <Text style={styles.commentMeta}>
-              {item.organization ? `${item.organization} ` : ''} 
-              {item.organization && ' • '}
-            </Text>
-            <Text style={styles.commentTime}>
-              {item.timestamp
-                ? new Date(item.timestamp).toLocaleString([], {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : 'Just now'}
-            </Text>
+    return (
+      <View style={styles.commentContainer}>
+        <View style={styles.commentHeader}>
+          <View>
+            <Text style={styles.commentUser}>{item.userName || ''}</Text>
+            <View style={{ flexDirection: 'row' }}>
+              <Text style={styles.commentMeta}>
+                {item.organization ? `${item.organization} ` : ''} 
+                {item.organization && ' • '}
+              </Text>
+              <Text style={styles.commentTime}>
+                {item.timestamp
+                  ? new Date(item.timestamp).toLocaleString([], {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : 'Just now'}
+              </Text>
+            </View>
           </View>
+          {canDelete && (
+            <Menu>
+              <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
+                <Ionicons name="ellipsis-vertical" size={16} color={Theme.colors.black} />
+              </MenuTrigger>
+              <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
+                <MenuOption
+                  onSelect={() => {
+                    handleDeleteComment(item.id);
+                  }}
+                  text="Delete Comment"
+                  customStyles={{
+                    optionText: [styles.menuText, { color: Theme.colors.red }],
+                  }}
+                />
+              </MenuOptions>
+            </Menu>
+          )}
         </View>
-        {canDelete && (
-          <Menu>
-            <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
-              <Ionicons name="ellipsis-vertical" size={16} color={Theme.colors.black} />
-            </MenuTrigger>
-            <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
-              <MenuOption
-                onSelect={() => {
-                  handleDeleteComment(item.id);
-                }}
-                text="Delete Comment"
-                customStyles={{
-                  optionText: [styles.menuText, { color: Theme.colors.red }],
-                }}
-              />
-            </MenuOptions>
-          </Menu>
+        {renderCommentContent(item.content || item.text || 'No content', item.taggedUsername)}
+        <View style={styles.commentActions}>
+          <TouchableOpacity
+            style={styles.replyButton}
+            onPress={() => handleReplyClick(item.id, item.userName)}
+          >
+            <Ionicons name="chatbubbles-outline" size={20} color={Theme.colors.blue} />
+            <Text style={styles.replyText}>Reply</Text>
+          </TouchableOpacity>
+        </View>
+        {item.replies && item.replies.length > 0 && (
+          <View style={styles.repliesWrapper}>
+            {item.replies.map((reply) => (
+              <View
+                key={reply.id}
+                style={[styles.replyContainer, { marginLeft: 20, borderLeftWidth: 2, borderLeftColor: Theme.colors.primary, paddingLeft: 10 }]}
+              >
+                <View style={styles.commentHeader}>
+                  <View>
+                    <Text style={styles.commentUser}>{reply.userName || ''}</Text>
+                    <View style={{ flexDirection: 'row' }}>
+                      <Text style={styles.commentMeta}>
+                        {reply.organization ? `${reply.organization} ` : ''} 
+                        {reply.organization && ' • '}
+                      </Text>
+                      <Text style={styles.commentTime}>
+                        {reply.timestamp
+                          ? new Date(reply.timestamp).toLocaleString([], {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : 'Just now'}
+                      </Text>
+                    </View>
+                  </View>
+                  {canDelete && (
+                    <Menu>
+                      <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
+                        <Ionicons name="ellipsis-vertical" size={16} color={Theme.colors.black} />
+                      </MenuTrigger>
+                      <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
+                        <MenuOption
+                          onSelect={() => {
+                            handleDeleteComment(reply.id);
+                          }}
+                          text="Delete Comment"
+                          customStyles={{
+                            optionText: [styles.menuText, { color: Theme.colors.red }],
+                          }}
+                        />
+                      </MenuOptions>
+                    </Menu>
+                  )}
+                </View>
+                {renderCommentContent(reply.content || reply.text || 'No content', reply.taggedUsername)}
+                <View style={styles.commentActions}>
+                  <TouchableOpacity
+                    style={styles.replyButton}
+                    onPress={() => handleReplyClick(reply.id, reply.userName)}
+                  >
+                    <Ionicons name="chatbubbles-outline" size={20} color={Theme.colors.blue} />
+                    <Text style={styles.replyText}>Reply</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
         )}
       </View>
-      {renderCommentContent(item.content || item.text || 'No content', item.taggedUsername)}
-      <View style={styles.commentActions}>
-        <TouchableOpacity
-          style={styles.replyButton}
-          onPress={() => handleReplyClick(item.id, item.userName)}
-        >
-          <Ionicons name="chatbubbles-outline" size={20} color={Theme.colors.blue} />
-          <Text style={styles.replyText}>Reply</Text>
-        </TouchableOpacity>
-      </View>
-      {item.replies && item.replies.length > 0 && (
-        <View style={styles.repliesWrapper}>
-          {item.replies.map((reply) => (
-            <View
-              key={reply.id}
-              style={[styles.replyContainer, { marginLeft: 20, borderLeftWidth: 2, borderLeftColor: Theme.colors.primary, paddingLeft: 10 }]}
-            >
-              <View style={styles.commentHeader}>
-                <View>
-                  <Text style={styles.commentUser}>{reply.userName || ''}</Text>
-                  <View style={{ flexDirection: 'row' }}>
-                    <Text style={styles.commentMeta}>
-                      {reply.organization ? `${reply.organization} ` : ''} 
-                      {reply.organization && ' • '}
-                    </Text>
-                    <Text style={styles.commentTime}>
-                      {reply.timestamp
-                        ? new Date(reply.timestamp).toLocaleString([], {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : 'Just now'}
-                    </Text>
-                  </View>
-                </View>
-                {canDelete && (
-                  <Menu>
-                    <MenuTrigger customStyles={{ triggerTouchable: styles.menuTrigger }}>
-                      <Ionicons name="ellipsis-vertical" size={16} color={Theme.colors.black} />
-                    </MenuTrigger>
-                    <MenuOptions customStyles={{ optionsContainer: styles.menuContainer }}>
-                      <MenuOption
-                        onSelect={() => {
-                          handleDeleteComment(reply.id);
-                        }}
-                        text="Delete Comment"
-                        customStyles={{
-                          optionText: [styles.menuText, { color: Theme.colors.red }],
-                        }}
-                      />
-                    </MenuOptions>
-                  </Menu>
-                )}
-              </View>
-              {renderCommentContent(reply.content || reply.text || 'No content', reply.taggedUsername)}
-              <View style={styles.commentActions}>
-                <TouchableOpacity
-                  style={styles.replyButton}
-                  onPress={() => handleReplyClick(reply.id, reply.userName)}
-                >
-                  <Ionicons name="chatbubbles-outline" size={20} color={Theme.colors.blue} />
-                  <Text style={styles.replyText}>Reply</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-};
+    );
+  };
 
   return (
     <MenuProvider>
@@ -583,11 +546,11 @@ const renderComment = ({ item }) => {
                 </Text>
               </View>
             }
-            contentContainerStyle={[styles.commentList, { paddingBottom: insets.bottom + 60 }]}
+            contentContainerStyle={[styles.commentList, { paddingBottom: insets.bottom + 80 }]}
           />
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + HEADER_HEIGHT : insets.bottom + 10}
+            behavior="padding"
+            keyboardVerticalOffset={0}
             style={{
               position: 'absolute',
               bottom: 0,
@@ -604,10 +567,7 @@ const renderComment = ({ item }) => {
                   ref={commentInputRef}
                   style={[styles.commentInput, { paddingRight: 40 }]}
                   placeholder={replyToUsername ? `Reply to ${replyToUsername}...` : 'Add a comment...'}
-                  placeholderTextColor={Platform.select({
-                    ios: Theme.colors.placeholder || '#777777ff',
-                    android: Theme.colors.placeholder || '#777777ff',
-                  })}
+                  placeholderTextColor={Theme.colors.placeholder}
                   value={newComment}
                   onChangeText={setNewComment}
                   multiline

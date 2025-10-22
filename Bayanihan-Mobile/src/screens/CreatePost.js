@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, ScrollView, Image, SafeAreaView, ToastAndroid, StyleSheet, Animated } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView, ScrollView, Image, SafeAreaView, ToastAndroid, Animated } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { Dropdown } from 'react-native-element-dropdown';
-import { logActivity, logSubmission } from '../components/logSubmission';
+import { logActivity } from '../components/logSubmission';
 
 const categories = [
   { label: 'Select Category', value: '', disabled: true },
@@ -89,7 +89,6 @@ const CreatePost = () => {
 
   const activeIndex = categories.findIndex(item => item.value === category);
 
-  // Animation for arrow rotation
   useEffect(() => {
     Animated.timing(arrowRotation, {
       toValue: isDropdownFocused ? 1 : 0,
@@ -182,6 +181,11 @@ const CreatePost = () => {
           for (const asset of result.assets) {
             let { uri, fileName: name = 'image.jpg', mimeType = 'image/jpeg', fileSize: size } = asset;
 
+            if (!['image/jpeg', 'image/png'].includes(mimeType)) {
+              Alert.alert('Error', `File type "${mimeType}" is not supported. Please upload JPEG or PNG files.`);
+              continue;
+            }
+
             const fileInfo = await FileSystem.getInfoAsync(uri);
             if (!fileInfo.exists || !fileInfo.size) {
               console.error(`[${new Date().toISOString()}] Original file does not exist or is empty at URI:`, uri);
@@ -189,15 +193,15 @@ const CreatePost = () => {
               continue;
             }
 
-            if (size > 20 * 1024 * 1024) {
-              Alert.alert('Error', `Image "${name}" exceeds 20MB limit.`);
+            if (size > 5 * 1024 * 1024) {
+              Alert.alert('Error', `Image "${name}" exceeds 5MB limit.`);
               continue;
             }
 
             const manipResult = await ImageManipulator.manipulateAsync(
               uri,
               [],
-              { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+              { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
             );
             const manipFileInfo = await FileSystem.getInfoAsync(manipResult.uri);
             if (!manipFileInfo.exists || !manipFileInfo.size) {
@@ -236,8 +240,8 @@ const CreatePost = () => {
             return;
           }
 
-          if (size > 20 * 1024 * 1024) {
-            Alert.alert('Error', `Video "${name}" exceeds 20MB limit.`);
+          if (size > 5 * 1024 * 1024) {
+            Alert.alert('Error', `Video "${name}" exceeds 5MB limit.`);
             return;
           }
 
@@ -245,8 +249,8 @@ const CreatePost = () => {
           try {
             const { uri: thumbnailUri } = await VideoThumbnails.getThumbnailAsync(uri, {
               time: 1000,
-              quality: 0.8,
-              compress: 0.8,
+              quality: 0.5,
+              compress: 0.5,
             });
             const thumbInfo = await FileSystem.getInfoAsync(thumbnailUri);
             if (!thumbInfo.exists || !thumbInfo.size) {
@@ -354,8 +358,8 @@ const CreatePost = () => {
       if (!fileInfo.exists || !fileInfo.size) {
         throw new Error(`File "${name}" does not exist or is empty at URI: ${uri}`);
       }
-      if (fileInfo.size > 20 * 1024 * 1024) {
-        throw new Error(`File "${name}" exceeds 20MB limit.`);
+      if (fileInfo.size > 5 * 1024 * 1024) {
+        throw new Error(`File "${name}" exceeds 5MB limit.`);
       }
 
       const response = await fetch(uri);
@@ -432,18 +436,13 @@ const CreatePost = () => {
         throw new Error('No authenticated user found');
       }
 
+      // Validation aligned with communityboard.js
       if (!isShared) {
-        if (!title.trim()) {
-          throw new Error('Please provide a title');
+        if (!content.trim() && media.length === 0) {
+          throw new Error('Please add content or media to post');
         }
         if (!category) {
           throw new Error('Please select a category');
-        }
-        if ((postType === 'image' || postType === 'video') && media.length === 0 && !initialData?.mediaUrls && !initialData?.mediaUrl) {
-          throw new Error(`Please select ${postType === 'image' ? 'image(s)' : 'a video'}`);
-        }
-        if (postType === 'link' && (!link.trim() || !/^https?:\/\//.test(link))) {
-          throw new Error('Please provide a valid URL starting with http:// or https://');
         }
       } else if (!shareCaption.trim()) {
         throw new Error('Please provide a caption for the shared post');
@@ -459,64 +458,64 @@ const CreatePost = () => {
         throw new Error('User data not found. Please ensure your account is properly set up.');
       }
       const userData = userSnapshot.val() || {};
-      const userName = userData.contactPerson || 
+      let userName = userData.contactPerson || 
         (userData.firstName || userData.lastName 
           ? `${userData.firstName || ''} ${userData.lastName || ''}`.trim() 
-          : userData.displayName || 'Admin');
-      const organization = userData.organization || ' ';
+          : userData.displayName || 'Anonymous');
+      const role = userData.role || '';
+      // Set organization to 'ADMIN' for admin roles, otherwise use Firebase organization
+      const organization = role === 'AB ADMIN' ? 'ADMIN' : userData.organization || '';
 
       let postData;
       if (isShared) {
+        const postSnapshot = await get(ref(database, `communityboard/posts/${initialData?.originalPostId}`));
+        const originalPost = postSnapshot.val();
+        if (!originalPost) {
+          throw new Error('Original post not found');
+        }
         postData = {
           userId: user.id,
           userName,
-          organization,
+          organization, // Use 'ADMIN' for admin roles
           timestamp: serverTimestamp(),
           isShared: true,
           shareCaption: shareCaption.trim(),
-          title: initialData?.originalTitle || '',
-          content: initialData?.originalContent || '',
-          category: initialData?.originalCategory || '',
-          mediaType: initialData?.originalMediaType || 'text',
-          mediaUrls: initialData?.originalMediaUrls && initialData.originalMediaUrls.length > 0 ? initialData.originalMediaUrls : [],
-          mediaUrl: initialData?.originalMediaUrl || '',
-          thumbnailUrl: initialData?.originalThumbnailUrl || '',
-          originalUserId: initialData?.originalUserId || '',
-          originalUserName: initialData?.originalUserName || 'Anonymous',
-          originalOrganization: initialData?.originalOrganization || '',
-          originalTimestamp: initialData?.originalTimestamp || 0,
+          title: originalPost.title || '',
+          content: originalPost.content || '',
+          category: originalPost.category || '',
+          mediaType: originalPost.mediaType || 'text',
+          mediaUrl: originalPost.mediaUrl || '',
+          thumbnailUrl: originalPost.thumbnailUrl || '',
+          originalPostId: initialData?.originalPostId || '',
+          originalUserName: originalPost.userName || 'Anonymous',
         };
       } else {
         postData = {
-          title: title.trim(),
+          title: title.trim() || '',
           content: content.trim(),
           category,
           userName,
-          organization,
+          organization, // Use 'ADMIN' for admin roles
           timestamp: serverTimestamp(),
           userId: user.id,
           mediaType: postType,
+          status: role === 'AB ADMIN' ? 'approved' : role === 'ABVN' ? 'pending' : 'pending',
         };
 
-        if (postType === 'image' && media.length === 0) {
-          postData.mediaUrls = [];
-        }
-        if (postType === 'video' && media.length === 0) {
-          postData.mediaUrl = '';
-          postData.thumbnailUrl = '';
-        }
-
         if (postType === 'image' && media.length > 0) {
-          postData.mediaUrls = [];
+          postData.mediaUrl = '';
           for (const file of media) {
             if (file.uri.startsWith('https://')) {
-              postData.mediaUrls.push(file.uri);
+              postData.mediaUrl = file.uri;
               continue;
             }
             const imagePath = `image_posts/${user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
             const downloadURL = await uploadMedia(file, imagePath);
-            postData.mediaUrls.push(downloadURL);
+            postData.mediaUrl = downloadURL;
+            break; // Only one image supported to align with communityboard.js
           }
+        } else if (postType === 'image') {
+          postData.mediaUrl = '';
         }
 
         if (postType === 'video' && media.length > 0) {
@@ -534,37 +533,40 @@ const CreatePost = () => {
               postData.thumbnailUrl = thumbnailURL;
             } else if (file.thumbnailUri) {
               postData.thumbnailUrl = file.thumbnailUri;
+            } else {
+              postData.thumbnailUrl = '';
             }
           } else {
             postData.mediaUrl = file.uri;
             postData.thumbnailUrl = file.thumbnailUri || '';
           }
+        } else if (postType === 'video') {
+          postData.mediaUrl = '';
+          postData.thumbnailUrl = '';
         }
 
         if (postType === 'link') {
+          if (!link.trim() || !/^https?:\/\//.test(link)) {
+            throw new Error('Please provide a valid URL starting with http:// or https://');
+          }
           postData.mediaUrl = link.trim();
         }
       }
 
       if (postId) {
-        if (!postId) {
-          throw new Error('Post ID is undefined for update operation');
-        }
-        const postRef = ref(database, `posts/${postId}`);
-        await update(postRef, postData);
-        await logActivity(user.id, 'Updated a post', postId, organization);
-        await logSubmission('posts', postData, postId, organization, user.id);
+        const postRef = ref(database, `communityboard/posts/${postId}`);
+        await update(postRef, { ...postData, editedTimestamp: serverTimestamp() });
+        await logActivity(user.id, `${userName}${organization ? ` from ${organization}` : ''} updated a post in ${postData.category || 'shared post'}`, postId);
         ToastAndroid.show('Post updated successfully.', ToastAndroid.SHORT);
       } else {
-        const postsRef = ref(database, 'posts');
+        const postsRef = ref(database, 'communityboard/posts');
         const newPostRef = push(postsRef);
         const submissionId = newPostRef.key;
         if (!submissionId) {
           throw new Error('Failed to generate submission ID for new post');
         }
         await set(newPostRef, postData);
-        await logActivity(user.id, `Created a new post in ${postData.category || 'shared post'}`, submissionId, organization);
-        await logSubmission('posts', postData, submissionId, organization, user.id);
+        await logActivity(user.id, `${userName}${organization ? ` from ${organization}` : ''} created a new post in ${postData.category || 'shared post'}`, submissionId);
         ToastAndroid.show('Post created successfully.', ToastAndroid.SHORT);
       }
 
@@ -655,20 +657,17 @@ const CreatePost = () => {
                 <View style={[styles.sharedPostContainer, { backgroundColor: Theme.colors.lightGrey, paddingTop: 10, borderRadius: 8 }]}>
                   <Text style={[styles.readOnlyLabel, { color: Theme.colors.black }]}>{initialData?.originalTitle || 'No title'}</Text>
                   <Text style={[styles.readOnlyText, { color: Theme.colors.black }]}>{initialData?.originalContent || 'No content'}</Text>
-                  {initialData?.originalMediaType === 'image' && (initialData?.originalMediaUrl || (initialData?.originalMediaUrls && initialData.originalMediaUrls.length > 0)) && (
+                  {initialData?.originalMediaType === 'image' && initialData?.originalMediaUrl && (
                     <View style={styles.mediaPreviewContainer}>
-                      {(initialData.originalMediaUrls || [initialData.originalMediaUrl]).filter(url => url).map((url, index) => (
-                        <Image
-                          key={index}
-                          source={{ uri: url }}
-                          style={styles.thumbnailPreview}
-                          resizeMode="contain"
-                          onError={(error) => {
-                            console.error(`[${new Date().toISOString()}] Image load error for shared post, url ${url}:`, error.nativeEvent);
-                            ToastAndroid.show('Failed to load image.', ToastAndroid.SHORT);
-                          }}
-                        />
-                      ))}
+                      <Image
+                        source={{ uri: initialData.originalMediaUrl }}
+                        style={styles.thumbnailPreview}
+                        resizeMode="contain"
+                        onError={(error) => {
+                          console.error(`[${new Date().toISOString()}] Image load error for shared post, url ${initialData.originalMediaUrl}:`, error.nativeEvent);
+                          ToastAndroid.show('Failed to load image.', ToastAndroid.SHORT);
+                        }}
+                      />
                     </View>
                   )}
                   {initialData?.originalMediaType === 'video' && initialData?.originalMediaUrl && (
@@ -790,7 +789,7 @@ const CreatePost = () => {
                   <View style={styles.mediaContainer}>
                     {postType === 'image' && media.length === 0 && (
                       <TouchableOpacity style={styles.imageUpload} onPress={pickMedia}>
-                        <Text style={styles.imageUploadText}>Select Images</Text>
+                        <Text style={styles.imageUploadText}>Select Image</Text>
                       </TouchableOpacity>
                     )}
                     {postType === 'video' && (

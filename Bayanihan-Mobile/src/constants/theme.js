@@ -14,6 +14,7 @@ const Theme = {
     redHover: '#d63128',
     green: '#34C759',
     greenHover: '#008000',
+    grey: '#b9b9b9',
     lightBlue: '#e8f0fe',
     accentBlue: '#4A90E2',
     neonPrimary: '#00BCD4',
